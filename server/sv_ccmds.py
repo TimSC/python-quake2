@@ -471,7 +471,6 @@ Puts the server in demo mode on a specific map/cinematic
 """
 def SV_DemoMap_f ():
 	
-	print ("SV_DemoMap_f")
 	sv_init.SV_Map (True, cmd.Cmd_Argv(1), False )
 
 """

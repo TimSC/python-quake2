@@ -19,7 +19,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from qcommon import common, net_chan
 from game import q_shared
-from client import cl_main
+from client import cl_main, cl_scrn, keys
+from linux import vid_so
 """
 // cl_inv.c -- client inventory screen
 
@@ -33,16 +34,11 @@ CL_ParseInventory
 ================
 """
 def CL_ParseInventory ():
-	"""
-	int		i;
 
-	for (i=0 ; i<MAX_ITEMS ; i++)
-		cl.inventory[i] = MSG_ReadShort (&net_message);
-	"""
-	if not hasattr(cl_main.cl, "inventory") or cl_main.cl.inventory is None:
-		cl_main.cl.inventory = [0] * q_shared.MAX_ITEMS
+	#int		i;
+
 	for i in range(q_shared.MAX_ITEMS):
-		cl_main.cl.inventory[i] = common.MSG_ReadShort(net_chan.net_message)
+		cl_main.cl.inventory[i] = common.MSG_ReadShort (net_chan.net_message)
 
 
 """
@@ -51,23 +47,16 @@ Inv_DrawString
 ================
 """
 def Inv_DrawString (x, y, string): #int, int, char *
-	pass
-	"""
-	while (*string)
-	{
-		re.DrawChar (x, y, *string);
-		x+=8;
-		string++;
-	}
-	"""
 
+	for ch in string: # while (*string)
+	
+		vid_so.re.DrawChar (x, y, ord(ch))
+		x+=8
+	
 
-def SetStringHighBit (s): #char *
-	pass
-	"""
-	while (*s)
-		*s++ |= 128;
-	"""
+def SetStringHighBit (s): #char * (returns the changed string)
+
+	return "".join(chr(ord(ch) | 128) for ch in s) # while (*s) *s++ |= 128;
 
 
 """
@@ -75,8 +64,10 @@ def SetStringHighBit (s): #char *
 CL_DrawInventory
 ================
 """
+DISPLAY_ITEMS = 17
+
 def CL_DrawInventory ():
-	pass
+
 	"""
 	int		i, j;
 	int		num, selected_num, item;
@@ -87,65 +78,65 @@ def CL_DrawInventory ():
 	char	*bind;
 	int		selected;
 	int		top;
-
-	selected = cl.frame.playerstate.stats[STAT_SELECTED_ITEM];
-
-	num = 0;
-	selected_num = 0;
-	for (i=0 ; i<MAX_ITEMS ; i++)
-	{
-		if (i==selected)
-			selected_num = num;
-		if (cl.inventory[i])
-		{
-			index[num] = i;
-			num++;
-		}
-	}
-
-	// determine scroll point
-	top = selected_num - DISPLAY_ITEMS/2;
-	if (num - top < DISPLAY_ITEMS)
-		top = num - DISPLAY_ITEMS;
-	if (top < 0)
-		top = 0;
-
-	x = (viddef.width-256)/2;
-	y = (viddef.height-240)/2;
-
-	// repaint everything next frame
-	SCR_DirtyScreen ();
-
-	re.DrawPic (x, y+8, "inventory");
-
-	y += 24;
-	x += 24;
-	Inv_DrawString (x, y, "hotkey ### item");
-	Inv_DrawString (x, y+8, "------ --- ----");
-	y += 16;
-	for (i=top ; i<num && i < top+DISPLAY_ITEMS ; i++)
-	{
-		item = index[i];
-		// search for a binding
-		Com_sprintf (binding, sizeof(binding), "use %s", cl.configstrings[CS_ITEMS+item]);
-		bind = "";
-		for (j=0 ; j<256 ; j++)
-			if (keybindings[j] && !Q_stricmp (keybindings[j], binding))
-			{
-				bind = Key_KeynumToString(j);
-				break;
-			}
-
-		Com_sprintf (string, sizeof(string), "%6s %3i %s", bind, cl.inventory[item],
-			cl.configstrings[CS_ITEMS+item] );
-		if (item != selected)
-			SetStringHighBit (string);
-		else	// draw a blinky cursor by the selected item
-		{
-			if ( (int)(cls.realtime*10) & 1)
-				re.DrawChar (x-8, y, 15);
-		}
-		Inv_DrawString (x, y, string);
-		y += 8;
-	}
 	"""
+	index = [0] * q_shared.MAX_ITEMS
+
+	selected = cl_main.cl.frame.playerstate.stats[q_shared.STAT_SELECTED_ITEM]
+
+	num = 0
+	selected_num = 0
+	for i in range(q_shared.MAX_ITEMS):
+	
+		if i==selected:
+			selected_num = num
+		if cl_main.cl.inventory[i]:
+		
+			index[num] = i
+			num += 1
+		
+	# determine scroll point
+	top = selected_num - DISPLAY_ITEMS//2
+	if num - top < DISPLAY_ITEMS:
+		top = num - DISPLAY_ITEMS
+	if top < 0:
+		top = 0
+
+	x = (vid_so.viddef.width-256)//2
+	y = (vid_so.viddef.height-240)//2
+
+	# repaint everything next frame
+	cl_scrn.SCR_DirtyScreen ()
+
+	vid_so.re.DrawPic (x, y+8, "inventory")
+
+	y += 24
+	x += 24
+	Inv_DrawString (x, y, "hotkey ### item")
+	Inv_DrawString (x, y+8, "------ --- ----")
+	y += 16
+	i = top
+	while i<num and i < top+DISPLAY_ITEMS:
+	
+		item = index[i]
+		# search for a binding
+		binding = "use {}".format(cl_main.cl.configstrings[q_shared.CS_ITEMS+item])
+		bind = ""
+		for j in range(256):
+			if keys.keybindings[j] and not q_shared.Q_stricmp (keys.keybindings[j], binding):
+			
+				bind = keys.Key_KeynumToString(j)
+				break
+			
+		string = "{:>6} {:3d} {}".format(bind, cl_main.cl.inventory[item],
+			cl_main.cl.configstrings[q_shared.CS_ITEMS+item] ) # "%6s %3i %s"
+		if item != selected:
+			string = SetStringHighBit (string)
+		else:	# draw a blinky cursor by the selected item
+		
+			if int(cl_main.cls.realtime*10) & 1:
+				vid_so.re.DrawChar (x-8, y, 15)
+		
+		Inv_DrawString (x, y, string)
+		y += 8
+		i += 1
+

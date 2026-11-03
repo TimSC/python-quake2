@@ -180,12 +180,13 @@ class client_state_t(object):
 
 		self.refdef = ref.refdef_t()
 		self.v_forward, self.v_right, self.v_up = None, None, None #vec3_t, set when refdef.angles is set
+
+		#
+		# transient data from server
+		#
+		self.layout = "" #char [1024], general 2D overlay
+		self.inventory = [0] * q_shared.MAX_ITEMS #int [MAX_ITEMS]
 		"""
-		//
-		// transient data from server
-		//
-		char		layout[1024];		// general 2D overlay
-		int			inventory[MAX_ITEMS];
 
 		//
 		// non-gameserver infornamtion

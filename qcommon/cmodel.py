@@ -168,7 +168,6 @@ CMod_LoadSubmodels
 def CMod_LoadSubmodels (l): #lump_t *
 
 	global numcmodels, map_cmodels, cmod_base
-	print ("CMod_LoadSubmodels", l)
 	"""
 	dmodel_t	*in;
 	cmodel_t	*out;
@@ -212,7 +211,6 @@ CMod_LoadSurfaces
 def CMod_LoadSurfaces (l: qfiles.lump_t):
 
 	global numtexinfo, map_surfaces, cmod_base
-	print ("CMod_LoadSurfaces", l)
 	"""
 	texinfo_t	*in;
 	mapsurface_t	*out;
@@ -254,7 +252,6 @@ def CMod_LoadNodes (l): #lump_t *
 	
 	global cmod_base, map_nodes, numnodes
 
-	print ("CMod_LoadNodes", l)
 	"""
 	dnode_t		*in;
 	int			child;
@@ -300,7 +297,6 @@ CMod_LoadBrushes
 def CMod_LoadBrushes (l): #lump_t *
 
 	global map_brushes, numbrushes, cmod_base
-	print ("CMod_LoadBrushes", l)
 	"""
 	dbrush_t	*in;
 	cbrush_t	*out;
@@ -343,7 +339,6 @@ CMod_LoadLeafs
 def CMod_LoadLeafs (l): #lump_t *
 
 	global numclusters, map_leafs, cmod_base, numleafs, solidleaf, emptyleaf
-	print ("CMod_LoadLeafs", l)
 	"""
 	int			i;
 	cleaf_t		*out;
@@ -405,7 +400,6 @@ CMod_LoadPlanes
 def CMod_LoadPlanes (l): #lump_t *
 
 	global map_planes, numplanes, cmod_base
-	print ("CMod_LoadPlanes", l)
 	"""
 	int			i, j;
 	cplane_t	*out;
@@ -456,7 +450,6 @@ CMod_LoadLeafBrushes
 def CMod_LoadLeafBrushes (l): #lump_t *
 
 	global map_leafbrushes, numleafbrushes, cmod_base
-	print ("CMod_LoadLeafBrushes", l)
 	"""
 	int			i;
 	unsigned short	*out;
@@ -493,7 +486,6 @@ CMod_LoadBrushSides
 def CMod_LoadBrushSides (l): #lump_t *
 
 	global cmod_base, map_brushsides, numbrushsides, map_planes, map_surfaces, numtexinfo
-	print ("CMod_LoadBrushSides", l)
 	"""
 	int			i, j;
 	cbrushside_t	*out;
@@ -541,7 +533,6 @@ CMod_LoadAreas
 def CMod_LoadAreas (l): #lump_t *
 
 	global numareas, map_areas, map_areas
-	print ("CMod_LoadAreas", l)
 	"""
 	int			i;
 	carea_t		*out;
@@ -581,7 +572,6 @@ CMod_LoadAreaPortals
 def CMod_LoadAreaPortals (l): #lump_t *
 
 	global numareaportals, map_areaportals, cmod_base
-	print ("CMod_LoadAreaPortals", l)
 	"""
 	int			i;
 	dareaportal_t		*out;
@@ -620,7 +610,6 @@ CMod_LoadVisibility
 def CMod_LoadVisibility (l): #lump_t *
 
 	global map_vis, map_visibility, numvisibility, cmod_base
-	print ("CMod_LoadVisibility", l)
 
 	numvisibility = l.filelen
 	if l.filelen > qfiles.MAX_MAP_VISIBILITY:
@@ -638,7 +627,6 @@ CMod_LoadEntityString
 def CMod_LoadEntityString (l): #lump_t *
 
 	global map_entitystring, numentitychars
-	print ("CMod_LoadEntityString", l)
 	
 	numentitychars = l.filelen
 	if l.filelen > qfiles.MAX_MAP_ENTSTRING:
@@ -661,7 +649,6 @@ def CM_LoadMap (name, clientload): #char *, qboolean (returns cmodel_t *, unsign
 	global map_noareas, cmod_base
 	global portalopen
 
-	print ("CM_LoadMap", name, clientload)
 
 	#return q_shared.cmodel_t(), 0
 	"""

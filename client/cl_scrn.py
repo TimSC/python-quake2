@@ -252,9 +252,9 @@ def SCR_CalcVrect ():
 
 	# bound viewsize
 	if scr_viewsize.value < 40:
-		Cvar_Set ("viewsize","40")
+		cvar.Cvar_Set ("viewsize","40")
 	if scr_viewsize.value > 100:
-		Cvar_Set ("viewsize","100")
+		cvar.Cvar_Set ("viewsize","100")
 
 	size = int(scr_viewsize.value)
 
@@ -793,22 +793,25 @@ def SCR_DrawField (x, y, color, width, value): #int, int, int, int, int
 	
 
 def SCR_TouchPics ():
-	for row in sb_nums:
-		for pic in row:
-			vid_so.re.RegisterPic (pic)
-	if hasattr(cl_view, 'crosshair') and cl_view.crosshair is not None and cl_view.crosshair.value:
-		value = int(cl_view.crosshair.value)
-		if value < 0:
-			value = 0
-		elif value > 3:
-			value = 3
-		global crosshair_pic, crosshair_width, crosshair_height
-		crosshair_pic = f"ch{value}"
-		w, h = vid_so.re.DrawGetPicSize (crosshair_pic)
-		crosshair_width = w
-		crosshair_height = h
-		if crosshair_width == 0:
-			crosshair_pic = ""
+
+	global crosshair_pic, crosshair_width, crosshair_height
+
+	#int		i, j;
+
+	for i in range(2):
+		for j in range(11):
+			vid_so.re.RegisterPic (sb_nums[i][j])
+
+	if cl_view.crosshair.value:
+	
+		if cl_view.crosshair.value > 3 or cl_view.crosshair.value < 0:
+			cl_view.crosshair.value = 3
+
+		crosshair_pic = "ch{}".format(int(cl_view.crosshair.value))
+		crosshair_width, crosshair_height = vid_so.re.DrawGetPicSize (crosshair_pic)
+		if not crosshair_width:
+			crosshair_pic = "" # crosshair_pic[0] = 0;
+	
 
 
 """

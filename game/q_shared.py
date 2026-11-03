@@ -2861,8 +2861,8 @@ def COM_Parse (data, cursor): #char ** (returns char *)
 	length = 0;
 	com_token = [] #char[MAX_TOKEN_CHARS]
 	
-	if data is None:
-		return "", None
+	if data is None or cursor is None: # if (!data)
+		return "", None # *data_p = NULL;
 	
 	# skip whitespace
 	possInComment = True
@@ -2870,12 +2870,12 @@ def COM_Parse (data, cursor): #char ** (returns char *)
 	while possInComment:
 		while cursor >= len(data) or data[cursor].strip() == '':
 			if cursor >= len(data):
-				return "", cursor
+				return "", None # *data_p = NULL;
 			
 			cursor += 1
 
 		# skip // comments
-		if data[cursor]=='/' and data[cursor+1] == '/':
+		if data[cursor]=='/' and cursor+1 < len(data) and data[cursor+1] == '/': # data[1] is the terminator at the end
 		
 			while cursor < len(data) and data[cursor] != '\n':
 				cursor+=1

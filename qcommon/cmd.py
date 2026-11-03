@@ -612,9 +612,8 @@ def Cmd_TokenizeString (text, macroExpand): #char *, qboolean
 			cmd_args = cmd_args[:l+1] # cmd_args[l] = 0;
 					
 		com_token, cursor = q_shared.COM_Parse (text, cursor)
-
-		if cursor > len(text):
-			return;
+		if cursor is None: # if (!text)
+			return
 
 		if len(cmd_argv) < q_shared.MAX_STRING_TOKENS:	
 			cmd_argv.append(com_token)

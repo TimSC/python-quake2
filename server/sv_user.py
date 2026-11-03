@@ -45,7 +45,6 @@ SV_BeginDemoServer
 """
 
 def SV_BeginDemoserver ():
-	print ("SV_BeginDemoserver")
 	#char		name[MAX_OSPATH];
 
 	name = "demos/{}".format(sv_init.sv.name)
@@ -80,7 +79,6 @@ def SV_New_f (): #void
 	
 
 	# demo servers just dump the file message
-	print ("SV_New_f", sv_init.sv.state)
 	if sv_init.sv.state == sv_init.server_state_t.ss_demo:
 	
 		SV_BeginDemoserver ()
@@ -136,7 +134,6 @@ SV_Configstrings_f
 """
 def SV_Configstrings_f ():
 
-	print ("SV_Configstrings_f")
 
 	#int			start;
 
@@ -249,7 +246,6 @@ SV_Begin_f
 """
 def SV_Begin_f ():
 
-	print ("SV_Begin_f")
 	
 	common.Com_DPrintf ("Begin() from {}\n".format(sv_main.sv_client.name))
 
@@ -276,7 +272,6 @@ SV_NextDownload_f
 ==================
 """
 def SV_NextDownload_f ():
-	print ("SV_NextDownload_f")
 	"""
 	int		r;
 	int		percent;
@@ -314,7 +309,6 @@ SV_BeginDownload_f
 ==================
 """
 def SV_BeginDownload_f():
-	print ("SV_BeginDownload_f")
 	"""
 {
 	char	*name;

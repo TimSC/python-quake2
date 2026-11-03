@@ -387,7 +387,6 @@ SV_SendClientDatagram
 """
 def SV_SendClientDatagram (client)-> bool: #sv_init.client_t
 
-	print ("SV_SendClientDatagram")
 	"""
 	byte		msg_buf[qcommon.MAX_MSGLEN];
 	sizebuf_t	msg;

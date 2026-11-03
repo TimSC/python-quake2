@@ -103,7 +103,6 @@ static int CDAudio_GetAudioDiskInfo(void)
 """
 def CDAudio_Play(track: int, looping: bool):
 
-	print ("CDAudio_Play")
 	"""
 	struct cdrom_tocentry entry;
 	struct cdrom_ti ti;

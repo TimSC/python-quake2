@@ -401,8 +401,19 @@ def V_Gun_Model_f ():
 # =============================================================================
 def SCR_DrawCrosshair ():
 
-	pass
-	# C implementation is still unported.
+	if not crosshair.value:
+		return
+
+	if crosshair.modified:
+	
+		crosshair.modified = False
+		cl_scrn.SCR_TouchPics ()
+	
+	if not cl_scrn.crosshair_pic:
+		return
+
+	vid_so.re.DrawPic (cl_scrn.scr_vrect.x + ((cl_scrn.scr_vrect.width - cl_scrn.crosshair_width)>>1)
+	, cl_scrn.scr_vrect.y + ((cl_scrn.scr_vrect.height - cl_scrn.crosshair_height)>>1), cl_scrn.crosshair_pic)
 
 # ==================
 # V_RenderView

@@ -77,7 +77,6 @@ or crashing.
 """
 def SV_DropClient (drop): #client_t *
 
-	print ("SV_DropClient")
 	"""
 	# add the disconnect
 	MSG_WriteByte (&drop->netchan.message, svc_disconnect);
@@ -446,7 +445,6 @@ Redirect all printfs
 """
 def SVC_RemoteCommand ():
 
-	print ("SVC_RemoteCommand")
 	"""
 	int		i;
 	char	remaining[1024];

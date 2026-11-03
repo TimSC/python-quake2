@@ -356,7 +356,6 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 
 	#int			i;
 	#unsigned	checksum;
-	print ("SV_SpawnServer", server, serverstate)
 
 	if attractloop:
 		cvar.Cvar_Set ("paused", "0")
@@ -597,7 +596,6 @@ def SV_Map ( attractloop, levelstring, loadgame): #qboolean, char *, qboolean
 		SV_InitGame ()	# the game is just starting
 
 	level = levelstring
-	print ("SV_Map", level)
 
 	# if there is a + in the map, set nextserver to the remainder
 	ch = level.find("+")

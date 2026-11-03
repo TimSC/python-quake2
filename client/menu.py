@@ -241,7 +241,7 @@ def M_ForceMenuOff ():
 	cl_main.cls.key_dest = client.keydest_t.key_game
 	#m_menudepth = 0
 	m_layers = []
-	#Key_ClearStates ()
+	keys.Key_ClearStates ()
 	cvar.Cvar_Set ("paused", "0")
 
 

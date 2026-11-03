@@ -1015,37 +1015,38 @@ def Key_Event (key, down, timestamp): #int, qboolean, unsigned
 ===================
 Key_ClearStates
 ===================
-*/
-void Key_ClearStates (void)
-{
-	int		i;
+"""
+def Key_ClearStates ():
 
-	anykeydown = false;
+	global anykeydown
 
-	for (i=0 ; i<256 ; i++)
-	{
-		if ( keydown[i] || key_repeats[i] )
-			Key_Event( i, false, 0 );
-		keydown[i] = 0;
-		key_repeats[i] = 0;
-	}
-}
+	#int		i;
 
+	anykeydown = False
 
-/*
+	for i in range(256):
+	
+		if keydown[i] or key_repeats[i]:
+			Key_Event( i, False, 0 )
+		keydown[i] = 0
+		key_repeats[i] = 0
+	
+
+"""
 ===================
 Key_GetKey
 ===================
-*/
-int Key_GetKey (void)
-{
-	key_waiting = -1;
-
-	while (key_waiting == -1)
-		Sys_SendKeyEvents ();
-
-	return key_waiting;
-}
 """
+def Key_GetKey (): #(returns int)
+
+	global key_waiting
+
+	key_waiting = -1
+
+	while key_waiting == -1:
+		sys_linux.Sys_SendKeyEvents ()
+
+	return key_waiting
+
 
 

@@ -552,7 +552,6 @@ This is also called on Com_Error, so it shouldn't cause any errors
 """
 def CL_Disconnect ():
 
-	print ("CL_Disconnect")
 
 	"""
 	byte	final[32];

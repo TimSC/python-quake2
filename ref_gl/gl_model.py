@@ -327,7 +327,6 @@ Mod_LoadVertexes
 def Mod_LoadVertexes (l): #qfiles.lump_t *
 
 	global mod_base, loadmodel
-	print ("Mod_LoadVertexes", l)
 	"""
 	dvertex_t	*in;
 	mvertex_t	*out;
@@ -408,7 +407,6 @@ Mod_LoadEdges
 """
 def Mod_LoadEdges (l: qfiles.lump_t):
 
-	print ("Mod_LoadEdges", l)
 	"""
 	dedge_t *in;
 	medge_t *out;
@@ -443,7 +441,6 @@ Mod_LoadTexinfo
 """
 def Mod_LoadTexinfo (l: qfiles.lump_t):
 
-	print ("Mod_LoadTexinfo", l)
 	"""
 	texinfo_t *in;
 	mtexinfo_t *out, *step;
@@ -770,7 +767,6 @@ Mod_LoadSurfedges
 """
 def Mod_LoadSurfedges (l: qfiles.lump_t):
 	
-	print ("Mod_LoadSurfedges", l)	
 	#int		i, count;
 	#int		*in, *out;
 	
@@ -802,7 +798,6 @@ Mod_LoadPlanes
 """
 def Mod_LoadPlanes (l: qfiles.lump_t):
 
-	print ("Mod_LoadPlanes", l)
 	"""
 	int			i, j;
 	cplane_t	*out;
@@ -851,7 +846,6 @@ Mod_LoadBrushModel
 def Mod_LoadBrushModel (mod, buff): #model_t *, void *
 
 	global loadmodel, mod_base
-	print ("Mod_LoadBrushModel")
 	"""
 	int			i;
 	dheader_t	*header;
@@ -918,7 +912,6 @@ def Mod_LoadBrushModel (mod, buff): #model_t *, void *
 # ==============================================================================
 def Mod_LoadAliasModel (mod, buff): #model_t *, void *
 
-	print ("Mod_LoadAliasModel")
 
 	header = qfiles.dmdl_t()
 	header.load(buff)
@@ -1062,7 +1055,6 @@ def Mod_LoadAliasModel (mod, buff): #model_t *, void *
 
 def Mod_LoadSpriteModel (mod, buff): # model_t *, void *
 
-	print ("Mod_LoadSpriteModel")
 	sprite = qfiles.dsprite_t()
 	sprite.load(buff)
 
