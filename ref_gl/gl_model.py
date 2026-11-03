@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 import math
 import struct
 import numpy as np
-from ref_gl import gl_rmain, gl_model_h, gl_image
+from ref_gl import gl_rmain, gl_model_h, gl_image, gl_rsurf
 from qcommon import qfiles
 from game import q_shared
 """
@@ -572,6 +572,9 @@ def Mod_LoadFaces(l: qfiles.lump_t):
 	loadmodel.numsurfaces = count
 	global currentmodel
 	currentmodel = loadmodel
+	gl_rmain.currentmodel = loadmodel # GL_BuildPolygonFromSurface reads the renderer global
+
+	gl_rsurf.GL_BeginBuildingLightmaps (loadmodel)
 
 	for face_num in range(count):
 
@@ -610,7 +613,28 @@ def Mod_LoadFaces(l: qfiles.lump_t):
 		else:
 			surf.samples = loadmodel.lightdata[lightofs:]
 
+		# set the drawing flags
+
+		if surf.texinfo.flags & q_shared.SURF_WARP:
+
+			surf.flags |= gl_model_h.SURF_DRAWTURB
+			for i in range(2):
+
+				surf.extents[i] = 16384
+				surf.texturemins[i] = -8192
+
+			#GL_SubdivideSurface (out);	// cut up polygon for warps, FIXME not ported yet so warp surfaces have no polys
+
+		# create lightmaps and polygons
+		if not (surf.texinfo.flags & (q_shared.SURF_SKY|q_shared.SURF_TRANS33|q_shared.SURF_TRANS66|q_shared.SURF_WARP)):
+			gl_rsurf.GL_CreateSurfaceLightmap (surf)
+
+		if not (surf.texinfo.flags & q_shared.SURF_WARP):
+			gl_rsurf.GL_BuildPolygonFromSurface (surf)
+
 		loadmodel.surfaces.append(surf)
+
+	gl_rsurf.GL_EndBuildingLightmaps ()
 
 
 """

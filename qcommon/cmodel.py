@@ -628,7 +628,7 @@ def CMod_LoadVisibility (l): #lump_t *
 
 	map_visibility = cmod_base[l.fileofs:l.fileofs+l.filelen]
 
-	map_vis.load(cmod_base[l.fileofs:l.fileofs+qfiles.dvis_t.packed_size()])
+	map_vis.load(map_visibility)
 
 """
 =================

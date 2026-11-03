@@ -480,13 +480,13 @@ def CL_ParsePlayerstate (oldframe, newframe): #frame_t *, frame_t *
 	# int			i;
 	# int			statbits;
 
-	state = newframe.playerstate
-
 	# clear to old value before delta parsing
 	if oldframe:
-		state = oldframe.playerstate
+		newframe.playerstate = copy.deepcopy(oldframe.playerstate) # *state = oldframe->playerstate
 	else:
-		state.clear()
+		newframe.playerstate.clear()
+
+	state = newframe.playerstate
 
 	flags = common.MSG_ReadShort (net_chan.net_message)
 

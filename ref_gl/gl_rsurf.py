@@ -88,7 +88,7 @@ def GL_RenderLightmappedPoly(surf):
     if not surf:
         return
 
-    GL_BuildPolygonFromSurface(surf)
+    # polygons are built once in Mod_LoadFaces, as in the C
     if not surf.polys or surf.texinfo is None:
         return
 
@@ -390,6 +390,7 @@ def R_DrawWorld ():
     gl_rmain.gl_state.currenttextures[1] = -1
 
     GL.glColor3f (1.0, 1.0, 1.0)
+    gl_lms.lightmap_surfaces = [[] for _ in range(MAX_LIGHTMAPS)] # memset (gl_lms.lightmap_surfaces, 0, ...)
     gl_warp.R_ClearSkyBox ()
 
     root_node = (
@@ -493,7 +494,12 @@ def R_MarkLeaves ():
 
 
 
+# Q2PORT DEBUG: per frame world node counters, printed by gl_rmain.R_DebugFrustum
+dbg_nodes_visited, dbg_nodes_culled, dbg_leafs_drawn = 0, 0, 0
+
 def R_RecursiveWorldNode (node):
+    global dbg_nodes_visited, dbg_nodes_culled, dbg_leafs_drawn
+
     if node is None:
         return
 
@@ -503,10 +509,14 @@ def R_RecursiveWorldNode (node):
     if node.visframe != gl_rmain.r_visframecount:
         return
 
+    dbg_nodes_visited += 1 # Q2PORT DEBUG
+
     if R_CullBox (node.minmaxs[0:3], node.minmaxs[3:6]):
+        dbg_nodes_culled += 1 # Q2PORT DEBUG
         return
 
     if node.contents != -1:
+        dbg_leafs_drawn += 1 # Q2PORT DEBUG
         leaf = node
         areabits = gl_rmain.r_newrefdef.areabits
         if areabits:

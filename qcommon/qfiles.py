@@ -660,7 +660,7 @@ class texinfo_t(object):
 
 		c = 0
 		for j in range(8):
-			self.vecs[j%2,j//2] = q_shared.LittleFloat (buff[c:c+4])
+			self.vecs[j//4,j%4] = q_shared.LittleFloat (buff[c:c+4]) # float[2][4] is row major
 			c+=4
 
 		self.flags = q_shared.LittleSLong(buff[32:36])
@@ -815,7 +815,8 @@ class dvis_t(object):
 
 		self.numclusters = q_shared.LittleSLong (buff[:4])
 		self.data = buff
-		if self.numclusters > 8: self.numclusters = 8 # Prevent over-read
+		# int[8] in C is a variable length array trick, the lump really holds numclusters entries
+		self.bitofs = np.zeros((self.numclusters, 2), dtype=np.int32)
 		c = 4
 
 		for i in range(self.numclusters):

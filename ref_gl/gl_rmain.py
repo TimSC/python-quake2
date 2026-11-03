@@ -17,6 +17,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
+import os
+import sys
 import math
 import struct
 import copy
@@ -124,10 +126,10 @@ int			r_framecount;		// used for dlight push checking
 
 int			c_brush_polys, c_alias_polys;
 
-float		v_blend[4];			// final blending color
-
 void GL_Strings_f( void );
 """
+v_blend = np.zeros((4,), dtype=np.float32) #float[4], final blending color
+
 #
 # view origin
 #
@@ -476,71 +478,69 @@ R_SetupFrame
 
 def R_SetupFrame ():
 
-	pass
+	global r_framecount, r_oldviewcluster, r_oldviewcluster2, r_viewcluster, r_viewcluster2, \
+		c_brush_polys, c_alias_polys
+
 	"""
-{
 	int i;
 	mleaf_t	*leaf;
+	"""
 
-	r_framecount++;
+	r_framecount += 1
 
-// build the transformation matrix for the given view angles
-	q_shared.VectorCopy (r_newrefdef.vieworg, r_origin);
+	# build the transformation matrix for the given view angles
+	q_shared.VectorCopy (r_newrefdef.vieworg, r_origin)
 
-	AngleVectors (r_newrefdef.viewangles, vpn, vright, vup);
+	q_shared.AngleVectors (r_newrefdef.viewangles, vpn, vright, vup)
 
-// current viewcluster
-	if ( !( r_newrefdef.rdflags & RDF_NOWORLDMODEL ) )
-	{
-		r_oldviewcluster = r_viewcluster;
-		r_oldviewcluster2 = r_viewcluster2;
-		leaf = Mod_PointInLeaf (r_origin, r_worldmodel);
-		r_viewcluster = r_viewcluster2 = leaf->cluster;
+	# current viewcluster
+	if not ( r_newrefdef.rdflags & q_shared.RDF_NOWORLDMODEL ):
+	
+		r_oldviewcluster = r_viewcluster
+		r_oldviewcluster2 = r_viewcluster2
+		leaf = gl_model.Mod_PointInLeaf (r_origin, r_worldmodel)
+		r_viewcluster = r_viewcluster2 = leaf.cluster
 
-		// check above and below so crossing solid water doesn't draw wrong
-		if (!leaf->contents)
-		{	// look down a bit
-			vec3_t	temp;
+		# check above and below so crossing solid water doesn't draw wrong
+		if not leaf.contents:
+			# look down a bit
+			temp = np.zeros((3,), dtype=np.float32) #vec3_t
 
-			q_shared.VectorCopy (r_origin, temp);
-			temp[2] -= 16;
-			leaf = Mod_PointInLeaf (temp, r_worldmodel);
-			if ( !(leaf->contents & CONTENTS_SOLID) &&
-				(leaf->cluster != r_viewcluster2) )
-				r_viewcluster2 = leaf->cluster;
-		}
-		else
-		{	// look up a bit
-			vec3_t	temp;
+			q_shared.VectorCopy (r_origin, temp)
+			temp[2] -= 16
+			leaf = gl_model.Mod_PointInLeaf (temp, r_worldmodel)
+			if ( not (leaf.contents & q_shared.CONTENTS_SOLID) and
+				(leaf.cluster != r_viewcluster2) ):
+				r_viewcluster2 = leaf.cluster
+		
+		else:
+			# look up a bit
+			temp = np.zeros((3,), dtype=np.float32) #vec3_t
 
-			q_shared.VectorCopy (r_origin, temp);
-			temp[2] += 16;
-			leaf = Mod_PointInLeaf (temp, r_worldmodel);
-			if ( !(leaf->contents & CONTENTS_SOLID) &&
-				(leaf->cluster != r_viewcluster2) )
-				r_viewcluster2 = leaf->cluster;
-		}
-	}
+			q_shared.VectorCopy (r_origin, temp)
+			temp[2] += 16
+			leaf = gl_model.Mod_PointInLeaf (temp, r_worldmodel)
+			if ( not (leaf.contents & q_shared.CONTENTS_SOLID) and
+				(leaf.cluster != r_viewcluster2) ):
+				r_viewcluster2 = leaf.cluster
+		
+	for i in range(4):
+		v_blend[i] = r_newrefdef.blend[i]
 
-	for (i=0 ; i<4 ; i++)
-		v_blend[i] = r_newrefdef.blend[i];
+	c_brush_polys = 0
+	c_alias_polys = 0
 
-	c_brush_polys = 0;
-	c_alias_polys = 0;
+	# clear out the portion of the screen that the NOWORLDMODEL defines
+	if r_newrefdef.rdflags & q_shared.RDF_NOWORLDMODEL:
+	
+		GL.glEnable( GL.GL_SCISSOR_TEST )
+		GL.glClearColor( 0.3, 0.3, 0.3, 1 )
+		GL.glScissor( r_newrefdef.x, vid.height - r_newrefdef.height - r_newrefdef.y, r_newrefdef.width, r_newrefdef.height )
+		GL.glClear( GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT )
+		GL.glClearColor( 1, 0, 0.5, 0.5 )
+		GL.glDisable( GL.GL_SCISSOR_TEST )
+	
 
-	// clear out the portion of the screen that the NOWORLDMODEL defines
-	if ( r_newrefdef.rdflags & RDF_NOWORLDMODEL )
-	{
-		qglEnable( GL_SCISSOR_TEST );
-		qglClearColor( 0.3, 0.3, 0.3, 1 );
-		qglScissor( r_newrefdef.x, vid.height - r_newrefdef.height - r_newrefdef.y, r_newrefdef.width, r_newrefdef.height );
-		qglClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-		qglClearColor( 1, 0, 0.5, 0.5 );
-		qglDisable( GL_SCISSOR_TEST );
-	}
-}
-
-"""
 def MYgluPerspective( fovy, aspect, zNear, zFar ): # GLdouble, GLdouble, GLdouble, GLdouble
 
    # GLdouble xmin, xmax, ymin, ymax;
@@ -678,9 +678,41 @@ R_RenderView
 r_newrefdef must be set before the first call
 ================
 """
+# Q2PORT DEBUG: frustum and world culling trace, enabled with env Q2DBG=1.
+# Output matches R_DebugFrustum added to the C gl1 renderer for diffing.
+dbg_frame = 0 #int
+
+def R_DebugFrustum ():
+
+	global dbg_frame
+
+	if not os.environ.get("Q2DBG") or dbg_frame >= 300 \
+		or (r_newrefdef.rdflags & q_shared.RDF_NOWORLDMODEL):
+		return
+
+	dbg_frame += 1
+	out = sys.stderr
+	out.write("DBG frame {} time {:.3f} fov {:.3f} {:.3f} size {} {} cluster {} {}\n".format(
+		dbg_frame, r_newrefdef.time, r_newrefdef.fov_x, r_newrefdef.fov_y,
+		r_newrefdef.width, r_newrefdef.height, r_viewcluster, r_viewcluster2))
+	out.write("DBG org {:.3f} {:.3f} {:.3f} ang {:.3f} {:.3f} {:.3f}\n".format(
+		r_origin[0], r_origin[1], r_origin[2], r_newrefdef.viewangles[0],
+		r_newrefdef.viewangles[1], r_newrefdef.viewangles[2]))
+	out.write("DBG vpn {:.5f} {:.5f} {:.5f} vright {:.5f} {:.5f} {:.5f} vup {:.5f} {:.5f} {:.5f}\n".format(
+		vpn[0], vpn[1], vpn[2], vright[0], vright[1], vright[2],
+		vup[0], vup[1], vup[2]))
+
+	for i in range(4):
+		out.write("DBG frustum {} normal {:.5f} {:.5f} {:.5f} dist {:.3f} type {} signbits {}\n".format(
+			i, frustum[i].normal[0], frustum[i].normal[1], frustum[i].normal[2],
+			frustum[i].dist, frustum[i].type, frustum[i].signbits))
+
+	out.write("DBG world visited {} culled {} leafs {} wpoly {}\n".format(
+		gl_rsurf.dbg_nodes_visited, gl_rsurf.dbg_nodes_culled, gl_rsurf.dbg_leafs_drawn, c_brush_polys))
+
 def R_RenderView (fd): #refdef_t *
 
-	global r_norefresh, r_newrefdef
+	global r_norefresh, r_newrefdef, c_brush_polys
 
 	if r_norefresh.value:
 		return
@@ -712,7 +744,12 @@ def R_RenderView (fd): #refdef_t *
 	R_MarkLeaves ();	// done here so we know if we're in water
 
 	"""
+	gl_rsurf.dbg_nodes_visited, gl_rsurf.dbg_nodes_culled, gl_rsurf.dbg_leafs_drawn = 0, 0, 0 # Q2PORT DEBUG
+	c_brush_polys = 0 # Q2PORT DEBUG
+
 	gl_rsurf.R_DrawWorld ()
+
+	R_DebugFrustum () # Q2PORT DEBUG
 	"""
 
 	R_DrawEntitiesOnList ();
