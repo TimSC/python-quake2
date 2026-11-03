@@ -598,8 +598,18 @@ def Cmd_TokenizeString (text, macroExpand): #char *, qboolean
 		# set cmd_args to everything after the first arg
 		if len(cmd_argv) == 1:
 
+			#int		l;
+
+			cmd_args = text[cursor:] # strcpy (cmd_args, text);
+
 			# strip off any trailing whitespace
-			cmd_args = text[:cursor].strip()
+			l = len(cmd_args) - 1
+			while l >= 0:
+				if cmd_args[l] <= ' ':
+					l -= 1
+				else:
+					break
+			cmd_args = cmd_args[:l+1] # cmd_args[l] = 0;
 					
 		com_token, cursor = q_shared.COM_Parse (text, cursor)
 
@@ -741,7 +751,7 @@ def Cmd_ExecuteString (text): #char *
 		
 			if cmd.function is None:
 				# forward to server command
-				Cmd_ExecuteString ("cmd %s".format(text))
+				Cmd_ExecuteString ("cmd {}".format(text))
 			else:
 				cmd.function()
 			return

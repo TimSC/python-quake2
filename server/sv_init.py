@@ -416,7 +416,7 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 		sv.models[1], checksum = cmodel.CM_LoadMap ("", False)	# no real map
 	
 	else:
-		sv.configstrings[q_shared.CS_MODELS+1] = "maps/%s.bsp".format(server)
+		sv.configstrings[q_shared.CS_MODELS+1] = "maps/{}.bsp".format(server)
 		while len(sv.models) < 2: sv.models.append(None)
 		sv.models[1], checksum = cmodel.CM_LoadMap (sv.configstrings[q_shared.CS_MODELS+1], False)
 	
@@ -604,7 +604,7 @@ def SV_Map ( attractloop, levelstring, loadgame): #qboolean, char *, qboolean
 	if ch != -1:
 	
 		level = level[:ch]
-		cvar.Cvar_Set ("nextserver", "gamemap \"%s\"".format(level[ch+1:]))
+		cvar.Cvar_Set ("nextserver", "gamemap \"{}\"".format(level[ch+1:]))
 	
 	else:
 		cvar.Cvar_Set ("nextserver", "");

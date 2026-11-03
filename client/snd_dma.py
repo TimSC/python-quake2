@@ -580,7 +580,7 @@ def S_IssuePlaysound (ps): #playsound_t *
 	"""
 
 	if s_show.value:
-		common.Com_Printf ("Issue %i\n".format(ps.begin))
+		common.Com_Printf ("Issue {}\n".format(ps.begin))
 	# pick a channel to play on
 	ch = S_PickChannel(ps.entnum, ps.entchannel)
 	if ch is None:
@@ -766,7 +766,7 @@ def S_StartLocalSound (sound): #char *
 	sfx = S_RegisterSound (sound)
 	if sfx is None:
 	
-		common.Com_Printf ("S_StartLocalSound: can't cache %s\n".format(sound))
+		common.Com_Printf ("S_StartLocalSound: can't cache {}\n".format(sound))
 		return
 	
 	S_StartSound (None, cl_main.cl.playernum+1, 0, sfx, 1, 1, 0.0)

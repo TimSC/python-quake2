@@ -1252,7 +1252,7 @@ def CL_RequestNextDownload ():
 
 		_, map_checksum = cmodel.CM_LoadMap (cl.configstrings[q_shared.CS_MODELS+1], True)
 
-		if map_checksum != q_shared.atoi(cl.configstrings[q_shared.CS_MAPCHECKSUM]):
+		if map_checksum != (q_shared.atoi(cl.configstrings[q_shared.CS_MAPCHECKSUM]) & 0xffffffff): # atoi's int is converted to unsigned for the compare
 			common.Com_Error (q_shared.ERR_DROP, "Local map version differs from server: {} != '{}'\n".format(
 				map_checksum, cl.configstrings[q_shared.CS_MAPCHECKSUM]))
 			return

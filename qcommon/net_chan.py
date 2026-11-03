@@ -277,14 +277,14 @@ def Netchan_Transmit (chan: qcommon.netchan_t, data): #netchan_t *
 	
 		if send_reliable:
 			common.Com_Printf ("send {:4d} : s={:d} reliable={:d} ack={:d} rack={:d}\n".format(
-				len(send)
+				send.cursize
 				, chan.outgoing_sequence - 1
 				, chan.reliable_sequence
 				, chan.incoming_sequence
 				, chan.incoming_reliable_sequence))
 		else:
 			common.Com_Printf ("send {:4d} : s={:d} ack={:d} rack={:d}\n".format(
-				len(send)
+				send.cursize
 				, chan.outgoing_sequence - 1
 				, chan.incoming_sequence
 				, chan.incoming_reliable_sequence))

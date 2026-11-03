@@ -504,7 +504,7 @@ def SV_GameMap_f ():
 		common.Com_Printf ("USAGE: gamemap <map>\n");
 		return
 	
-	common.Com_DPrintf("SV_GameMap(%s)\n".format(cmd.Cmd_Argv(1)))
+	common.Com_DPrintf("SV_GameMap({})\n".format(cmd.Cmd_Argv(1)))
 	"""
 	FS_CreatePath (va("%s/save/current/", FS_Gamedir()));
 	
