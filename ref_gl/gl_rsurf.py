@@ -25,6 +25,7 @@ from ref_gl import gl_warp, gl_image, gl_rmain, gl_model, gl_model_h, gl_light
 from linux import qgl_linux
 from game import q_shared
 from qcommon import qfiles
+from client import ref
 
 """
 Python port of the GL surface handling code is still in progress.
@@ -84,74 +85,78 @@ def R_TextureAnimation(texinfo):
     return gl_rmain.r_notexture
 
 
-def GL_RenderLightmappedPoly(surf):
-    if not surf:
-        return
-
-    # polygons are built once in Mod_LoadFaces, as in the C
-    if not surf.polys or surf.texinfo is None:
-        return
-
+def GL_RenderLightmappedPoly(surf): # msurface_t *
+    # ported from id 3.21 gl_rsurf.c
+    nv = surf.polys.numverts
     image = R_TextureAnimation(surf.texinfo)
-    if image is None:
-        return
+    is_dynamic = False
+    lmtex = surf.lightmaptexturenum
+    lightstyles = gl_rmain.r_newrefdef.lightstyles
+
+    dynamic = False
+    smap = 0
+    while smap < qfiles.MAXLIGHTMAPS and surf.styles[smap] != 255:
+        if lightstyles[surf.styles[smap]].white != surf.cached_light[smap]:
+            dynamic = True
+            break
+        smap += 1
+
+    # dynamic this frame or dynamic previously
+    if dynamic or surf.dlightframe == gl_rmain.r_framecount:
+        if gl_rmain.gl_dynamic.value:
+            if not (surf.texinfo.flags & (q_shared.SURF_SKY | q_shared.SURF_TRANS33 | q_shared.SURF_TRANS66 | q_shared.SURF_WARP)):
+                is_dynamic = True
+
+    tex_base = gl_rmain.gl_state.lightmap_textures
+
+    if is_dynamic:
+        smax = (surf.extents[0] >> 4) + 1
+        tmax = (surf.extents[1] >> 4) + 1
+        temp = bytearray(smax * tmax * LIGHTMAP_BYTES) # unsigned temp[128*128]
+
+        # C reads styles[map] even when map == MAXLIGHTMAPS, treat that as no style
+        style = surf.styles[smap] if smap < qfiles.MAXLIGHTMAPS else 255
+        if (style >= 32 or style == 0) and surf.dlightframe != gl_rmain.r_framecount:
+            gl_light.R_BuildLightMap(surf, temp, smax * LIGHTMAP_BYTES)
+            gl_light.R_SetCacheState(surf)
+
+            gl_image.GL_MBind(GL.GL_TEXTURE1, tex_base + surf.lightmaptexturenum)
+
+            lmtex = surf.lightmaptexturenum
+        else:
+            gl_light.R_BuildLightMap(surf, temp, smax * LIGHTMAP_BYTES)
+
+            gl_image.GL_MBind(GL.GL_TEXTURE1, tex_base + 0)
+
+            lmtex = 0
+
+        GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0,
+                           surf.light_s, surf.light_t,
+                           smax, tmax,
+                           GL_LIGHTMAP_FORMAT,
+                           GL.GL_UNSIGNED_BYTE, bytes(temp))
 
     gl_rmain.c_brush_polys += 1
 
-    tex_base = gl_rmain.gl_state.lightmap_textures or gl_image.TEXNUM_LIGHTMAPS
     gl_image.GL_MBind(GL.GL_TEXTURE0, image.texnum)
-    gl_image.GL_TexEnv(GL.GL_REPLACE)
+    gl_image.GL_MBind(GL.GL_TEXTURE1, tex_base + lmtex)
 
-    style_changed = False
-    mismatch_index = None
-    lightstyles = getattr(gl_rmain.r_newrefdef, "lightstyles", [])
+    scroll = 0.0
+    if surf.texinfo.flags & q_shared.SURF_FLOWING:
+        scroll = -64 * ((gl_rmain.r_newrefdef.time / 40.0) - int(gl_rmain.r_newrefdef.time / 40.0))
+        if scroll == 0.0:
+            scroll = -64.0
 
-    def _lightstyle_white(idx):
-        if not lightstyles or idx >= len(lightstyles):
-            return 0.0
-        style = lightstyles[idx]
-        if style is None:
-            return 0.0
-        if isinstance(style, dict):
-            return style.get("white", 0.0)
-        return getattr(style, "white", 0.0)
-
-    for i in range(qfiles.MAXLIGHTMAPS):
-        style = surf.styles[i] if i < len(surf.styles) else 255
-        if style == 255:
-            break
-        if _lightstyle_white(style) != surf.cached_light[i]:
-            style_changed = True
-            mismatch_index = i
-            break
-
-    if surf.dlightframe == gl_rmain.r_framecount:
-        style_changed = True
-
-    is_dynamic = (
-        style_changed
-        and gl_rmain.gl_dynamic
-        and gl_rmain.gl_dynamic.value
-        and not (
-            surf.texinfo.flags
-            & (q_shared.SURF_SKY | q_shared.SURF_TRANS33 | q_shared.SURF_TRANS66 | q_shared.SURF_WARP)
-        )
-    )
-
-    if not is_dynamic:
-        gl_image.GL_MBind(GL.GL_TEXTURE1, tex_base + surf.lightmaptexturenum)
-        surf.lightmapchain = gl_lms.lightmap_surfaces[surf.lightmaptexturenum]
-        gl_lms.lightmap_surfaces[surf.lightmaptexturenum].append(surf)
-    else:
-        surf.lightmapchain = gl_lms.lightmap_surfaces[0]
-        gl_lms.lightmap_surfaces[0].append(surf)
-
-    if surf.flags & gl_model_h.SURF_DRAWTURB:
-        EmitWaterPolys(surf)
-    elif surf.texinfo.flags & q_shared.SURF_FLOWING:
-        DrawGLFlowingPoly(surf)
-    else:
-        DrawGLPoly(surf.polys)
+    p = surf.polys
+    while p:
+        v = p.verts
+        GL.glBegin(GL.GL_POLYGON)
+        for i in range(nv):
+            GL.glMultiTexCoord2f(GL.GL_TEXTURE0, v[i, 3] + scroll, v[i, 4])
+            GL.glMultiTexCoord2f(GL.GL_TEXTURE1, v[i, 5], v[i, 6])
+            GL.glVertex3fv(v[i, :3])
+        GL.glEnd()
+        p = p.chain
 
 
 def R_AddSkySurface(surf):
@@ -354,7 +359,16 @@ def GL_BeginBuildingLightmaps(m):
     gl_image.GL_EnableMultitexture(True)
     gl_image.GL_SelectTexture(GL.GL_TEXTURE1)
 
-    lightstyles = [{"rgb": (1, 1, 1), "white": 3}] * q_shared.MAX_LIGHTSTYLES
+    # setup the base lightstyles so the lightmaps won't have to be regenerated
+    # the first time they're seen
+    lightstyles = [] # static lightstyle_t[MAX_LIGHTSTYLES]
+    for i in range(q_shared.MAX_LIGHTSTYLES):
+        ls = ref.lightstyle_t()
+        ls.rgb[0] = 1
+        ls.rgb[1] = 1
+        ls.rgb[2] = 1
+        ls.white = 3
+        lightstyles.append(ls)
     gl_rmain.r_newrefdef.lightstyles = lightstyles
 
     if not gl_rmain.gl_state.lightmap_textures:

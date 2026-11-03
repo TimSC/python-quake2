@@ -1,5 +1,5 @@
 
-Porting the Quake 2 engine to python. I did 25% manually and the rest with ChatGPT.
+Porting the Quake 2 engine to python. I did 25% manually and the rest with ChatGPT/claude.
 
 The code is all licensed under the terms of the GPL (gnu public license).
 You should read the entire license, but the gist of it is that you can do 
@@ -14,7 +14,7 @@ this code.
 
    pip3 install -r requirements.txt
 
-   python3 -m build
+   pip3 install -e .
 
    python3 main.py +set basedir /path/to/quake2data/Data
 

@@ -613,7 +613,7 @@ def R_SetupGL ():
 	#
 	# set drawing parms
 	#
-	if gl_cull.value is not None:
+	if gl_cull.value:
 		GL.glEnable(GL.GL_CULL_FACE)
 	else:
 		GL.glDisable(GL.GL_CULL_FACE)
@@ -709,6 +709,7 @@ def R_DebugFrustum ():
 
 	out.write("DBG world visited {} culled {} leafs {} wpoly {}\n".format(
 		gl_rsurf.dbg_nodes_visited, gl_rsurf.dbg_nodes_culled, gl_rsurf.dbg_leafs_drawn, c_brush_polys))
+
 
 def R_RenderView (fd): #refdef_t *
 

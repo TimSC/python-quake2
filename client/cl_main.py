@@ -1730,11 +1730,10 @@ def CL_Frame (msec): #int
 	snd_dma.S_Update (None, cl.v_forward, cl.v_right, cl.v_up) #FIXME Simplified while porting
 
 	cd_linux.CDAudio_Update()
-	"""	
-# advance local effects for next frame
-	CL_RunDLights ()
-	CL_RunLightStyles ()
-	"""
+
+	# advance local effects for next frame
+	cl_fx.CL_RunDLights ()
+	cl_fx.CL_RunLightStyles ()
 	cl_cin.SCR_RunCinematic ()
 	cl_scrn.SCR_RunConsole ()
 

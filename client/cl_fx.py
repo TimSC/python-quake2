@@ -104,7 +104,7 @@ void CL_RunLightStyles (void)
 def CL_RunLightStyles ():
 	global lastofs
 
-	ofs = cl_main.cl.time // 100
+	ofs = int(cl_main.cl.time) // 100 # cl.time is int in C, FIXME it becomes float in CL_Frame
 	if ofs == lastofs:
 		return
 	lastofs = ofs
