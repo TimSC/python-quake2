@@ -442,148 +442,148 @@ def R_DrawEntitiesOnList ():
 	GL.glDepthMask (1)		# back to writing
 
 """
-
-/*
 ** GL_DrawParticles
 **
-*/
-void GL_DrawParticles( int num_particles, const particle_t particles[], const unsigned colortable[768] )
-{
+"""
+def GL_DrawParticles( num_particles, particles, colortable ): #int, const particle_t [], const unsigned [768]
+
+	"""
 	const particle_t *p;
 	int				i;
 	vec3_t			up, right;
 	float			scale;
 	byte			color[4];
+	"""
+	up = np.zeros((3,), dtype=np.float32)
+	right = np.zeros((3,), dtype=np.float32)
 
-	GL_Bind(r_particletexture->texnum);
-	qglDepthMask( GL_FALSE );		// no z buffering
-	qglEnable( GL_BLEND );
-	GL_TexEnv( GL_MODULATE );
-	qglBegin( GL_TRIANGLES );
+	gl_image.GL_Bind(r_particletexture.texnum)
+	GL.glDepthMask( GL.GL_FALSE )		# no z buffering
+	GL.glEnable( GL.GL_BLEND )
+	gl_image.GL_TexEnv( GL.GL_MODULATE )
+	GL.glBegin( GL.GL_TRIANGLES )
 
-	VectorScale (vup, 1.5, up);
-	VectorScale (vright, 1.5, right);
+	q_shared.VectorScale (vup, 1.5, up)
+	q_shared.VectorScale (vright, 1.5, right)
 
-	for ( p = particles, i=0 ; i < num_particles ; i++,p++)
-	{
-		// hack a scale up to keep particles from disapearing
-		scale = ( p->origin[0] - r_origin[0] ) * vpn[0] + 
-				( p->origin[1] - r_origin[1] ) * vpn[1] +
-				( p->origin[2] - r_origin[2] ) * vpn[2];
+	for i in range(num_particles):
+	
+		p = particles[i]
+		# hack a scale up to keep particles from disapearing
+		scale = ( p.origin[0] - r_origin[0] ) * vpn[0] + \
+				( p.origin[1] - r_origin[1] ) * vpn[1] + \
+				( p.origin[2] - r_origin[2] ) * vpn[2]
 
-		if (scale < 20)
-			scale = 1;
-		else
-			scale = 1 + scale * 0.004;
+		if scale < 20:
+			scale = 1
+		else:
+			scale = 1 + scale * 0.004
 
-		*(int *)color = colortable[p->color];
-		color[3] = p->alpha*255;
+		color = colortable[p.color] # *(int *)color = colortable[p->color];
 
-		qglColor4ubv( color );
+		GL.glColor4ub( color[0], color[1], color[2], int(p.alpha*255) ) # color[3] = p->alpha*255;
 
-		qglTexCoord2f( 0.0625, 0.0625 );
-		qglVertex3fv( p->origin );
+		GL.glTexCoord2f( 0.0625, 0.0625 )
+		GL.glVertex3fv( p.origin )
 
-		qglTexCoord2f( 1.0625, 0.0625 );
-		qglVertex3f( p->origin[0] + up[0]*scale, 
-					 p->origin[1] + up[1]*scale, 
-					 p->origin[2] + up[2]*scale);
+		GL.glTexCoord2f( 1.0625, 0.0625 )
+		GL.glVertex3f( p.origin[0] + up[0]*scale, 
+					 p.origin[1] + up[1]*scale, 
+					 p.origin[2] + up[2]*scale)
 
-		qglTexCoord2f( 0.0625, 1.0625 );
-		qglVertex3f( p->origin[0] + right[0]*scale, 
-					 p->origin[1] + right[1]*scale, 
-					 p->origin[2] + right[2]*scale);
-	}
+		GL.glTexCoord2f( 0.0625, 1.0625 )
+		GL.glVertex3f( p.origin[0] + right[0]*scale, 
+					 p.origin[1] + right[1]*scale, 
+					 p.origin[2] + right[2]*scale)
+	
+	GL.glEnd ()
+	GL.glDisable( GL.GL_BLEND )
+	GL.glColor4f( 1,1,1,1 )
+	GL.glDepthMask( 1 )		# back to normal Z buffering
+	gl_image.GL_TexEnv( GL.GL_REPLACE )
 
-	qglEnd ();
-	qglDisable( GL_BLEND );
-	qglColor4f( 1,1,1,1 );
-	qglDepthMask( 1 );		// back to normal Z buffering
-	GL_TexEnv( GL_REPLACE );
-}
-
-/*
+"""
 ===============
 R_DrawParticles
 ===============
-*/
-void R_DrawParticles (void)
-{
-	if ( gl_ext_pointparameters->value && qglPointParameterfEXT )
-	{
-		int i;
-		unsigned char color[4];
-		const particle_t *p;
+"""
+def R_DrawParticles ():
 
-		qglDepthMask( GL_FALSE );
-		qglEnable( GL_BLEND );
-		qglDisable( GL_TEXTURE_2D );
+	if gl_ext_pointparameters.value and qgl_linux.qglPointParameterfEXT:
+	
+		#int i;
+		#unsigned char color[4];
+		#const particle_t *p;
 
-		qglPointSize( gl_particle_size->value );
+		GL.glDepthMask( GL.GL_FALSE )
+		GL.glEnable( GL.GL_BLEND )
+		GL.glDisable( GL.GL_TEXTURE_2D )
 
-		qglBegin( GL_POINTS );
-		for ( i = 0, p = r_newrefdef.particles; i < r_newrefdef.num_particles; i++, p++ )
-		{
-			*(int *)color = d_8to24table[p->color];
-			color[3] = p->alpha*255;
+		GL.glPointSize( gl_particle_size.value )
 
-			qglColor4ubv( color );
+		GL.glBegin( GL.GL_POINTS )
+		for i in range(r_newrefdef.num_particles):
+		
+			p = r_newrefdef.particles[i]
+			color = gl_image.d_8to24table[p.color] # *(int *)color = d_8to24table[p->color];
 
-			qglVertex3fv( p->origin );
-		}
-		qglEnd();
+			GL.glColor4ub( color[0], color[1], color[2], int(p.alpha*255) ) # color[3] = p->alpha*255;
 
-		qglDisable( GL_BLEND );
-		qglColor4f( 1.0F, 1.0F, 1.0F, 1.0F );
-		qglDepthMask( GL_TRUE );
-		qglEnable( GL_TEXTURE_2D );
+			GL.glVertex3fv( p.origin )
+		
+		GL.glEnd()
 
-	}
-	else
-	{
-		GL_DrawParticles( r_newrefdef.num_particles, r_newrefdef.particles, d_8to24table );
-	}
-}
+		GL.glDisable( GL.GL_BLEND )
+		GL.glColor4f( 1.0, 1.0, 1.0, 1.0 )
+		GL.glDepthMask( GL.GL_TRUE )
+		GL.glEnable( GL.GL_TEXTURE_2D )
 
-/*
+	
+	else:
+	
+		GL_DrawParticles( r_newrefdef.num_particles, r_newrefdef.particles, gl_image.d_8to24table )
+	
+
+"""
 ============
 R_PolyBlend
 ============
-*/
-void R_PolyBlend (void)
-{
-	if (!gl_polyblend->value)
-		return;
-	if (!v_blend[3])
-		return;
+"""
+def R_PolyBlend ():
 
-	qglDisable (GL_ALPHA_TEST);
-	qglEnable (GL_BLEND);
-	qglDisable (GL_DEPTH_TEST);
-	qglDisable (GL_TEXTURE_2D);
+	if not gl_polyblend.value:
+		return
+	if not v_blend[3]:
+		return
 
-	qglLoadIdentity ();
+	GL.glDisable (GL.GL_ALPHA_TEST)
+	GL.glEnable (GL.GL_BLEND)
+	GL.glDisable (GL.GL_DEPTH_TEST)
+	GL.glDisable (GL.GL_TEXTURE_2D)
 
-	// FIXME: get rid of these
-	qglRotatef (-90,  1, 0, 0);		// put Z going up
-	qglRotatef (90,  0, 0, 1);		// put Z going up
+	GL.glLoadIdentity ()
 
-	qglColor4fv (v_blend);
+	# FIXME: get rid of these
+	GL.glRotatef (-90,  1, 0, 0)		# put Z going up
+	GL.glRotatef (90,  0, 0, 1)		# put Z going up
 
-	qglBegin (GL_QUADS);
+	GL.glColor4fv (v_blend)
 
-	qglVertex3f (10, 100, 100);
-	qglVertex3f (10, -100, 100);
-	qglVertex3f (10, -100, -100);
-	qglVertex3f (10, 100, -100);
-	qglEnd ();
+	GL.glBegin (GL.GL_QUADS)
 
-	qglDisable (GL_BLEND);
-	qglEnable (GL_TEXTURE_2D);
-	qglEnable (GL_ALPHA_TEST);
+	GL.glVertex3f (10, 100, 100)
+	GL.glVertex3f (10, -100, 100)
+	GL.glVertex3f (10, -100, -100)
+	GL.glVertex3f (10, 100, -100)
+	GL.glEnd ()
 
-	qglColor4f(1,1,1,1);
-}
+	GL.glDisable (GL.GL_BLEND)
+	GL.glEnable (GL.GL_TEXTURE_2D)
+	GL.glEnable (GL.GL_ALPHA_TEST)
+
+	GL.glColor4f(1,1,1,1)
+
+"""
 
 //=======================================================================
 
@@ -781,14 +781,12 @@ def R_Clear ():
 	
 	GL.glDepthRange (gldepthmin, gldepthmax)
 
+
+def R_Flash( ):
+
+	R_PolyBlend ()
+
 """
-
-void R_Flash( void )
-{
-	R_PolyBlend ();
-}
-
-/*
 ================
 R_RenderView
 
@@ -830,7 +828,7 @@ def R_DebugFrustum ():
 
 def R_RenderView (fd): #refdef_t *
 
-	global r_norefresh, r_newrefdef, c_brush_polys
+	global r_norefresh, r_newrefdef, c_brush_polys, c_alias_polys
 
 	if r_norefresh.value:
 		return
@@ -839,19 +837,17 @@ def R_RenderView (fd): #refdef_t *
 	
 	if r_worldmodel is None and not ( r_newrefdef.rdflags & q_shared.RDF_NOWORLDMODEL ):
 		ri.Sys_Error (q_shared.ERR_DROP, "R_RenderView: NULL worldmodel")
-	"""
-	if (r_speeds->value)
-	{
-		c_brush_polys = 0;
-		c_alias_polys = 0;
-	}
 
-	R_PushDlights ();
+	if r_speeds.value:
+	
+		c_brush_polys = 0
+		c_alias_polys = 0
+	
+	gl_light.R_PushDlights ()
 
-	if (gl_finish->value)
-		qglFinish ();
+	if gl_finish.value:
+		GL.glFinish ()
 
-	"""
 	R_SetupFrame ()
 
 	R_SetFrustum ()
@@ -868,27 +864,23 @@ def R_RenderView (fd): #refdef_t *
 	R_DebugFrustum () # Q2PORT DEBUG
 
 	R_DrawEntitiesOnList ()
-	"""
 
-	R_RenderDlights ();
+	gl_light.R_RenderDlights ()
 
-	R_DrawParticles ();
+	R_DrawParticles ()
 
-	"""
 	gl_rsurf.R_DrawAlphaSurfaces ()
-	"""
 
-	R_Flash();
+	R_Flash()
 
-	if (r_speeds.value)
-	{
-		ri.Con_Printf (q_shared.PRINT_ALL, "%4i wpoly %4i epoly %i tex %i lmaps\n",
+	if r_speeds.value:
+	
+		ri.Con_Printf (q_shared.PRINT_ALL, "{:4d} wpoly {:4d} epoly {} tex {} lmaps\n".format(
 			c_brush_polys, 
 			c_alias_polys, 
-			c_visible_textures, 
-			c_visible_lightmaps); 
-	}
-	"""
+			gl_rsurf.c_visible_textures, 
+			gl_rsurf.c_visible_lightmaps))
+	
 
 
 
@@ -1435,7 +1427,7 @@ def R_Init( hinstance, hWnd ): #void *, void *
 
 	gl_image.GL_InitImages ()
 	gl_model.Mod_Init ()
-	#R_InitParticleTexture ()
+	gl_rmisc.R_InitParticleTexture ()
 	gl_draw.Draw_InitLocal ()
 
 

@@ -17,7 +17,9 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
+import math
 import numpy as np
+import OpenGL.GL as GL
 from game import q_shared
 from qcommon import qfiles
 from ref_gl import gl_rmain, gl_model_h
@@ -57,16 +59,19 @@ DYNAMIC LIGHTS BLEND RENDERING
 =============================================================================
 """
 def R_RenderDlight (light): #dlight_t *
-	pass
+
 	"""
 	int		i, j;
 	float	a;
 	vec3_t	v;
 	float	rad;
+	"""
+	v = np.zeros((3,), dtype=np.float32)
 
-	rad = light->intensity * 0.35;
+	rad = light.intensity * 0.35
 
-	VectorSubtract (light->origin, r_origin, v);
+	q_shared.VectorSubtract (light.origin, gl_rmain.r_origin, v)
+	"""
 #if 0
 	// FIXME?
 	if (VectorLength (v) < rad)
@@ -75,23 +80,23 @@ def R_RenderDlight (light): #dlight_t *
 		return;
 	}
 #endif
-
-	qglBegin (GL_TRIANGLE_FAN);
-	qglColor3f (light->color[0]*0.2, light->color[1]*0.2, light->color[2]*0.2);
-	for (i=0 ; i<3 ; i++)
-		v[i] = light->origin[i] - vpn[i]*rad;
-	qglVertex3fv (v);
-	qglColor3f (0,0,0);
-	for (i=16 ; i>=0 ; i--)
-	{
-		a = i/16.0 * M_PI*2;
-		for (j=0 ; j<3 ; j++)
-			v[j] = light->origin[j] + vright[j]*cos(a)*rad
-				+ vup[j]*sin(a)*rad;
-		qglVertex3fv (v);
-	}
-	qglEnd ();
 	"""
+
+	GL.glBegin (GL.GL_TRIANGLE_FAN)
+	GL.glColor3f (light.color[0]*0.2, light.color[1]*0.2, light.color[2]*0.2)
+	for i in range(3):
+		v[i] = light.origin[i] - gl_rmain.vpn[i]*rad
+	GL.glVertex3fv (v)
+	GL.glColor3f (0,0,0)
+	for i in range(16, -1, -1):
+	
+		a = i/16.0 * math.pi*2
+		for j in range(3):
+			v[j] = light.origin[j] + gl_rmain.vright[j]*math.cos(a)*rad \
+				+ gl_rmain.vup[j]*math.sin(a)*rad
+		GL.glVertex3fv (v)
+	
+	GL.glEnd ()
 
 
 """
@@ -100,32 +105,31 @@ R_RenderDlights
 =============
 """
 def R_RenderDlights ():
-	pass
-	"""
-	int		i;
-	dlight_t	*l;
 
-	if (!gl_flashblend->value)
-		return;
+	global r_dlightframecount
 
-	r_dlightframecount = r_framecount + 1;	// because the count hasn't
-											//  advanced yet for this frame
-	qglDepthMask (0);
-	qglDisable (GL_TEXTURE_2D);
-	qglShadeModel (GL_SMOOTH);
-	qglEnable (GL_BLEND);
-	qglBlendFunc (GL_ONE, GL_ONE);
+	#int		i;
+	#dlight_t	*l;
 
-	l = r_newrefdef.dlights;
-	for (i=0 ; i<r_newrefdef.num_dlights ; i++, l++)
-		R_RenderDlight (l);
+	if not gl_rmain.gl_flashblend.value:
+		return
 
-	qglColor3f (1,1,1);
-	qglDisable (GL_BLEND);
-	qglEnable (GL_TEXTURE_2D);
-	qglBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	qglDepthMask (1);
-	"""
+	r_dlightframecount = gl_rmain.r_framecount + 1	# because the count hasn't
+											#  advanced yet for this frame
+	GL.glDepthMask (0)
+	GL.glDisable (GL.GL_TEXTURE_2D)
+	GL.glShadeModel (GL.GL_SMOOTH)
+	GL.glEnable (GL.GL_BLEND)
+	GL.glBlendFunc (GL.GL_ONE, GL.GL_ONE)
+
+	for i in range(gl_rmain.r_newrefdef.num_dlights):
+		R_RenderDlight (gl_rmain.r_newrefdef.dlights[i])
+
+	GL.glColor3f (1,1,1)
+	GL.glDisable (GL.GL_BLEND)
+	GL.glEnable (GL.GL_TEXTURE_2D)
+	GL.glBlendFunc (GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+	GL.glDepthMask (1)
 
 
 """
@@ -142,45 +146,44 @@ R_MarkLights
 =============
 """
 def R_MarkLights (light, bit, node): #dlight_t *, int, mnode_t *
-	pass
+
 	"""
 	cplane_t	*splitplane;
 	float		dist;
 	msurface_t	*surf;
 	int			i;
-	
-	if (node->contents != -1)
-		return;
-
-	splitplane = node->plane;
-	dist = DotProduct (light->origin, splitplane->normal) - splitplane->dist;
-	
-	if (dist > light->intensity-DLIGHT_CUTOFF)
-	{
-		R_MarkLights (light, bit, node->children[0]);
-		return;
-	}
-	if (dist < -light->intensity+DLIGHT_CUTOFF)
-	{
-		R_MarkLights (light, bit, node->children[1]);
-		return;
-	}
-		
-// mark the polygons
-	surf = r_worldmodel->surfaces + node->firstsurface;
-	for (i=0 ; i<node->numsurfaces ; i++, surf++)
-	{
-		if (surf->dlightframe != r_dlightframecount)
-		{
-			surf->dlightbits = 0;
-			surf->dlightframe = r_dlightframecount;
-		}
-		surf->dlightbits |= bit;
-	}
-
-	R_MarkLights (light, bit, node->children[0]);
-	R_MarkLights (light, bit, node->children[1]);
 	"""
+	
+	if node.contents != -1:
+		return
+
+	splitplane = node.plane
+	dist = q_shared.DotProduct (light.origin, splitplane.normal) - splitplane.dist
+	
+	if dist > light.intensity-DLIGHT_CUTOFF:
+	
+		R_MarkLights (light, bit, node.children[0])
+		return
+	
+	if dist < -light.intensity+DLIGHT_CUTOFF:
+	
+		R_MarkLights (light, bit, node.children[1])
+		return
+	
+	# mark the polygons
+	surfaces = gl_rmain.r_worldmodel.surfaces
+	for i in range(node.numsurfaces):
+	
+		surf = surfaces[node.firstsurface + i]
+		if surf.dlightframe != r_dlightframecount:
+		
+			surf.dlightbits = 0
+			surf.dlightframe = r_dlightframecount
+		
+		surf.dlightbits |= bit
+	
+	R_MarkLights (light, bit, node.children[0])
+	R_MarkLights (light, bit, node.children[1])
 
 
 """
@@ -189,20 +192,19 @@ R_PushDlights
 =============
 """
 def R_PushDlights ():
-	pass
-	"""
-	int		i;
-	dlight_t	*l;
 
-	if (gl_flashblend->value)
-		return;
+	global r_dlightframecount
 
-	r_dlightframecount = r_framecount + 1;	// because the count hasn't
-											//  advanced yet for this frame
-	l = r_newrefdef.dlights;
-	for (i=0 ; i<r_newrefdef.num_dlights ; i++, l++)
-		R_MarkLights ( l, 1<<i, r_worldmodel->nodes );
-	"""
+	#int		i;
+	#dlight_t	*l;
+
+	if gl_rmain.gl_flashblend.value:
+		return
+
+	r_dlightframecount = gl_rmain.r_framecount + 1	# because the count hasn't
+											#  advanced yet for this frame
+	for i in range(gl_rmain.r_newrefdef.num_dlights):
+		R_MarkLights ( gl_rmain.r_newrefdef.dlights[i], 1<<i, gl_rmain.r_worldmodel.nodes[0] )
 
 
 """
@@ -388,54 +390,84 @@ R_AddDynamicLights
 ===============
 """
 def R_AddDynamicLights (surf): #msurface_t *
-	if not surf or not surf.texinfo:
-		return
 
-	smax = (surf.extents[0] >> 4) + 1
-	tmax = (surf.extents[1] >> 4) + 1
+	"""
+	int			lnum;
+	int			sd, td;
+	float		fdist, frad, fminlight;
+	vec3_t		impact, local;
+	int			s, t;
+	int			i;
+	int			smax, tmax;
+	mtexinfo_t	*tex;
+	dlight_t	*dl;
+	float		*pfBL;
+	float		fsacc, ftacc;
+	"""
+	impact = np.zeros((3,), dtype=np.float32)
+	local = [0.0, 0.0]
+
+	smax = (surf.extents[0]>>4)+1
+	tmax = (surf.extents[1]>>4)+1
 	tex = surf.texinfo
 
-	for lnum in range(getattr(gl_rmain.r_newrefdef, "num_dlights", 0)):
-		if not (surf.dlightbits & (1 << lnum)):
-			continue
+	for lnum in range(gl_rmain.r_newrefdef.num_dlights):
+	
+		if not (surf.dlightbits & (1<<lnum) ):
+			continue		# not lit by this light
 
 		dl = gl_rmain.r_newrefdef.dlights[lnum]
 		frad = dl.intensity
-		fdist = q_shared.DotProduct(dl.origin, surf.plane.normal) - surf.plane.dist
+		fdist = q_shared.DotProduct (dl.origin, surf.plane.normal) - \
+				surf.plane.dist
 		frad -= abs(fdist)
+		# rad is now the highest intensity on the plane
 
-		fminlight = DLIGHT_CUTOFF
+		fminlight = DLIGHT_CUTOFF	# FIXME: make configurable?
 		if frad < fminlight:
 			continue
 		fminlight = frad - fminlight
 
-		impact = dl.origin.copy()
 		for i in range(3):
-			impact[i] -= surf.plane.normal[i] * fdist
+		
+			impact[i] = dl.origin[i] - \
+					surf.plane.normal[i]*fdist
+		
+		local[0] = q_shared.DotProduct (impact, tex.vecs[0]) + tex.vecs[0][3] - surf.texturemins[0]
+		local[1] = q_shared.DotProduct (impact, tex.vecs[1]) + tex.vecs[1][3] - surf.texturemins[1]
 
-		local0 = q_shared.DotProduct(impact, tex.vecs[0]) + tex.vecs[0][3] - surf.texturemins[0]
-		local1 = q_shared.DotProduct(impact, tex.vecs[1]) + tex.vecs[1][3] - surf.texturemins[1]
-
+		pfBL = 0 # index into s_blocklights
+		ftacc = 0
 		for t in range(tmax):
-			ftacc = t * 16.0
-			td = local1 - ftacc
+		
+			td = int(local[1] - ftacc)
 			if td < 0:
 				td = -td
+
+			fsacc = 0
 			for s in range(smax):
-				fsacc = s * 16.0
-				sd = q_shared.Q_ftol(local0 - fsacc)
+			
+				sd = q_shared.Q_ftol( local[0] - fsacc )
+
 				if sd < 0:
 					sd = -sd
+
 				if sd > td:
-					fdist2 = sd + (td * 0.5)
+					fdist = sd + (td>>1)
 				else:
-					fdist2 = td + (sd * 0.5)
-				if fdist2 < fminlight:
-					base = (t * smax + s) * 3
-					add = frad - fdist2
-					s_blocklights[base + 0] += add * dl.color[0]
-					s_blocklights[base + 1] += add * dl.color[1]
-					s_blocklights[base + 2] += add * dl.color[2]
+					fdist = td + (sd>>1)
+
+				if fdist < fminlight:
+				
+					s_blocklights[pfBL+0] += ( frad - fdist ) * dl.color[0]
+					s_blocklights[pfBL+1] += ( frad - fdist ) * dl.color[1]
+					s_blocklights[pfBL+2] += ( frad - fdist ) * dl.color[2]
+				
+				fsacc += 16
+				pfBL += 3
+			
+			ftacc += 16
+		
 
 """
 ** R_SetCacheState

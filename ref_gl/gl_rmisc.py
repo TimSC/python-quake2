@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 import OpenGL.GL as GL
 from ref_gl import gl_image, gl_rmain
+from linux import qgl_linux
 from game import q_shared
 """
 // r_misc.c
@@ -30,53 +31,54 @@ from game import q_shared
 R_InitParticleTexture
 ==================
 */
-byte	dottexture[8][8] =
-{
-	{0,0,0,0,0,0,0,0},
-	{0,0,1,1,0,0,0,0},
-	{0,1,1,1,1,0,0,0},
-	{0,1,1,1,1,0,0,0},
-	{0,0,1,1,0,0,0,0},
-	{0,0,0,0,0,0,0,0},
-	{0,0,0,0,0,0,0,0},
-	{0,0,0,0,0,0,0,0},
-};
+"""
+dottexture = [ #byte[8][8]
+	[0,0,0,0,0,0,0,0],
+	[0,0,1,1,0,0,0,0],
+	[0,1,1,1,1,0,0,0],
+	[0,1,1,1,1,0,0,0],
+	[0,0,1,1,0,0,0,0],
+	[0,0,0,0,0,0,0,0],
+	[0,0,0,0,0,0,0,0],
+	[0,0,0,0,0,0,0,0],
+]
 
-void R_InitParticleTexture (void)
-{
-	int		x,y;
-	byte	data[8][8][4];
+def R_InitParticleTexture ():
 
-	//
-	// particle texture
-	//
-	for (x=0 ; x<8 ; x++)
-	{
-		for (y=0 ; y<8 ; y++)
-		{
-			data[y][x][0] = 255;
-			data[y][x][1] = 255;
-			data[y][x][2] = 255;
-			data[y][x][3] = dottexture[x][y]*255;
-		}
-	}
-	r_particletexture = GL_LoadPic ("***particle***", (byte *)data, 8, 8, it_sprite, 32);
+	#int		x,y;
+	#byte	data[8][8][4];
+	data = bytearray(8*8*4)
 
-	//
-	// also use this for bad textures, but without alpha
-	//
-	for (x=0 ; x<8 ; x++)
-	{
-		for (y=0 ; y<8 ; y++)
-		{
-			data[y][x][0] = dottexture[x&3][y&3]*255;
-			data[y][x][1] = 0; // dottexture[x&3][y&3]*255;
-			data[y][x][2] = 0; //dottexture[x&3][y&3]*255;
-			data[y][x][3] = 255;
-		}
-	}
-	r_notexture = GL_LoadPic ("***r_notexture***", (byte *)data, 8, 8, it_wall, 32);
-}
+	#
+	# particle texture
+	#
+	for x in range(8):
+	
+		for y in range(8):
+		
+			data[(y*8+x)*4+0] = 255
+			data[(y*8+x)*4+1] = 255
+			data[(y*8+x)*4+2] = 255
+			data[(y*8+x)*4+3] = dottexture[x][y]*255
+		
+	gl_rmain.r_particletexture = gl_image.GL_LoadPic ("***particle***", data, 8, 8, gl_image.imagetype_t.it_sprite, 32)
+
+	#
+	# also use this for bad textures, but without alpha
+	#
+	data = bytearray(8*8*4)
+	for x in range(8):
+	
+		for y in range(8):
+		
+			data[(y*8+x)*4+0] = dottexture[x&3][y&3]*255
+			data[(y*8+x)*4+1] = 0 # dottexture[x&3][y&3]*255;
+			data[(y*8+x)*4+2] = 0 #dottexture[x&3][y&3]*255;
+			data[(y*8+x)*4+3] = 255
+		
+	gl_rmain.r_notexture = gl_image.GL_LoadPic ("***r_notexture***", data, 8, 8, gl_image.imagetype_t.it_wall, 32)
+
+"""
 
 
 /* 
@@ -210,23 +212,23 @@ def GL_SetDefaultState( ):
 	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_REPEAT)
 
 	GL.glBlendFunc (GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+
+	gl_image.GL_TexEnv( GL.GL_REPLACE )
+
+	if qgl_linux.qglPointParameterfEXT:
+
+		#float attenuations[3];
+		attenuations = [0.0, 0.0, 0.0]
+
+		attenuations[0] = gl_rmain.gl_particle_att_a.value
+		attenuations[1] = gl_rmain.gl_particle_att_b.value
+		attenuations[2] = gl_rmain.gl_particle_att_c.value
+
+		GL.glEnable( GL.GL_POINT_SMOOTH )
+		GL.glPointParameterf( GL.GL_POINT_SIZE_MIN, gl_rmain.gl_particle_min_size.value ) # GL_POINT_SIZE_MIN_EXT
+		GL.glPointParameterf( GL.GL_POINT_SIZE_MAX, gl_rmain.gl_particle_max_size.value ) # GL_POINT_SIZE_MAX_EXT
+		GL.glPointParameterfv( GL.GL_POINT_DISTANCE_ATTENUATION, attenuations ) # GL_DISTANCE_ATTENUATION_EXT
 	"""
-	GL_TexEnv( GL_REPLACE );
-
-	if ( qglPointParameterfEXT )
-	{
-		float attenuations[3];
-
-		attenuations[0] = gl_particle_att_a->value;
-		attenuations[1] = gl_particle_att_b->value;
-		attenuations[2] = gl_particle_att_c->value;
-
-		qglEnable( GL_POINT_SMOOTH );
-		qglPointParameterfEXT( GL_POINT_SIZE_MIN_EXT, gl_particle_min_size->value );
-		qglPointParameterfEXT( GL_POINT_SIZE_MAX_EXT, gl_particle_max_size->value );
-		qglPointParameterfvEXT( GL_DISTANCE_ATTENUATION_EXT, attenuations );
-	}
-
 	if ( qglColorTableEXT && gl_ext_palettedtexture->value )
 	{
 		qglEnable( GL_SHARED_TEXTURE_PALETTE_EXT );
