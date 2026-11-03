@@ -84,92 +84,70 @@ static GLXContext ctx = NULL;
 /*****************************************************************************/
 /* MOUSE                                                                     */
 /*****************************************************************************/
+"""
+# Q2PORT: X11 is replaced by pygame for the window events. The pointer grab,
+# the hidden cursor and the relative motion pygame reports while grabbed take
+# the place of XGrabPointer, the null cursor and DGA or XWarpPointer.
 
-// this is inside the renderer shared lib, so these are called from vid_so
+# this is inside the renderer shared lib, so these are called from vid_so
 
-static qboolean        mouse_avail;
-static int   mx, my;
-static int	old_mouse_x, old_mouse_y;
+mouse_avail = False #static qboolean
+mx, my = 0, 0 #static int
+old_mouse_x, old_mouse_y = 0, 0 #static int
 
-static int win_x, win_y;
+win_x, win_y = 0, 0 #static int
 
-static cvar_t	*m_filter;
-static cvar_t	*in_mouse;
-static cvar_t	*in_dgamouse;
+m_filter = None #static cvar_t *
+in_mouse = None #static cvar_t *
+in_dgamouse = None #static cvar_t *
 
+"""
 static cvar_t	*r_fakeFullscreen;
 
 static XF86VidModeModeInfo **vidmodes;
 static int default_dotclock_vidmode;
 static int num_vidmodes;
-static qboolean vidmode_active = false;
+"""
+vidmode_active = False #static qboolean
 
-static qboolean	mlooking;
+mlooking = False #static qboolean
 
-static qboolean mouse_active = false;
-static qboolean dgamouse = false;
-static qboolean vidmode_ext = false;
+mouse_active = False #static qboolean
+dgamouse = False #static qboolean
+vidmode_ext = False #static qboolean
 
-// state struct passed in Init
-static in_state_t	*in_state;
+# state struct passed in Init
+in_state = None #static in_state_t *
 
-static cvar_t *sensitivity;
-static cvar_t *lookstrafe;
-static cvar_t *m_side;
-static cvar_t *m_yaw;
-static cvar_t *m_pitch;
-static cvar_t *m_forward;
-static cvar_t *freelook;
+sensitivity = None #static cvar_t *
+lookstrafe = None #static cvar_t *
+m_side = None #static cvar_t *
+m_yaw = None #static cvar_t *
+m_pitch = None #static cvar_t *
+m_forward = None #static cvar_t *
+freelook = None #static cvar_t *
 
+"""
 static Cursor CreateNullCursor(Display *display, Window root)
 {
-    Pixmap cursormask; 
-    XGCValues xgc;
-    GC gc;
-    XColor dummycolour;
-    Cursor cursor;
-
-    cursormask = XCreatePixmap(display, root, 1, 1, 1/*depth*/);
-    xgc.function = GXclear;
-    gc =  XCreateGC(display, cursormask, GCFunction, &xgc);
-    XFillRectangle(display, cursormask, gc, 0, 0, 1, 1);
-    dummycolour.pixel = 0;
-    dummycolour.red = 0;
-    dummycolour.flags = 04;
-    cursor = XCreatePixmapCursor(display, cursormask, cursormask,
-          &dummycolour,&dummycolour, 0,0);
-    XFreePixmap(display,cursormask);
-    XFreeGC(display,gc);
-    return cursor;
+	...
 }
+"""
 
-static void install_grabs(void)
-{
+def install_grabs():
 
-// inviso cursor
-	XDefineCursor(dpy, win, CreateNullCursor(dpy, win));
+	global dgamouse, mouse_active
 
-	XGrabPointer(dpy, win,
-				 True,
-				 0,
-				 GrabModeAsync, GrabModeAsync,
-				 win,
-				 None,
-				 CurrentTime);
+	# inviso cursor
+	pygame.mouse.set_visible(False) # XDefineCursor(dpy, win, CreateNullCursor(dpy, win));
 
-	if (in_dgamouse->value) {
-		int MajorVersion, MinorVersion;
+	pygame.event.set_grab(True) # XGrabPointer(dpy, win, True, 0, GrabModeAsync, GrabModeAsync, win, None, CurrentTime);
 
-		if (!XF86DGAQueryVersion(dpy, &MajorVersion, &MinorVersion)) { 
-			// unable to query, probalby not supported
-			gl_rmain.ri.Con_Printf( q_shared.PRINT_ALL, "Failed to detect XF86DGA Mouse\n" );
-			gl_rmain.ri.Cvar_Set( "in_dgamouse", "0" );
-		} else {
-			dgamouse = true;
-			XF86DGADirectVideo(dpy, DefaultScreen(dpy), XF86DGADirectMouse);
-			XWarpPointer(dpy, None, win, 0, 0, 0, 0, 0, 0);
-		}
-	} else {
+	if in_dgamouse.value:
+		# a grabbed pointer with a hidden cursor gives relative motion, as XF86DGADirectMouse does
+		dgamouse = True
+	"""
+	else {
 		XWarpPointer(dpy, None, win,
 					 0, 0, 0, 0,
 					 vid.width / 2, vid.height / 2);
@@ -179,401 +157,373 @@ static void install_grabs(void)
 				  False,
 				  GrabModeAsync, GrabModeAsync,
 				  CurrentTime);
+	"""
+	pygame.mouse.get_rel() # discard the motion from before the grab
 
-	mouse_active = true;
+	mouse_active = True
 
-//	XSync(dpy, True);
-}
+#	XSync(dpy, True);
 
-static void uninstall_grabs(void)
-{
-	if (!dpy || !win)
-		return;
 
-	if (dgamouse) {
-		dgamouse = false;
-		XF86DGADirectVideo(dpy, DefaultScreen(dpy), 0);
-	}
+def uninstall_grabs():
 
-	XUngrabPointer(dpy, CurrentTime);
-	XUngrabKeyboard(dpy, CurrentTime);
+	global dgamouse, mouse_active
 
-// inviso cursor
-	XUndefineCursor(dpy, win);
+	if screen is None: # if (!dpy || !win)
+		return
 
-	mouse_active = false;
-}
+	if dgamouse:
+		dgamouse = False
+		# XF86DGADirectVideo(dpy, DefaultScreen(dpy), 0);
+	
+	pygame.event.set_grab(False) # XUngrabPointer(dpy, CurrentTime); XUngrabKeyboard(dpy, CurrentTime);
 
-static void Force_CenterView_f (void)
-{
-	in_state->viewangles[PITCH] = 0;
-}
+	# inviso cursor
+	pygame.mouse.set_visible(True) # XUndefineCursor(dpy, win);
 
-static void RW_IN_MLookDown (void) 
-{ 
-	mlooking = true; 
-}
+	mouse_active = False
 
-static void RW_IN_MLookUp (void) 
-{
-	mlooking = false;
-	in_state->IN_CenterView_fp ();
-}
 
-void RW_IN_Init(in_state_t *in_state_p)
-{
-	int mtype;
-	int i;
+def Force_CenterView_f ():
 
-	in_state = in_state_p;
+	in_state.viewangles[q_shared.PITCH] = 0
 
-	// mouse variables
-	m_filter = gl_rmain.ri.Cvar_Get ("m_filter", "0", 0);
-    in_mouse = gl_rmain.ri.Cvar_Get ("in_mouse", "1", CVAR_ARCHIVE);
-    in_dgamouse = gl_rmain.ri.Cvar_Get ("in_dgamouse", "1", CVAR_ARCHIVE);
-	freelook = gl_rmain.ri.Cvar_Get( "freelook", "0", 0 );
-	lookstrafe = gl_rmain.ri.Cvar_Get ("lookstrafe", "0", 0);
-	sensitivity = gl_rmain.ri.Cvar_Get ("sensitivity", "3", 0);
-	m_pitch = gl_rmain.ri.Cvar_Get ("m_pitch", "0.022", 0);
-	m_yaw = gl_rmain.ri.Cvar_Get ("m_yaw", "0.022", 0);
-	m_forward = gl_rmain.ri.Cvar_Get ("m_forward", "1", 0);
-	m_side = gl_rmain.ri.Cvar_Get ("m_side", "0.8", 0);
 
-	gl_rmain.ri.Cmd_AddCommand ("+mlook", RW_IN_MLookDown);
-	gl_rmain.ri.Cmd_AddCommand ("-mlook", RW_IN_MLookUp);
+def RW_IN_MLookDown (): 
 
-	gl_rmain.ri.Cmd_AddCommand ("force_centerview", Force_CenterView_f);
+	global mlooking
 
-	mx = my = 0.0;
-	mouse_avail = true;
-}
+	mlooking = True 
 
-void RW_IN_Shutdown(void)
-{
-	mouse_avail = false;
-}
 
-/*
+def RW_IN_MLookUp ():
+
+	global mlooking
+
+	mlooking = False
+	in_state.IN_CenterView_fp ()
+
+
+def RW_IN_Init(in_state_p): #in_state_t *
+
+	global in_state, m_filter, in_mouse, in_dgamouse, freelook, lookstrafe, sensitivity
+	global m_pitch, m_yaw, m_forward, m_side, mx, my, mouse_avail
+
+	#int mtype;
+	#int i;
+
+	in_state = in_state_p
+
+	# mouse variables
+	m_filter = gl_rmain.ri.Cvar_Get ("m_filter", "0", 0)
+	in_mouse = gl_rmain.ri.Cvar_Get ("in_mouse", "1", q_shared.CVAR_ARCHIVE)
+	in_dgamouse = gl_rmain.ri.Cvar_Get ("in_dgamouse", "1", q_shared.CVAR_ARCHIVE)
+	freelook = gl_rmain.ri.Cvar_Get( "freelook", "0", 0 )
+	lookstrafe = gl_rmain.ri.Cvar_Get ("lookstrafe", "0", 0)
+	sensitivity = gl_rmain.ri.Cvar_Get ("sensitivity", "3", 0)
+	m_pitch = gl_rmain.ri.Cvar_Get ("m_pitch", "0.022", 0)
+	m_yaw = gl_rmain.ri.Cvar_Get ("m_yaw", "0.022", 0)
+	m_forward = gl_rmain.ri.Cvar_Get ("m_forward", "1", 0)
+	m_side = gl_rmain.ri.Cvar_Get ("m_side", "0.8", 0)
+
+	gl_rmain.ri.Cmd_AddCommand ("+mlook", RW_IN_MLookDown)
+	gl_rmain.ri.Cmd_AddCommand ("-mlook", RW_IN_MLookUp)
+
+	gl_rmain.ri.Cmd_AddCommand ("force_centerview", Force_CenterView_f)
+
+	mx = my = 0.0
+	mouse_avail = True
+
+
+def RW_IN_Shutdown():
+
+	global mouse_avail
+
+	mouse_avail = False
+
+
+"""
 ===========
 IN_Commands
 ===========
-*/
-void RW_IN_Commands (void)
-{
-}
+"""
+def RW_IN_Commands ():
 
-/*
+	pass
+
+
+"""
 ===========
 IN_Move
 ===========
-*/
-void RW_IN_Move (usercmd_t *cmd)
-{
-	if (!mouse_avail)
-		return;
+"""
+def RW_IN_Move (cmd): #usercmd_t *
+
+	global mx, my, old_mouse_x, old_mouse_y
+
+	if not mouse_avail:
+		return
    
-	if (m_filter->value)
-	{
-		mx = (mx + old_mouse_x) * 0.5;
-		my = (my + old_mouse_y) * 0.5;
-	}
+	if m_filter.value:
+	
+		mx = (mx + old_mouse_x) * 0.5
+		my = (my + old_mouse_y) * 0.5
+	
+	old_mouse_x = mx
+	old_mouse_y = my
 
-	old_mouse_x = mx;
-	old_mouse_y = my;
+	mx *= sensitivity.value
+	my *= sensitivity.value
 
-	mx *= sensitivity->value;
-	my *= sensitivity->value;
+	# add mouse X/Y movement to cmd
+	if ( (in_state.in_strafe_state.state & 1) or # *in_state->in_strafe_state & 1
+		(lookstrafe.value and mlooking )):
+		cmd.sidemove += m_side.value * mx
+	else:
+		in_state.viewangles[q_shared.YAW] -= m_yaw.value * mx
 
-// add mouse X/Y movement to cmd
-	if ( (*in_state->in_strafe_state & 1) || 
-		(lookstrafe->value && mlooking ))
-		cmd->sidemove += m_side->value * mx;
-	else
-		in_state->viewangles[YAW] -= m_yaw->value * mx;
+	if ( (mlooking or freelook.value) and 
+		not (in_state.in_strafe_state.state & 1)):
+	
+		in_state.viewangles[q_shared.PITCH] += m_pitch.value * my
+	
+	else:
+	
+		cmd.forwardmove -= m_forward.value * my
+	
+	mx = my = 0
 
-	if ( (mlooking || freelook->value) && 
-		!(*in_state->in_strafe_state & 1))
-	{
-		in_state->viewangles[PITCH] += m_pitch->value * my;
-	}
-	else
-	{
-		cmd->forwardmove -= m_forward->value * my;
-	}
 
-	mx = my = 0;
-}
+def IN_DeactivateMouse(): 
 
-static void IN_DeactivateMouse( void ) 
-{
-	if (!mouse_avail || !dpy || !win)
-		return;
+	global mouse_active
 
-	if (mouse_active) {
-		uninstall_grabs();
-		mouse_active = false;
-	}
-}
+	if not mouse_avail or screen is None: # || !dpy || !win
+		return
 
-static void IN_ActivateMouse( void ) 
-{
-	if (!mouse_avail || !dpy || !win)
-		return;
+	if mouse_active:
+		uninstall_grabs()
+		mouse_active = False
 
-	if (!mouse_active) {
-		mx = my = 0; // don't spazz
-		install_grabs();
-		mouse_active = true;
-	}
-}
 
-void RW_IN_Frame (void)
-{
-}
+def IN_ActivateMouse(): 
 
-void RW_IN_Activate(qboolean active)
-{
-	if (active || vidmode_active)
-		IN_ActivateMouse();
-	else
-		IN_DeactivateMouse ();
-}
+	global mx, my, mouse_active
 
+	if not mouse_avail or screen is None: # || !dpy || !win
+		return
+
+	if not mouse_active:
+		mx = my = 0 # don't spazz
+		install_grabs()
+		mouse_active = True
+
+
+def RW_IN_Frame ():
+
+	pass
+
+
+def RW_IN_Activate(active): #qboolean
+
+	if active or vidmode_active:
+		IN_ActivateMouse()
+	else:
+		IN_DeactivateMouse ()
+
+
+"""
 /*****************************************************************************/
 /* KEYBOARD                                                                  */
 /*****************************************************************************/
+"""
+def XLateKey(ev): #XKeyEvent * (returns int), a pygame KEYDOWN or KEYUP event here
 
-static int XLateKey(XKeyEvent *ev)
-{
+	from client import keys # the K_ values, imported here as the renderer loads before the client modules finish
 
-	int key;
-	char buf[64];
-	KeySym keysym;
+	#int key;
+	#char buf[64];
+	#KeySym keysym;
 
-	key = 0;
+	key = 0
 
-	XLookupString(ev, buf, sizeof buf, &keysym, 0);
+	keysym = ev.key # XLookupString(ev, buf, sizeof buf, &keysym, 0);
 
-	switch(keysym)
-	{
-		case XK_KP_Page_Up:	 key = K_KP_PGUP; break;
-		case XK_Page_Up:	 key = K_PGUP; break;
+	if keysym == pygame.K_KP9:	key = keys.K_KP_PGUP # XK_KP_Page_Up
+	elif keysym == pygame.K_PAGEUP:	key = keys.K_PGUP
 
-		case XK_KP_Page_Down: key = K_KP_PGDN; break;
-		case XK_Page_Down:	 key = K_PGDN; break;
+	elif keysym == pygame.K_KP3: key = keys.K_KP_PGDN # XK_KP_Page_Down
+	elif keysym == pygame.K_PAGEDOWN:	key = keys.K_PGDN
 
-		case XK_KP_Home: key = K_KP_HOME; break;
-		case XK_Home:	 key = K_HOME; break;
+	elif keysym == pygame.K_KP7: key = keys.K_KP_HOME # XK_KP_Home
+	elif keysym == pygame.K_HOME:	key = keys.K_HOME
 
-		case XK_KP_End:  key = K_KP_END; break;
-		case XK_End:	 key = K_END; break;
+	elif keysym == pygame.K_KP1: key = keys.K_KP_END # XK_KP_End
+	elif keysym == pygame.K_END:	key = keys.K_END
 
-		case XK_KP_Left: key = K_KP_LEFTARROW; break;
-		case XK_Left:	 key = K_LEFTARROW; break;
+	elif keysym == pygame.K_KP4: key = keys.K_KP_LEFTARROW # XK_KP_Left
+	elif keysym == pygame.K_LEFT:	key = keys.K_LEFTARROW
 
-		case XK_KP_Right: key = K_KP_RIGHTARROW; break;
-		case XK_Right:	key = K_RIGHTARROW;		break;
+	elif keysym == pygame.K_KP6: key = keys.K_KP_RIGHTARROW # XK_KP_Right
+	elif keysym == pygame.K_RIGHT:	key = keys.K_RIGHTARROW
 
-		case XK_KP_Down: key = K_KP_DOWNARROW; break;
-		case XK_Down:	 key = K_DOWNARROW; break;
+	elif keysym == pygame.K_KP2: key = keys.K_KP_DOWNARROW # XK_KP_Down
+	elif keysym == pygame.K_DOWN:	key = keys.K_DOWNARROW
 
-		case XK_KP_Up:   key = K_KP_UPARROW; break;
-		case XK_Up:		 key = K_UPARROW;	 break;
+	elif keysym == pygame.K_KP8: key = keys.K_KP_UPARROW # XK_KP_Up
+	elif keysym == pygame.K_UP:		key = keys.K_UPARROW
 
-		case XK_Escape: key = K_ESCAPE;		break;
+	elif keysym == pygame.K_ESCAPE: key = keys.K_ESCAPE
 
-		case XK_KP_Enter: key = K_KP_ENTER;	break;
-		case XK_Return: key = K_ENTER;		 break;
+	elif keysym == pygame.K_KP_ENTER: key = keys.K_KP_ENTER
+	elif keysym == pygame.K_RETURN: key = keys.K_ENTER
 
-		case XK_Tab:		key = K_TAB;			 break;
+	elif keysym == pygame.K_TAB:		key = keys.K_TAB
 
-		case XK_F1:		 key = K_F1;				break;
+	elif keysym == pygame.K_F1:		 key = keys.K_F1
 
-		case XK_F2:		 key = K_F2;				break;
+	elif keysym == pygame.K_F2:		 key = keys.K_F2
 
-		case XK_F3:		 key = K_F3;				break;
+	elif keysym == pygame.K_F3:		 key = keys.K_F3
 
-		case XK_F4:		 key = K_F4;				break;
+	elif keysym == pygame.K_F4:		 key = keys.K_F4
 
-		case XK_F5:		 key = K_F5;				break;
+	elif keysym == pygame.K_F5:		 key = keys.K_F5
 
-		case XK_F6:		 key = K_F6;				break;
+	elif keysym == pygame.K_F6:		 key = keys.K_F6
 
-		case XK_F7:		 key = K_F7;				break;
+	elif keysym == pygame.K_F7:		 key = keys.K_F7
 
-		case XK_F8:		 key = K_F8;				break;
+	elif keysym == pygame.K_F8:		 key = keys.K_F8
 
-		case XK_F9:		 key = K_F9;				break;
+	elif keysym == pygame.K_F9:		 key = keys.K_F9
 
-		case XK_F10:		key = K_F10;			 break;
+	elif keysym == pygame.K_F10:		key = keys.K_F10
 
-		case XK_F11:		key = K_F11;			 break;
+	elif keysym == pygame.K_F11:		key = keys.K_F11
 
-		case XK_F12:		key = K_F12;			 break;
+	elif keysym == pygame.K_F12:		key = keys.K_F12
 
-		case XK_BackSpace: key = K_BACKSPACE; break;
+	elif keysym == pygame.K_BACKSPACE: key = keys.K_BACKSPACE
 
-		case XK_KP_Delete: key = K_KP_DEL; break;
-		case XK_Delete: key = K_DEL; break;
+	elif keysym == pygame.K_KP_PERIOD: key = keys.K_KP_DEL # XK_KP_Delete
+	elif keysym == pygame.K_DELETE: key = keys.K_DEL
 
-		case XK_Pause:	key = K_PAUSE;		 break;
+	elif keysym == pygame.K_PAUSE:	key = keys.K_PAUSE
 
-		case XK_Shift_L:
-		case XK_Shift_R:	key = K_SHIFT;		break;
+	elif keysym in (pygame.K_LSHIFT,
+		pygame.K_RSHIFT):	key = keys.K_SHIFT
 
-		case XK_Execute: 
-		case XK_Control_L: 
-		case XK_Control_R:	key = K_CTRL;		 break;
+	elif keysym in (pygame.K_LCTRL, # XK_Execute has no pygame key
+		pygame.K_RCTRL):	key = keys.K_CTRL
 
-		case XK_Alt_L:	
-		case XK_Meta_L: 
-		case XK_Alt_R:	
-		case XK_Meta_R: key = K_ALT;			break;
+	elif keysym in (pygame.K_LALT,
+		pygame.K_LMETA,
+		pygame.K_RALT,
+		pygame.K_RMETA): key = keys.K_ALT
 
-		case XK_KP_Begin: key = K_KP_5;	break;
+	elif keysym == pygame.K_KP5: key = keys.K_KP_5 # XK_KP_Begin
 
-		case XK_Insert:key = K_INS; break;
-		case XK_KP_Insert: key = K_KP_INS; break;
+	elif keysym == pygame.K_INSERT: key = keys.K_INS
+	elif keysym == pygame.K_KP0: key = keys.K_KP_INS # XK_KP_Insert
 
-		case XK_KP_Multiply: key = '*'; break;
-		case XK_KP_Add:  key = K_KP_PLUS; break;
-		case XK_KP_Subtract: key = K_KP_MINUS; break;
-		case XK_KP_Divide: key = K_KP_SLASH; break;
+	elif keysym == pygame.K_KP_MULTIPLY: key = ord('*')
+	elif keysym == pygame.K_KP_PLUS:  key = keys.K_KP_PLUS
+	elif keysym == pygame.K_KP_MINUS: key = keys.K_KP_MINUS
+	elif keysym == pygame.K_KP_DIVIDE: key = keys.K_KP_SLASH
 
-#if 0
-		case 0x021: key = '1';break;/* [!] */
-		case 0x040: key = '2';break;/* [@] */
-		case 0x023: key = '3';break;/* [#] */
-		case 0x024: key = '4';break;/* [$] */
-		case 0x025: key = '5';break;/* [%] */
-		case 0x05e: key = '6';break;/* [^] */
-		case 0x026: key = '7';break;/* [&] */
-		case 0x02a: key = '8';break;/* [*] */
-		case 0x028: key = '9';;break;/* [(] */
-		case 0x029: key = '0';break;/* [)] */
-		case 0x05f: key = '-';break;/* [_] */
-		case 0x02b: key = '=';break;/* [+] */
-		case 0x07c: key = '\'';break;/* [|] */
-		case 0x07d: key = '[';break;/* [}] */
-		case 0x07b: key = ']';break;/* [{] */
-		case 0x022: key = '\'';break;/* ["] */
-		case 0x03a: key = ';';break;/* [:] */
-		case 0x03f: key = '/';break;/* [?] */
-		case 0x03e: key = '.';break;/* [>] */
-		case 0x03c: key = ',';break;/* [<] */
-#endif
-
-		default:
-			key = *(unsigned char*)buf;
-			if (key >= 'A' && key <= 'Z')
-				key = key - 'A' + 'a';
-			break;
-	} 
-
-	return key;
-}
+	else:
+		# key = *(unsigned char*)buf; pygame's key value is the unshifted
+		# character for printable keys, and keys with no character give 0
+		key = keysym if keysym < 256 else 0
+		if key >= ord('A') and key <= ord('Z'):
+			key = key - ord('A') + ord('a')
+	
+	return key
 
 
-static void HandleEvents(void)
-{
-	XEvent event;
-	int b;
-	qboolean dowarp = false;
-	int mwx = vid.width/2;
-	int mwy = vid.height/2;
+def HandleEvents():
+
+	global mx, my
+
+	from client import keys # the K_ values, imported here as the renderer loads before the client modules finish
+
+	#XEvent event;
+	#int b;
+	#qboolean dowarp = false;
+	#int mwx = vid.width/2;
+	#int mwy = vid.height/2;
    
-	if (!dpy)
-		return;
+	if screen is None: # if (!dpy)
+		return
 
-	while (XPending(dpy)) {
+	for event in pygame.event.get(): # while (XPending(dpy)) { XNextEvent(dpy, &event);
 
-		XNextEvent(dpy, &event);
+		if event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
+			if in_state is not None and in_state.Key_Event_fp is not None:
+				in_state.Key_Event_fp (XLateKey(event), event.type == pygame.KEYDOWN)
 
-		switch(event.type) {
-		case KeyPress:
-		case KeyRelease:
-			if (in_state && in_state->Key_Event_fp)
-				in_state->Key_Event_fp (XLateKey(&event.xkey), event.type == KeyPress);
-			break;
+		elif event.type == pygame.MOUSEMOTION:
+			if mouse_active:
+				# pygame reports relative motion while the pointer is grabbed, like DGA
+				mx += event.rel[0] * 2 # mx += (event.xmotion.x + win_x) * 2;
+				my += event.rel[1] * 2 # my += (event.xmotion.y + win_y) * 2;
 
-		case MotionNotify:
-			if (mouse_active) {
-				if (dgamouse) {
-					mx += (event.xmotion.x + win_x) * 2;
-					my += (event.xmotion.y + win_y) * 2;
-				} 
-				else 
-				{
-					mx += ((int)event.xmotion.x - mwx) * 2;
-					my += ((int)event.xmotion.y - mwy) * 2;
-					mwx = event.xmotion.x;
-					mwy = event.xmotion.y;
+		elif event.type == pygame.MOUSEBUTTONDOWN:
+			b=-1
+			if event.button == 1:
+				b = 0
+			elif event.button == 2:
+				b = 2
+			elif event.button == 3:
+				b = 1
+			if b>=0 and in_state is not None and in_state.Key_Event_fp is not None:
+				in_state.Key_Event_fp (keys.K_MOUSE1 + b, True)
 
-					if (mx || my)
-						dowarp = true;
-				}
-			}
-			break;
+		elif event.type == pygame.MOUSEBUTTONUP:
+			b=-1
+			if event.button == 1:
+				b = 0
+			elif event.button == 2:
+				b = 2
+			elif event.button == 3:
+				b = 1
+			if b>=0 and in_state is not None and in_state.Key_Event_fp is not None:
+				in_state.Key_Event_fp (keys.K_MOUSE1 + b, False)
 
+		elif event.type == pygame.QUIT: # Q2PORT: the window was closed
+			pygame.quit()
+			exit(0)
 
-		case ButtonPress:
-			b=-1;
-			if (event.xbutton.button == 1)
-				b = 0;
-			else if (event.xbutton.button == 2)
-				b = 2;
-			else if (event.xbutton.button == 3)
-				b = 1;
-			if (b>=0 && in_state && in_state->Key_Event_fp)
-				in_state->Key_Event_fp (K_MOUSE1 + b, true);
-			break;
-
-		case ButtonRelease:
-			b=-1;
-			if (event.xbutton.button == 1)
-				b = 0;
-			else if (event.xbutton.button == 2)
-				b = 2;
-			else if (event.xbutton.button == 3)
-				b = 1;
-			if (b>=0 && in_state && in_state->Key_Event_fp)
-				in_state->Key_Event_fp (K_MOUSE1 + b, false);
-			break;
-
-		case CreateNotify :
-			win_x = event.xcreatewindow.x;
-			win_y = event.xcreatewindow.y;
-			break;
-
-		case ConfigureNotify :
-			win_x = event.xconfigure.x;
-			win_y = event.xconfigure.y;
-			break;
-		}
-	}
-	   
+		# CreateNotify and ConfigureNotify only tracked win_x and win_y for the DGA motion
+	
+	"""
 	if (dowarp) {
 		/* move the mouse to the window center again */
 		XWarpPointer(dpy,None,win,0,0,0,0, vid.width/2,vid.height/2);
 	}
-}
+	"""
 
-Key_Event_fp_t Key_Event_fp;
+Key_Event_fp = None #Key_Event_fp_t
 
-void KBD_Init(Key_Event_fp_t fp)
-{
-	Key_Event_fp = fp;
-}
+def KBD_Init(fp): #Key_Event_fp_t
 
-void KBD_Update(void)
-{
-// get events from x server
-	HandleEvents();
-}
+	global Key_Event_fp
 
-void KBD_Close(void)
-{
-}
+	Key_Event_fp = fp
+
+
+def KBD_Update():
+
+	# get events from x server
+	HandleEvents()
+
+
+def KBD_Close():
+
+	pass
+
+"""
 
 /*****************************************************************************/
 

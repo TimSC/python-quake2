@@ -23,7 +23,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 import os
 from qcommon import cvar, common, cmd, files
-from client import snd_dma, cl_main, ref
+from client import snd_dma, cl_main, ref, cl_input, keys, client
+from linux import q_shlinux
 from game import q_shared
 """
 #include <assert.h>
@@ -61,26 +62,38 @@ reflib_active = 0 #qboolean
 
 const char so_file[] = "/etc/quake2.conf";
 
-/** KEYBOARD **************************************************************/
+"""
+#* KEYBOARD **************************************************************
 
-void Do_Key_Event(int key, qboolean down);
+#void Do_Key_Event(int key, qboolean down);
 
-void (*KBD_Update_fp)(void);
-void (*KBD_Init_fp)(Key_Event_fp_t fp);
-void (*KBD_Close_fp)(void);
+KBD_Update_fp = None #void (*)(void)
+KBD_Init_fp = None #void (*)(Key_Event_fp_t fp)
+KBD_Close_fp = None #void (*)(void)
 
-/** MOUSE *****************************************************************/
+#* MOUSE *****************************************************************
 
-in_state_t in_state;
+class in_state_t(object): # rw_linux.h
 
-void (*RW_IN_Init_fp)(in_state_t *in_state_p);
-void (*RW_IN_Shutdown_fp)(void);
-void (*RW_IN_Activate_fp)(qboolean active);
-void (*RW_IN_Commands_fp)(void);
-void (*RW_IN_Move_fp)(usercmd_t *cmd);
-void (*RW_IN_Frame_fp)(void);
+	def __init__(self):
 
-void Real_IN_Init (void);
+		# Pointers to functions back in client, set by vid_so
+		self.IN_CenterView_fp = None #void (*)(void)
+		self.Key_Event_fp = None #Key_Event_fp_t
+		self.viewangles = None #vec_t *
+		self.in_strafe_state = None #int *, the in_strafe kbutton_t here, its state is read
+
+in_state = in_state_t() #in_state_t
+
+RW_IN_Init_fp = None #void (*)(in_state_t *in_state_p)
+RW_IN_Shutdown_fp = None #void (*)(void)
+RW_IN_Activate_fp = None #void (*)(qboolean active)
+RW_IN_Commands_fp = None #void (*)(void)
+RW_IN_Move_fp = None #void (*)(usercmd_t *cmd)
+RW_IN_Frame_fp = None #void (*)(void)
+
+#void Real_IN_Init (void);
+"""
 
 /*
 ==========================================================================
@@ -223,6 +236,8 @@ VID_LoadRefresh
 def VID_LoadRefresh(name): #char * (returns qboolean)
 
 	global re, reflib_active
+	global RW_IN_Init_fp, RW_IN_Shutdown_fp, RW_IN_Activate_fp, RW_IN_Commands_fp, RW_IN_Move_fp, RW_IN_Frame_fp
+	global KBD_Init_fp, KBD_Update_fp, KBD_Close_fp
 
 	ri = ref.refimport_t()
 	"""
@@ -327,48 +342,40 @@ def VID_LoadRefresh(name): #char * (returns qboolean)
 		Com_Error (ERR_FATAL, "%s has incompatible api_version", name);
 	}
 
-	/* Init IN (Mouse) */
-	in_state.IN_CenterView_fp = IN_CenterView;
-	in_state.Key_Event_fp = Do_Key_Event;
-	in_state.viewangles = cl.viewangles;
-	in_state.in_strafe_state = &in_strafe.state;
-
-	if ((RW_IN_Init_fp = dlsym(reflib_library, "RW_IN_Init")) == NULL ||
-		(RW_IN_Shutdown_fp = dlsym(reflib_library, "RW_IN_Shutdown")) == NULL ||
-		(RW_IN_Activate_fp = dlsym(reflib_library, "RW_IN_Activate")) == NULL ||
-		(RW_IN_Commands_fp = dlsym(reflib_library, "RW_IN_Commands")) == NULL ||
-		(RW_IN_Move_fp = dlsym(reflib_library, "RW_IN_Move")) == NULL ||
-		(RW_IN_Frame_fp = dlsym(reflib_library, "RW_IN_Frame")) == NULL)
-		Sys_Error("No RW_IN functions in REF.\n");
-
-	Real_IN_Init();
-
 	"""
+	# Init IN (Mouse)
+	in_state.IN_CenterView_fp = cl_input.IN_CenterView
+	in_state.Key_Event_fp = Do_Key_Event
+	in_state.viewangles = cl_main.cl.viewangles
+	in_state.in_strafe_state = cl_input.in_strafe # &in_strafe.state
+
+	# Q2PORT: there is no ref library to dlsym, the RW_IN functions are in gl_glx
+	from linux import gl_glx
+	RW_IN_Init_fp = gl_glx.RW_IN_Init
+	RW_IN_Shutdown_fp = gl_glx.RW_IN_Shutdown
+	RW_IN_Activate_fp = gl_glx.RW_IN_Activate
+	RW_IN_Commands_fp = gl_glx.RW_IN_Commands
+	RW_IN_Move_fp = gl_glx.RW_IN_Move
+	RW_IN_Frame_fp = gl_glx.RW_IN_Frame
+
+	Real_IN_Init()
+
 	if re.Init( 0, 0 ) == -1:
 	
 		re.Shutdown()
 		VID_FreeReflib ()
 		return False
 	
-	"""
-	/* Init KBD */
-#if 1
-	if ((KBD_Init_fp = dlsym(reflib_library, "KBD_Init")) == NULL ||
-		(KBD_Update_fp = dlsym(reflib_library, "KBD_Update")) == NULL ||
-		(KBD_Close_fp = dlsym(reflib_library, "KBD_Close")) == NULL)
-		Sys_Error("No KBD functions in REF.\n");
-#else
-	{
-		void KBD_Init(void);
-		void KBD_Update(void);
-		void KBD_Close(void);
+	# Init KBD
+	#if 1
+	# Q2PORT: the KBD functions are in gl_glx, as dlsym would find them in the ref library
+	KBD_Init_fp = gl_glx.KBD_Init
+	KBD_Update_fp = gl_glx.KBD_Update
+	KBD_Close_fp = gl_glx.KBD_Close
+	#endif
+	KBD_Init_fp(Do_Key_Event)
 
-		KBD_Init_fp = KBD_Init;
-		KBD_Update_fp = KBD_Update;
-		KBD_Close_fp = KBD_Close;
-	}
-#endif
-	KBD_Init_fp(Do_Key_Event);
+	"""
 
 	// give up root now
 	setreuid(getuid(), getuid());
@@ -498,62 +505,64 @@ void VID_Shutdown (void)
 }
 
 
-/*****************************************************************************/
-/* INPUT                                                                     */
-/*****************************************************************************/
-
-cvar_t	*in_joystick;
-
-// This is fake, it's acutally done by the Refresh load
-void IN_Init (void)
-{
-	in_joystick	= Cvar_Get ("in_joystick", "0", CVAR_ARCHIVE);
-}
-
-void Real_IN_Init (void)
-{
-	if (RW_IN_Init_fp)
-		RW_IN_Init_fp(&in_state);
-}
-
-void IN_Shutdown (void)
-{
-	if (RW_IN_Shutdown_fp)
-		RW_IN_Shutdown_fp();
-}
-
-void IN_Commands (void)
-{
-	if (RW_IN_Commands_fp)
-		RW_IN_Commands_fp();
-}
-
-void IN_Move (usercmd_t *cmd)
-{
-	if (RW_IN_Move_fp)
-		RW_IN_Move_fp(cmd);
-}
-
-void IN_Frame (void)
-{
-	if (RW_IN_Activate_fp) 
-	{
-		if ( !cl.refresh_prepped || cls.key_dest == key_console || cls.key_dest == key_menu)
-			RW_IN_Activate_fp(false);
-		else
-			RW_IN_Activate_fp(true);
-	}
-
-	if (RW_IN_Frame_fp)
-		RW_IN_Frame_fp();
-}
-
-void IN_Activate (qboolean active)
-{
-}
-
-void Do_Key_Event(int key, qboolean down)
-{
-	Key_Event(key, down, Sys_Milliseconds());
-}
 """
+#****************************************************************************
+# INPUT
+#****************************************************************************
+
+in_joystick = None #cvar_t	*
+
+# This is fake, it's acutally done by the Refresh load
+def IN_Init ():
+
+	global in_joystick
+
+	in_joystick	= cvar.Cvar_Get ("in_joystick", "0", q_shared.CVAR_ARCHIVE)
+
+
+def Real_IN_Init ():
+
+	if RW_IN_Init_fp is not None:
+		RW_IN_Init_fp(in_state)
+
+
+def IN_Shutdown ():
+
+	if RW_IN_Shutdown_fp is not None:
+		RW_IN_Shutdown_fp()
+
+
+def IN_Commands ():
+
+	if RW_IN_Commands_fp is not None:
+		RW_IN_Commands_fp()
+
+
+def IN_Move (cmd): #usercmd_t *
+
+	if RW_IN_Move_fp is not None:
+		RW_IN_Move_fp(cmd)
+
+
+def IN_Frame ():
+
+	if RW_IN_Activate_fp is not None:
+	
+		if ( not cl_main.cl.refresh_prepped or cl_main.cls.key_dest == client.keydest_t.key_console or cl_main.cls.key_dest == client.keydest_t.key_menu):
+			RW_IN_Activate_fp(False)
+		else:
+			RW_IN_Activate_fp(True)
+	
+	if RW_IN_Frame_fp is not None:
+		RW_IN_Frame_fp()
+
+
+def IN_Activate (active): #qboolean
+
+	pass
+
+
+def Do_Key_Event(key, down): #int, qboolean
+
+	keys.Key_Event(key, down, q_shlinux.Sys_Milliseconds())
+

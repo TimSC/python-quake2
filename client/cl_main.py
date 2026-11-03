@@ -22,7 +22,7 @@ import struct
 from qcommon import cvar, common, cmd, files, net_chan, qcommon, cmodel, qfiles
 from game import q_shared
 from client import console, snd_dma, cl_scrn, client, cl_view, menu, cl_input, keys, cl_cin, cl_parse, cl_fx, cl_tent, cl_pred
-from linux import q_shlinux, vid_so, in_linux, net_udp, cd_linux, sys_linux
+from linux import q_shlinux, vid_so, net_udp, cd_linux, sys_linux
 from server import sv_main
 
 """
@@ -1594,13 +1594,12 @@ def CL_FixCvarCheats ():
 # ==================
 def CL_SendCommand ():
 	
-	"""
-	// get new key events
-	Sys_SendKeyEvents ();
+	# get new key events
+	sys_linux.Sys_SendKeyEvents ()
 
-	// allow mice or other external controllers to add commands
-	IN_Commands ();
-	"""
+	# allow mice or other external controllers to add commands
+	vid_so.IN_Commands ()
+
 	# process console commands
 	cmd.Cbuf_Execute ()
 
@@ -1642,10 +1641,8 @@ def CL_Frame (msec): #int
 		if extratime < 1000.0/int(cl_maxfps.value):
 			return			# framerate is too high
 	
-	"""
-# let the mouse activate or deactivate
-	IN_Frame ();
-	"""
+	# let the mouse activate or deactivate
+	vid_so.IN_Frame ()
 
 	# decide the simulation time
 	cls.frametime = extratime/1000.0
@@ -1755,7 +1752,7 @@ def CL_Init ():
 	
 	#CDAudio_Init ();
 	CL_InitLocal ()
-	in_linux.IN_Init ()
+	vid_so.IN_Init ()
 
 	## Cbuf_AddText ("exec autoexec.cfg\n");
 	files.FS_ExecAutoexec ()
@@ -1786,8 +1783,8 @@ def CL_Shutdown():
 	#CDAudio_Shutdown ()
 
 	snd_dma.S_Shutdown()
+	vid_so.IN_Shutdown ()
 	"""
-	IN_Shutdown ();
 	VID_Shutdown();
 	"""
 

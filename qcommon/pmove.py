@@ -801,13 +801,15 @@ def PM_ClampAngles():
 
 	if pm.s.pm_flags & q_shared.PMF_TIME_TELEPORT:
 		pm.viewangles[q_shared.YAW] = q_shared.SHORT2ANGLE(
-			pm.cmd.angles[q_shared.YAW] + pm.s.delta_angles[q_shared.YAW]
+			int(pm.cmd.angles[q_shared.YAW]) + int(pm.s.delta_angles[q_shared.YAW]) # the C adds these as ints
 		)
 		pm.viewangles[q_shared.PITCH] = 0
 		pm.viewangles[q_shared.ROLL] = 0
 	else:
+		# circularly clamp the angles with deltas
 		for i in range(3):
-			temp = pm.cmd.angles[i] + pm.s.delta_angles[i]
+			temp = int(pm.cmd.angles[i]) + int(pm.s.delta_angles[i])
+			temp = ((temp + 0x8000) & 0xffff) - 0x8000 # short	temp;
 			pm.viewangles[i] = q_shared.SHORT2ANGLE(temp)
 
 		if pm.viewangles[q_shared.PITCH] > 89 and pm.viewangles[q_shared.PITCH] < 180:

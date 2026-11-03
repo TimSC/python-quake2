@@ -21,7 +21,7 @@ import os
 import functools
 from qcommon import cvar, cmd, common, files
 from client import cl_main, client, cl_scrn, snd_dma, keys, qmenu, cl_view, ref
-from linux import vid_so, in_linux, q_shlinux, net_udp
+from linux import vid_so, q_shlinux, net_udp
 from game import q_shared
 
 """
@@ -1180,8 +1180,8 @@ def ControlsSetMenuItemValues( ):
 	cvar.Cvar_SetValue( "crosshair", ClampCvar( 0, 3, cl_view.crosshair.value ) )
 	s_options_crosshair_box.curvalue		= int(cl_view.crosshair.value)
 
-	cvar.Cvar_SetValue( "in_joystick", ClampCvar( 0, 1, in_linux.in_joystick.value ) )
-	s_options_joystick_box.curvalue		= int(in_linux.in_joystick.value)
+	cvar.Cvar_SetValue( "in_joystick", ClampCvar( 0, 1, vid_so.in_joystick.value ) )
+	s_options_joystick_box.curvalue		= int(vid_so.in_joystick.value)
 
 	if win_noalttab is not None:
 		s_options_noalttab_box.curvalue			= int(win_noalttab.value)

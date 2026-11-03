@@ -21,7 +21,7 @@ import numpy as np
 from qcommon import cvar, net_chan, qcommon, common, cmd
 from game import q_shared
 from client import cl_main, client, keys, client
-from linux import in_linux, sys_linux, q_shlinux
+from linux import vid_so, sys_linux, q_shlinux
 """
 // cl_main.cl.input.c  -- builds an intended movement command to send to the server
 
@@ -693,11 +693,8 @@ def CL_FinishMove (cmd): #usercmd_t *
 	cmd.msec = int(ms)
 
 	CL_ClampPitch ()
-	cmd.angles = [
-		q_shared.ANGLE2SHORT(cl_main.cl.viewangles[0]),
-		q_shared.ANGLE2SHORT(cl_main.cl.viewangles[1]),
-		q_shared.ANGLE2SHORT(cl_main.cl.viewangles[2]),
-	]
+	for i in range(3):
+		cmd.angles[i] = ((q_shared.ANGLE2SHORT(cl_main.cl.viewangles[i]) + 0x8000) & 0xffff) - 0x8000 # short cmd->angles[i]
 
 	cmd.impulse = in_impulse
 	in_impulse = 0
@@ -720,7 +717,7 @@ def CL_CreateCmd ():
 	CL_BaseMove (cmd)
 
 	# allow mice or other external controllers to add to the move
-	in_linux.IN_Move (cmd)
+	vid_so.IN_Move (cmd)
 
 	CL_FinishMove (cmd)
 
@@ -784,8 +781,6 @@ def CL_InitInput ():
 	cl_run = cvar.Cvar_Get ("cl_run", "0", 0)
 	cl_anglespeedkey = cvar.Cvar_Get ("cl_anglespeedkey", "1.5", 0)
 
-	if not hasattr(cl_main.cl, "viewangles") or cl_main.cl.viewangles is None:
-		cl_main.cl.viewangles = np.zeros((3,), dtype=np.float32)
 
 
 
@@ -808,12 +803,13 @@ def CL_SendCmd ():
 
 	# save this command off for prediction
 	i = cl_main.cls.netchan.outgoing_sequence & (client.CMD_BACKUP-1)
-	cmd = cl_main.cl.cmds[i]
-	cl_main.cl.cmd_time[i] = cl_main.cls.realtime;	# for netgraph ping calculation
+	#cmd = &cl.cmds[i];
+	cl_main.cl.cmd_time[i] = cl_main.cls.realtime	# for netgraph ping calculation
 
-	cmd = CL_CreateCmd ()
+	cmd = CL_CreateCmd () # a new usercmd_t each call, so storing it is the struct copy
+	cl_main.cl.cmds[i] = cmd # *cmd = CL_CreateCmd ();
 
-	cl_main.cl.cmd = cmd
+	cl_main.cl.cmd = cmd # cl.cmd = *cmd;, cl.cmds[i] is not changed after this
 
 	if cl_main.cls.state == client.connstate_t.ca_disconnected or cl_main.cls.state == client.connstate_t.ca_connecting:
 		return
@@ -829,8 +825,8 @@ def CL_SendCmd ():
 	
 		cl_main.CL_FixUpGender()
 		cvar.userinfo_modified = False
-		MSG_WriteByte (cl_main.cls.netchan.message, qcommon.clc_ops_e.clc_userinfo)
-		MSG_WriteString (cl_main.cls.netchan.message, cvar.Cvar_Userinfo() )
+		common.MSG_WriteByte (cl_main.cls.netchan.message, qcommon.clc_ops_e.clc_userinfo.value)
+		common.MSG_WriteString (cl_main.cls.netchan.message, cvar.Cvar_Userinfo().encode('ascii') )
 	
 	common.SZ_Init (buf, 128)
 
@@ -859,7 +855,6 @@ def CL_SendCmd ():
 	
 	i = (cl_main.cls.netchan.outgoing_sequence-2) & (client.CMD_BACKUP-1)
 	cmd = cl_main.cl.cmds[i]
-	cmd.reset()
 	common.MSG_WriteDeltaUsercmd (buf, nullcmd, cmd)
 	oldcmd = cmd
 

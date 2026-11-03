@@ -22,7 +22,7 @@ import time
 import pygame
 from qcommon import common, cvar
 from client import cl_main
-from linux import q_shlinux
+from linux import q_shlinux, vid_so
 from game import g_main
 """
 #include <unistd.h>
@@ -297,8 +297,8 @@ def Sys_SendKeyEvents ():
 	global sys_frame_time
 
 	#ifndef DEDICATED_ONLY
-	#if (KBD_Update_fp)
-	#	KBD_Update_fp();
+	if vid_so.KBD_Update_fp is not None:
+		vid_so.KBD_Update_fp()
 	#endif
 
 	# grab frame time 

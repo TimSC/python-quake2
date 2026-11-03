@@ -134,66 +134,6 @@ K_AUX32			= 238
 K_MWHEELDOWN	= 239
 K_MWHEELUP		= 240
 
-pygameKeyMap = {
-	pygame.K_TAB: K_TAB,
-	pygame.K_RETURN: K_ENTER,
-	pygame.K_ESCAPE: K_ESCAPE,
-	pygame.K_SPACE: K_SPACE,
-	pygame.K_PAUSE: K_PAUSE,
-
-	pygame.K_RALT: K_ALT,
-	pygame.K_LALT: K_ALT,
-	pygame.K_RCTRL: K_CTRL,
-	pygame.K_LCTRL: K_CTRL,
-	pygame.K_RSHIFT: K_SHIFT,
-	pygame.K_LSHIFT: K_SHIFT,
-
-	pygame.K_F1: K_F1,
-	pygame.K_F2: K_F2,
-	pygame.K_F3: K_F3,
-	pygame.K_F4: K_F4,
-	pygame.K_F5: K_F5,
-	pygame.K_F6: K_F6,
-	pygame.K_F7: K_F7,
-	pygame.K_F8: K_F8,
-	pygame.K_F9: K_F9,
-	pygame.K_F10: K_F10,
-	pygame.K_F11: K_F11,
-	pygame.K_F12: K_F12,
-
-	pygame.K_UP: K_UPARROW,
-	pygame.K_DOWN: K_DOWNARROW,
-	pygame.K_RIGHT: K_RIGHTARROW,
-	pygame.K_LEFT: K_LEFTARROW,		
-	
-	pygame.K_INSERT: K_INS,
-	pygame.K_HOME: K_HOME,
-	pygame.K_END: K_END,
-	pygame.K_PAGEUP: K_PGUP,
-	pygame.K_PAGEDOWN: K_PGDN,
-	pygame.K_DELETE: K_DEL,
-
-	#keypad
-	pygame.K_KP0: K_KP_INS,
-	pygame.K_KP1: K_KP_END,
-	pygame.K_KP2: K_KP_DOWNARROW,
-	pygame.K_KP3: K_KP_PGDN,
-	pygame.K_KP4: K_KP_LEFTARROW,
-	pygame.K_KP5: K_KP_5,
-	pygame.K_KP6: K_KP_RIGHTARROW,
-	pygame.K_KP7: K_KP_HOME,
-	pygame.K_KP8: K_KP_UPARROW,
-	pygame.K_KP9: K_KP_PGUP,
-	pygame.K_KP_PERIOD: K_KP_DEL,
-	pygame.K_KP_DIVIDE: K_KP_SLASH,
-	pygame.K_KP_MULTIPLY: -1,
-	pygame.K_KP_MINUS: K_KP_MINUS,
-	pygame.K_KP_PLUS: K_KP_PLUS,
-	pygame.K_KP_ENTER: K_KP_ENTER,
-	pygame.K_KP_EQUALS: -1,
-
-}
-
 keypadMapping = {
 	K_KP_SLASH: ord('/'),
 	K_KP_MINUS: ord('-'),
@@ -978,7 +918,7 @@ def Key_Event (key, down, timestamp): #int, qboolean, unsigned
 		if not down:
 			return
 
-		if cl_main.cl.frame.playerstate.stats[q_shared.STAT_LAYOUTS] and cl_main.cls.key_dest == key_game:
+		if cl_main.cl.frame.playerstate.stats[q_shared.STAT_LAYOUTS] and cl_main.cls.key_dest == client.keydest_t.key_game:
 			# put away help computer / inventory
 			cmd.Cbuf_AddText ("cmd putaway\n")
 			return
@@ -1108,21 +1048,4 @@ int Key_GetKey (void)
 }
 """
 
-def PyGame_KeyEvent(event):
-
-	global pygameKeyMap
-
-	down = event.type == pygame.KEYDOWN
-	timestamp = q_shlinux.Sys_Milliseconds()
-	
-	keyName = pygame.key.name(event.key)
-
-	if event.key in pygameKeyMap:
-		keyCode = pygameKeyMap[event.key]
-	elif len(keyName) == 1:
-		keyCode = ord(keyName)
-	else:
-		keyCode = Key_StringToKeynum(keyName)
-
-	Key_Event (keyCode, down, timestamp)
 

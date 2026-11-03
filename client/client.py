@@ -121,6 +121,7 @@ CMD_BACKUP		= 64	# allow a lot of command backups for very fast systems
 """
 class client_state_t(object):
 	def __init__(self):
+		self.viewangles = np.zeros((3,), dtype=np.float32) # vec3_t, see reset
 		self.reset()
 
 	def reset(self):
@@ -165,13 +166,13 @@ class client_state_t(object):
 			self.frames.append(frame_t())
 		self.surpressCount: int = 0		# number of messages rate supressed
 		"""
-		// the client maintains its own idea of view angles, which are
-		// sent to the server each frame.  It is cleared to 0 upon entering each level.
-		// the server sends a delta each frame which is added to the locally
-		// tracked view angles to account for standing on rotating objects,
-		// and teleport direction changes
-		vec3_t		viewangles;
 		"""
+		# the client maintains its own idea of view angles, which are
+		# sent to the server each frame.  It is cleared to 0 upon entering each level.
+		# the server sends a delta each frame which is added to the locally
+		# tracked view angles to account for standing on rotating objects,
+		# and teleport direction changes
+		self.viewangles[:] = 0 # vec3_t, cleared in place as vid_so's in_state.viewangles points at it
 		self.time = 0 						#int, this is the time value that the client
 									# is rendering at.  always <= cls.realtime
 

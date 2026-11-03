@@ -1673,20 +1673,6 @@ def Qcommon_Frame (msec): #int
 	global host_speeds
 	global time_before_game, time_after_game, time_before_ref, time_after_ref
 
-	sys_linux.Sys_SendKeyEvents()
-
-	for event in pygame.event.get():
-		if event.type == pygame.QUIT:
-			pygame.quit()
-			exit(0)
-
-		if event.type == pygame.KEYDOWN:
-			#sys_linux.Key_Event (event)
-			keys.PyGame_KeyEvent(event)
-
-		if event.type == pygame.KEYUP:
-			keys.PyGame_KeyEvent(event)
-
 	"""
 	char	*s;
 	int		time_before, time_between, time_after;
