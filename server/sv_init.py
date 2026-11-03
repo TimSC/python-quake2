@@ -80,6 +80,11 @@ class server_t(object):
 		self.demofile = None # FILE		*;
 		self.timedemo = False # qboolean	;		// don't time sync
 
+		self.timebase = 0 #int, msec base for SV_GiveMsec
+		self.nextsignon = 0 #float
+		self.signonnum = 0 #int
+		self.lastframe = 0 #float
+
 def EDICT_NUM(n):
 	return sv_game.ge.edicts[n]
 #define NUM_FOR_EDICT(e) ( ((byte *)(e)-(byte *)ge->edicts ) / ge->edict_size)
@@ -106,28 +111,29 @@ typedef struct
 #define	LATENCY_COUNTS	16
 #define	RATE_MESSAGES	10
 """
+LATENCY_COUNTS	= 16
+RATE_MESSAGES	= 10
+
 class client_t(object):
 
 	def __init__(self):
 
 		self.state = client_state_t.cs_free
-		"""
 
-		char			userinfo[MAX_INFO_STRING];		// name, etc
+		self.userinfo = "" #char[MAX_INFO_STRING], name, etc
+		self.lastframe = -1 #int, for delta compression
+		self.lastcmd = None #usercmd_t, for filling in big drops
+		self.commandMsec = 0 #int, every seconds this is reset, if user commands exhaust it, assume time cheating
+		self.frame_latency = [] #int[LATENCY_COUNTS]
+		for i in range(LATENCY_COUNTS):
+			self.frame_latency.append(0)
+		self.ping = 0 #int
+		self.message_size = [] #int[RATE_MESSAGES], used to rate drop packets
+		for i in range(RATE_MESSAGES):
+			self.message_size.append(0)
+		self.rate = 5000 #int
+		self.surpressCount = 0 #int, number of messages rate supressed
 
-		int				lastframe;			// for delta compression
-		usercmd_t		lastcmd;			// for filling in big drops
-
-		int				commandMsec;		// every seconds this is reset, if user
-											// commands exhaust it, assume time cheating
-
-		int				frame_latency[LATENCY_COUNTS];
-		int				ping;
-
-		int				message_size[RATE_MESSAGES];	// used to rate drop packets
-		int				rate;
-		int				surpressCount;		// number of messages rate supressed
-		"""
 		self.edict = None #edict_t*, EDICT_NUM(clientnum+1)
 		
 		self.name = None #char[32];			// extracted from userinfo, high bits masked
@@ -137,20 +143,14 @@ class client_t(object):
 		# It can be harmlessly overflowed.
 		
 		self.datagram = qcommon.sizebuf_t()
-		"""
-		byte			datagram_buf[MAX_MSGLEN];
 
-		client_frame_t	frames[UPDATE_BACKUP];	// updates can be delta'd from here
+		self.download = None #byte *, file being downloaded
+		self.downloadsize = 0 #int, total bytes (can't use EOF because of paks)
+		self.downloadcount = 0 #int, bytes sent
+		self.lastmessage = 0 #int, sv.framenum when packet was last received
+		self.lastconnect = 0 #int
+		self.challenge = 0 #int, challenge of this user, randomly generated
 
-		byte			*download;			// file being downloaded
-		int				downloadsize;		// total bytes (can't use EOF because of paks)
-		int				downloadcount;		// bytes sent
-
-		int				lastmessage;		// sv.framenum when packet was last received
-		int				lastconnect;
-
-		int				challenge;			// challenge of this user, randomly generated
-		"""
 		self.netchan = qcommon.netchan_t()
 
 
@@ -176,6 +176,16 @@ typedef struct
 } challenge_t;
 
 """
+MAX_CHALLENGES	= 1024
+
+class challenge_t(object):
+
+	def __init__(self):
+
+		self.adr = qcommon.netadr_t() #netadr_t
+		self.challenge = 0 #int
+		self.time = 0 #int
+
 class server_static_t(object):
 
 	def __init__(self):
@@ -200,6 +210,8 @@ class server_static_t(object):
 		self.last_heartbeat = 0 # int
 
 		self.challenges = [] # challenge_t	[MAX_CHALLENGES], to prevent invalid IPs from connecting
+		for i in range(MAX_CHALLENGES):
+			self.challenges.append(challenge_t())
 
 		# serverrecord values
 		self.demofile = None # FILE		*

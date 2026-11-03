@@ -91,6 +91,10 @@ rd_buffer = None #static char *, python strings are immutable so the text is hel
 rd_buffersize = 0 #static int
 rd_flush = None #static void	(*rd_flush)(int target, char *buffer);
 
+RD_NONE	= 0
+RD_CLIENT	= 1
+RD_PACKET	= 2
+
 def Com_BeginRedirect (target, buffer, buffersize, flush): #int, char *, int, void (*flush)
 
 	global rd_target, rd_buffer, rd_buffersize, rd_flush

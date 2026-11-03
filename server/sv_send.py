@@ -28,30 +28,31 @@ from game import q_shared
 #include "server.h"
 """
 """
-/*
 =============================================================================
 
 Com_Printf redirection
 
 =============================================================================
-*/
-
-char sv_outputbuf[SV_OUTPUTBUF_LENGTH];
-
-void SV_FlushRedirect (int sv_redirected, char *outputbuf)
-{
-	if (sv_redirected == RD_PACKET)
-	{
-		Netchan_OutOfBandPrint (NS_SERVER, net_from, "print\n%s", outputbuf);
-	}
-	else if (sv_redirected == RD_CLIENT)
-	{
-		MSG_WriteByte (&sv_client->netchan.message, svc_print);
-		MSG_WriteByte (&sv_client->netchan.message, PRINT_HIGH);
-		MSG_WriteString (&sv_client->netchan.message, outputbuf);
-	}
-}
 """
+SV_OUTPUTBUF_LENGTH = qcommon.MAX_MSGLEN - 16
+sv_outputbuf = "" #char [SV_OUTPUTBUF_LENGTH]
+
+"""
+==================
+SV_FlushRedirect
+==================
+"""
+def SV_FlushRedirect (sv_redirected, outputbuf): #int, char *
+
+	if sv_redirected == common.RD_PACKET:
+	
+		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, "print\n{}".format(outputbuf))
+	elif sv_redirected == common.RD_CLIENT:
+	
+		common.MSG_WriteByte (sv_main.sv_client.netchan.message, qcommon.svc_ops_e.svc_print.value)
+		common.MSG_WriteByte (sv_main.sv_client.netchan.message, q_shared.PRINT_HIGH)
+		common.MSG_WriteString (sv_main.sv_client.netchan.message, outputbuf.encode('ascii'))
+
 """
 /*
 =============================================================================
@@ -62,74 +63,44 @@ EVENT MESSAGES
 */
 """
 """
-/*
 =================
 SV_ClientPrintf
 
 Sends text across to be displayed if the level passes
 =================
-*/
-void SV_ClientPrintf (sv_init.client_t *cl, int level, char *fmt, ...)
-{
-	va_list		argptr;
-	char		string[1024];
-	
-	if (level < cl->messagelevel)
-		return;
-	
-	va_start (argptr,fmt);
-	vsprintf (string, fmt,argptr);
-	va_end (argptr);
-	
-	MSG_WriteByte (&cl->netchan.message, svc_print);
-	MSG_WriteByte (&cl->netchan.message, level);
-	MSG_WriteString (&cl->netchan.message, string);
-}
 """
+def SV_ClientPrintf (cl, level, msg): #client_t *, int, char *
+
+	if level < cl.messagelevel:
+		return
+
+	common.MSG_WriteByte (cl.netchan.message, qcommon.svc_ops_e.svc_print.value)
+	common.MSG_WriteByte (cl.netchan.message, level)
+	common.MSG_WriteString (cl.netchan.message, msg.encode('ascii'))
+
 """
-/*
 =================
 SV_BroadcastPrintf
 
 Sends text to all active clients
 =================
-*/
-void SV_BroadcastPrintf (int level, char *fmt, ...)
-{
-	va_list		argptr;
-	char		string[2048];
-	sv_init.client_t	*cl;
-	int			i;
-
-	va_start (argptr,fmt);
-	vsprintf (string, fmt,argptr);
-	va_end (argptr);
-	
-	// echo to console
-	if (dedicated->value)
-	{
-		char	copy[1024];
-		int		i;
-		
-		// mask off high bits
-		for (i=0 ; i<1023 && string[i] ; i++)
-			copy[i] = string[i]&127;
-		copy[i] = 0;
-		Com_Printf ("%s", copy);
-	}
-
-	for (i=0, cl = sv_init.svs.clients ; i<maxclients->value; i++, cl++)
-	{
-		if (level < cl->messagelevel)
-			continue;
-		if (cl->state != sv_init.client_state_t.cs_spawned)
-			continue;
-		MSG_WriteByte (&cl->netchan.message, svc_print);
-		MSG_WriteByte (&cl->netchan.message, level);
-		MSG_WriteString (&cl->netchan.message, string);
-	}
-}
 """
+def SV_BroadcastPrintf (level, msg): #int, char *
+
+	# echo to console
+	if common.dedicated.value:
+		common.Com_Printf ("{}".format(msg))
+
+	for cl in sv_init.svs.clients:
+	
+		if level < cl.messagelevel:
+			continue
+		if cl.state != sv_init.client_state_t.cs_spawned:
+			continue
+		common.MSG_WriteByte (cl.netchan.message, qcommon.svc_ops_e.svc_print.value)
+		common.MSG_WriteByte (cl.netchan.message, level)
+		common.MSG_WriteString (cl.netchan.message, msg.encode('ascii'))
+
 """
 /*
 =================

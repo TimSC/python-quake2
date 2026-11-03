@@ -291,11 +291,9 @@ class game_export_t(object):
 		// The size will be fixed when ge->Init() is called
 		"""
 		self.edicts = None
-		"""
-		int			edict_size;
-		int			num_edicts;		// current number, <= max_edicts
-		int			max_edicts;
-		"""
+		self.edict_size = 0 #int
+		self.num_edicts = 0 #int, current number, <= max_edicts
+		self.max_edicts = 0 #int
 
 #game_export_t *GetGameApi (game_import_t *import);
 

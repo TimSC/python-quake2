@@ -20,9 +20,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 import random
 import struct
 from server import sv_ccmds, sv_send, sv_init, sv_game, sv_user
-from qcommon import cvar, qcommon, common, net_chan, cmd
+from qcommon import cvar, qcommon, common, net_chan, cmd, files
 from game import q_shared, game
-from linux import net_udp
+from linux import net_udp, q_shlinux
 """
 #include "server.h"
 """
@@ -31,6 +31,12 @@ for i in range(sv_init.MAX_MASTERS):
 	master_adr.append(qcommon.netadr_t())
 
 sv_client = None #client_t	*, current client
+
+# attract state (pgm fork)
+class sv_attract_t(object):
+	def __init__(self):
+		self.state = 0 #qboolean
+sv_attract = sv_attract_t()
 
 sv_paused = None # cvar_t	*
 sv_timedemo = None # cvar_t	*
@@ -77,27 +83,22 @@ or crashing.
 """
 def SV_DropClient (drop): #client_t *
 
-	"""
 	# add the disconnect
-	MSG_WriteByte (&drop->netchan.message, svc_disconnect);
+	common.MSG_WriteByte (drop.netchan.message, qcommon.svc_ops_e.svc_disconnect.value)
 
-	if (drop->state == sv_init.server_state_t.cs_spawned)
-	{
-		// call the prog function for removing a client
-		// this will remove the body, among other things
-		ge->ClientDisconnect (drop->edict);
-	}
+	if drop.state == sv_init.client_state_t.cs_spawned:
+	
+		# call the prog function for removing a client
+		# this will remove the body, among other things
+		sv_game.ge.ClientDisconnect (drop.edict)
 
-	if (drop->download)
-	{
-		FS_FreeFile (drop->download);
-		drop->download = NULL;
-	}
+	if drop.download:
+	
+		files.FS_FreeFile (drop.download)
+		drop.download = None
 
-	drop->state = sv_init.client_state_t.cs_zombie;		// become free in a few seconds
-	drop->name[0] = 0;
-
-	"""
+	drop.state = sv_init.client_state_t.cs_zombie		# become free in a few seconds
+	drop.name = ""
 
 
 """
@@ -109,124 +110,91 @@ CONNECTIONLESS COMMANDS
 */
 """
 """
-/*
-===============
+==================
 SV_StatusString
 
 Builds the string that is sent as heartbeats and status replies
-===============
-*/
-char	*SV_StatusString (void)
-{
-	char	player[1024];
-	static char	status[MAX_MSGLEN - 16];
-	int		i;
-	client_t	*cl;
-	int		statusLength;
-	int		playerLength;
-
-	strcpy (status, Cvar_Serverinfo());
-	strcat (status, "\n");
-	statusLength = strlen(status);
-
-	for (i=0 ; i<maxclients->value ; i++)
-	{
-		cl = &sv_init.svs.clients[i];
-		if (cl.state == sv_init.client_state_t.cs_connected || cl.state == sv_init.server_state_t.cs_spawned )
-		{
-			Com_sprintf (player, sizeof(player), "%i %i \"%s\"\n", 
-				cl.edict->client->ps.stats[STAT_FRAGS], cl.ping, cl.name);
-			playerLength = strlen(player);
-			if (statusLength + playerLength >= sizeof(status) )
-				break;		// can't hold any more
-			strcpy (status + statusLength, player);
-			statusLength += playerLength;
-		}
-	}
-
-	return status;
-}
+==================
 """
+def SV_StatusString (): #char *
+
+	player = "" #char[1024]
+	status = cvar.Cvar_Serverinfo()
+	status += "\n"
+	statusLength = len(status)
+
+	for i in range(int(maxclients.value)):
+		cl = sv_init.svs.clients[i]
+		if cl.state == sv_init.client_state_t.cs_connected or cl.state == sv_init.client_state_t.cs_spawned:
+			player = "{} {} \"{}\"\n".format(cl.edict.client.ps.stats[q_shared.STAT_FRAGS], cl.ping, cl.name)
+			playerLength = len(player)
+			if statusLength + playerLength >= qcommon.MAX_MSGLEN - 16:
+				break		# can't hold any more
+			status += player
+			statusLength += playerLength
+
+	return status
 """
-/*
 ================
 SVC_Status
 
 Responds with all the info that qplug or qspy can see
 ================
-*/
-void SVC_Status (void)
-{
-	net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, "print\n%s", SV_StatusString());
-#if 0
-	Com_BeginRedirect (RD_PACKET, sv_outputbuf, SV_OUTPUTBUF_LENGTH, SV_FlushRedirect);
-	Com_Printf (SV_StatusString());
-	Com_EndRedirect ();
-#endif
-}
 """
+def SVC_Status ():
+
+	net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, "print\n{}".format(SV_StatusString()))
 """
-/*
 ================
 SVC_Ack
 
 ================
-*/
-void SVC_Ack (void)
-{
-	Com_Printf ("Ping acknowledge from %s\n", net_udp.NET_AdrToString(net_chan.net_from));
-}
 """
+def SVC_Ack ():
+
+	common.Com_Printf ("Ping acknowledge from {}\n".format(net_udp.NET_AdrToString(net_chan.net_from)))
 """
-/*
 ================
 SVC_Info
 
 Responds with short info for broadcast scans
 The second parameter should be the current protocol version number.
 ================
-*/
-void SVC_Info (void)
-{
-	char	string[64];
-	int		i, count;
-	int		version;
-
-	if (maxclients->value == 1)
-		return;		// ignore in single player
-
-	version = atoi (Cmd_Argv(1));
-
-	if (version != PROTOCOL_VERSION)
-		Com_sprintf (string, sizeof(string), "%s: wrong version\n", hostname->string, sizeof(string));
-	else
-	{
-		count = 0;
-		for (i=0 ; i<maxclients->value ; i++)
-			if (sv_init.svs.clients[i].state >= sv_init.client_state_t.cs_connected)
-				count++;
-
-		Com_sprintf (string, sizeof(string), "%16s %8s %2i/%2i\n", hostname->string, sv_init.sv.name, count, (int)maxclients->value);
-	}
-
-	net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, "info\n%s", string);
-}
 """
+def SVC_Info ():
+
+	string = "" #char[64]
+
+	if maxclients.value == 1:
+		return		# ignore in single player
+
+	try:
+		version = int(cmd.Cmd_Argv(1))
+	except ValueError:
+		version = None
+
+	if version != qcommon.PROTOCOL_VERSION:
+		string = "{}: wrong version\n".format(hostname.string)
+	else:
+		count = 0
+		for i in range(int(maxclients.value)):
+			if sv_init.svs.clients[i].state >= sv_init.client_state_t.cs_connected:
+				count += 1
+
+		string = "{:16s} {:8s} {}/{}\n".format(hostname.string, sv_init.sv.name, count, int(maxclients.value))
+
+	net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, "info\n{}".format(string))
 """
-/*
 ================
 SVC_Ping
 
 Just responds with an acknowledgement
 ================
-*/
-void SVC_Ping (void)
-{
-	net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, "ack");
-}
 """
+def SVC_Ping ():
+
+	net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, "ack")
 """
-/*
 =================
 SVC_GetChallenge
 
@@ -236,41 +204,31 @@ We do this to prevent denial of service attacks that
 flood the server with invalid connection IPs.  With a
 challenge, they must give a valid IP address.
 =================
-*/
-void SVC_GetChallenge (void)
-{
-	int		i;
-	int		oldest;
-	int		oldestTime;
-
-	oldest = 0;
-	oldestTime = 0x7fffffff;
-
-	// see if we already have a challenge for this ip
-	for (i = 0 ; i < MAX_CHALLENGES ; i++)
-	{
-		if (net_udp.NET_CompareBaseAdr (net_chan.net_from, sv_init.svs.challenges[i].adr))
-			break;
-		if (sv_init.svs.challenges[i].time < oldestTime)
-		{
-			oldestTime = sv_init.svs.challenges[i].time;
-			oldest = i;
-		}
-	}
-
-	if (i == MAX_CHALLENGES)
-	{
-		// overwrite the oldest
-		sv_init.svs.challenges[oldest].challenge = rand() & 0x7fff;
-		sv_init.svs.challenges[oldest].adr = net_chan.net_from;
-		sv_init.svs.challenges[oldest].time = curtime;
-		i = oldest;
-	}
-
-	// send it back
-	net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, "challenge %i", sv_init.svs.challenges[i].challenge);
-}
 """
+def SVC_GetChallenge ():
+
+	oldest = 0
+	oldestTime = 0x7fffffff
+	i = None
+
+	# see if we already have a challenge for this ip
+	for k in range(sv_init.MAX_CHALLENGES):
+		if net_udp.NET_CompareBaseAdr (net_chan.net_from, sv_init.svs.challenges[k].adr):
+			i = k
+			break
+		if sv_init.svs.challenges[k].time < oldestTime:
+			oldestTime = sv_init.svs.challenges[k].time
+			oldest = k
+
+	if i is None:
+		# overwrite the oldest
+		sv_init.svs.challenges[oldest].challenge = random.randint(0, 0x7fff)
+		sv_init.svs.challenges[oldest].adr = net_chan.net_from
+		sv_init.svs.challenges[oldest].time = q_shlinux.curtime
+		i = oldest
+
+	# send it back
+	net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, "challenge {}".format(sv_init.svs.challenges[i].challenge))
 """
 /*
 ==================
@@ -332,23 +290,17 @@ def SVC_DirectConnect ():
 	if not net_udp.NET_IsLocalAddress (adr):
 		
 		pass
-		"""
-		for (i=0 ; i<MAX_CHALLENGES ; i++)
-		{
-			if (net_udp.NET_CompareBaseAdr (net_chan.net_from, sv_init.svs.challenges[i].adr))
-			{
-				if (challenge == sv_init.svs.challenges[i].challenge)
-					break;		// good
-				net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, adr, "print\nBad challenge.\n");
-				return;
-			}
-		}
-		if (i == MAX_CHALLENGES)
-		{
-			net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, adr, "print\nNo challenge for address.\n");
-			return;
-		}
-		"""
+		found = False
+		for i in range(sv_init.MAX_CHALLENGES):
+			if net_udp.NET_CompareBaseAdr (net_chan.net_from, sv_init.svs.challenges[i].adr):
+				found = True
+				if challenge == sv_init.svs.challenges[i].challenge:
+					break		# good
+				net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, adr, "print\nBad challenge.\n")
+				return
+		if not found:
+			net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, adr, "print\nNo challenge for address.\n")
+			return
 
 	newcl = sv_init.client_t()
 
@@ -429,62 +381,51 @@ def SVC_DirectConnect_NewClient(newcl, adr, qport, userinfo, challenge):
 	newcl.lastconnect = sv_init.svs.realtime
 
 """
-int Rcon_Validate (void)
-{
-	if (!strlen (rcon_password->string))
-		return 0;
+================
+Rcon_Validate
 
-	if (strcmp (Cmd_Argv(1), rcon_password->string) )
-		return 0;
-
-	return 1;
-}
-
-/*
-===============
-SVC_RemoteCommand
-
-A client issued an rcon command.
-Shift down the remaining args
-Redirect all printfs
-===============
+Returns true if the current net_from is allowed
+to issue remote commands.
+================
 """
+def Rcon_Validate (): #int
+
+	ri = rcon_password
+	if ri.value < 3:
+		return True
+	if ri.value == 3:
+		adr = net_udp.NET_AdrToString(net_chan.net_from)
+		if ri.string[0] == '*' and ri.string[1:].lower() == adr.lower():
+			return True
+		if ri.string[0] == '*':
+			return False
+
+	return ri.string.lower() == net_udp.NET_AdrToString(net_chan.net_from).lower()
 def SVC_RemoteCommand ():
 
-	"""
-	int		i;
-	char	remaining[1024];
+	#char		remaining[1024];
 
-	i = Rcon_Validate ();
+	i = Rcon_Validate ()
 
-	if (i == 0)
-		Com_Printf ("Bad rcon from %s:\n%s\n", net_udp.NET_AdrToString (net_chan.net_from), net_message.data+4);
-	else
-		Com_Printf ("Rcon from %s:\n%s\n", net_udp.NET_AdrToString (net_chan.net_from), net_message.data+4);
+	if i == 0:
+		common.Com_Printf ("Bad rcon from {}:\n{}\n".format(net_udp.NET_AdrToString (net_chan.net_from), net_chan.net_message.data[4:].decode('ascii')))
+	else:
+		common.Com_Printf ("Rcon from {}:\n{}\n".format(net_udp.NET_AdrToString (net_chan.net_from), net_chan.net_message.data[4:].decode('ascii')))
 
-	Com_BeginRedirect (RD_PACKET, sv_outputbuf, SV_OUTPUTBUF_LENGTH, SV_FlushRedirect);
+	common.Com_BeginRedirect (common.RD_PACKET, sv_send.sv_outputbuf, sv_send.SV_OUTPUTBUF_LENGTH, sv_send.SV_FlushRedirect)
 
-	if (!Rcon_Validate ())
-	{
-		Com_Printf ("Bad rcon_password.\n");
-	}
-	else
-	{
-		remaining[0] = 0;
+	if not Rcon_Validate ():
+		common.Com_Printf ("Bad rcon_password.\n")
+	else:
+		remaining = ""
+		for i in range(2, cmd.Cmd_Argc()):
+			remaining += cmd.Cmd_Argv(i) + " "
 
-		for (i=2 ; i<Cmd_Argc() ; i++)
-		{
-			strcat (remaining, Cmd_Argv(i) );
-			strcat (remaining, " ");
-		}
+		cmd.Cmd_ExecuteString (remaining)
 
-		Cmd_ExecuteString (remaining);
-	}
+	common.Com_EndRedirect ()
 
-	Com_EndRedirect ();
-}
-
-/*
+"""
 =================
 SV_ConnectionlessPacket
 
@@ -532,56 +473,27 @@ def SV_ConnectionlessPacket ():
 //============================================================================
 """
 """
-/*
-===================
+===============
 SV_CalcPings
 
-Updates the cl.ping variables
-===================
-*/
-void SV_CalcPings (void)
-{
-	int			i, j;
-	client_t	*cl;
-	int			total, count;
-
-	for (i=0 ; i<maxclients->value ; i++)
-	{
-		cl = &sv_init.svs.clients[i];
-		if (cl.state != sv_init.server_state_t.cs_spawned )
-			continue;
-
-#if 0
-		if (cl.lastframe > 0)
-			cl.frame_latency[sv_init.sv.framenum&(LATENCY_COUNTS-1)] = sv_init.sv.framenum - cl.lastframe + 1;
-		else
-			cl.frame_latency[sv_init.sv.framenum&(LATENCY_COUNTS-1)] = 0;
-#endif
-
-		total = 0;
-		count = 0;
-		for (j=0 ; j<LATENCY_COUNTS ; j++)
-		{
-			if (cl.frame_latency[j] > 0)
-			{
-				count++;
-				total += cl.frame_latency[j];
-			}
-		}
-		if (!count)
-			cl.ping = 0;
-		else
-#if 0
-			cl.ping = total*100/count - 100;
-#else
-			cl.ping = total / count;
-#endif
-
-		// let the game dll know about the ping
-		cl.edict->client->ping = cl.ping;
-	}
-}
+The pings reported are the average round-trip time over the last three packets
+===============
 """
+def SV_CalcPings ():
+
+	for i in range(int(maxclients.value)):
+		c = sv_init.svs.clients[i]
+		if c.state < sv_init.client_state_t.cs_connected:
+			continue
+		# ping time = (first_message_sent - last_message_received)
+		c.ping = sv_init.svs.realtime - c.lastmessage
+		for j in range(1, sv_init.LATENCY_COUNTS):
+			c.frame_latency[j-1] = c.frame_latency[j]
+		c.frame_latency[sv_init.LATENCY_COUNTS-1] = c.ping
+		t = c.frame_latency[0]
+		for j in range(1, sv_init.LATENCY_COUNTS):
+			t = min(t, c.frame_latency[j])
+		c.ping = (c.ping + t) // 2
 """
 /*
 ===================
@@ -594,29 +506,17 @@ for their command moves.  If they exceed it, assume cheating.
 def SV_GiveMsec ():
 
 	pass
-	"""
-	int			i;
-	client_t	*cl;
+	i = 0 #int
 
-	if (sv_init.sv.framenum & 15)
-		return;
+	if sv_init.sv.framenum & 15:
+		return
 
-	for (i=0 ; i<maxclients->value ; i++)
-	{
-		cl = &sv_init.svs.clients[i];
-		if (cl.state == sv_init.client_state_t.cs_free )
-			continue;
-		
-		cl.commandMsec = 1800;		// 1600 + some slop
-	}
-}
+	for i in range(int(maxclients.value)):
+		cl = sv_init.svs.clients[i]
+		if cl.state == sv_init.client_state_t.cs_free:
+			continue
 
-
-/*
-=================
-SV_ReadPackets
-=================
-"""
+		cl.commandMsec = 1800		# 1600 + some slop
 def SV_ReadPackets ():
 
 	#int			i;
@@ -692,68 +592,34 @@ if necessary
 def SV_CheckTimeouts ():
 
 	pass
-	"""
+	droppoint = sv_init.svs.realtime - 1000*timeout.value
+	zombiepoint = sv_init.svs.realtime - 1000*zombietime.value
 
-	int		i;
-	client_t	*cl;
-	int			droppoint;
-	int			zombiepoint;
+	for i in range(int(maxclients.value)):
+		cl = sv_init.svs.clients[i]
 
-	droppoint = sv_init.svs.realtime - 1000*timeout->value;
-	zombiepoint = sv_init.svs.realtime - 1000*zombietime->value;
+		# message times may be wrong across a changelevel
+		if cl.lastmessage > sv_init.svs.realtime:
+			cl.lastmessage = sv_init.svs.realtime
 
-	for (i=0,cl=sv_init.svs.clients ; i<maxclients->value ; i++,cl++)
-	{
-		// message times may be wrong across a changelevel
-		if (cl.lastmessage > sv_init.svs.realtime)
-			cl.lastmessage = sv_init.svs.realtime;
+		if cl.state == sv_init.client_state_t.cs_zombie and cl.lastmessage < zombiepoint:
+			cl.state = sv_init.client_state_t.cs_free	# can now be reused
+			continue
 
-		if (cl.state == sv_init.client_state_t.cs_zombie
-		&& cl.lastmessage < zombiepoint)
-		{
-			cl.state = sv_init.client_state_t.cs_free;	// can now be reused
-			continue;
-		}
-		if ( (cl.state == sv_init.client_state_t.cs_connected || cl.state == sv_init.server_state_t.cs_spawned) 
-			&& cl.lastmessage < droppoint)
-		{
-			SV_BroadcastPrintf (PRINT_HIGH, "%s timed out\n", cl.name);
-			SV_DropClient (cl); 
-			cl.state = sv_init.client_state_t.cs_free;	// don't bother with zombie state
-		}
-	}
-}
-
-/*
-================
-SV_PrepWorldFrame
-
-This has to be done before the world logic, because
-player processing happens outside RunWorldFrame
-================
-"""
+		if (cl.state == sv_init.client_state_t.cs_connected or cl.state == sv_init.client_state_t.cs_spawned) and cl.lastmessage < droppoint:
+			sv_send.SV_BroadcastPrintf (q_shared.PRINT_HIGH, "{} timed out\n".format(cl.name))
+			SV_DropClient (cl)
+			cl.state = sv_init.client_state_t.cs_free	# don't bother with zombie state
 def SV_PrepWorldFrame ():
 
 	pass
-	"""
-	edict_t	*ent;
-	int		i;
+	i = 0 #int
 
-	for (i=0 ; i<ge->num_edicts ; i++, ent++)
-	{
-		ent = EDICT_NUM(i);
-		// events only last for a single message
-		ent->s.event = 0;
-	}
+	for i in range(sv_game.ge.num_edicts):
+		ent = sv_init.EDICT_NUM(i)
 
-}
-
-
-/*
-=================
-SV_RunGameFrame
-=================
-"""
+		# events only last for a single message
+		ent.s.event = 0
 def SV_RunGameFrame ():
 	
 
@@ -849,49 +715,43 @@ def SV_Frame (msec): #int
 //============================================================================
 """
 """
-/*
 ================
 Master_Heartbeat
 
 Send a message to the master every few minutes to
 let it know we are alive, and log information
 ================
-*/
-#define	HEARTBEAT_SECONDS	300
-void Master_Heartbeat (void)
-{
-	char		*string;
-	int			i;
-
-	// pgm post3.19 change, cvar pointer not validated before dereferencing
-	if (!dedicated || !dedicated->value)
-		return;		// only dedicated servers send heartbeats
-
-	// pgm post3.19 change, cvar pointer not validated before dereferencing
-	if (!public_server || !public_server->value)
-		return;		// a private dedicated game
-
-	// check for time wraparound
-	if (sv_init.svs.last_heartbeat > sv_init.svs.realtime)
-		sv_init.svs.last_heartbeat = sv_init.svs.realtime;
-
-	if (sv_init.svs.realtime - sv_init.svs.last_heartbeat < HEARTBEAT_SECONDS*1000)
-		return;		// not time to send yet
-
-	sv_init.svs.last_heartbeat = sv_init.svs.realtime;
-
-	// send the same string that we would give for a status OOB command
-	string = SV_StatusString();
-
-	// send to group master
-	for (i=0 ; i<MAX_MASTERS ; i++)
-		if (master_adr[i].port)
-		{
-			Com_Printf ("Sending heartbeat to %s\n", net_udp.NET_AdrToString (master_adr[i]));
-			net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, master_adr[i], "heartbeat\n%s", string);
-		}
-}
 """
+HEARTBEAT_SECONDS = 300
+def Master_Heartbeat ():
+
+	string = None #char *
+
+	# pgm post3.19 change, cvar pointer not validated before dereferencing
+	if common.dedicated is None or not common.dedicated.value:
+		return		# only dedicated servers send heartbeats
+
+	# pgm post3.19 change, cvar pointer not validated before dereferencing
+	if public_server is None or not public_server.value:
+		return		# a private dedicated game
+
+	# check for time wraparound
+	if sv_init.svs.last_heartbeat > sv_init.svs.realtime:
+		sv_init.svs.last_heartbeat = sv_init.svs.realtime
+
+	if sv_init.svs.realtime - sv_init.svs.last_heartbeat < HEARTBEAT_SECONDS*1000:
+		return		# not time to send yet
+
+	sv_init.svs.last_heartbeat = sv_init.svs.realtime
+
+	# send the same string that we would give for a status OOB command
+	string = SV_StatusString()
+
+	# send to group master
+	for i in range(sv_init.MAX_MASTERS):
+		if master_adr[i].port:
+			common.Com_Printf ("Sending heartbeat to {}\n".format(net_udp.NET_AdrToString (master_adr[i])))
+			net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, master_adr[i], "heartbeat\n{}".format(string))
 """
 /*
 =================
@@ -936,52 +796,35 @@ into a more C freindly form.
 def SV_UserinfoChanged (cl): #client_t *
 
 	pass
-	"""
-	char	*val;
-	int		i;
+	# call prog code to allow overrides
+	sv_game.ge.ClientUserinfoChanged (cl.edict, cl.userinfo)
 
-	// call prog code to allow overrides
-	ge->ClientUserinfoChanged (cl.edict, cl.userinfo);
-	
-	// name for C code
-	strncpy (cl.name, q_shared.Info_ValueForKey (cl.userinfo, "name"), sizeof(cl.name)-1);
-	// mask off high bit
-	for (i=0 ; i<sizeof(cl.name) ; i++)
-		cl.name[i] &= 127;
+	# name for C code
+	cl.name = q_shared.Info_ValueForKey (cl.userinfo, "name")[:31]
+	# mask off high bit
+	cl.name = "".join(chr(ord(ch) & 127) for ch in cl.name)
 
-	// rate command
-	val = q_shared.Info_ValueForKey (cl.userinfo, "rate");
-	if (strlen(val))
-	{
-		i = atoi(val);
-		cl.rate = i;
-		if (cl.rate < 100)
-			cl.rate = 100;
-		if (cl.rate > 15000)
-			cl.rate = 15000;
-	}
-	else
-		cl.rate = 5000;
+	# rate command
+	val = q_shared.Info_ValueForKey (cl.userinfo, "rate")
+	if val:
+		try:
+			cl.rate = int(val)
+		except ValueError:
+			cl.rate = 0
+		if cl.rate < 100:
+			cl.rate = 100
+		if cl.rate > 15000:
+			cl.rate = 15000
+	else:
+		cl.rate = 5000
 
-	// msg command
-	val = q_shared.Info_ValueForKey (cl.userinfo, "msg");
-	if (strlen(val))
-	{
-		cl.messagelevel = atoi(val);
-	}
-
-}
-
-
-//============================================================================
-
-/*
-===============
-SV_Init
-
-Only called at quake2.exe startup, not for each game
-===============
-"""
+	# msg command
+	val = q_shared.Info_ValueForKey (cl.userinfo, "msg")
+	if val:
+		try:
+			cl.messagelevel = int(val)
+		except ValueError:
+			pass
 def SV_Init ():
 
 	global rcon_password, maxclients, hostname, timeout, zombietime
