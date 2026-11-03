@@ -381,7 +381,7 @@ def R_DrawCurrentEntity ():
 		elif currentmodel.type == gl_model_h.modtype_t.mod_sprite:
 			R_DrawSpriteModel (currententity)
 		else:
-			ri.Sys_Error (q_shared.ERR_DROP, "Bad modeltype")
+			ri.Sys_Error (q_shared.ERR_DROP, "Bad modeltype {} {}".format(currentmodel.name, currentmodel.type))
 		
 
 """

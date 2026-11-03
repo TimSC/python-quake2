@@ -322,6 +322,8 @@ def CL_PrepRefresh ():
 		cl_parse_mod.CL_ParseClientinfo (i)
 		common.Com_Printf ("                                     \r")
 
+	cl_parse_mod.CL_LoadClientinfo (cl_main.cl.baseclientinfo, "unnamed\\male/grunt")
+
 	# set sky textures and speed
 	common.Com_Printf ("sky\r")
 	cl_scrn.SCR_UpdateScreen ()

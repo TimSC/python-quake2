@@ -182,16 +182,16 @@ def Mod_ForName (name, crash)->gl_model_h.model_t: #char *, qboolean
 	
 	if name is None or len(name) == 0:
 		gl_rmain.ri.Sys_Error (q_shared.ERR_DROP, "Mod_ForName: NULL name");
-		
-		#
-		# inline models are grabbed only from worldmodel
-		#
-		if name[0] == '*':
-		
-			i = int(name[1:])
-			if i < 1 or gl_rmain.r_worldmodel is None or i >= gl_rmain.r_worldmodel.numsubmodels:
-				gl_rmain.ri.Sys_Error (q_shared.ERR_DROP, "bad inline model number")
-			return mod_inline[i]
+
+	#
+	# inline models are grabbed only from worldmodel
+	#
+	if name[0] == '*':
+
+		i = int(name[1:])
+		if i < 1 or gl_rmain.r_worldmodel is None or i >= gl_rmain.r_worldmodel.numsubmodels:
+			gl_rmain.ri.Sys_Error (q_shared.ERR_DROP, "bad inline model number")
+		return mod_inline[i]
 
 
 	#

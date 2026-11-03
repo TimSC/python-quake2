@@ -1208,13 +1208,475 @@ def CL_BlasterParticles (org, readdir): # vec3_t, vec3_t
 	}
 """
 
+"""
+===============
+CL_TeleporterParticles
+===============
+"""
+def CL_TeleporterParticles (ent): #entity_state_t *
+
+	#int			i, j;
+	#cparticle_t	*p;
+
+	for i in range(8):
+	
+		p = _alloc_particle()
+		if p is None:
+			return
+		active_particles.append(p)
+
+		p.time = cl_main.cl.time
+		p.color = 0xdb
+
+		for j in range(2):
+		
+			p.org[j] = ent.origin[j] - 16 + (random.getrandbits(15)&31)
+			p.vel[j] = common.crand()*14
+		
+		p.org[2] = ent.origin[2] - 8 + (random.getrandbits(15)&7)
+		p.vel[2] = 80 + (random.getrandbits(15)&7)
+
+		p.accel[0] = p.accel[1] = 0
+		p.accel[2] = -PARTICLE_GRAVITY
+		p.alpha = 1.0
+
+		p.alphavel = -0.5
+	
+
+"""
+===============
+CL_BlasterTrail
+
+===============
+"""
+def CL_BlasterTrail (start, end): #vec3_t, vec3_t
+
+	"""
+	vec3_t		move;
+	vec3_t		vec;
+	float		len;
+	int			j;
+	cparticle_t	*p;
+	int			dec;
+	"""
+	move = np.zeros((3,), dtype=np.float32)
+	vec = np.zeros((3,), dtype=np.float32)
+
+	q_shared.VectorCopy (start, move)
+	q_shared.VectorSubtract (end, start, vec)
+	length = q_shared.VectorNormalize (vec)
+
+	dec = 5
+	q_shared.VectorScale (vec, 5, vec)
+
+	# FIXME: this is a really silly way to have a loop
+	while length > 0:
+	
+		length -= dec
+
+		p = _alloc_particle()
+		if p is None:
+			return
+		active_particles.append(p)
+		q_shared.VectorClear (p.accel)
+		
+		p.time = cl_main.cl.time
+
+		p.alpha = 1.0
+		p.alphavel = -1.0 / (0.3+common.frand()*0.2)
+		p.color = 0xe0
+		for j in range(3):
+		
+			p.org[j] = move[j] + common.crand()
+			p.vel[j] = common.crand()*5
+			p.accel[j] = 0
+		
+		q_shared.VectorAdd (move, vec, move)
+	
+
+"""
+===============
+CL_DiminishingTrail
+
+===============
+"""
+def CL_DiminishingTrail (start, end, old, flags): #vec3_t, vec3_t, centity_t *, int
+
+	"""
+	vec3_t		move;
+	vec3_t		vec;
+	float		len;
+	int			j;
+	cparticle_t	*p;
+	float		dec;
+	float		orgscale;
+	float		velscale;
+	"""
+	move = np.zeros((3,), dtype=np.float32)
+	vec = np.zeros((3,), dtype=np.float32)
+
+	q_shared.VectorCopy (start, move)
+	q_shared.VectorSubtract (end, start, vec)
+	length = q_shared.VectorNormalize (vec)
+
+	dec = 0.5
+	q_shared.VectorScale (vec, dec, vec)
+
+	if old.trailcount > 900:
+	
+		orgscale = 4
+		velscale = 15
+	
+	elif old.trailcount > 800:
+	
+		orgscale = 2
+		velscale = 10
+	
+	else:
+	
+		orgscale = 1
+		velscale = 5
+	
+	while length > 0:
+	
+		length -= dec
+
+		if not free_particles:
+			return
+
+		# drop less particles as it flies
+		if (random.getrandbits(15)&1023) < old.trailcount:
+		
+			p = _alloc_particle()
+			active_particles.append(p)
+			q_shared.VectorClear (p.accel)
+		
+			p.time = cl_main.cl.time
+
+			if flags & q_shared.EF_GIB:
+			
+				p.alpha = 1.0
+				p.alphavel = -1.0 / (1+common.frand()*0.4)
+				p.color = 0xe8 + (random.getrandbits(15)&7)
+				for j in range(3):
+				
+					p.org[j] = move[j] + common.crand()*orgscale
+					p.vel[j] = common.crand()*velscale
+					p.accel[j] = 0
+				
+				p.vel[2] -= PARTICLE_GRAVITY
+			
+			elif flags & q_shared.EF_GREENGIB:
+			
+				p.alpha = 1.0
+				p.alphavel = -1.0 / (1+common.frand()*0.4)
+				p.color = 0xdb + (random.getrandbits(15)&7)
+				for j in range(3):
+				
+					p.org[j] = move[j] + common.crand()*orgscale
+					p.vel[j] = common.crand()*velscale
+					p.accel[j] = 0
+				
+				p.vel[2] -= PARTICLE_GRAVITY
+			
+			else:
+			
+				p.alpha = 1.0
+				p.alphavel = -1.0 / (1+common.frand()*0.2)
+				p.color = 4 + (random.getrandbits(15)&7)
+				for j in range(3):
+				
+					p.org[j] = move[j] + common.crand()*orgscale
+					p.vel[j] = common.crand()*velscale
+				
+				p.accel[2] = 20
+			
+		old.trailcount -= 5
+		if old.trailcount < 100:
+			old.trailcount = 100
+		q_shared.VectorAdd (move, vec, move)
+	
+
+def MakeNormalVectors (forward, right, up): #vec3_t, vec3_t, vec3_t
+
+	#float		d;
+
+	# this rotate and negat guarantees a vector
+	# not colinear with the original
+	right[1] = -forward[0]
+	right[2] = forward[1]
+	right[0] = forward[2]
+
+	d = q_shared.DotProduct (right, forward)
+	q_shared.VectorMA (right, -d, forward, right)
+	q_shared.VectorNormalize (right)
+	q_shared.CrossProduct (right, forward, up)
+
+
+"""
+===============
+CL_RocketTrail
+
+===============
+"""
+def CL_RocketTrail (start, end, old): #vec3_t, vec3_t, centity_t *
+
+	"""
+	vec3_t		move;
+	vec3_t		vec;
+	float		len;
+	int			j;
+	cparticle_t	*p;
+	float		dec;
+	"""
+	move = np.zeros((3,), dtype=np.float32)
+	vec = np.zeros((3,), dtype=np.float32)
+
+	# smoke
+	CL_DiminishingTrail (start, end, old, q_shared.EF_ROCKET)
+
+	# fire
+	q_shared.VectorCopy (start, move)
+	q_shared.VectorSubtract (end, start, vec)
+	length = q_shared.VectorNormalize (vec)
+
+	dec = 1
+	q_shared.VectorScale (vec, dec, vec)
+
+	while length > 0:
+	
+		length -= dec
+
+		if not free_particles:
+			return
+
+		if (random.getrandbits(15)&7) == 0:
+		
+			p = _alloc_particle()
+			active_particles.append(p)
+			
+			q_shared.VectorClear (p.accel)
+			p.time = cl_main.cl.time
+
+			p.alpha = 1.0
+			p.alphavel = -1.0 / (1+common.frand()*0.2)
+			p.color = 0xdc + (random.getrandbits(15)&3)
+			for j in range(3):
+			
+				p.org[j] = move[j] + common.crand()*5
+				p.vel[j] = common.crand()*20
+			
+			p.accel[2] = -PARTICLE_GRAVITY
+		
+		q_shared.VectorAdd (move, vec, move)
+	
+
+"""
+===============
+CL_RailTrail
+
+===============
+"""
+def CL_RailTrail (start, end): #vec3_t, vec3_t
+
+	"""
+	vec3_t		move;
+	vec3_t		vec;
+	float		len;
+	int			j;
+	cparticle_t	*p;
+	float		dec;
+	vec3_t		right, up;
+	int			i;
+	float		d, c, s;
+	vec3_t		dir;
+	byte		clr = 0x74;
+	"""
+	move = np.zeros((3,), dtype=np.float32)
+	vec = np.zeros((3,), dtype=np.float32)
+	right = np.zeros((3,), dtype=np.float32)
+	up = np.zeros((3,), dtype=np.float32)
+	dir = np.zeros((3,), dtype=np.float32)
+	clr = 0x74
+
+	q_shared.VectorCopy (start, move)
+	q_shared.VectorSubtract (end, start, vec)
+	length = q_shared.VectorNormalize (vec)
+
+	MakeNormalVectors (vec, right, up)
+
+	i = 0
+	while i < length:
+	
+		p = _alloc_particle()
+		if p is None:
+			return
+		active_particles.append(p)
+		
+		p.time = cl_main.cl.time
+		q_shared.VectorClear (p.accel)
+
+		d = i * 0.1
+		c = math.cos(d)
+		s = math.sin(d)
+
+		q_shared.VectorScale (right, c, dir)
+		q_shared.VectorMA (dir, s, up, dir)
+
+		p.alpha = 1.0
+		p.alphavel = -1.0 / (1+common.frand()*0.2)
+		p.color = clr + (random.getrandbits(15)&7)
+		for j in range(3):
+		
+			p.org[j] = move[j] + dir[j]*3
+			p.vel[j] = dir[j]*6
+		
+		q_shared.VectorAdd (move, vec, move)
+		i += 1
+	
+	dec = 0.75
+	q_shared.VectorScale (vec, dec, vec)
+	q_shared.VectorCopy (start, move)
+
+	while length > 0:
+	
+		length -= dec
+
+		p = _alloc_particle()
+		if p is None:
+			return
+		active_particles.append(p)
+
+		p.time = cl_main.cl.time
+		q_shared.VectorClear (p.accel)
+
+		p.alpha = 1.0
+		p.alphavel = -1.0 / (0.6+common.frand()*0.2)
+		p.color = (0x0 + random.getrandbits(15))&15 # 0x0 + rand()&15
+
+		for j in range(3):
+		
+			p.org[j] = move[j] + common.crand()*3
+			p.vel[j] = common.crand()*3
+			p.accel[j] = 0
+		
+		q_shared.VectorAdd (move, vec, move)
+	
+
 # RAFAEL
-def CL_IonripperTrail(start, end):
-	_trail_particles(start, end, 0xE0, 5.0)
+"""
+===============
+CL_IonripperTrail
+===============
+"""
+def CL_IonripperTrail (start, ent): #vec3_t, vec3_t
 
+	"""
+	vec3_t	move;
+	vec3_t	vec;
+	float	len;
+	int		j;
+	cparticle_t *p;
+	int		dec;
+	int     left = 0;
+	"""
+	move = np.zeros((3,), dtype=np.float32)
+	vec = np.zeros((3,), dtype=np.float32)
+	left = 0
 
-def CL_BubbleTrail(start, end):
-	_trail_particles(start, end, 0xFF, 8.0)
+	q_shared.VectorCopy (start, move)
+	q_shared.VectorSubtract (ent, start, vec)
+	length = q_shared.VectorNormalize (vec)
+
+	dec = 5
+	q_shared.VectorScale (vec, 5, vec)
+
+	while length > 0:
+	
+		length -= dec
+
+		p = _alloc_particle()
+		if p is None:
+			return
+		active_particles.append(p)
+		q_shared.VectorClear (p.accel)
+
+		p.time = cl_main.cl.time
+		p.alpha = 0.5
+		p.alphavel = -1.0 / (0.3 + common.frand() * 0.2)
+		p.color = 0xe4 + (random.getrandbits(15)&3)
+
+		for j in range(3):
+		
+			p.org[j] = move[j]
+			p.accel[j] = 0
+		
+		if left:
+		
+			left = 0
+			p.vel[0] = 10
+		
+		else:
+		
+			left = 1
+			p.vel[0] = -10
+		
+		p.vel[1] = 0
+		p.vel[2] = 0
+
+		q_shared.VectorAdd (move, vec, move)
+	
+
+"""
+===============
+CL_BubbleTrail
+
+===============
+"""
+def CL_BubbleTrail (start, end): #vec3_t, vec3_t
+
+	"""
+	vec3_t		move;
+	vec3_t		vec;
+	float		len;
+	int			i, j;
+	cparticle_t	*p;
+	float		dec;
+	"""
+	move = np.zeros((3,), dtype=np.float32)
+	vec = np.zeros((3,), dtype=np.float32)
+
+	q_shared.VectorCopy (start, move)
+	q_shared.VectorSubtract (end, start, vec)
+	length = q_shared.VectorNormalize (vec)
+
+	dec = 32
+	q_shared.VectorScale (vec, dec, vec)
+
+	i = 0
+	while i < length:
+	
+		p = _alloc_particle()
+		if p is None:
+			return
+		active_particles.append(p)
+
+		q_shared.VectorClear (p.accel)
+		p.time = cl_main.cl.time
+
+		p.alpha = 1.0
+		p.alphavel = -1.0 / (1+common.frand()*0.2)
+		p.color = 4 + (random.getrandbits(15)&7)
+		for j in range(3):
+		
+			p.org[j] = move[j] + common.crand()*2
+			p.vel[j] = common.crand()*5
+		
+		p.vel[2] += 6
+
+		q_shared.VectorAdd (move, vec, move)
+		i += dec
+	
 
 
 """
@@ -1314,12 +1776,176 @@ def CL_FlyEffect (ent, origin): #centity_t *, vec3_t
 	CL_FlyParticles (origin, count)
 
 
-def CL_BfgParticles(ent):
-	_trail_particles(ent.origin, ent.origin, 0xD0, 1.0)
+"""
+===============
+CL_BfgParticles
+===============
+"""
+def CL_BfgParticles (ent): #entity_t *
+
+	"""
+	int			i;
+	cparticle_t	*p;
+	float		angle;
+	float		sr, sp, sy, cr, cp, cy;
+	vec3_t		forward;
+	float		dist = 64;
+	vec3_t		v;
+	float		ltime;
+	"""
+	forward = np.zeros((3,), dtype=np.float32)
+	v = np.zeros((3,), dtype=np.float32)
+	
+	if not avelocities[0][0]:
+	
+		for i in range(qcommon.NUMVERTEXNORMALS*3):
+			avelocities.flat[i] = (random.getrandbits(15)&255) * 0.01
+	
+	ltime = float(cl_main.cl.time) / 1000.0
+	for i in range(qcommon.NUMVERTEXNORMALS):
+	
+		angle = ltime * avelocities[i][0]
+		sy = math.sin(angle)
+		cy = math.cos(angle)
+		angle = ltime * avelocities[i][1]
+		sp = math.sin(angle)
+		cp = math.cos(angle)
+		angle = ltime * avelocities[i][2]
+		sr = math.sin(angle)
+		cr = math.cos(angle)
+	
+		forward[0] = cp*cy
+		forward[1] = cp*sy
+		forward[2] = -sp
+
+		p = _alloc_particle()
+		if p is None:
+			return
+		active_particles.append(p)
+
+		p.time = cl_main.cl.time
+
+		dist = math.sin(ltime + i)*64
+		p.org[0] = ent.origin[0] + common.bytedirs[i][0]*dist + forward[0]*BEAMLENGTH
+		p.org[1] = ent.origin[1] + common.bytedirs[i][1]*dist + forward[1]*BEAMLENGTH
+		p.org[2] = ent.origin[2] + common.bytedirs[i][2]*dist + forward[2]*BEAMLENGTH
+
+		q_shared.VectorClear (p.vel)
+		q_shared.VectorClear (p.accel)
+
+		q_shared.VectorSubtract (p.org, ent.origin, v)
+		dist = q_shared.VectorLength(v) / 90.0
+		p.color = math.floor (0xd0 + dist * 7)
+		p.colorvel = 0
+
+		p.alpha = 1.0 - dist
+		p.alphavel = -100
+	
 
 
-def CL_TrapParticles(ent):
-	_trail_particles(ent.origin, ent.origin, 0xE0, 1.0)
+"""
+===============
+CL_TrapParticles
+===============
+"""
+# RAFAEL
+def CL_TrapParticles (ent): #entity_t *
+
+	"""
+	vec3_t		move;
+	vec3_t		vec;
+	vec3_t		start, end;
+	float		len;
+	int			j;
+	cparticle_t	*p;
+	int			dec;
+	"""
+	move = np.zeros((3,), dtype=np.float32)
+	vec = np.zeros((3,), dtype=np.float32)
+	start = np.zeros((3,), dtype=np.float32)
+	end = np.zeros((3,), dtype=np.float32)
+
+	ent.origin[2]-=14
+	q_shared.VectorCopy (ent.origin, start)
+	q_shared.VectorCopy (ent.origin, end)
+	end[2]+=64
+
+	q_shared.VectorCopy (start, move)
+	q_shared.VectorSubtract (end, start, vec)
+	length = q_shared.VectorNormalize (vec)
+
+	dec = 5
+	q_shared.VectorScale (vec, 5, vec)
+
+	# FIXME: this is a really silly way to have a loop
+	while length > 0:
+	
+		length -= dec
+
+		p = _alloc_particle()
+		if p is None:
+			return
+		active_particles.append(p)
+		q_shared.VectorClear (p.accel)
+		
+		p.time = cl_main.cl.time
+
+		p.alpha = 1.0
+		p.alphavel = -1.0 / (0.3+common.frand()*0.2)
+		p.color = 0xe0
+		for j in range(3):
+		
+			p.org[j] = move[j] + common.crand()
+			p.vel[j] = common.crand()*15
+			p.accel[j] = 0
+		
+		p.accel[2] = PARTICLE_GRAVITY
+
+		q_shared.VectorAdd (move, vec, move)
+	
+	"""
+	int			i, j, k;
+	cparticle_t	*p;
+	float		vel;
+	vec3_t		dir;
+	vec3_t		org;
+	"""
+	dir = np.zeros((3,), dtype=np.float32)
+	org = np.zeros((3,), dtype=np.float32)
+
+	ent.origin[2]+=14
+	q_shared.VectorCopy (ent.origin, org)
+
+	for i in range(-2, 3, 4):
+		for j in range(-2, 3, 4):
+			for k in range(-2, 5, 4):
+			
+				p = _alloc_particle()
+				if p is None:
+					return
+				active_particles.append(p)
+
+				p.time = cl_main.cl.time
+				p.color = 0xe0 + (random.getrandbits(15)&3)
+
+				p.alpha = 1.0
+				p.alphavel = -1.0 / (0.3 + (random.getrandbits(15)&7) * 0.02)
+				
+				p.org[0] = org[0] + i + ((random.getrandbits(15)&23) * common.crand())
+				p.org[1] = org[1] + j + ((random.getrandbits(15)&23) * common.crand())
+				p.org[2] = org[2] + k + ((random.getrandbits(15)&23) * common.crand())
+	
+				dir[0] = j * 8
+				dir[1] = i * 8
+				dir[2] = k * 8
+	
+				q_shared.VectorNormalize (dir)
+				vel = (50 + random.getrandbits(15))&63 # 50 + rand()&63
+				q_shared.VectorScale (dir, vel, p.vel)
+
+				p.accel[0] = p.accel[1] = 0
+				p.accel[2] = -PARTICLE_GRAVITY
+			
 
 def CL_AddParticles ():
 	active = []

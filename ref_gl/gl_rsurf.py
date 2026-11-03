@@ -374,7 +374,36 @@ def GL_BeginBuildingLightmaps(m):
         gl_rmain.gl_state.lightmap_textures = gl_image.TEXNUM_LIGHTMAPS
 
     gl_lms.current_lightmap_texture = 1
-    gl_lms.internal_format = gl_image.gl_tex_solid_format
+
+    # if mono lightmaps are enabled and we want to use alpha
+    # blending (a,1-a) then we're likely running on a 3DLabs
+    # Permedia2, which needs alpha lightmaps stored in GL_RGBA format.
+    mode = gl_rmain.gl_monolightmap.string[0].upper()
+    if mode == 'A':
+        gl_lms.internal_format = gl_image.gl_tex_alpha_format
+    # try to do hacked colored lighting with a blended texture
+    elif mode == 'C':
+        gl_lms.internal_format = gl_image.gl_tex_alpha_format
+    elif mode == 'I':
+        gl_lms.internal_format = GL.GL_INTENSITY8
+    elif mode == 'L':
+        gl_lms.internal_format = GL.GL_LUMINANCE8
+    else:
+        gl_lms.internal_format = gl_image.gl_tex_solid_format
+
+    # initialize the dynamic lightmap texture
+    dummy = bytes(4 * BLOCK_WIDTH * BLOCK_HEIGHT) # unsigned dummy[128*128]
+    gl_image.GL_Bind(gl_rmain.gl_state.lightmap_textures + 0)
+    GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
+    GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+    GL.glTexImage2D(GL.GL_TEXTURE_2D,
+                    0,
+                    gl_lms.internal_format,
+                    BLOCK_WIDTH, BLOCK_HEIGHT,
+                    0,
+                    GL_LIGHTMAP_FORMAT,
+                    GL.GL_UNSIGNED_BYTE,
+                    dummy)
 
 
 def GL_EndBuildingLightmaps():

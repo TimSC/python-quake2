@@ -927,7 +927,7 @@ def CL_AddPacketEntities (frame):
 
 		if (effects & ~q_shared.EF_ROTATE):
 			if effects & q_shared.EF_ROCKET and hasattr(cl_fx, "CL_RocketTrail"):
-				cl_fx.CL_RocketTrail(cent.lerp_origin, ent.origin)
+				cl_fx.CL_RocketTrail(cent.lerp_origin, ent.origin, cent)
 				cl_view.V_AddLight(ent.origin, 200, 1, 1, 0)
 			elif effects & q_shared.EF_BLASTER and hasattr(cl_fx, "CL_BlasterTrail"):
 				cl_fx.CL_BlasterTrail(cent.lerp_origin, ent.origin)

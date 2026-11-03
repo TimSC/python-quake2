@@ -512,6 +512,10 @@ class dmodel_t(object):
 
 		self.headnode = q_shared.LittleSLong (buff[c:c+4])
 		c += 4
+		self.firstface = q_shared.LittleSLong (buff[c:c+4])
+		c += 4
+		self.numfaces = q_shared.LittleSLong (buff[c:c+4])
+		c += 4
 
 
 class dvertex_t(object):

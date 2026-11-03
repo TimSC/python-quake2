@@ -215,7 +215,7 @@ class client_state_t(object):
 		#
 		self.model_draw = [] #struct model_s	*[MAX_MODELS];
 		for i in range(q_shared.MAX_MODELS):
-			self.model_draw.append(gl_model_h.model_t())
+			self.model_draw.append(None) # NULL until registered, index 0 is always no model
 		self.model_clip = [] #struct cmodel_s	*model_clip[MAX_MODELS];
 		for i in range(q_shared.MAX_MODELS):
 			self.model_clip.append(q_shared.cmodel_t())

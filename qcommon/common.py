@@ -1568,13 +1568,14 @@ void Key_Init (void);
 void SCR_EndLoadingPlaque (void);
 
 """
-"""
 
-def frand():
+def frand(): # 0 to 1
 	return random.random()
 
-def crand():
+def crand(): # -1 to 1
 	return random.random() * 2.0 - 1.0
+
+"""
 =============
 Com_Error_f
 
