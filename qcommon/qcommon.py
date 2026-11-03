@@ -554,6 +554,15 @@ class netadr_t(object):
 
 		self.port = 0 #unsigned short, network byte order as in C
 
+	def copy(self):
+		# struct assignment, C copies netadr_t by value
+		out = netadr_t()
+		out.type = self.type
+		out.ip = self.ip
+		out.ipx = self.ipx
+		out.port = self.port
+		return out
+
 """
 void		NET_Init (void);
 void		NET_Shutdown (void);

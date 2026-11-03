@@ -314,7 +314,7 @@ def SV_ShutdownGameProgs ():
 	if ge is None:
 		return
 	ge.Shutdown ()
-	Sys_UnloadGame ()
+	sys_linux.Sys_UnloadGame ()
 	ge = None
 
 """

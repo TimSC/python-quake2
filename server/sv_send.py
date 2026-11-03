@@ -497,24 +497,24 @@ def SV_SendClientMessages ():
 			msglen = 0
 		else:
 			# get the next message
-			try:
-				msglen = sv_init.sv.demofile.read(4)
-			except:
+			data = sv_init.sv.demofile.read(4)
+			r = 1 if len(data) == 4 else 0 # r = fread (&msglen, 4, 1, sv.demofile);
+			if r != 1:
+			
 				SV_DemoCompleted ()
 				return
 			
-			msglen = q_shared.LittleSLong (msglen)
+			msglen = q_shared.LittleSLong (data)
 			if msglen == -1:
 			
 				SV_DemoCompleted ()
 				return
 			
 			if msglen > qcommon.MAX_MSGLEN:
-				common.Com_Error (q_shared.ERR_DROP, "SV_SendClientMessages: msglen > MAX_MSGLEN");
-
-			try:			
-				msgbuf = sv_init.sv.demofile.read(msglen)
-			except:
+				common.Com_Error (q_shared.ERR_DROP, "SV_SendClientMessages: msglen > MAX_MSGLEN")
+			msgbuf = sv_init.sv.demofile.read(msglen)
+			r = 1 if len(msgbuf) == msglen else 0 # r = fread (msgbuf, msglen, 1, sv.demofile);
+			if r != 1:
 			
 				SV_DemoCompleted ()
 				return

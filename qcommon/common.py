@@ -47,8 +47,12 @@ for i in range(MAX_NUM_ARGVS+1):
 
 """
 int		realtime;
+"""
 
-jmp_buf abortframe;		// an ERR_DROP occured, exit the entire frame
+class abortframe(Exception):	# jmp_buf abortframe, an ERR_DROP occured, exit the entire frame
+	pass				# longjmp (abortframe, -1) raises it, the setjmp in Qcommon_Frame catches it
+
+"""
 
 
 FILE	*log_stats_file;
@@ -197,48 +201,53 @@ Both client and server can use this, and it will
 do the apropriate things.
 =============
 """
-def Com_Error (code, msg):
+com_error_msg = "" #static char [MAXPRINTMSG], in Com_Error
+com_error_recursive = False #static qboolean, in Com_Error
+
+def Com_Error (code, msg): #int, char *
+
+	global com_error_msg, com_error_recursive
 
 	"""
 	va_list		argptr;
 	static char		msg[MAXPRINTMSG];
 	static	qboolean	recursive;
+	"""
 
-	if (recursive)
-		Sys_Error ("recursive error after: %s", msg);
-	recursive = true;
+	if com_error_recursive:
+		sys_linux.Sys_Error ("recursive error after: {}".format(com_error_msg))
+	com_error_recursive = True
 
-	va_start (argptr,fmt);
-	vsprintf (msg,fmt,argptr);
-	va_end (argptr);
+	com_error_msg = msg # va_start (argptr,fmt); vsprintf (msg,fmt,argptr); va_end (argptr);
 	
-	if (code == ERR_DISCONNECT)
-	{
-		CL_Drop ();
-		recursive = false;
-		longjmp (abortframe, -1);
-	}
-	else if (code == ERR_DROP)
-	{
-		Com_Printf ("********************\nERROR: %s\n********************\n", msg);
-		SV_Shutdown (va("Server crashed: %s\n", msg), false);
-		CL_Drop ();
-		recursive = false;
-		longjmp (abortframe, -1);
-	}
-	else
-	{
-		SV_Shutdown (va("Server fatal crashed: %s\n", msg), false);
-		CL_Shutdown ();
-	}
-
+	if code == q_shared.ERR_DISCONNECT:
+	
+		cl_main.CL_Drop ()
+		com_error_recursive = False
+		raise abortframe () # longjmp (abortframe, -1);
+	
+	elif code == q_shared.ERR_DROP:
+	
+		Com_Printf ("********************\nERROR: {}\n********************\n".format(msg))
+		sv_main.SV_Shutdown ("Server crashed: {}\n".format(msg), False)
+		cl_main.CL_Drop ()
+		com_error_recursive = False
+		raise abortframe () # longjmp (abortframe, -1);
+	
+	else:
+	
+		sv_main.SV_Shutdown ("Server fatal crashed: {}\n".format(msg), False)
+		cl_main.CL_Shutdown ()
+	
+	"""
 	if (logfile)
 	{
 		fclose (logfile);
 		logfile = NULL;
 	}
 	"""
-	sys_linux.Sys_Error (msg);
+
+	sys_linux.Sys_Error ("{}".format(msg))
 	
 
 """
@@ -1729,44 +1738,47 @@ def Qcommon_Frame (msec): #int
 		c_pointcontents = 0;
 	}
 """
-	firstLoop = True
-	s = None
-	while firstLoop or s is not None:
-		firstLoop = False
-		s = sys_linux.Sys_ConsoleInput ()
-		if s is not None:
-			cmd.Cbuf_AddText ("{}\n".format(s))
+	try: # if (setjmp (abortframe) ) return;, an ERR_DROP was thrown
+		firstLoop = True
+		s = None
+		while firstLoop or s is not None:
+			firstLoop = False
+			s = sys_linux.Sys_ConsoleInput ()
+			if s is not None:
+				cmd.Cbuf_AddText ("{}\n".format(s))
 	
-	cmd.Cbuf_Execute ()
+		cmd.Cbuf_Execute ()
 	
 
 
-	if host_speeds.value:
-		time_before = q_shlinux.Sys_Milliseconds ()
+		if host_speeds.value:
+			time_before = q_shlinux.Sys_Milliseconds ()
 	
-	sv_main.SV_Frame (msec)
+		sv_main.SV_Frame (msec)
 	
-	if host_speeds.value:
-		time_between = q_shlinux.Sys_Milliseconds ()
+		if host_speeds.value:
+			time_between = q_shlinux.Sys_Milliseconds ()
 	
-	cl_main.CL_Frame (msec)
+		cl_main.CL_Frame (msec)
 	
-	if host_speeds.value:
-		time_after = q_shlinux.Sys_Milliseconds ()
+		if host_speeds.value:
+			time_after = q_shlinux.Sys_Milliseconds ()
 
-	if host_speeds.value:
+		if host_speeds.value:
 	
-		#int			all, sv, gm, cl, rf;
+			#int			all, sv, gm, cl, rf;
 
-		allt = time_after - time_before
-		sv = time_between - time_before
-		cl = time_after - time_between
-		gm = time_after_game - time_before_game
-		rf = time_after_ref - time_before_ref
-		sv -= gm
-		cl -= rf
-		Com_Printf ("all:{: 3d} sv:{: 3d} gm:{: 3d} cl:{: 3d} rf:{: 3d}\n".format(
-			allt, sv, gm, cl, rf))
+			allt = time_after - time_before
+			sv = time_between - time_before
+			cl = time_after - time_between
+			gm = time_after_game - time_before_game
+			rf = time_after_ref - time_before_ref
+			sv -= gm
+			cl -= rf
+			Com_Printf ("all:{: 3d} sv:{: 3d} gm:{: 3d} cl:{: 3d} rf:{: 3d}\n".format(
+				allt, sv, gm, cl, rf))
+	except abortframe:
+		return
 
 """
 =================

@@ -82,7 +82,7 @@ showpackets = None #cvar_t		*
 showdrop = None #cvar_t		*
 qport = None #cvar_t		*
 
-net_from = None #netadr_t
+net_from = qcommon.netadr_t() #netadr_t
 net_message = qcommon.sizebuf_t()
 net_message.maxsize = qcommon.MAX_MSGLEN
 """

@@ -30,7 +30,7 @@ from linux import net_udp
 #include "server.h"
 
 """
-#define	MAX_MASTERS	8				// max recipients for heartbeat packets
+MAX_MASTERS	= 8				# max recipients for heartbeat packets
 
 class server_state_t(Enum):
 	ss_dead = 0			# no map loaded
@@ -179,6 +179,10 @@ typedef struct
 class server_static_t(object):
 
 	def __init__(self):
+
+		self.clear()
+
+	def clear(self): # memset (&svs, 0, sizeof(svs))
 
 		self.initialized = False # qboolean, sv_init has completed
 		self.realtime = 0 # int, always increasing, no clamping, etc
@@ -367,7 +371,7 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 	svs.spawncount+=1		# any partially connected client will be
 							# restarted
 	sv.state = server_state_t.ss_dead
-	common.Com_SetServerState (sv.state)
+	common.Com_SetServerState (sv.state.value)
 
 	# wipe the entire per-level structure
 	#memset (&sv, 0, sizeof(sv));
@@ -437,7 +441,7 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 	# precache and static commands can be issued during
 	# map initialization
 	sv.state = server_state_t.ss_loading
-	common.Com_SetServerState (sv.state)
+	common.Com_SetServerState (sv.state.value)
 	"""
 	# load and spawn all other entities
 	ge->SpawnEntities ( sv.name, CM_EntityString(), spawnpoint )
@@ -448,7 +452,7 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 	"""
 	# all precaches are complete
 	sv.state = serverstate
-	common.Com_SetServerState (sv.state)
+	common.Com_SetServerState (sv.state.value)
 	
 	# create a baseline for more efficient communications
 	SV_CreateBaseline ()

@@ -18,7 +18,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
 from qcommon import cmd, common, files
-from server import sv_init
+from server import sv_init, sv_main
+from linux import net_udp
 """
 #include "server.h"
 
@@ -993,12 +994,11 @@ Kick everyone off, possibly in preparation for a new game
 """
 def SV_KillServer_f ():
 
-	pass
+	if not sv_init.svs.initialized:
+		return
+	sv_main.SV_Shutdown ("Server was killed.\n", False)
+	net_udp.NET_Config ( False )	# close network sockets
 	"""
-	if (!svs.initialized)
-		return;
-	SV_Shutdown ("Server was killed.\n", false);
-	NET_Config ( false );	// close network sockets
 
 /*
 ===============

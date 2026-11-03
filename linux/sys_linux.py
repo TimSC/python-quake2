@@ -210,21 +210,23 @@ def Sys_ConsoleInput():
 """
 
 /*****************************************************************************/
+"""
+game_library = None #static void *, the game is a python module so nothing is opened with dlopen
 
-static void *game_library;
-
-/*
+"""
 =================
 Sys_UnloadGame
 =================
-*/
-void Sys_UnloadGame (void)
-{
-	if (game_library) 
-		dlclose (game_library);
-	game_library = NULL;
-}
+"""
+def Sys_UnloadGame ():
 
+	global game_library
+
+	if game_library is not None:
+		pass # dlclose (game_library);
+	game_library = None
+
+"""
 /*
 =================
 Sys_GetGameAPI

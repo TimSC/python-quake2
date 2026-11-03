@@ -910,7 +910,7 @@ when they overflow
 def CL_DumpPackets ():
 
 	while True:
-		rx, net_chan.net_from, net_chan.net_message = net_udp.NET_GetPacket (qcommon.netsrc_t.NS_CLIENT)
+		rx, net_chan.net_from = net_udp.NET_GetPacket (qcommon.netsrc_t.NS_CLIENT, net_chan.net_from, net_chan.net_message)
 		if not rx:
 			break
 	
@@ -924,7 +924,7 @@ CL_ReadPackets
 """
 def CL_ReadPackets ():
 
-	rx, net_chan.net_from, net_chan.net_message = net_udp.NET_GetPacket (qcommon.netsrc_t.NS_CLIENT)
+	rx, net_chan.net_from = net_udp.NET_GetPacket (qcommon.netsrc_t.NS_CLIENT, net_chan.net_from, net_chan.net_message)
 
 	while rx:
 		try:
@@ -962,7 +962,7 @@ def CL_ReadPackets ():
 			cl_parse.CL_ParseServerMessage ()
 
 		finally:
-			rx, net_chan.net_from, net_chan.net_message = net_udp.NET_GetPacket (qcommon.netsrc_t.NS_CLIENT)
+			rx, net_chan.net_from = net_udp.NET_GetPacket (qcommon.netsrc_t.NS_CLIENT, net_chan.net_from, net_chan.net_message)
 
 	#
 	# check timeout

@@ -192,7 +192,7 @@ def Cvar_Set2 (var_name, value, force): #char *, char *, qboolean (returns cvar_
 					return var
 			
 
-			if Com_ServerState():
+			if common.Com_ServerState():
 			
 				common.Com_Printf ("{} will be changed for next game.\n".format(var_name))
 				var.latched_string = value

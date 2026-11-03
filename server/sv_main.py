@@ -25,9 +25,11 @@ from game import q_shared, game
 from linux import net_udp
 """
 #include "server.h"
-
-netadr_t	master_adr[MAX_MASTERS];	// address of group servers
 """
+master_adr = [] #netadr_t	[MAX_MASTERS], address of group servers
+for i in range(sv_init.MAX_MASTERS):
+	master_adr.append(qcommon.netadr_t())
+
 sv_client = None #client_t	*, current client
 
 sv_paused = None # cvar_t	*
@@ -616,7 +618,7 @@ def SV_ReadPackets ():
 	#client_t	*cl;
 	#int			qport;
 
-	rx, net_chan.net_from, net_chan.net_message = net_udp.NET_GetPacket (qcommon.netsrc_t.NS_SERVER)
+	rx, net_chan.net_from = net_udp.NET_GetPacket (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, net_chan.net_message)
 
 	while rx:
 		try:
@@ -667,7 +669,7 @@ def SV_ReadPackets ():
 				continue
 
 		finally:
-			rx, net_chan.net_from, net_chan.net_message = net_udp.NET_GetPacket (qcommon.netsrc_t.NS_SERVER)
+			rx, net_chan.net_from = net_udp.NET_GetPacket (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, net_chan.net_message)
 
 """
 ==================
@@ -891,28 +893,28 @@ Master_Shutdown
 
 Informs all masters that this server is going down
 =================
-*/
-void Master_Shutdown (void)
-{
-	int			i;
+"""
+def Master_Shutdown ():
 
-	// pgm post3.19 change, cvar pointer not validated before dereferencing
-	if (!dedicated || !dedicated->value)
-		return;		// only dedicated servers send heartbeats
+	#int			i;
 
-	// pgm post3.19 change, cvar pointer not validated before dereferencing
-	if (!public_server || !public_server->value)
-		return;		// a private dedicated game
+	# pgm post3.19 change, cvar pointer not validated before dereferencing
+	if common.dedicated is None or not common.dedicated.value:
+		return		# only dedicated servers send heartbeats
 
-	// send to group master
-	for (i=0 ; i<MAX_MASTERS ; i++)
-		if (master_adr[i].port)
-		{
-			if (i > 0)
-				Com_Printf ("Sending heartbeat to %s\n", net_udp.NET_AdrToString (master_adr[i]));
-			net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, master_adr[i], "shutdown");
-		}
-}
+	# pgm post3.19 change, cvar pointer not validated before dereferencing
+	if public_server is None or not public_server.value:
+		return		# a private dedicated game
+
+	# send to group master
+	for i in range(sv_init.MAX_MASTERS):
+		if master_adr[i].port:
+		
+			if i > 0:
+				common.Com_Printf ("Sending heartbeat to {}\n".format(net_udp.NET_AdrToString (master_adr[i])))
+			net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, master_adr[i], b"shutdown")
+		
+"""
 
 //============================================================================
 
@@ -1026,38 +1028,38 @@ not just stuck on the outgoing message list, because the server is going
 to totally exit after returning from this function.
 ==================
 */
-void SV_FinalMessage (char *message, qboolean reconnect)
-{
-	int			i;
-	client_t	*cl;
+"""
+def SV_FinalMessage (message, reconnect): #char *, qboolean
+
+	#int			i;
+	#client_t	*cl;
 	
-	SZ_Clear (&net_message);
-	MSG_WriteByte (&net_message, svc_print);
-	MSG_WriteByte (&net_message, PRINT_HIGH);
-	MSG_WriteString (&net_message, message);
+	common.SZ_Clear (net_chan.net_message)
+	common.MSG_WriteByte (net_chan.net_message, qcommon.svc_ops_e.svc_print.value)
+	common.MSG_WriteByte (net_chan.net_message, q_shared.PRINT_HIGH)
+	common.MSG_WriteString (net_chan.net_message, message.encode('ascii'))
 
-	if (reconnect)
-		MSG_WriteByte (&net_message, svc_reconnect);
-	else
-		MSG_WriteByte (&net_message, svc_disconnect);
+	if reconnect:
+		common.MSG_WriteByte (net_chan.net_message, qcommon.svc_ops_e.svc_reconnect.value)
+	else:
+		common.MSG_WriteByte (net_chan.net_message, qcommon.svc_ops_e.svc_disconnect.value)
 
-	// send it twice
-	// stagger the packets to crutch operating system limited buffers
+	# send it twice
+	# stagger the packets to crutch operating system limited buffers
 
-	for (i=0, cl = sv_init.svs.clients ; i<maxclients->value ; i++, cl++)
-		if (cl.state >= sv_init.client_state_t.cs_connected)
-			Netchan_Transmit (&cl.netchan, net_message.cursize
-			, net_message.data);
+	for i in range(int(maxclients.value)):
+		cl = sv_init.svs.clients[i]
+		if cl.state.value >= sv_init.client_state_t.cs_connected.value:
+			net_chan.Netchan_Transmit (cl.netchan, net_chan.net_message.data[:net_chan.net_message.cursize])
 
-	for (i=0, cl = sv_init.svs.clients ; i<maxclients->value ; i++, cl++)
-		if (cl.state >= sv_init.client_state_t.cs_connected)
-			Netchan_Transmit (&cl.netchan, net_message.cursize
-			, net_message.data);
-}
-
+	for i in range(int(maxclients.value)):
+		cl = sv_init.svs.clients[i]
+		if cl.state.value >= sv_init.client_state_t.cs_connected.value:
+			net_chan.Netchan_Transmit (cl.netchan, net_chan.net_message.data[:net_chan.net_message.cursize])
 
 
-/*
+
+"""
 ================
 SV_Shutdown
 
@@ -1067,27 +1069,21 @@ before Sys_Quit or Sys_Error
 """
 def SV_Shutdown (finalmsg, reconnect): #char *, qboolean
 
-	pass
-	"""
-	if (sv_init.svs.clients)
-		SV_FinalMessage (finalmsg, reconnect);
+	if sv_init.svs.clients:
+		SV_FinalMessage (finalmsg, reconnect)
 
-	Master_Shutdown ();
-	SV_ShutdownGameProgs ();
+	Master_Shutdown ()
+	sv_game.SV_ShutdownGameProgs ()
 
-	// free current level
-	if (sv_init.sv.demofile)
-		fclose (sv_init.sv.demofile);
-	memset (&sv, 0, sizeof(sv));
-	Com_SetServerState (sv_init.sv.state);
+	# free current level
+	if sv_init.sv.demofile is not None:
+		sv_init.sv.demofile.close ()
+	sv_init.sv.clear () # memset (&sv, 0, sizeof(sv));
+	common.Com_SetServerState (sv_init.sv.state.value)
 
-	// free server static data
-	if (sv_init.svs.clients)
-		Z_Free (sv_init.svs.clients);
-	if (sv_init.svs.client_entities)
-		Z_Free (sv_init.svs.client_entities);
-	if (sv_init.svs.demofile)
-		fclose (sv_init.svs.demofile);
-	memset (&svs, 0, sizeof(svs));
-}
-"""
+	# free server static data
+	# Z_Free (svs.clients); Z_Free (svs.client_entities);
+	if sv_init.svs.demofile is not None:
+		sv_init.svs.demofile.close ()
+	sv_init.svs.clear () # memset (&svs, 0, sizeof(svs));
+

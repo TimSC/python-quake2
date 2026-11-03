@@ -679,7 +679,7 @@ def CL_ParseServerMessage ():
 		if cmdval == qcommon.svc_ops_e.svc_nop:
 			pass
 		elif cmdval == qcommon.svc_ops_e.svc_disconnect:
-			common.Com_Error (qcommon.ERR_DISCONNECT,"Server disconnected\n")
+			common.Com_Error (q_shared.ERR_DISCONNECT,"Server disconnected\n")
 		elif cmdval == qcommon.svc_ops_e.svc_reconnect:
 			common.Com_Printf ("Server disconnected, reconnecting\n")
 			if cl_main.cls.download:

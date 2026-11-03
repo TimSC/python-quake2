@@ -247,19 +247,18 @@ LOOPBACK BUFFERS FOR LOCAL PLAYER
 =============================================================================
 """
 
-def NET_GetLoopPacket (sock): #netsrc_t (returns qboolean, netadr_t *, sizebuf_t *)
+def NET_GetLoopPacket (sock, net_from, net_message): #netsrc_t, netadr_t *, sizebuf_t * (returns qboolean, netadr_t)
 
 	loop = loopbacks[sock.value]
 
 	if len(loop.msgs) == 0:
-		return False, None, None
+		return False, net_from
 
-	net_message = qcommon.sizebuf_t()
-	common.SZ_Init (net_message, qcommon.MAX_MSGLEN)
-	net_message.data = loop.msgs.pop(0)
-	net_message.cursize = len(net_message.data)
-
-	return True, net_local_adr, net_message
+	data = loop.msgs.pop(0)
+	net_message.data = bytearray(data) # memcpy (net_message->data, loop->msgs[i].data, loop->msgs[i].datalen);
+	net_message.cursize = len(data)
+	net_from = net_local_adr.copy() # *net_from = net_local_adr;
+	return True, net_from
 
 
 def NET_SendLoopPacket (sock, data: bytes, to): #netsrc_t, void *, netadr_t
@@ -275,7 +274,9 @@ def NET_SendLoopPacket (sock, data: bytes, to): #netsrc_t, void *, netadr_t
 """
 //=============================================================================
 """
-def NET_GetPacket (sock): #netsrc_t (returns qboolean, netadr_t *, sizebuf_t *)
+def NET_GetPacket (sock, net_from, net_message): #netsrc_t, netadr_t *, sizebuf_t * (returns qboolean, netadr_t)
+	# net_message is filled in place like the C buffer; net_from is returned as a new
+	# netadr_t because python code keeps references where C copies the struct
 
 	#int 	ret;
 	#struct sockaddr_in	from;
@@ -286,10 +287,9 @@ def NET_GetPacket (sock): #netsrc_t (returns qboolean, netadr_t *, sizebuf_t *)
 
 	global errno
 
-	rx, net_from, net_message = NET_GetLoopPacket (sock)
-	assert net_message is None or isinstance(net_message, qcommon.sizebuf_t)
+	rx, net_from = NET_GetLoopPacket (sock, net_from, net_message)
 	if rx:
-		return True, net_from, net_message
+		return True, net_from
 	
 	for protocol in range(2):
 	
@@ -300,10 +300,6 @@ def NET_GetPacket (sock): #netsrc_t (returns qboolean, netadr_t *, sizebuf_t *)
 
 		if net_socket is None:
 			continue
-
-		net_from = qcommon.netadr_t()
-		net_message = qcommon.sizebuf_t()
-		common.SZ_Init (net_message, qcommon.MAX_MSGLEN)
 
 		#fromlen = sizeof(from);
 		try:
@@ -324,6 +320,7 @@ def NET_GetPacket (sock): #netsrc_t (returns qboolean, netadr_t *, sizebuf_t *)
 						NET_AdrToString(net_from)))
 			continue
 		
+		net_from = qcommon.netadr_t()
 		SockadrToNetadr (from_adr, net_from) # C converts before the error check, python has no address on error
 
 		if ret == net_message.maxsize:
@@ -331,11 +328,11 @@ def NET_GetPacket (sock): #netsrc_t (returns qboolean, netadr_t *, sizebuf_t *)
 			common.Com_Printf ("Oversize packet from {}\n".format(NET_AdrToString (net_from)))
 			continue
 		
-		net_message.data = data
+		net_message.data = bytearray(data)
 		net_message.cursize = ret
-		return True, net_from, net_message
+		return True, net_from
 	
-	return False, None, None
+	return False, net_from
 
 """
 //=============================================================================
