@@ -22,7 +22,10 @@ import random
 import numpy as np
 from qcommon import common, net_chan, qcommon
 from game import q_shared
-from client import cl_main, cl_parse, client, cl_pred, cl_scrn, cl_tent, cl_fx, cl_view, ref
+import math
+from qcommon import files
+from client import cl_main, cl_parse, client, cl_pred, cl_scrn, cl_tent, cl_fx, cl_newfx, cl_view, ref
+from linux import vid_so
 """
 // cl_ents.c -- entity parsing and management
 
@@ -320,7 +323,7 @@ def CL_DeltaEntity (frame, newnum, old, bits): #frame_t *, int, entity_state_t *
 		# wasn't in last update, so initialize some things
 		ent.trailcount = 1024		# for diminishing rocket / grenade trails
 		# duplicate the current state so lerping doesn't hurt anything
-		ent.prev = copy.copy(state)
+		ent.prev = copy.deepcopy(state) # ent->prev = *state;
 		if state.event == q_shared.entity_event_t.EV_OTHER_TELEPORT:
 		
 			q_shared.VectorCopy (state.origin, ent.prev.origin)
@@ -338,7 +341,7 @@ def CL_DeltaEntity (frame, newnum, old, bits): #frame_t *, int, entity_state_t *
 	
 
 	ent.serverframe = cl_main.cl.frame.serverframe
-	ent.current = copy.copy(state)
+	ent.current = copy.deepcopy(state) # ent->current = *state;
 
 
 	# ==================
@@ -754,20 +757,41 @@ def S_RegisterSexedModel (ent, base):
 				mdl = re_interface.RegisterModel("players/male/weapon.md2")
 	return mdl
 
-def CL_AddPacketEntities (frame):
-	autorotate = q_shared.anglemod(cl_main.cl.time / 10)
-	autoanim = int(2 * cl_main.cl.time / 1000)
+bfg_lightramp = [300, 400, 600, 300, 150, 75] #static int [6]
+
+def CL_AddPacketEntities (frame): #frame_t *
+
+	"""
+	entity_t			ent;
+	entity_state_t		*s1;
+	float				autorotate;
+	int					i;
+	int					pnum;
+	centity_t			*cent;
+	int					autoanim;
+	clientinfo_t		*ci;
+	unsigned int		effects, renderfx;
+	"""
+	cl = cl_main.cl
+
+	# bonus items rotate at a fixed rate
+	autorotate = q_shared.anglemod(cl.time/10)
+
+	# brush models can auto animate their frames
+	autoanim = int(2*cl.time/1000)
+
+	ent = ref.entity_t() # memset (&ent, 0, sizeof(ent)); it is reused for every entity, as in the C
 
 	for pnum in range(frame.num_entities):
-		s1 = cl_main.cl_parse_entities[
-			(frame.parse_entities + pnum) & (client.MAX_PARSE_ENTITIES - 1)
-		]
+	
+		s1 = cl_main.cl_parse_entities[(frame.parse_entities+pnum)&(client.MAX_PARSE_ENTITIES-1)]
+
 		cent = cl_main.cl_entities[s1.number]
 
 		effects = s1.effects
 		renderfx = s1.renderfx
 
-		ent = ref.entity_t()
+			# set frame
 		if effects & q_shared.EF_ANIM01:
 			ent.frame = autoanim & 1
 		elif effects & q_shared.EF_ANIM23:
@@ -775,122 +799,251 @@ def CL_AddPacketEntities (frame):
 		elif effects & q_shared.EF_ANIM_ALL:
 			ent.frame = autoanim
 		elif effects & q_shared.EF_ANIM_ALLFAST:
-			ent.frame = int(cl_main.cl.time) // 100 # cl.time is int in C
+			ent.frame = int(cl.time) // 100 # cl.time is int in C
 		else:
 			ent.frame = s1.frame
 
+		# quad and pent can do different things on client
 		if effects & q_shared.EF_PENT:
+		
 			effects &= ~q_shared.EF_PENT
 			effects |= q_shared.EF_COLOR_SHELL
 			renderfx |= q_shared.RF_SHELL_RED
+		
 		if effects & q_shared.EF_QUAD:
+		
 			effects &= ~q_shared.EF_QUAD
 			effects |= q_shared.EF_COLOR_SHELL
 			renderfx |= q_shared.RF_SHELL_BLUE
+		
+#======
+# PMM
 		if effects & q_shared.EF_DOUBLE:
+		
 			effects &= ~q_shared.EF_DOUBLE
 			effects |= q_shared.EF_COLOR_SHELL
 			renderfx |= q_shared.RF_SHELL_DOUBLE
+		
 		if effects & q_shared.EF_HALF_DAMAGE:
+		
 			effects &= ~q_shared.EF_HALF_DAMAGE
 			effects |= q_shared.EF_COLOR_SHELL
 			renderfx |= q_shared.RF_SHELL_HALF_DAM
-
+		
+# pmm
+#======
 		ent.oldframe = cent.prev.frame
-		ent.backlerp = 1.0 - cl_main.cl.lerpfrac
+		ent.backlerp = 1.0 - cl.lerpfrac
 
-		if renderfx & (q_shared.RF_FRAMELERP | q_shared.RF_BEAM):
-			q_shared.VectorCopy(cent.current.origin, ent.origin)
-			q_shared.VectorCopy(cent.current.old_origin, ent.oldorigin)
+		if renderfx & (q_shared.RF_FRAMELERP|q_shared.RF_BEAM):
+			# step origin discretely, because the frames
+			# do the animation properly
+			q_shared.VectorCopy (cent.current.origin, ent.origin)
+			q_shared.VectorCopy (cent.current.old_origin, ent.oldorigin)
+		
 		else:
+			# interpolate origin
 			for i in range(3):
-				ent.origin[i] = ent.oldorigin[i] = (
-					cent.prev.origin[i]
-					+ cl_main.cl.lerpfrac * (cent.current.origin[i] - cent.prev.origin[i])
-				)
-
+			
+				ent.origin[i] = ent.oldorigin[i] = cent.prev.origin[i] + cl.lerpfrac * \
+					(cent.current.origin[i] - cent.prev.origin[i])
+			
+		# create a new entity
+	
+		# tweak the color of beams
 		if renderfx & q_shared.RF_BEAM:
+			# the four beam colors are encoded in 32 bits of skinnum (hack)
 			ent.alpha = 0.30
-			ent.skinnum = (s1.skinnum >> ((random.randint(0, 3)) * 8)) & 0xff
+			ent.skinnum = (s1.skinnum >> ((random.getrandbits(15) % 4)*8)) & 0xff
 			ent.model = None
+		
 		else:
+		
+			# set skin
 			if s1.modelindex == 255:
+				# use custom player skin
 				ent.skinnum = 0
-				ci = cl_main.cl.clientinfo[s1.skinnum & 0xff]
+				ci = cl.clientinfo[s1.skinnum & 0xff]
 				ent.skin = ci.skin
 				ent.model = ci.model
 				if not ent.skin or not ent.model:
-					ent.skin = cl_main.cl.baseclientinfo.skin
-					ent.model = cl_main.cl.baseclientinfo.model
+				
+					ent.skin = cl.baseclientinfo.skin
+					ent.model = cl.baseclientinfo.model
+				
+#============
+#PGM
+				if renderfx & q_shared.RF_USE_DISGUISE:
+				
+					# strncmp((char *)ent.skin, ...) compares the image name, the first field of image_t
+					skinname = ent.skin.name if ent.skin is not None else ""
+					if skinname[:12] == "players/male":
+					
+						ent.skin = vid_so.re.RegisterSkin ("players/male/disguise.pcx")
+						ent.model = vid_so.re.RegisterModel ("players/male/tris.md2")
+					
+					elif skinname[:14] == "players/female":
+					
+						ent.skin = vid_so.re.RegisterSkin ("players/female/disguise.pcx")
+						ent.model = vid_so.re.RegisterModel ("players/female/tris.md2")
+					
+					elif skinname[:14] == "players/cyborg":
+					
+						ent.skin = vid_so.re.RegisterSkin ("players/cyborg/disguise.pcx")
+						ent.model = vid_so.re.RegisterModel ("players/cyborg/tris.md2")
+					
+#PGM
+#============
+			
 			else:
+			
 				ent.skinnum = s1.skinnum
 				ent.skin = None
-				ent.model = cl_main.cl.model_draw[s1.modelindex]
-
+				ent.model = cl.model_draw[s1.modelindex]
+			
+		# only used for black hole model right now, FIXME: do better
 		if renderfx == q_shared.RF_TRANSLUCENT:
 			ent.alpha = 0.70
 
+		# render effects (fullbright, translucent, etc)
 		if effects & q_shared.EF_COLOR_SHELL:
-			ent.flags = 0
+			ent.flags = 0	# renderfx go on color shell entity
 		else:
 			ent.flags = renderfx
 
+		# calculate angles
 		if effects & q_shared.EF_ROTATE:
+			# some bonus items auto-rotate
 			ent.angles[0] = 0
 			ent.angles[1] = autorotate
 			ent.angles[2] = 0
+		
+		# RAFAEL
 		elif effects & q_shared.EF_SPINNINGLIGHTS:
+		
 			ent.angles[0] = 0
-			ent.angles[1] = q_shared.anglemod(cl_main.cl.time / 2) + s1.angles[1]
+			ent.angles[1] = q_shared.anglemod(cl.time/2) + s1.angles[1]
 			ent.angles[2] = 180
+			
+			#vec3_t forward;
+			#vec3_t start;
+			forward = np.zeros((3,), dtype=np.float32)
+			start = np.zeros((3,), dtype=np.float32)
+
+			q_shared.AngleVectors (ent.angles, forward, None, None)
+			q_shared.VectorMA (ent.origin, 64, forward, start)
+			cl_view.V_AddLight (start, 100, 1, 0, 0)
+			
 		else:
+			# interpolate angles
+			#float	a1, a2;
+
 			for i in range(3):
-				ent.angles[i] = q_shared.LerpAngle(
-					cent.prev.angles[i], cent.current.angles[i], cl_main.cl.lerpfrac
-				)
+			
+				a1 = cent.current.angles[i]
+				a2 = cent.prev.angles[i]
+				ent.angles[i] = q_shared.LerpAngle (a2, a1, cl.lerpfrac)
+			
+		if s1.number == cl.playernum+1:
+		
+			ent.flags |= q_shared.RF_VIEWERMODEL	# only draw from mirrors
+			# FIXME: still pass to refresh
 
-		if s1.number == cl_main.cl.playernum + 1:
-			ent.flags |= q_shared.RF_VIEWERMODEL
 			if effects & q_shared.EF_FLAG1:
-				cl_view.V_AddLight(ent.origin, 225, 1.0, 0.1, 0.1)
+				cl_view.V_AddLight (ent.origin, 225, 1.0, 0.1, 0.1)
 			elif effects & q_shared.EF_FLAG2:
-				cl_view.V_AddLight(ent.origin, 225, 0.1, 0.1, 1.0)
-			elif effects & q_shared.EF_TAGTRAIL:
-				cl_view.V_AddLight(ent.origin, 225, 1.0, 1.0, 0.0)
-			elif effects & q_shared.EF_TRACKERTRAIL:
-				cl_view.V_AddLight(ent.origin, 225, -1.0, -1.0, -1.0)
-			continue
+				cl_view.V_AddLight (ent.origin, 225, 0.1, 0.1, 1.0)
+			elif effects & q_shared.EF_TAGTRAIL:						#PGM
+				cl_view.V_AddLight (ent.origin, 225, 1.0, 1.0, 0.0)	#PGM
+			elif effects & q_shared.EF_TRACKERTRAIL:					#PGM
+				cl_view.V_AddLight (ent.origin, 225, -1.0, -1.0, -1.0)	#PGM
 
+			continue
+		
+		# if set to invisible, skip
 		if not s1.modelindex:
 			continue
 
 		if effects & q_shared.EF_BFG:
+		
 			ent.flags |= q_shared.RF_TRANSLUCENT
 			ent.alpha = 0.30
+		
+		# RAFAEL
 		if effects & q_shared.EF_PLASMA:
+		
 			ent.flags |= q_shared.RF_TRANSLUCENT
 			ent.alpha = 0.6
+		
 		if effects & q_shared.EF_SPHERETRANS:
+		
 			ent.flags |= q_shared.RF_TRANSLUCENT
-			ent.alpha = 0.6 if (effects & q_shared.EF_TRACKERTRAIL) else 0.3
+			# PMM - *sigh*  yet more EF overloading
+			if effects & q_shared.EF_TRACKERTRAIL:
+				ent.alpha = 0.6
+			else:
+				ent.alpha = 0.3
+		
+#pmm
 
-		cl_view.V_AddEntity(ent)
+		# add to refresh list
+		cl_view.V_AddEntity (ent)
 
+
+		# color shells generate a seperate entity for the main model
 		if effects & q_shared.EF_COLOR_SHELL:
-			shell_ent = ent.copy()
-			shell_ent.flags = renderfx | q_shared.RF_TRANSLUCENT
-			shell_ent.alpha = 0.30
-			cl_view.V_AddEntity(shell_ent)
-
-		ent.skin = None
+		
+			# PMM - at this point, all of the shells have been handled
+			# if we're in the rogue pack, set up the custom mixing, otherwise just
+			# keep going
+#			if(Developer_searchpath(2) == 2)
+#			{
+				# all of the solo colors are fine.  we need to catch any of the combinations that look bad
+				# (double & half) and turn them into the appropriate color, and make double/quad something special
+			if renderfx & q_shared.RF_SHELL_HALF_DAM:
+			
+				if files.Developer_searchpath(2) == 2:
+				
+					# ditch the half damage shell if any of red, blue, or double are on
+					if renderfx & (q_shared.RF_SHELL_RED|q_shared.RF_SHELL_BLUE|q_shared.RF_SHELL_DOUBLE):
+						renderfx &= ~q_shared.RF_SHELL_HALF_DAM
+				
+			if renderfx & q_shared.RF_SHELL_DOUBLE:
+			
+				if files.Developer_searchpath(2) == 2:
+				
+					# lose the yellow shell if we have a red, blue, or green shell
+					if renderfx & (q_shared.RF_SHELL_RED|q_shared.RF_SHELL_BLUE|q_shared.RF_SHELL_GREEN):
+						renderfx &= ~q_shared.RF_SHELL_DOUBLE
+					# if we have a red shell, turn it to purple by adding blue
+					if renderfx & q_shared.RF_SHELL_RED:
+						renderfx |= q_shared.RF_SHELL_BLUE
+					# if we have a blue shell (and not a red shell), turn it to cyan by adding green
+					elif renderfx & q_shared.RF_SHELL_BLUE:
+						# go to green if it's on already, otherwise do cyan (flash green)
+						if renderfx & q_shared.RF_SHELL_GREEN:
+							renderfx &= ~q_shared.RF_SHELL_BLUE
+						else:
+							renderfx |= q_shared.RF_SHELL_GREEN
+				
+#			}
+			# pmm
+			ent.flags = renderfx | q_shared.RF_TRANSLUCENT
+			ent.alpha = 0.30
+			cl_view.V_AddEntity (ent)
+		
+		ent.skin = None		# never use a custom skin on others
 		ent.skinnum = 0
 		ent.flags = 0
-		ent.alpha = 0.0
+		ent.alpha = 0
 
+		# duplicate for linked models
 		if s1.modelindex2:
+		
 			if s1.modelindex2 == 255:
-				ci = cl_main.cl.clientinfo[s1.skinnum & 0xff]
-				i = (s1.skinnum >> 8)
+				# custom weapon
+				ci = cl.clientinfo[s1.skinnum & 0xff]
+				i = (s1.skinnum >> 8) # 0 is default weapon model
 				if not cl_main.cl_vwep.value or i > client.MAX_CLIENTWEAPONMODELS - 1:
 					i = 0
 				ent.model = ci.weaponmodel[i]
@@ -898,50 +1051,187 @@ def CL_AddPacketEntities (frame):
 					if i != 0:
 						ent.model = ci.weaponmodel[0]
 					if not ent.model:
-						ent.model = cl_main.cl.baseclientinfo.weaponmodel[0]
+						ent.model = cl.baseclientinfo.weaponmodel[0]
+				
 			else:
-				ent.model = cl_main.cl.model_draw[s1.modelindex2]
+				ent.model = cl.model_draw[s1.modelindex2]
 
-			if cl_main.cl.configstrings[q_shared.CS_MODELS + s1.modelindex2] == "models/items/shell/tris.md2":
+			# PMM - check for the defender sphere shell .. make it translucent
+			# replaces the previous version which used the high bit on modelindex2 to determine transparency
+			if not q_shared.Q_strcasecmp (cl.configstrings[q_shared.CS_MODELS+(s1.modelindex2)] or "", "models/items/shell/tris.md2"):
+			
 				ent.alpha = 0.32
 				ent.flags = q_shared.RF_TRANSLUCENT
+			
+			# pmm
 
-			cl_view.V_AddEntity(ent)
+			cl_view.V_AddEntity (ent)
+
+			#PGM - make sure these get reset.
 			ent.flags = 0
-			ent.alpha = 0.0
-
+			ent.alpha = 0
+			#PGM
+		
 		if s1.modelindex3:
-			ent.model = cl_main.cl.model_draw[s1.modelindex3]
-			cl_view.V_AddEntity(ent)
+		
+			ent.model = cl.model_draw[s1.modelindex3]
+			cl_view.V_AddEntity (ent)
+		
 		if s1.modelindex4:
-			ent.model = cl_main.cl.model_draw[s1.modelindex4]
-			cl_view.V_AddEntity(ent)
-
-		if effects & q_shared.EF_POWERSCREEN and cl_mod_powerscreen is not None:
-			ent.model = cl_mod_powerscreen
+		
+			ent.model = cl.model_draw[s1.modelindex4]
+			cl_view.V_AddEntity (ent)
+		
+		if effects & q_shared.EF_POWERSCREEN:
+		
+			ent.model = cl_tent.cl_mod_powerscreen
 			ent.oldframe = 0
 			ent.frame = 0
 			ent.flags |= (q_shared.RF_TRANSLUCENT | q_shared.RF_SHELL_GREEN)
 			ent.alpha = 0.30
-			cl_view.V_AddEntity(ent)
-
-		if (effects & ~q_shared.EF_ROTATE):
-			if effects & q_shared.EF_ROCKET and hasattr(cl_fx, "CL_RocketTrail"):
-				cl_fx.CL_RocketTrail(cent.lerp_origin, ent.origin, cent)
-				cl_view.V_AddLight(ent.origin, 200, 1, 1, 0)
-			elif effects & q_shared.EF_BLASTER and hasattr(cl_fx, "CL_BlasterTrail"):
-				cl_fx.CL_BlasterTrail(cent.lerp_origin, ent.origin)
-				cl_view.V_AddLight(ent.origin, 200, 1, 1, 0)
-			elif effects & q_shared.EF_GIB and hasattr(cl_fx, "CL_DiminishingTrail"):
-				cl_fx.CL_DiminishingTrail(cent.lerp_origin, ent.origin, cent, effects)
-			elif effects & q_shared.EF_GRENADE and hasattr(cl_fx, "CL_DiminishingTrail"):
-				cl_fx.CL_DiminishingTrail(cent.lerp_origin, ent.origin, cent, effects)
-			elif effects & q_shared.EF_FLIES and hasattr(cl_fx, "CL_FlyEffect"):
-				cl_fx.CL_FlyEffect(cent, ent.origin)
+			cl_view.V_AddEntity (ent)
+		
+		# add automatic particle trails
+		if effects&~q_shared.EF_ROTATE:
+		
+			if effects & q_shared.EF_ROCKET:
+			
+				cl_fx.CL_RocketTrail (cent.lerp_origin, ent.origin, cent)
+				cl_view.V_AddLight (ent.origin, 200, 1, 1, 0)
+			
+			# PGM - Do not reorder EF_BLASTER and EF_HYPERBLASTER. 
+			# EF_BLASTER | EF_TRACKER is a special case for EF_BLASTER2... Cheese!
+			elif effects & q_shared.EF_BLASTER:
+			
+#				CL_BlasterTrail (cent->lerp_origin, ent.origin);
+#PGM
+				if effects & q_shared.EF_TRACKER:	# lame... problematic?
+				
+					cl_newfx.CL_BlasterTrail2 (cent.lerp_origin, ent.origin)
+					cl_view.V_AddLight (ent.origin, 200, 0, 1, 0)		
+				
+				else:
+				
+					cl_fx.CL_BlasterTrail (cent.lerp_origin, ent.origin)
+					cl_view.V_AddLight (ent.origin, 200, 1, 1, 0)
+				
+#PGM
+			
+			elif effects & q_shared.EF_HYPERBLASTER:
+			
+				if effects & q_shared.EF_TRACKER:						# PGM	overloaded for blaster2.
+					cl_view.V_AddLight (ent.origin, 200, 0, 1, 0)		# PGM
+				else:											# PGM
+					cl_view.V_AddLight (ent.origin, 200, 1, 1, 0)
+			
+			elif effects & q_shared.EF_GIB:
+			
+				cl_fx.CL_DiminishingTrail (cent.lerp_origin, ent.origin, cent, effects)
+			
+			elif effects & q_shared.EF_GRENADE:
+			
+				cl_fx.CL_DiminishingTrail (cent.lerp_origin, ent.origin, cent, effects)
+			
+			elif effects & q_shared.EF_FLIES:
+			
+				cl_fx.CL_FlyEffect (cent, ent.origin)
+			
 			elif effects & q_shared.EF_BFG:
-				cl_view.V_AddLight(ent.origin, 200, 0, 1, 0)
+			
+				#static int bfg_lightramp[6] = {300, 400, 600, 300, 150, 75};
 
-		q_shared.VectorCopy(ent.origin, cent.lerp_origin)
+				if effects & q_shared.EF_ANIM_ALLFAST:
+				
+					cl_fx.CL_BfgParticles (ent)
+					i = 200
+				
+				else:
+				
+					i = bfg_lightramp[s1.frame]
+				
+				cl_view.V_AddLight (ent.origin, i, 0, 1, 0)
+			
+			# RAFAEL
+			elif effects & q_shared.EF_TRAP:
+			
+				ent.origin[2] += 32
+				cl_fx.CL_TrapParticles (ent)
+				i = (random.getrandbits(15)%100) + 100
+				cl_view.V_AddLight (ent.origin, i, 1, 0.8, 0.1)
+			
+			elif effects & q_shared.EF_FLAG1:
+			
+				cl_fx.CL_FlagTrail (cent.lerp_origin, ent.origin, 242)
+				cl_view.V_AddLight (ent.origin, 225, 1, 0.1, 0.1)
+			
+			elif effects & q_shared.EF_FLAG2:
+			
+				cl_fx.CL_FlagTrail (cent.lerp_origin, ent.origin, 115)
+				cl_view.V_AddLight (ent.origin, 225, 0.1, 0.1, 1)
+			
+#======
+#ROGUE
+			elif effects & q_shared.EF_TAGTRAIL:
+			
+				cl_newfx.CL_TagTrail (cent.lerp_origin, ent.origin, 220)
+				cl_view.V_AddLight (ent.origin, 225, 1.0, 1.0, 0.0)
+			
+			elif effects & q_shared.EF_TRACKERTRAIL:
+			
+				if effects & q_shared.EF_TRACKER:
+				
+					#float intensity;
+
+					intensity = 50 + (500 * (math.sin(cl.time/500.0) + 1.0))
+					# FIXME - check out this effect in rendition
+					if vidref_val == q_shared.VIDREF_GL:
+						cl_view.V_AddLight (ent.origin, intensity, -1.0, -1.0, -1.0)
+					else:
+						cl_view.V_AddLight (ent.origin, -1.0 * intensity, 1.0, 1.0, 1.0)
+					
+				else:
+				
+					cl_newfx.CL_Tracker_Shell (cent.lerp_origin)
+					cl_view.V_AddLight (ent.origin, 155, -1.0, -1.0, -1.0)
+				
+			elif effects & q_shared.EF_TRACKER:
+			
+				cl_newfx.CL_TrackerTrail (cent.lerp_origin, ent.origin, 0)
+				# FIXME - check out this effect in rendition
+				if vidref_val == q_shared.VIDREF_GL:
+					cl_view.V_AddLight (ent.origin, 200, -1, -1, -1)
+				else:
+					cl_view.V_AddLight (ent.origin, -200, 1, 1, 1)
+			
+#ROGUE
+#======
+			# RAFAEL
+			elif effects & q_shared.EF_GREENGIB:
+			
+				cl_fx.CL_DiminishingTrail (cent.lerp_origin, ent.origin, cent, effects)				
+			
+			# RAFAEL
+			elif effects & q_shared.EF_IONRIPPER:
+			
+				cl_fx.CL_IonripperTrail (cent.lerp_origin, ent.origin)
+				cl_view.V_AddLight (ent.origin, 100, 1, 0.5, 0.5)
+			
+			# RAFAEL
+			elif effects & q_shared.EF_BLUEHYPERBLASTER:
+			
+				cl_view.V_AddLight (ent.origin, 200, 0, 0, 1)
+			
+			# RAFAEL
+			elif effects & q_shared.EF_PLASMA:
+			
+				if effects & q_shared.EF_ANIM_ALLFAST:
+				
+					cl_fx.CL_BlasterTrail (cent.lerp_origin, ent.origin)
+				
+				cl_view.V_AddLight (ent.origin, 130, 1, 0.5, 0.5)
+			
+		q_shared.VectorCopy (ent.origin, cent.lerp_origin)
+	
 
 
 def CL_AddViewWeapon (ps, ops):
@@ -1088,45 +1378,48 @@ Emits all entities, particles, and lights to the refresh
 ===============
 """
 def CL_AddEntities ():
+
+	cl = cl_main.cl
+
 	if cl_main.cls.state != client.connstate_t.ca_active:
 		return
 
-	if cl_main.cl.time > cl_main.cl.frame.servertime:
-		if cl_main.cl_showclamp and cl_main.cl_showclamp.value:
-			common.Com_Printf(
-				"high clamp %i\n" % (cl_main.cl.time - cl_main.cl.frame.servertime)
-			)
-		cl_main.cl.time = cl_main.cl.frame.servertime
-		cl_main.cl.lerpfrac = 1.0
-	elif cl_main.cl.time < cl_main.cl.frame.servertime - 100:
-		if cl_main.cl_showclamp and cl_main.cl_showclamp.value:
-			common.Com_Printf(
-				"low clamp %i\n" % (cl_main.cl.frame.servertime - 100 - cl_main.cl.time)
-			)
-		cl_main.cl.time = cl_main.cl.frame.servertime - 100
-		cl_main.cl.lerpfrac = 0.0
+	if cl.time > cl.frame.servertime:
+	
+		if cl_main.cl_showclamp.value:
+			common.Com_Printf ("high clamp {}\n".format(cl.time - cl.frame.servertime))
+		cl.time = cl.frame.servertime
+		cl.lerpfrac = 1.0
+	
+	elif cl.time < cl.frame.servertime - 100:
+	
+		if cl_main.cl_showclamp.value:
+			common.Com_Printf ("low clamp {}\n".format(cl.frame.servertime-100 - cl.time))
+		cl.time = cl.frame.servertime - 100
+		cl.lerpfrac = 0
+	
 	else:
-		cl_main.cl.lerpfrac = 1.0 - (cl_main.cl.frame.servertime - cl_main.cl.time) * 0.01
+		cl.lerpfrac = 1.0 - (cl.frame.servertime - cl.time) * 0.01
 
-	if cl_main.cl_timedemo and int(cl_main.cl_timedemo.value):
-		cl_main.cl.lerpfrac = 1.0
+	if cl_main.cl_timedemo.value:
+		cl.lerpfrac = 1.0
 
-	CL_CalcViewValues()
-	CL_AddProjectiles ()
+#	CL_AddPacketEntities (&cl.frame);
+#	CL_AddTEnts ();
+#	CL_AddParticles ();
+#	CL_AddDLights ();
+#	CL_AddLightStyles ();
 
-	add_packet = globals().get("CL_AddPacketEntities")
-	if callable(add_packet):
-		add_packet(cl_main.cl.frame)
-
-	if hasattr(cl_tent, "CL_AddTEnts"):
-		cl_tent.CL_AddTEnts()
-
-	if hasattr(cl_fx, "CL_AddParticles"):
-		cl_fx.CL_AddParticles()
-	if hasattr(cl_fx, "CL_AddDLights"):
-		cl_fx.CL_AddDLights()
-	if hasattr(cl_fx, "CL_AddLightStyles"):
-		cl_fx.CL_AddLightStyles()
+	CL_CalcViewValues ()
+	# PMM - moved this here so the heat beam has the right values for the vieworg, and can lock the beam to the gun
+	CL_AddPacketEntities (cl.frame)
+#if 0
+#	CL_AddProjectiles ();
+#endif
+	cl_tent.CL_AddTEnts ()
+	cl_fx.CL_AddParticles ()
+	cl_fx.CL_AddDLights ()
+	cl_fx.CL_AddLightStyles ()
 
 
 

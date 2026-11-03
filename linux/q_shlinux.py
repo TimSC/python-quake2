@@ -138,6 +138,13 @@ char *strlwr (char *s)
 
 //============================================
 """
+def Sys_Mkdir (path): #char *
+
+	try:
+		os.mkdir (path, 0o777)
+	except OSError:
+		pass # C ignores the mkdir return value
+
 findbase = None #static	char[MAX_OSPATH];
 findpath = None #static	char	[MAX_OSPATH];
 findpattern = None #static	char	[MAX_OSPATH];

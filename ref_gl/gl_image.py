@@ -472,65 +472,63 @@ def GL_ImageList_f ():
 =============================================================================
 */
 
-#define	MAX_SCRAPS		1
-#define	BLOCK_WIDTH		256
-#define	BLOCK_HEIGHT	256
-
-int			scrap_allocated[MAX_SCRAPS][BLOCK_WIDTH];
-byte		scrap_texels[MAX_SCRAPS][BLOCK_WIDTH*BLOCK_HEIGHT];
 """
+MAX_SCRAPS = 1
+BLOCK_WIDTH = 256
+BLOCK_HEIGHT = 256
+
+scrap_allocated = [[0] * BLOCK_WIDTH for _ in range(MAX_SCRAPS)] #int [MAX_SCRAPS][BLOCK_WIDTH]
+scrap_texels = [bytearray(BLOCK_WIDTH*BLOCK_HEIGHT) for _ in range(MAX_SCRAPS)] #byte [MAX_SCRAPS][BLOCK_WIDTH*BLOCK_HEIGHT]
 scrap_dirty = False #qboolean
-"""
-// returns a texture number and the position inside it
-int Scrap_AllocBlock (int w, int h, int *x, int *y)
-{
-	int		i, j;
-	int		best, best2;
-	int		texnum;
 
-	for (texnum=0 ; texnum<MAX_SCRAPS ; texnum++)
-	{
-		best = BLOCK_HEIGHT;
+# returns a texture number and the position inside it
+def Scrap_AllocBlock (w, h): #int, int (returns int texnum, int x, int y)
 
-		for (i=0 ; i<BLOCK_WIDTH-w ; i++)
-		{
-			best2 = 0;
+	#int		i, j;
+	#int		best, best2;
+	#int		texnum;
+	x = y = 0
 
-			for (j=0 ; j<w ; j++)
-			{
-				if (scrap_allocated[texnum][i+j] >= best)
-					break;
-				if (scrap_allocated[texnum][i+j] > best2)
-					best2 = scrap_allocated[texnum][i+j];
-			}
-			if (j == w)
-			{	// this is a valid spot
-				*x = i;
-				*y = best = best2;
-			}
-		}
+	for texnum in range(MAX_SCRAPS):
+	
+		best = BLOCK_HEIGHT
 
-		if (best + h > BLOCK_HEIGHT)
-			continue;
+		for i in range(BLOCK_WIDTH-w):
+		
+			best2 = 0
 
-		for (i=0 ; i<w ; i++)
-			scrap_allocated[texnum][*x + i] = best + h;
+			for j in range(w):
+			
+				if scrap_allocated[texnum][i+j] >= best:
+					break
+				if scrap_allocated[texnum][i+j] > best2:
+					best2 = scrap_allocated[texnum][i+j]
+			
+			else: # j == w
+				# this is a valid spot
+				x = i
+				y = best = best2
+			
+		if best + h > BLOCK_HEIGHT:
+			continue
 
-		return texnum;
-	}
+		for i in range(w):
+			scrap_allocated[texnum][x + i] = best + h
 
-	return -1;
-//	Sys_Error ("Scrap_AllocBlock: full");
-}
+		return texnum, x, y
+	
+	return -1, x, y
+#	Sys_Error ("Scrap_AllocBlock: full");
 
-int	scrap_uploads;
+scrap_uploads = 0 #int
 
-"""
 def Scrap_Upload ():
 
-	#scrap_uploads++;
-	#GL_Bind(TEXNUM_SCRAPS);
-	#GL_Upload8 (scrap_texels[0], BLOCK_WIDTH, BLOCK_HEIGHT, false, false );
+	global scrap_uploads, scrap_dirty
+
+	scrap_uploads += 1
+	GL_Bind(TEXNUM_SCRAPS)
+	GL_Upload8 (scrap_texels[0], BLOCK_WIDTH, BLOCK_HEIGHT, False, False )
 	scrap_dirty = False
 
 """
@@ -1270,7 +1268,7 @@ This is also used as an entry point for the generated r_notexture
 """
 def GL_LoadPic (name, pic, width, height, imgType, bits): #char *, byte *, int, int, imagetype_t, int (returns image_t *)
 
-	global gltextures, numgltextures, TEXNUM_IMAGES
+	global gltextures, numgltextures, TEXNUM_IMAGES, scrap_dirty
 	#image_t		*image;
 	#int			i;
 
@@ -1304,34 +1302,34 @@ def GL_LoadPic (name, pic, width, height, imgType, bits): #char *, byte *, int, 
 		R_FloodFillSkin(pic, width, height)
 
 	# load little pics into the scrap
+	scrap_texnum = -1
 	if (image.type == imagetype_t.it_pic and bits == 8
-		and image.width < 64 and image.height < 64
-		and False): #FIXME disabled for now, port later
+		and image.width < 64 and image.height < 64):
 	
-		pass
-		"""
 		#int		x, y;
 		#int		i, j, k;
 		#int		texnum;
 
-		texnum = Scrap_AllocBlock (image->width, image->height, &x, &y)
-		if (texnum == -1)
-			goto nonscrap
-		scrap_dirty = true
+		scrap_texnum, x, y = Scrap_AllocBlock (image.width, image.height)
+		# if (texnum == -1) goto nonscrap;
+
+	if scrap_texnum != -1:
+	
+		scrap_dirty = True
 
 		# copy the texels into the scrap block
 		k = 0
-		for (i=0 ; i<image->height ; i++)
-			for (j=0 ; j<image->width ; j++, k++)
-				scrap_texels[texnum][(y+i)*BLOCK_WIDTH + x + j] = pic[k]
-		image->texnum = TEXNUM_SCRAPS + texnum
-		image->scrap = true
-		image->has_alpha = true
-		image->sl = (x+0.01)/(float)BLOCK_WIDTH
-		image->sh = (x+image->width-0.01)/(float)BLOCK_WIDTH
-		image->tl = (y+0.01)/(float)BLOCK_WIDTH
-		image->th = (y+image->height-0.01)/(float)BLOCK_WIDTH
-		"""
+		for si in range(image.height):
+			for sj in range(image.width):
+				scrap_texels[scrap_texnum][(y+si)*BLOCK_WIDTH + x + sj] = pic[k]
+				k += 1
+		image.texnum = TEXNUM_SCRAPS + scrap_texnum
+		image.scrap = True
+		image.has_alpha = True
+		image.sl = (x+0.01)/float(BLOCK_WIDTH)
+		image.sh = (x+image.width-0.01)/float(BLOCK_WIDTH)
+		image.tl = (y+0.01)/float(BLOCK_WIDTH)
+		image.th = (y+image.height-0.01)/float(BLOCK_WIDTH)
 	
 	else:
 	

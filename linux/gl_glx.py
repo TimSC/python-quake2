@@ -60,7 +60,16 @@ screen = None
 #include <X11/extensions/xf86dga.h>
 #include <X11/extensions/xf86vmode.h>
 
-glwstate_t glw_state;
+"""
+class glwstate_t(object): # glw_linux.h
+
+	def __init__(self):
+		self.OpenGLLib = None # void *, instance of OpenGL library
+
+		self.log_fp = None # FILE *
+
+glw_state = glwstate_t()
+"""
 
 static Display *dpy = NULL;
 static int scrnum;

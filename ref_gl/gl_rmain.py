@@ -53,6 +53,40 @@ class rserr_t(Enum):
 
 	rserr_unknown = 3
 
+# from gl_local.h
+GL_RENDERER_VOODOO = 0x00000001
+GL_RENDERER_VOODOO2 = 0x00000002
+GL_RENDERER_VOODOO_RUSH = 0x00000004
+GL_RENDERER_BANSHEE = 0x00000008
+GL_RENDERER_3DFX = 0x0000000F
+GL_RENDERER_PCX1 = 0x00000010
+GL_RENDERER_PCX2 = 0x00000020
+GL_RENDERER_PMX = 0x00000040
+GL_RENDERER_POWERVR = 0x00000070
+GL_RENDERER_PERMEDIA2 = 0x00000100
+GL_RENDERER_GLINT_MX = 0x00000200
+GL_RENDERER_GLINT_TX = 0x00000400
+GL_RENDERER_3DLABS_MISC = 0x00000800
+GL_RENDERER_3DLABS = 0x00000F00
+GL_RENDERER_REALIZM = 0x00001000
+GL_RENDERER_REALIZM2 = 0x00002000
+GL_RENDERER_INTERGRAPH = 0x00003000
+GL_RENDERER_3DPRO = 0x00004000
+GL_RENDERER_REAL3D = 0x00008000
+GL_RENDERER_RIVA128 = 0x00010000
+GL_RENDERER_DYPIC = 0x00020000
+GL_RENDERER_V1000 = 0x00040000
+GL_RENDERER_V2100 = 0x00080000
+GL_RENDERER_V2200 = 0x00100000
+GL_RENDERER_RENDITION = 0x001C0000
+GL_RENDERER_O2 = 0x00100000
+GL_RENDERER_IMPACT = 0x00200000
+GL_RENDERER_RE = 0x00400000
+GL_RENDERER_IR = 0x00800000
+GL_RENDERER_SGI = 0x00F00000
+GL_RENDERER_MCD = 0x01000000
+GL_RENDERER_OTHER = 0x80000000
+
 class glconfig_t(object):
 
 	def __init__(self):
@@ -951,35 +985,33 @@ R_SetLightLevel
 ====================
 """
 def R_SetLightLevel ():
-	pass
-	"""
 
-	vec3_t		shadelight;
+	#vec3_t		shadelight;
+	shadelight = np.zeros((3,), dtype=np.float32)
 
-	if (r_newrefdef.rdflags & RDF_NOWORLDMODEL)
-		return;
+	if r_newrefdef.rdflags & q_shared.RDF_NOWORLDMODEL:
+		return
 
-	// save off light value for server to look at (BIG HACK!)
+	# save off light value for server to look at (BIG HACK!)
 
-	R_LightPoint (r_newrefdef.vieworg, shadelight);
+	gl_light.R_LightPoint (r_newrefdef.vieworg, shadelight)
 
-	// pick the greatest component, which should be the same
-	// as the mono value returned by software
-	if (shadelight[0] > shadelight[1])
-	{
-		if (shadelight[0] > shadelight[2])
-			r_lightlevel->value = 150*shadelight[0];
-		else
-			r_lightlevel->value = 150*shadelight[2];
-	}
-	else
-	{
-		if (shadelight[1] > shadelight[2])
-			r_lightlevel->value = 150*shadelight[1];
-		else
-			r_lightlevel->value = 150*shadelight[2];
-	}
-	"""
+	# pick the greatest component, which should be the same
+	# as the mono value returned by software
+	if shadelight[0] > shadelight[1]:
+
+		if shadelight[0] > shadelight[2]:
+			r_lightlevel.value = 150*shadelight[0]
+		else:
+			r_lightlevel.value = 150*shadelight[2]
+
+	else:
+
+		if shadelight[1] > shadelight[2]:
+			r_lightlevel.value = 150*shadelight[1]
+		else:
+			r_lightlevel.value = 150*shadelight[2]
+
 
 
 """
@@ -1076,8 +1108,8 @@ def R_Register():
 	vid_ref = ri.Cvar_Get( "vid_ref", "soft", q_shared.CVAR_ARCHIVE )
 
 	ri.Cmd_AddCommand( "imagelist", gl_image.GL_ImageList_f )
-	#ri.Cmd_AddCommand( "screenshot", GL_ScreenShot_f )
-	#ri.Cmd_AddCommand( "modellist", Mod_Modellist_f )
+	ri.Cmd_AddCommand( "screenshot", gl_rmisc.GL_ScreenShot_f )
+	ri.Cmd_AddCommand( "modellist", gl_model.Mod_Modellist_f )
 	ri.Cmd_AddCommand( "gl_strings", gl_rmisc.GL_Strings_f )
 
 
@@ -1200,64 +1232,60 @@ def R_Init( hinstance, hWnd ): #void *, void *
 	ri.Con_Printf (q_shared.PRINT_ALL, "GL_VERSION: {}\n".format(gl_config.version_string) )
 	gl_config.extensions = set(glGetString (GL.GL_EXTENSIONS).decode('utf-8').split(" "))
 	ri.Con_Printf (q_shared.PRINT_ALL, "GL_EXTENSIONS: {}\n".format(gl_config.extensions) )
+
+	renderer_buffer = gl_config.renderer_string.decode("ascii", "ignore").lower() # strcpy and strlwr
+	vendor_buffer = gl_config.vendor_string.decode("ascii", "ignore").lower()
+
+	if "voodoo" in renderer_buffer:
+	
+		if "rush" not in renderer_buffer:
+			gl_config.renderer = GL_RENDERER_VOODOO
+		else:
+			gl_config.renderer = GL_RENDERER_VOODOO_RUSH
+	
+	elif "sgi" in vendor_buffer:
+		gl_config.renderer = GL_RENDERER_SGI
+	elif "permedia" in renderer_buffer:
+		gl_config.renderer = GL_RENDERER_PERMEDIA2
+	elif "glint" in renderer_buffer:
+		gl_config.renderer = GL_RENDERER_GLINT_MX
+	elif "glzicd" in renderer_buffer:
+		gl_config.renderer = GL_RENDERER_REALIZM
+	elif "gdi" in renderer_buffer:
+		gl_config.renderer = GL_RENDERER_MCD
+	elif "pcx2" in renderer_buffer:
+		gl_config.renderer = GL_RENDERER_PCX2
+	elif "verite" in renderer_buffer:
+		gl_config.renderer = GL_RENDERER_RENDITION
+	else:
+		gl_config.renderer = GL_RENDERER_OTHER
+
+	if gl_monolightmap.string[1:2].upper() != 'F':
+	
+		if gl_config.renderer == GL_RENDERER_PERMEDIA2:
+		
+			ri.Cvar_Set( "gl_monolightmap", "A" )
+			ri.Con_Printf( q_shared.PRINT_ALL, "...using gl_monolightmap 'a'\n" )
+		
+		elif gl_config.renderer & GL_RENDERER_POWERVR:
+		
+			ri.Cvar_Set( "gl_monolightmap", "0" )
+		
+		else:
+		
+			ri.Cvar_Set( "gl_monolightmap", "0" )
+		
+	# power vr can't have anything stay in the framebuffer, so
+	# the screen needs to redraw the tiled background every frame
+	if gl_config.renderer & GL_RENDERER_POWERVR:
+	
+		ri.Cvar_Set( "scr_drawall", "1" )
+	
+	else:
+	
+		ri.Cvar_Set( "scr_drawall", "0" )
+	
 	"""
-	strcpy( renderer_buffer, gl_config.renderer_string );
-	strlwr( renderer_buffer );
-
-	strcpy( vendor_buffer, gl_config.vendor_string );
-	strlwr( vendor_buffer );
-
-	if ( strstr( renderer_buffer, "voodoo" ) )
-	{
-		if ( !strstr( renderer_buffer, "rush" ) )
-			gl_config.renderer = GL_RENDERER_VOODOO;
-		else
-			gl_config.renderer = GL_RENDERER_VOODOO_RUSH;
-	}
-	else if ( strstr( vendor_buffer, "sgi" ) )
-		gl_config.renderer = GL_RENDERER_SGI;
-	else if ( strstr( renderer_buffer, "permedia" ) )
-		gl_config.renderer = GL_RENDERER_PERMEDIA2;
-	else if ( strstr( renderer_buffer, "glint" ) )
-		gl_config.renderer = GL_RENDERER_GLINT_MX;
-	else if ( strstr( renderer_buffer, "glzicd" ) )
-		gl_config.renderer = GL_RENDERER_REALIZM;
-	else if ( strstr( renderer_buffer, "gdi" ) )
-		gl_config.renderer = GL_RENDERER_MCD;
-	else if ( strstr( renderer_buffer, "pcx2" ) )
-		gl_config.renderer = GL_RENDERER_PCX2;
-	else if ( strstr( renderer_buffer, "verite" ) )
-		gl_config.renderer = GL_RENDERER_RENDITION;
-	else
-		gl_config.renderer = GL_RENDERER_OTHER;
-
-	if ( toupper( gl_monolightmap->string[1] ) != 'F' )
-	{
-		if ( gl_config.renderer == GL_RENDERER_PERMEDIA2 )
-		{
-			ri.Cvar_Set( "gl_monolightmap", "A" );
-			ri.Con_Printf( q_shared.PRINT_ALL, "...using gl_monolightmap 'a'\n" );
-		}
-		else if ( gl_config.renderer & GL_RENDERER_POWERVR ) 
-		{
-			ri.Cvar_Set( "gl_monolightmap", "0" );
-		}
-		else
-		{
-			ri.Cvar_Set( "gl_monolightmap", "0" );
-		}
-	}
-
-	// power vr can't have anything stay in the framebuffer, so
-	// the screen needs to redraw the tiled background every frame
-	if ( gl_config.renderer & GL_RENDERER_POWERVR ) 
-	{
-		ri.Cvar_Set( "scr_drawall", "1" );
-	}
-	else
-	{
-		ri.Cvar_Set( "scr_drawall", "0" );
-	}
 
 #ifdef __linux__
 	ri.Cvar_SetValue( "gl_finish", 1 );
@@ -1481,50 +1509,43 @@ def R_BeginFrame( camera_separation ): #float
 	global gl_state, gl_texturemode, gl_texturealphamode, gl_texturesolidmode
 
 	gl_state.camera_separation = camera_separation
-	"""
-	/*
-	** change modes if necessary
-	*/
-	if ( gl_mode->modified || vid_fullscreen->modified )
-	{	// FIXME: only restart if CDS is required
-		cvar_t	*ref;
 
-		ref = ri.Cvar_Get ("vid_ref", "gl", 0);
-		ref->modified = true;
-	}
+	#
+	# change modes if necessary
+	#
+	if gl_mode.modified or vid_fullscreen.modified:
+		# FIXME: only restart if CDS is required
+		#cvar_t	*ref;
 
-	if ( gl_log->modified )
-	{
-		GLimp_EnableLogging( gl_log->value );
-		gl_log->modified = false;
-	}
+		ref = ri.Cvar_Get ("vid_ref", "gl", 0)
+		ref.modified = True
+	
+	if gl_log.modified:
+	
+		qgl_linux.GLimp_EnableLogging( gl_log.value )
+		gl_log.modified = False
+	
+	if gl_log.value:
+	
+		qgl_linux.GLimp_LogNewFrame()
+	
+	#
+	# update 3Dfx gamma -- it is expected that a user will do a vid_restart
+	# after tweaking this value
+	#
+	if vid_gamma.modified:
+	
+		vid_gamma.modified = False
 
-	if ( gl_log->value )
-	{
-		GLimp_LogNewFrame();
-	}
+		if gl_config.renderer & ( GL_RENDERER_VOODOO ):
+		
+			#char envbuffer[1024];
+			#float g;
 
-	/*
-	** update 3Dfx gamma -- it is expected that a user will do a vid_restart
-	** after tweaking this value
-	*/
-	if ( vid_gamma->modified )
-	{
-		vid_gamma->modified = false;
-
-		if ( gl_config.renderer & ( GL_RENDERER_VOODOO ) )
-		{
-			char envbuffer[1024];
-			float g;
-
-			g = 2.00 * ( 0.8 - ( vid_gamma->value - 0.5 ) ) + 1.0F;
-			Com_sprintf( envbuffer, sizeof(envbuffer), "SSTV2_GAMMA=%f", g );
-			putenv( envbuffer );
-			Com_sprintf( envbuffer, sizeof(envbuffer), "SST_GAMMA=%f", g );
-			putenv( envbuffer );
-		}
-	}
-	"""
+			g = 2.00 * ( 0.8 - ( vid_gamma.value - 0.5 ) ) + 1.0
+			os.environ["SSTV2_GAMMA"] = "{:f}".format(g) # putenv( envbuffer );
+			os.environ["SST_GAMMA"] = "{:f}".format(g)
+		
 	gl_glx.GLimp_BeginFrame( camera_separation )
 
 	#
@@ -1541,23 +1562,20 @@ def R_BeginFrame( camera_separation ): #float
 	GL.glDisable (GL.GL_BLEND)
 	GL.glEnable (GL.GL_ALPHA_TEST)
 	GL.glColor4f (1,1,1,1)
-	"""
 	#
 	# draw buffer stuff
 	#
-	if ( gl_drawbuffer->modified )
-	{
-		gl_drawbuffer->modified = false;
+	if gl_drawbuffer.modified:
+	
+		gl_drawbuffer.modified = False
 
-		if ( gl_state.camera_separation == 0 || !gl_state.stereo_enabled )
-		{
-			if ( Q_stricmp( gl_drawbuffer->string, "GL_FRONT" ) == 0 )
-				qglDrawBuffer( GL_FRONT );
-			else
-				qglDrawBuffer( GL_BACK );
-		}
-	}
-	"""
+		if gl_state.camera_separation == 0 or not gl_state.stereo_enabled:
+		
+			if q_shared.Q_stricmp( gl_drawbuffer.string, "GL_FRONT" ) == 0:
+				GL.glDrawBuffer( GL.GL_FRONT )
+			else:
+				GL.glDrawBuffer( GL.GL_BACK )
+		
 	#
 	# texturemode stuff
 	#

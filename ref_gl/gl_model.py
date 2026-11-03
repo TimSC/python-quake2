@@ -149,9 +149,9 @@ def Mod_Modellist_f():
 	for mod in mod_known[:mod_numknown]:
 		if not mod.name:
 			continue
-		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "%8i : %s\n", mod.extradatasize, mod.name)
+		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "{:8d} : {}\n".format(mod.extradatasize, mod.name))
 		total += mod.extradatasize
-	gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "Total resident: %i\n", total)
+	gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "Total resident: {}\n".format(total))
 
 """
 # =================

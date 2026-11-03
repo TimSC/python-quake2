@@ -172,7 +172,7 @@ def Draw_Pic (x, y, pic): #int, int, char *
 	gl = Draw_FindPic (pic)
 	if gl is None:
 	
-		gl_rmain.ri.Con_Printf (PRINT_ALL, "Can't find pic: {}\n".format(pic))
+		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
 		return
 	
 	if gl_image.scrap_dirty:
@@ -212,7 +212,7 @@ def Draw_TileClear (x, y, w, h, pic): #int, int, int, int, char *
 	image = Draw_FindPic (pic)
 	if image is None:
 	
-		gl_rmain.ri.Con_Printf (PRINT_ALL, "Can't find pic: {}\n".format(pic))
+		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
 		return
 	
 	if  ( ( gl_config.renderer == GL_RENDERER_MCD ) or ( gl_config.renderer & GL_RENDERER_RENDITION ) )  and not image.has_alpha:

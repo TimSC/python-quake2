@@ -17,6 +17,9 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
+import time
+from ref_gl import gl_rmain
+from linux import gl_glx
 
 """
 /*
@@ -4133,3 +4136,33 @@ void GLimp_LogNewFrame( void )
 }
 
 """
+
+def GLimp_EnableLogging( enable ): #qboolean
+
+	if enable:
+	
+		if not gl_glx.glw_state.log_fp:
+		
+			#struct tm *newtime;
+			#time_t aclock;
+			#char buffer[1024];
+
+			newtime = time.asctime( time.localtime() ) # time( &aclock ); newtime = localtime( &aclock );
+
+			buffer = "{}/gl.log".format(gl_rmain.ri.FS_Gamedir())
+			gl_glx.glw_state.log_fp = open( buffer, "wt" )
+
+			gl_glx.glw_state.log_fp.write( "{}\n".format(newtime) )
+		
+		# FIXME the C swaps every qgl* function pointer for a logging version here.
+		# The port calls OpenGL.GL directly, so only the per frame markers are logged.
+	
+	else:
+	
+		# the C swaps the qgl* pointers back to the dll versions here
+		pass
+	
+
+def GLimp_LogNewFrame( ):
+
+	gl_glx.glw_state.log_fp.write( "*** R_BeginFrame ***\n" )

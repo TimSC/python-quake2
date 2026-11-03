@@ -17,9 +17,10 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
+import os
 import OpenGL.GL as GL
 from ref_gl import gl_image, gl_rmain
-from linux import qgl_linux
+from linux import qgl_linux, q_shlinux
 from game import q_shared
 """
 // r_misc.c
@@ -98,72 +99,67 @@ typedef struct _TargaHeader {
 } TargaHeader;
 
 
-/* 
+"""
+""" 
 ================== 
 GL_ScreenShot_f
 ================== 
-*/  
-void GL_ScreenShot_f (void) 
-{
+"""
+def GL_ScreenShot_f ():
+
+	"""
 	byte		*buffer;
 	char		picname[80]; 
 	char		checkname[MAX_OSPATH];
 	int			i, c, temp;
 	FILE		*f;
+	"""
+	vid = gl_rmain.vid
 
-	// create the scrnshots directory if it doesn't exist
-	Com_sprintf (checkname, sizeof(checkname), "%s/scrnshot", gl_rmain.ri.FS_Gamedir());
-	Sys_Mkdir (checkname);
+	# create the scrnshots directory if it doesn't exist
+	checkname = "{}/scrnshot".format(gl_rmain.ri.FS_Gamedir())
+	q_shlinux.Sys_Mkdir (checkname)
 
-// 
-// find a file name to save it to 
-// 
-	strcpy(picname,"quake00.tga");
+	# 
+	# find a file name to save it to 
+	# 
+	picname = list("quake00.tga")
 
-	for (i=0 ; i<=99 ; i++) 
-	{ 
-		picname[5] = i/10 + '0'; 
-		picname[6] = i%10 + '0'; 
-		Com_sprintf (checkname, sizeof(checkname), "%s/scrnshot/%s", gl_rmain.ri.FS_Gamedir(), picname);
-		f = fopen (checkname, "rb");
-		if (!f)
-			break;	// file doesn't exist
-		fclose (f);
-	} 
-	if (i==100) 
-	{
-		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "SCR_ScreenShot_f: Couldn't create a file\n"); 
-		return;
- 	}
+	for i in range(101):
+	
+		if i == 100:
+			break
+		picname[5] = chr(i//10 + ord('0'))
+		picname[6] = chr(i%10 + ord('0'))
+		checkname = "{}/scrnshot/{}".format(gl_rmain.ri.FS_Gamedir(), "".join(picname))
+		if not os.path.exists(checkname): # f = fopen (checkname, "rb"); if (!f)
+			break	# file doesn't exist
+	
+	if i == 100:
+	
+		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "SCR_ScreenShot_f: Couldn't create a file\n")
+		return
+	
+	buffer = bytearray(vid.width*vid.height*3 + 18) # malloc and memset (buffer, 0, 18);
+	buffer[2] = 2		# uncompressed type
+	buffer[12] = vid.width&255
+	buffer[13] = vid.width>>8
+	buffer[14] = vid.height&255
+	buffer[15] = vid.height>>8
+	buffer[16] = 24	# pixel size
 
+	GL.glPixelStorei(GL.GL_PACK_ALIGNMENT, 1) # rows are not padded in the C buffer
+	buffer[18:] = GL.glReadPixels (0, 0, vid.width, vid.height, GL.GL_RGB, GL.GL_UNSIGNED_BYTE)
 
-	buffer = malloc(vid.width*vid.height*3 + 18);
-	memset (buffer, 0, 18);
-	buffer[2] = 2;		// uncompressed type
-	buffer[12] = vid.width&255;
-	buffer[13] = vid.width>>8;
-	buffer[14] = vid.height&255;
-	buffer[15] = vid.height>>8;
-	buffer[16] = 24;	// pixel size
+	# swap rgb to bgr
+	c = 18+vid.width*vid.height*3
+	buffer[18:c:3], buffer[20:c:3] = buffer[20:c:3], buffer[18:c:3]
 
-	qglReadPixels (0, 0, vid.width, vid.height, GL_RGB, GL_UNSIGNED_BYTE, buffer+18 ); 
+	with open (checkname, "wb") as f:
+		f.write (buffer[:c])
 
-	// swap rgb to bgr
-	c = 18+vid.width*vid.height*3;
-	for (i=18 ; i<c ; i+=3)
-	{
-		temp = buffer[i];
-		buffer[i] = buffer[i+2];
-		buffer[i+2] = temp;
-	}
-
-	f = fopen (checkname, "wb");
-	fwrite (buffer, 1, c, f);
-	fclose (f);
-
-	free (buffer);
-	gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "Wrote %s\n", picname);
-} 
+	gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "Wrote {}\n".format("".join(picname)))
+"""
 
 /*
 ** GL_Strings_f
