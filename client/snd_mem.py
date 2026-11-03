@@ -17,8 +17,9 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
+import io
 from qcommon import files, common
-from client import snd_loc
+from client import snd_loc, snd_dma
 import pygame
 """
 // snd_mem.c: sound caching
@@ -142,7 +143,10 @@ def S_LoadSound (s): #sfx_t * (returns sfxcache_t *)
 		return None
 	
 	sc = snd_loc.sfxcache_t()
-	sc.data = pygame.mixer.Sound(data)
+	# Pass a file object so pygame parses the wav header and converts the mono
+	# data to the mixer format. Raw bytes are treated as samples already in the
+	# mixer format (stereo), which played everything at double speed.
+	sc.data = pygame.mixer.Sound(file=io.BytesIO(data))
 
 	"""
 
@@ -168,7 +172,7 @@ def S_LoadSound (s): #sfx_t * (returns sfxcache_t *)
 		return NULL;
 	}
 	"""
-	sc.length = sc.data.get_length() * 1000
+	sc.length = int(sc.data.get_length() * snd_dma.dma.speed) # in samples, like paintedtime
 	"""
 	sc->loopstart = info.loopstart;
 	sc->speed = info.rate;
