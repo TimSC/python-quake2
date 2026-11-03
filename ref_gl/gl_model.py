@@ -265,7 +265,7 @@ def Mod_ForName (name, crash)->gl_model_h.model_t: #char *, qboolean
 	else:
 		gl_rmain.ri.Sys_Error (q_shared.ERR_DROP,"Mod_NumForName: unknown fileid for {}".format(mod.name))
 
-	#loadmodel.extradatasize = Hunk_End ()
+	loadmodel.extradatasize = len(buf) # Q2PORT: Hunk_End returns the hunk size, there is no hunk so the file size stands in
 
 	#ri.FS_FreeFile (buf)
 

@@ -1177,7 +1177,7 @@ def R_SetMode (): # (returns qboolean)
 			ri.Con_Printf( q_shared.PRINT_ALL, "ref_gl::R_SetMode() - invalid mode\n" )
 		
 		# try setting it back to something safe
-		err, vid.width, vid.height = GLimp_SetMode( vid.width, vid.height, gl_state.prev_mode, False )
+		err, vid.width, vid.height = gl_glx.GLimp_SetMode( vid.width, vid.height, gl_state.prev_mode, False )
 		if err != rserr_t.rserr_ok:
 		
 			ri.Con_Printf( q_shared.PRINT_ALL, "ref_gl::R_SetMode() - could not revert to safe mode\n" )
@@ -1496,16 +1496,14 @@ R_Shutdown
 """
 def R_Shutdown ():
 
-	"""
-	ri.Cmd_RemoveCommand ("modellist");
-	ri.Cmd_RemoveCommand ("screenshot");
-	ri.Cmd_RemoveCommand ("imagelist");
-	ri.Cmd_RemoveCommand ("gl_strings");
+	ri.Cmd_RemoveCommand ("modellist")
+	ri.Cmd_RemoveCommand ("screenshot")
+	ri.Cmd_RemoveCommand ("imagelist")
+	ri.Cmd_RemoveCommand ("gl_strings")
 
-	Mod_FreeAll ();
+	gl_model.Mod_FreeAll ()
 
-	GL_ShutdownImages ();
-	"""
+	gl_image.GL_ShutdownImages ()
 	#
 	# shut down OS specific OpenGL stuff like contexts, etc.
 	#

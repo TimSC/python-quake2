@@ -154,78 +154,75 @@ def VID_Restart_f ():
 	vid_ref.modified = True
 
 """
-/*
 ** VID_GetModeInfo
-*/
-typedef struct vidmode_s
-{
-	const char *description;
-	int         width, height;
-	int         mode;
-} vidmode_t;
+"""
+class vidmode_t(object):
 
-vidmode_t vid_modes[] =
-{
-	{ "Mode 0: 320x240",   320, 240,   0 },
-	{ "Mode 1: 400x300",   400, 300,   1 },
-	{ "Mode 2: 512x384",   512, 384,   2 },
-	{ "Mode 3: 640x480",   640, 480,   3 },
-	{ "Mode 4: 800x600",   800, 600,   4 },
-	{ "Mode 5: 960x720",   960, 720,   5 },
-	{ "Mode 6: 1024x768",  1024, 768,  6 },
-	{ "Mode 7: 1152x864",  1152, 864,  7 },
-	{ "Mode 8: 1280x1024",  1280, 1024, 8 },
-	{ "Mode 9: 1600x1200", 1600, 1200, 9 },
-	{ "Mode 10: 2048x1536", 2048, 1536, 10 }
-};
+	def __init__(self, description, width, height, mode):
 
-qboolean VID_GetModeInfo( int *width, int *height, int mode )
-{
-	if ( mode < 0 || mode >= VID_NUM_MODES )
-		return false;
+		self.description = description #const char *
+		self.width, self.height = width, height #int
+		self.mode = mode #int
 
-	*width  = vid_modes[mode].width;
-	*height = vid_modes[mode].height;
+vid_modes = [ #vidmode_t []
+	vidmode_t( "Mode 0: 320x240",   320, 240,   0 ),
+	vidmode_t( "Mode 1: 400x300",   400, 300,   1 ),
+	vidmode_t( "Mode 2: 512x384",   512, 384,   2 ),
+	vidmode_t( "Mode 3: 640x480",   640, 480,   3 ),
+	vidmode_t( "Mode 4: 800x600",   800, 600,   4 ),
+	vidmode_t( "Mode 5: 960x720",   960, 720,   5 ),
+	vidmode_t( "Mode 6: 1024x768",  1024, 768,  6 ),
+	vidmode_t( "Mode 7: 1152x864",  1152, 864,  7 ),
+	vidmode_t( "Mode 8: 1280x1024",  1280, 1024, 8 ),
+	vidmode_t( "Mode 9: 1600x1200", 1600, 1200, 9 ),
+	vidmode_t( "Mode 10: 2048x1536", 2048, 1536, 10 ),
+]
+VID_NUM_MODES = len(vid_modes) # ( sizeof( vid_modes ) / sizeof( vid_modes[0] ) )
 
-	return true;
-}
+def VID_GetModeInfo( mode ): #int *width, int *height, int mode (returns qboolean, width, height)
 
-/*
-** VID_NewWindow
-*/
-void VID_NewWindow ( int width, int height)
-{
-	viddef.width  = width;
-	viddef.height = height;
-}
+	if mode < 0 or mode >= VID_NUM_MODES:
+		return False, 0, 0
+
+	width  = vid_modes[mode].width
+	height = vid_modes[mode].height
+
+	return True, width, height
 
 """
+** VID_NewWindow
+"""
+def VID_NewWindow ( width, height): #int, int
+
+	viddef.width  = width
+	viddef.height = height
+
 def VID_FreeReflib ():
 
-	pass
-	"""
-	if (reflib_library) {
-		if (KBD_Close_fp)
-			KBD_Close_fp();
-		if (RW_IN_Shutdown_fp)
-			RW_IN_Shutdown_fp();
-		dlclose(reflib_library);
-	}
+	global KBD_Init_fp, KBD_Update_fp, KBD_Close_fp
+	global RW_IN_Init_fp, RW_IN_Shutdown_fp, RW_IN_Activate_fp, RW_IN_Commands_fp, RW_IN_Move_fp, RW_IN_Frame_fp
+	global re, reflib_active
 
-	KBD_Init_fp = NULL;
-	KBD_Update_fp = NULL;
-	KBD_Close_fp = NULL;
-	RW_IN_Init_fp = NULL;
-	RW_IN_Shutdown_fp = NULL;
-	RW_IN_Activate_fp = NULL;
-	RW_IN_Commands_fp = NULL;
-	RW_IN_Move_fp = NULL;
-	RW_IN_Frame_fp = NULL;
+	# if (reflib_library), the renderer is a python module that is always loaded
+	if KBD_Close_fp is not None:
+		KBD_Close_fp()
+	if RW_IN_Shutdown_fp is not None:
+		RW_IN_Shutdown_fp()
+	# dlclose(reflib_library);
 
-	memset (&re, 0, sizeof(re));
-	reflib_library = NULL;
-	reflib_active  = false;
-	"""
+	KBD_Init_fp = None
+	KBD_Update_fp = None
+	KBD_Close_fp = None
+	RW_IN_Init_fp = None
+	RW_IN_Shutdown_fp = None
+	RW_IN_Activate_fp = None
+	RW_IN_Commands_fp = None
+	RW_IN_Move_fp = None
+	RW_IN_Frame_fp = None
+
+	re = ref.refexport_t() # memset (&re, 0, sizeof(re));
+	# reflib_library = NULL;
+	reflib_active  = False
 
 
 """
@@ -246,19 +243,19 @@ def VID_LoadRefresh(name): #char * (returns qboolean)
 	struct stat st;
 	extern uid_t saved_euid;
 	FILE *fp;
-	
-	if ( reflib_active )
-	{
-		if (KBD_Close_fp)
-			KBD_Close_fp();
-		if (RW_IN_Shutdown_fp)
-			RW_IN_Shutdown_fp();
-		KBD_Close_fp = NULL;
-		RW_IN_Shutdown_fp = NULL;
-		re.Shutdown();
-		VID_FreeReflib ();
-	}
 	"""
+	
+	if reflib_active:
+	
+		if KBD_Close_fp is not None:
+			KBD_Close_fp()
+		if RW_IN_Shutdown_fp is not None:
+			RW_IN_Shutdown_fp()
+		KBD_Close_fp = None
+		RW_IN_Shutdown_fp = None
+		re.Shutdown()
+		VID_FreeReflib ()
+	
 	common.Com_Printf( "------- Loading {} -------\n".format(name) )
 	"""
 	//regain root
@@ -319,10 +316,10 @@ def VID_LoadRefresh(name): #char * (returns qboolean)
 	ri.Cvar_Get = cvar.Cvar_Get
 	ri.Cvar_Set = cvar.Cvar_Set
 	ri.Cvar_SetValue = cvar.Cvar_SetValue
-	#ri.Vid_GetModeInfo = VID_GetModeInfo
+	ri.Vid_GetModeInfo = VID_GetModeInfo
 	from linux import vid_menu # imported here, vid_menu needs client.menu fully loaded
 	ri.Vid_MenuInit = vid_menu.VID_MenuInit
-	#ri.Vid_NewWindow = VID_NewWindow
+	ri.Vid_NewWindow = VID_NewWindow
 
 
 	if name == "gl" or True: #Force to gl for python port
@@ -488,24 +485,23 @@ def VID_Init ():
 ============
 VID_Shutdown
 ============
-*/
-void VID_Shutdown (void)
-{
-	if ( reflib_active )
-	{
-		if (KBD_Close_fp)
-			KBD_Close_fp();
-		if (RW_IN_Shutdown_fp)
-			RW_IN_Shutdown_fp();
-		KBD_Close_fp = NULL;
-		RW_IN_Shutdown_fp = NULL;
-		re.Shutdown ();
-		VID_FreeReflib ();
-	}
-}
-
-
 """
+def VID_Shutdown ():
+
+	global KBD_Close_fp, RW_IN_Shutdown_fp
+
+	if reflib_active:
+	
+		if KBD_Close_fp is not None:
+			KBD_Close_fp()
+		if RW_IN_Shutdown_fp is not None:
+			RW_IN_Shutdown_fp()
+		KBD_Close_fp = None
+		RW_IN_Shutdown_fp = None
+		re.Shutdown ()
+		VID_FreeReflib ()
+	
+
 #****************************************************************************
 # INPUT
 #****************************************************************************

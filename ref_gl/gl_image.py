@@ -41,6 +41,10 @@ class image_t(object):
 
 	def __init__(self):
 
+		self.clear()
+
+	def clear(self): # memset (image, 0, sizeof(*image))
+
 		self.name = None #char	[MAX_QPATH], game path, including extension
 		self.type = imagetype_t.it_skin #imagetype_t
 		self.width, self.height = None, None #int, source image
@@ -1598,19 +1602,19 @@ def GL_InitImages ():
 ===============
 GL_ShutdownImages
 ===============
-*/
-void	GL_ShutdownImages (void)
-{
-	int		i;
-	image_t	*image;
-
-	for (i=0, image=gltextures ; i<numgltextures ; i++, image++)
-	{
-		if (!image->registration_sequence)
-			continue;		// free image_t slot
-		// free it
-		qglDeleteTextures (1, &image->texnum);
-		memset (image, 0, sizeof(*image));
-	}
-}
 """
+def GL_ShutdownImages ():
+
+	#int		i;
+	#image_t	*image;
+
+	for i in range(numgltextures):
+	
+		image = gltextures[i]
+		if not image.registration_sequence:
+			continue		# free image_t slot
+		# free it
+		GL.glDeleteTextures ([image.texnum])
+		image.clear () # memset (image, 0, sizeof(*image));
+	
+

@@ -553,7 +553,7 @@ static void InitSig(void)
 ** GLimp_SetMode
 */
 """
-def GLimp_SetMode( width, height, mode, fullscreen ): # int *, int *, int, qboolean (returns rserr_t)
+def GLimp_SetMode( pwidth, pheight, mode, fullscreen ): # int *, int *, int, qboolean (returns rserr_t, *pwidth, *pheight)
 
 	global screen
 	"""
@@ -579,23 +579,23 @@ def GLimp_SetMode( width, height, mode, fullscreen ): # int *, int *, int, qbool
 	"""
 	gl_rmain.ri.Con_Printf( q_shared.PRINT_ALL, "Initializing OpenGL display\n")
 	
+	mode = int(mode)
+
 	if fullscreen:
 		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "...setting fullscreen mode {}:".format(mode) )
 	else:
 		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "...setting mode {}:".format(mode) )
-	"""
-	if ( !gl_rmain.ri.Vid_GetModeInfo( &width, &height, mode ) )
-	{
-		gl_rmain.ri.Con_Printf( q_shared.PRINT_ALL, " invalid mode\n" );
-		return rserr_invalid_mode;
-	}
-	"""
+
+	ok, width, height = gl_rmain.ri.Vid_GetModeInfo( mode )
+	if not ok:
+	
+		gl_rmain.ri.Con_Printf( q_shared.PRINT_ALL, " invalid mode\n" )
+		return gl_rmain.rserr_t.rserr_invalid_mode, pwidth, pheight
+	
 	gl_rmain.ri.Con_Printf( q_shared.PRINT_ALL, " {} {}\n".format(width, height) )
 	
 	# destroy the existing window
-	#GLimp_Shutdown ();
-	
-	pygame.display.quit()
+	GLimp_Shutdown ()
 	"""
 
 	// Mesa VooDoo hacks
@@ -686,10 +686,19 @@ def GLimp_SetMode( width, height, mode, fullscreen ): # int *, int *, int, qbool
 						visinfo->visual, mask, &attr);
 	XMapWindow(dpy, win);
 	"""
+	# Q2PORT: pygame creates the window and GL context in place of XCreateWindow and glXCreateContext,
+	# and switches the screen mode for fullscreen in place of XF86VidModeSwitchToMode
 	flags = pygame.OPENGL | pygame.DOUBLEBUF
 	if fullscreen:
 		flags |= pygame.FULLSCREEN
-	screen = pygame.display.set_mode((width, height), flags)
+	try:
+		screen = pygame.display.set_mode((width, height), flags)
+	except pygame.error as err:
+		gl_rmain.ri.Con_Printf( q_shared.PRINT_ALL, "Error couldn't set the video mode: {}\n".format(err) )
+		screen = None
+		if fullscreen:
+			return gl_rmain.rserr_t.rserr_invalid_fullscreen, pwidth, pheight
+		return gl_rmain.rserr_t.rserr_invalid_mode, pwidth, pheight
 
 	"""
 	if (vidmode_active) {
@@ -708,17 +717,16 @@ def GLimp_SetMode( width, height, mode, fullscreen ): # int *, int *, int, qbool
 	qglXMakeCurrent(dpy, win, ctx);
 	"""
 	width, height = pygame.display.get_window_size()
-	"""
 
-	*pwidth = width;
-	*pheight = height;
+	pwidth = width
+	pheight = height
 
-	// let the sound and input subsystems know about the new window
-	gl_rmain.ri.Vid_NewWindow (width, height);
+	# let the sound and input subsystems know about the new window
+	gl_rmain.ri.Vid_NewWindow (width, height)
 
-	qglXMakeCurrent(dpy, win, ctx);
-"""
-	return gl_rmain.rserr_t.rserr_ok, width, height
+	#qglXMakeCurrent(dpy, win, ctx);
+
+	return gl_rmain.rserr_t.rserr_ok, pwidth, pheight
 
 
 
@@ -735,26 +743,17 @@ def GLimp_SetMode( width, height, mode, fullscreen ): # int *, int *, int, qbool
 """
 def GLimp_Shutdown():
 
-	pygame.display.quit()
-	"""
-	uninstall_grabs();
-	mouse_active = false;
-	dgamouse = false;
+	global mouse_active, dgamouse, screen
 
-	if (dpy) {
-		if (ctx)
-			qglXDestroyContext(dpy, ctx);
-		if (win)
-			XDestroyWindow(dpy, win);
-		if (vidmode_active)
-			XF86VidModeSwitchToMode(dpy, scrnum, vidmodes[0]);
-		XCloseDisplay(dpy);
-	}
-	ctx = NULL;
-	dpy = NULL;
-	win = 0;
-	ctx = NULL;
-	"""
+	uninstall_grabs()
+	mouse_active = False
+	dgamouse = False
+
+	if screen is not None: # if (dpy)
+		# qglXDestroyContext, XDestroyWindow, the vidmode restore and XCloseDisplay
+		pygame.display.quit()
+	
+	screen = None # ctx = NULL; dpy = NULL; win = 0;
 
 """
 /*

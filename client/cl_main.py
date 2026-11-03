@@ -1782,7 +1782,5 @@ def CL_Shutdown():
 
 	snd_dma.S_Shutdown()
 	vid_so.IN_Shutdown ()
-	"""
-	VID_Shutdown();
-	"""
+	vid_so.VID_Shutdown()
 
