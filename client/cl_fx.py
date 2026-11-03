@@ -22,7 +22,8 @@ import math
 import random
 from qcommon import common, net_chan, qcommon
 from game import q_shared
-from client import cl_main, cl_view, ref, snd_dma
+from client import cl_main, cl_view, ref, snd_dma, cl_tent
+from game import m_flash
 """
 // cl_fx.c -- entity effects parsing and management
 
@@ -508,7 +509,17 @@ CL_ParseMuzzleFlash2
 """
 def CL_ParseMuzzleFlash2 ():
 
-	print ("CL_ParseMuzzleFlash2")
+	"""
+	int			ent;
+	vec3_t		origin;
+	int			flash_number;
+	cdlight_t	*dl;
+	vec3_t		forward, right;
+	char		soundname[64];
+	"""
+	origin = np.zeros((3,), dtype=np.float32)
+	forward = np.zeros((3,), dtype=np.float32)
+	right = np.zeros((3,), dtype=np.float32)
 
 	ent = common.MSG_ReadShort (net_chan.net_message)
 	if ent < 1 or ent >= q_shared.MAX_EDICTS:
@@ -516,367 +527,160 @@ def CL_ParseMuzzleFlash2 ():
 
 	flash_number = common.MSG_ReadByte (net_chan.net_message)
 
-	"""
-	// locate the origin
-	AngleVectors (cl_main.cl_entities[ent].current.angles, forward, right, NULL);
-	origin[0] = cl_main.cl_entities[ent].current.origin[0] + forward[0] * monster_flash_offset[flash_number][0] + right[0] * monster_flash_offset[flash_number][1];
-	origin[1] = cl_main.cl_entities[ent].current.origin[1] + forward[1] * monster_flash_offset[flash_number][0] + right[1] * monster_flash_offset[flash_number][1];
-	origin[2] = cl_main.cl_entities[ent].current.origin[2] + forward[2] * monster_flash_offset[flash_number][0] + right[2] * monster_flash_offset[flash_number][1] + monster_flash_offset[flash_number][2];
+	# locate the origin
+	cent = cl_main.cl_entities[ent]
+	offset = m_flash.monster_flash_offset[flash_number]
+	q_shared.AngleVectors (cent.current.angles, forward, right, None)
+	origin[0] = cent.current.origin[0] + forward[0] * offset[0] + right[0] * offset[1]
+	origin[1] = cent.current.origin[1] + forward[1] * offset[0] + right[1] * offset[1]
+	origin[2] = cent.current.origin[2] + forward[2] * offset[0] + right[2] * offset[1] + offset[2]
 
-	dl = CL_AllocDlight (ent);
-	VectorCopy (origin,  dl->origin);
-	dl->radius = 200 + (rand()&31);
-	dl->minlight = 32;
-	dl->die = cl.time;	// + 0.1;
+	dl = CL_AllocDlight (ent)
+	q_shared.VectorCopy (origin,  dl.origin)
+	dl.radius = 200 + (random.getrandbits(15)&31)
+	dl.minlight = 32
+	dl.die = cl_main.cl.time	# + 0.1;
 
-	switch (flash_number)
-	{
-	case MZ2_INFANTRY_MACHINEGUN_1:
-	case MZ2_INFANTRY_MACHINEGUN_2:
-	case MZ2_INFANTRY_MACHINEGUN_3:
-	case MZ2_INFANTRY_MACHINEGUN_4:
-	case MZ2_INFANTRY_MACHINEGUN_5:
-	case MZ2_INFANTRY_MACHINEGUN_6:
-	case MZ2_INFANTRY_MACHINEGUN_7:
-	case MZ2_INFANTRY_MACHINEGUN_8:
-	case MZ2_INFANTRY_MACHINEGUN_9:
-	case MZ2_INFANTRY_MACHINEGUN_10:
-	case MZ2_INFANTRY_MACHINEGUN_11:
-	case MZ2_INFANTRY_MACHINEGUN_12:
-	case MZ2_INFANTRY_MACHINEGUN_13:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		CL_ParticleEffect (origin, vec3_origin, 0, 40);
-		CL_SmokeAndFlash(origin);
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("infantry/infatck1.wav"), 1, ATTN_NORM, 0);
-		break;
+	#switch (flash_number)
+	if flash_number in (q_shared.MZ2_INFANTRY_MACHINEGUN_1, q_shared.MZ2_INFANTRY_MACHINEGUN_2, q_shared.MZ2_INFANTRY_MACHINEGUN_3, q_shared.MZ2_INFANTRY_MACHINEGUN_4, q_shared.MZ2_INFANTRY_MACHINEGUN_5, q_shared.MZ2_INFANTRY_MACHINEGUN_6, q_shared.MZ2_INFANTRY_MACHINEGUN_7, q_shared.MZ2_INFANTRY_MACHINEGUN_8, q_shared.MZ2_INFANTRY_MACHINEGUN_9, q_shared.MZ2_INFANTRY_MACHINEGUN_10, q_shared.MZ2_INFANTRY_MACHINEGUN_11, q_shared.MZ2_INFANTRY_MACHINEGUN_12, q_shared.MZ2_INFANTRY_MACHINEGUN_13):
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		CL_ParticleEffect (origin, q_shared.vec3_origin, 0, 40)
+		cl_tent.CL_SmokeAndFlash(origin)
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("infantry/infatck1.wav"), 1, q_shared.ATTN_NORM, 0)
 
-	case MZ2_SOLDIER_MACHINEGUN_1:
-	case MZ2_SOLDIER_MACHINEGUN_2:
-	case MZ2_SOLDIER_MACHINEGUN_3:
-	case MZ2_SOLDIER_MACHINEGUN_4:
-	case MZ2_SOLDIER_MACHINEGUN_5:
-	case MZ2_SOLDIER_MACHINEGUN_6:
-	case MZ2_SOLDIER_MACHINEGUN_7:
-	case MZ2_SOLDIER_MACHINEGUN_8:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		CL_ParticleEffect (origin, vec3_origin, 0, 40);
-		CL_SmokeAndFlash(origin);
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("soldier/solatck3.wav"), 1, ATTN_NORM, 0);
-		break;
+	elif flash_number in (q_shared.MZ2_SOLDIER_MACHINEGUN_1, q_shared.MZ2_SOLDIER_MACHINEGUN_2, q_shared.MZ2_SOLDIER_MACHINEGUN_3, q_shared.MZ2_SOLDIER_MACHINEGUN_4, q_shared.MZ2_SOLDIER_MACHINEGUN_5, q_shared.MZ2_SOLDIER_MACHINEGUN_6, q_shared.MZ2_SOLDIER_MACHINEGUN_7, q_shared.MZ2_SOLDIER_MACHINEGUN_8):
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		CL_ParticleEffect (origin, q_shared.vec3_origin, 0, 40)
+		cl_tent.CL_SmokeAndFlash(origin)
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("soldier/solatck3.wav"), 1, q_shared.ATTN_NORM, 0)
 
-	case MZ2_GUNNER_MACHINEGUN_1:
-	case MZ2_GUNNER_MACHINEGUN_2:
-	case MZ2_GUNNER_MACHINEGUN_3:
-	case MZ2_GUNNER_MACHINEGUN_4:
-	case MZ2_GUNNER_MACHINEGUN_5:
-	case MZ2_GUNNER_MACHINEGUN_6:
-	case MZ2_GUNNER_MACHINEGUN_7:
-	case MZ2_GUNNER_MACHINEGUN_8:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		CL_ParticleEffect (origin, vec3_origin, 0, 40);
-		CL_SmokeAndFlash(origin);
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("gunner/gunatck2.wav"), 1, ATTN_NORM, 0);
-		break;
+	elif flash_number in (q_shared.MZ2_GUNNER_MACHINEGUN_1, q_shared.MZ2_GUNNER_MACHINEGUN_2, q_shared.MZ2_GUNNER_MACHINEGUN_3, q_shared.MZ2_GUNNER_MACHINEGUN_4, q_shared.MZ2_GUNNER_MACHINEGUN_5, q_shared.MZ2_GUNNER_MACHINEGUN_6, q_shared.MZ2_GUNNER_MACHINEGUN_7, q_shared.MZ2_GUNNER_MACHINEGUN_8):
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		CL_ParticleEffect (origin, q_shared.vec3_origin, 0, 40)
+		cl_tent.CL_SmokeAndFlash(origin)
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("gunner/gunatck2.wav"), 1, q_shared.ATTN_NORM, 0)
 
-	case MZ2_ACTOR_MACHINEGUN_1:
-	case MZ2_SUPERTANK_MACHINEGUN_1:
-	case MZ2_SUPERTANK_MACHINEGUN_2:
-	case MZ2_SUPERTANK_MACHINEGUN_3:
-	case MZ2_SUPERTANK_MACHINEGUN_4:
-	case MZ2_SUPERTANK_MACHINEGUN_5:
-	case MZ2_SUPERTANK_MACHINEGUN_6:
-	case MZ2_TURRET_MACHINEGUN:			// PGM
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
+	elif flash_number in (q_shared.MZ2_ACTOR_MACHINEGUN_1, q_shared.MZ2_SUPERTANK_MACHINEGUN_1, q_shared.MZ2_SUPERTANK_MACHINEGUN_2, q_shared.MZ2_SUPERTANK_MACHINEGUN_3, q_shared.MZ2_SUPERTANK_MACHINEGUN_4, q_shared.MZ2_SUPERTANK_MACHINEGUN_5, q_shared.MZ2_SUPERTANK_MACHINEGUN_6, q_shared.MZ2_TURRET_MACHINEGUN):
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		CL_ParticleEffect (origin, q_shared.vec3_origin, 0, 40)
+		cl_tent.CL_SmokeAndFlash(origin)
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("infantry/infatck1.wav"), 1, q_shared.ATTN_NORM, 0)
 
-		CL_ParticleEffect (origin, vec3_origin, 0, 40);
-		CL_SmokeAndFlash(origin);
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("infantry/infatck1.wav"), 1, ATTN_NORM, 0);
-		break;
+	elif flash_number in (q_shared.MZ2_BOSS2_MACHINEGUN_L1, q_shared.MZ2_BOSS2_MACHINEGUN_L2, q_shared.MZ2_BOSS2_MACHINEGUN_L3, q_shared.MZ2_BOSS2_MACHINEGUN_L4, q_shared.MZ2_BOSS2_MACHINEGUN_L5, q_shared.MZ2_CARRIER_MACHINEGUN_L1, q_shared.MZ2_CARRIER_MACHINEGUN_L2):
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		CL_ParticleEffect (origin, q_shared.vec3_origin, 0, 40)
+		cl_tent.CL_SmokeAndFlash(origin)
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("infantry/infatck1.wav"), 1, q_shared.ATTN_NONE, 0)
 
-	case MZ2_BOSS2_MACHINEGUN_L1:
-	case MZ2_BOSS2_MACHINEGUN_L2:
-	case MZ2_BOSS2_MACHINEGUN_L3:
-	case MZ2_BOSS2_MACHINEGUN_L4:
-	case MZ2_BOSS2_MACHINEGUN_L5:
-	case MZ2_CARRIER_MACHINEGUN_L1:		// PMM
-	case MZ2_CARRIER_MACHINEGUN_L2:		// PMM
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
+	elif flash_number in (q_shared.MZ2_SOLDIER_BLASTER_1, q_shared.MZ2_SOLDIER_BLASTER_2, q_shared.MZ2_SOLDIER_BLASTER_3, q_shared.MZ2_SOLDIER_BLASTER_4, q_shared.MZ2_SOLDIER_BLASTER_5, q_shared.MZ2_SOLDIER_BLASTER_6, q_shared.MZ2_SOLDIER_BLASTER_7, q_shared.MZ2_SOLDIER_BLASTER_8, q_shared.MZ2_TURRET_BLASTER):
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("soldier/solatck2.wav"), 1, q_shared.ATTN_NORM, 0)
 
-		CL_ParticleEffect (origin, vec3_origin, 0, 40);
-		CL_SmokeAndFlash(origin);
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("infantry/infatck1.wav"), 1, ATTN_NONE, 0);
-		break;
+	elif flash_number in (q_shared.MZ2_FLYER_BLASTER_1, q_shared.MZ2_FLYER_BLASTER_2):
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("flyer/flyatck3.wav"), 1, q_shared.ATTN_NORM, 0)
 
-	case MZ2_SOLDIER_BLASTER_1:
-	case MZ2_SOLDIER_BLASTER_2:
-	case MZ2_SOLDIER_BLASTER_3:
-	case MZ2_SOLDIER_BLASTER_4:
-	case MZ2_SOLDIER_BLASTER_5:
-	case MZ2_SOLDIER_BLASTER_6:
-	case MZ2_SOLDIER_BLASTER_7:
-	case MZ2_SOLDIER_BLASTER_8:
-	case MZ2_TURRET_BLASTER:			// PGM
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("soldier/solatck2.wav"), 1, ATTN_NORM, 0);
-		break;
+	elif flash_number == q_shared.MZ2_MEDIC_BLASTER_1:
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("medic/medatck1.wav"), 1, q_shared.ATTN_NORM, 0)
 
-	case MZ2_FLYER_BLASTER_1:
-	case MZ2_FLYER_BLASTER_2:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("flyer/flyatck3.wav"), 1, ATTN_NORM, 0);
-		break;
+	elif flash_number == q_shared.MZ2_HOVER_BLASTER_1:
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("hover/hovatck1.wav"), 1, q_shared.ATTN_NORM, 0)
 
-	case MZ2_MEDIC_BLASTER_1:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("medic/medatck1.wav"), 1, ATTN_NORM, 0);
-		break;
+	elif flash_number == q_shared.MZ2_FLOAT_BLASTER_1:
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("floater/fltatck1.wav"), 1, q_shared.ATTN_NORM, 0)
 
-	case MZ2_HOVER_BLASTER_1:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("hover/hovatck1.wav"), 1, ATTN_NORM, 0);
-		break;
+	elif flash_number in (q_shared.MZ2_SOLDIER_SHOTGUN_1, q_shared.MZ2_SOLDIER_SHOTGUN_2, q_shared.MZ2_SOLDIER_SHOTGUN_3, q_shared.MZ2_SOLDIER_SHOTGUN_4, q_shared.MZ2_SOLDIER_SHOTGUN_5, q_shared.MZ2_SOLDIER_SHOTGUN_6, q_shared.MZ2_SOLDIER_SHOTGUN_7, q_shared.MZ2_SOLDIER_SHOTGUN_8):
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		cl_tent.CL_SmokeAndFlash(origin)
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("soldier/solatck1.wav"), 1, q_shared.ATTN_NORM, 0)
 
-	case MZ2_FLOAT_BLASTER_1:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("floater/fltatck1.wav"), 1, ATTN_NORM, 0);
-		break;
+	elif flash_number in (q_shared.MZ2_TANK_BLASTER_1, q_shared.MZ2_TANK_BLASTER_2, q_shared.MZ2_TANK_BLASTER_3):
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("tank/tnkatck3.wav"), 1, q_shared.ATTN_NORM, 0)
 
-	case MZ2_SOLDIER_SHOTGUN_1:
-	case MZ2_SOLDIER_SHOTGUN_2:
-	case MZ2_SOLDIER_SHOTGUN_3:
-	case MZ2_SOLDIER_SHOTGUN_4:
-	case MZ2_SOLDIER_SHOTGUN_5:
-	case MZ2_SOLDIER_SHOTGUN_6:
-	case MZ2_SOLDIER_SHOTGUN_7:
-	case MZ2_SOLDIER_SHOTGUN_8:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		CL_SmokeAndFlash(origin);
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("soldier/solatck1.wav"), 1, ATTN_NORM, 0);
-		break;
+	elif flash_number in (q_shared.MZ2_TANK_MACHINEGUN_1, q_shared.MZ2_TANK_MACHINEGUN_2, q_shared.MZ2_TANK_MACHINEGUN_3, q_shared.MZ2_TANK_MACHINEGUN_4, q_shared.MZ2_TANK_MACHINEGUN_5, q_shared.MZ2_TANK_MACHINEGUN_6, q_shared.MZ2_TANK_MACHINEGUN_7, q_shared.MZ2_TANK_MACHINEGUN_8, q_shared.MZ2_TANK_MACHINEGUN_9, q_shared.MZ2_TANK_MACHINEGUN_10, q_shared.MZ2_TANK_MACHINEGUN_11, q_shared.MZ2_TANK_MACHINEGUN_12, q_shared.MZ2_TANK_MACHINEGUN_13, q_shared.MZ2_TANK_MACHINEGUN_14, q_shared.MZ2_TANK_MACHINEGUN_15, q_shared.MZ2_TANK_MACHINEGUN_16, q_shared.MZ2_TANK_MACHINEGUN_17, q_shared.MZ2_TANK_MACHINEGUN_18, q_shared.MZ2_TANK_MACHINEGUN_19):
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		CL_ParticleEffect (origin, q_shared.vec3_origin, 0, 40)
+		cl_tent.CL_SmokeAndFlash(origin)
+		soundname = "tank/tnkatk2{}.wav".format(chr(ord('a') + random.getrandbits(15) % 5))
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound(soundname), 1, q_shared.ATTN_NORM, 0)
 
-	case MZ2_TANK_BLASTER_1:
-	case MZ2_TANK_BLASTER_2:
-	case MZ2_TANK_BLASTER_3:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("tank/tnkatck3.wav"), 1, ATTN_NORM, 0);
-		break;
+	elif flash_number in (q_shared.MZ2_CHICK_ROCKET_1, q_shared.MZ2_TURRET_ROCKET):
+		dl.color[0] = 1; dl.color[1] = 0.5; dl.color[2] = 0.2
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("chick/chkatck2.wav"), 1, q_shared.ATTN_NORM, 0)
 
-	case MZ2_TANK_MACHINEGUN_1:
-	case MZ2_TANK_MACHINEGUN_2:
-	case MZ2_TANK_MACHINEGUN_3:
-	case MZ2_TANK_MACHINEGUN_4:
-	case MZ2_TANK_MACHINEGUN_5:
-	case MZ2_TANK_MACHINEGUN_6:
-	case MZ2_TANK_MACHINEGUN_7:
-	case MZ2_TANK_MACHINEGUN_8:
-	case MZ2_TANK_MACHINEGUN_9:
-	case MZ2_TANK_MACHINEGUN_10:
-	case MZ2_TANK_MACHINEGUN_11:
-	case MZ2_TANK_MACHINEGUN_12:
-	case MZ2_TANK_MACHINEGUN_13:
-	case MZ2_TANK_MACHINEGUN_14:
-	case MZ2_TANK_MACHINEGUN_15:
-	case MZ2_TANK_MACHINEGUN_16:
-	case MZ2_TANK_MACHINEGUN_17:
-	case MZ2_TANK_MACHINEGUN_18:
-	case MZ2_TANK_MACHINEGUN_19:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		CL_ParticleEffect (origin, vec3_origin, 0, 40);
-		CL_SmokeAndFlash(origin);
-		Com_sprintf(soundname, sizeof(soundname), "tank/tnkatk2%c.wav", 'a' + rand() % 5);
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound(soundname), 1, ATTN_NORM, 0);
-		break;
+	elif flash_number in (q_shared.MZ2_TANK_ROCKET_1, q_shared.MZ2_TANK_ROCKET_2, q_shared.MZ2_TANK_ROCKET_3):
+		dl.color[0] = 1; dl.color[1] = 0.5; dl.color[2] = 0.2
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("tank/tnkatck1.wav"), 1, q_shared.ATTN_NORM, 0)
 
-	case MZ2_CHICK_ROCKET_1:
-	case MZ2_TURRET_ROCKET:			// PGM
-		dl->color[0] = 1;dl->color[1] = 0.5;dl->color[2] = 0.2;
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("chick/chkatck2.wav"), 1, ATTN_NORM, 0);
-		break;
+	elif flash_number in (q_shared.MZ2_SUPERTANK_ROCKET_1, q_shared.MZ2_SUPERTANK_ROCKET_2, q_shared.MZ2_SUPERTANK_ROCKET_3, q_shared.MZ2_BOSS2_ROCKET_1, q_shared.MZ2_BOSS2_ROCKET_2, q_shared.MZ2_BOSS2_ROCKET_3, q_shared.MZ2_BOSS2_ROCKET_4, q_shared.MZ2_CARRIER_ROCKET_1):
+		#	case MZ2_CARRIER_ROCKET_2:
+		#	case MZ2_CARRIER_ROCKET_3:
+		#	case MZ2_CARRIER_ROCKET_4:
+		dl.color[0] = 1; dl.color[1] = 0.5; dl.color[2] = 0.2
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("tank/rocket.wav"), 1, q_shared.ATTN_NORM, 0)
 
-	case MZ2_TANK_ROCKET_1:
-	case MZ2_TANK_ROCKET_2:
-	case MZ2_TANK_ROCKET_3:
-		dl->color[0] = 1;dl->color[1] = 0.5;dl->color[2] = 0.2;
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("tank/tnkatck1.wav"), 1, ATTN_NORM, 0);
-		break;
+	elif flash_number in (q_shared.MZ2_GUNNER_GRENADE_1, q_shared.MZ2_GUNNER_GRENADE_2, q_shared.MZ2_GUNNER_GRENADE_3, q_shared.MZ2_GUNNER_GRENADE_4):
+		dl.color[0] = 1; dl.color[1] = 0.5; dl.color[2] = 0
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("gunner/gunatck3.wav"), 1, q_shared.ATTN_NORM, 0)
 
-	case MZ2_SUPERTANK_ROCKET_1:
-	case MZ2_SUPERTANK_ROCKET_2:
-	case MZ2_SUPERTANK_ROCKET_3:
-	case MZ2_BOSS2_ROCKET_1:
-	case MZ2_BOSS2_ROCKET_2:
-	case MZ2_BOSS2_ROCKET_3:
-	case MZ2_BOSS2_ROCKET_4:
-	case MZ2_CARRIER_ROCKET_1:
-//	case MZ2_CARRIER_ROCKET_2:
-//	case MZ2_CARRIER_ROCKET_3:
-//	case MZ2_CARRIER_ROCKET_4:
-		dl->color[0] = 1;dl->color[1] = 0.5;dl->color[2] = 0.2;
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("tank/rocket.wav"), 1, ATTN_NORM, 0);
-		break;
+	elif flash_number in (q_shared.MZ2_GLADIATOR_RAILGUN_1, q_shared.MZ2_CARRIER_RAILGUN, q_shared.MZ2_WIDOW_RAIL):
+		# PMM
+		# pmm
+		dl.color[0] = 0.5; dl.color[1] = 0.5; dl.color[2] = 1.0
 
-	case MZ2_GUNNER_GRENADE_1:
-	case MZ2_GUNNER_GRENADE_2:
-	case MZ2_GUNNER_GRENADE_3:
-	case MZ2_GUNNER_GRENADE_4:
-		dl->color[0] = 1;dl->color[1] = 0.5;dl->color[2] = 0;
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("gunner/gunatck3.wav"), 1, ATTN_NORM, 0);
-		break;
+# --- Xian's shit starts ---
+	elif flash_number == q_shared.MZ2_MAKRON_BFG:
+		dl.color[0] = 0.5; dl.color[1] = 1; dl.color[2] = 0.5
+		#S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("makron/bfg_fire.wav"), 1, ATTN_NORM, 0);
 
-	case MZ2_GLADIATOR_RAILGUN_1:
-	// PMM
-	case MZ2_CARRIER_RAILGUN:
-	case MZ2_WIDOW_RAIL:
-	// pmm
-		dl->color[0] = 0.5;dl->color[1] = 0.5;dl->color[2] = 1.0;
-		break;
+	elif flash_number in (q_shared.MZ2_MAKRON_BLASTER_1, q_shared.MZ2_MAKRON_BLASTER_2, q_shared.MZ2_MAKRON_BLASTER_3, q_shared.MZ2_MAKRON_BLASTER_4, q_shared.MZ2_MAKRON_BLASTER_5, q_shared.MZ2_MAKRON_BLASTER_6, q_shared.MZ2_MAKRON_BLASTER_7, q_shared.MZ2_MAKRON_BLASTER_8, q_shared.MZ2_MAKRON_BLASTER_9, q_shared.MZ2_MAKRON_BLASTER_10, q_shared.MZ2_MAKRON_BLASTER_11, q_shared.MZ2_MAKRON_BLASTER_12, q_shared.MZ2_MAKRON_BLASTER_13, q_shared.MZ2_MAKRON_BLASTER_14, q_shared.MZ2_MAKRON_BLASTER_15, q_shared.MZ2_MAKRON_BLASTER_16, q_shared.MZ2_MAKRON_BLASTER_17):
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("makron/blaster.wav"), 1, q_shared.ATTN_NORM, 0)
 
-// --- Xian's shit starts ---
-	case MZ2_MAKRON_BFG:
-		dl->color[0] = 0.5;dl->color[1] = 1 ;dl->color[2] = 0.5;
-		//S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("makron/bfg_fire.wav"), 1, ATTN_NORM, 0);
-		break;
+	elif flash_number in (q_shared.MZ2_JORG_MACHINEGUN_L1, q_shared.MZ2_JORG_MACHINEGUN_L2, q_shared.MZ2_JORG_MACHINEGUN_L3, q_shared.MZ2_JORG_MACHINEGUN_L4, q_shared.MZ2_JORG_MACHINEGUN_L5, q_shared.MZ2_JORG_MACHINEGUN_L6):
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		CL_ParticleEffect (origin, q_shared.vec3_origin, 0, 40)
+		cl_tent.CL_SmokeAndFlash(origin)
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("boss3/xfire.wav"), 1, q_shared.ATTN_NORM, 0)
 
-	case MZ2_MAKRON_BLASTER_1:
-	case MZ2_MAKRON_BLASTER_2:
-	case MZ2_MAKRON_BLASTER_3:
-	case MZ2_MAKRON_BLASTER_4:
-	case MZ2_MAKRON_BLASTER_5:
-	case MZ2_MAKRON_BLASTER_6:
-	case MZ2_MAKRON_BLASTER_7:
-	case MZ2_MAKRON_BLASTER_8:
-	case MZ2_MAKRON_BLASTER_9:
-	case MZ2_MAKRON_BLASTER_10:
-	case MZ2_MAKRON_BLASTER_11:
-	case MZ2_MAKRON_BLASTER_12:
-	case MZ2_MAKRON_BLASTER_13:
-	case MZ2_MAKRON_BLASTER_14:
-	case MZ2_MAKRON_BLASTER_15:
-	case MZ2_MAKRON_BLASTER_16:
-	case MZ2_MAKRON_BLASTER_17:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("makron/blaster.wav"), 1, ATTN_NORM, 0);
-		break;
-	
-	case MZ2_JORG_MACHINEGUN_L1:
-	case MZ2_JORG_MACHINEGUN_L2:
-	case MZ2_JORG_MACHINEGUN_L3:
-	case MZ2_JORG_MACHINEGUN_L4:
-	case MZ2_JORG_MACHINEGUN_L5:
-	case MZ2_JORG_MACHINEGUN_L6:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		CL_ParticleEffect (origin, vec3_origin, 0, 40);
-		CL_SmokeAndFlash(origin);
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("boss3/xfire.wav"), 1, ATTN_NORM, 0);
-		break;
+	elif flash_number in (q_shared.MZ2_JORG_MACHINEGUN_R1, q_shared.MZ2_JORG_MACHINEGUN_R2, q_shared.MZ2_JORG_MACHINEGUN_R3, q_shared.MZ2_JORG_MACHINEGUN_R4, q_shared.MZ2_JORG_MACHINEGUN_R5, q_shared.MZ2_JORG_MACHINEGUN_R6):
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		CL_ParticleEffect (origin, q_shared.vec3_origin, 0, 40)
+		cl_tent.CL_SmokeAndFlash(origin)
 
-	case MZ2_JORG_MACHINEGUN_R1:
-	case MZ2_JORG_MACHINEGUN_R2:
-	case MZ2_JORG_MACHINEGUN_R3:
-	case MZ2_JORG_MACHINEGUN_R4:
-	case MZ2_JORG_MACHINEGUN_R5:
-	case MZ2_JORG_MACHINEGUN_R6:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		CL_ParticleEffect (origin, vec3_origin, 0, 40);
-		CL_SmokeAndFlash(origin);
-		break;
+	elif flash_number == q_shared.MZ2_JORG_BFG_1:
+		dl.color[0] = 0.5; dl.color[1] = 1; dl.color[2] = 0.5
 
-	case MZ2_JORG_BFG_1:
-		dl->color[0] = 0.5;dl->color[1] = 1 ;dl->color[2] = 0.5;
-		break;
+	elif flash_number in (q_shared.MZ2_BOSS2_MACHINEGUN_R1, q_shared.MZ2_BOSS2_MACHINEGUN_R2, q_shared.MZ2_BOSS2_MACHINEGUN_R3, q_shared.MZ2_BOSS2_MACHINEGUN_R4, q_shared.MZ2_BOSS2_MACHINEGUN_R5, q_shared.MZ2_CARRIER_MACHINEGUN_R1, q_shared.MZ2_CARRIER_MACHINEGUN_R2):
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		CL_ParticleEffect (origin, q_shared.vec3_origin, 0, 40)
+		cl_tent.CL_SmokeAndFlash(origin)
 
-	case MZ2_BOSS2_MACHINEGUN_R1:
-	case MZ2_BOSS2_MACHINEGUN_R2:
-	case MZ2_BOSS2_MACHINEGUN_R3:
-	case MZ2_BOSS2_MACHINEGUN_R4:
-	case MZ2_BOSS2_MACHINEGUN_R5:
-	case MZ2_CARRIER_MACHINEGUN_R1:			// PMM
-	case MZ2_CARRIER_MACHINEGUN_R2:			// PMM
+# ======
+# ROGUE
+	elif flash_number in (q_shared.MZ2_STALKER_BLASTER, q_shared.MZ2_DAEDALUS_BLASTER, q_shared.MZ2_MEDIC_BLASTER_2, q_shared.MZ2_WIDOW_BLASTER, q_shared.MZ2_WIDOW_BLASTER_SWEEP1, q_shared.MZ2_WIDOW_BLASTER_SWEEP2, q_shared.MZ2_WIDOW_BLASTER_SWEEP3, q_shared.MZ2_WIDOW_BLASTER_SWEEP4, q_shared.MZ2_WIDOW_BLASTER_SWEEP5, q_shared.MZ2_WIDOW_BLASTER_SWEEP6, q_shared.MZ2_WIDOW_BLASTER_SWEEP7, q_shared.MZ2_WIDOW_BLASTER_SWEEP8, q_shared.MZ2_WIDOW_BLASTER_SWEEP9, q_shared.MZ2_WIDOW_BLASTER_100, q_shared.MZ2_WIDOW_BLASTER_90, q_shared.MZ2_WIDOW_BLASTER_80, q_shared.MZ2_WIDOW_BLASTER_70, q_shared.MZ2_WIDOW_BLASTER_60, q_shared.MZ2_WIDOW_BLASTER_50, q_shared.MZ2_WIDOW_BLASTER_40, q_shared.MZ2_WIDOW_BLASTER_30, q_shared.MZ2_WIDOW_BLASTER_20, q_shared.MZ2_WIDOW_BLASTER_10, q_shared.MZ2_WIDOW_BLASTER_0, q_shared.MZ2_WIDOW_BLASTER_10L, q_shared.MZ2_WIDOW_BLASTER_20L, q_shared.MZ2_WIDOW_BLASTER_30L, q_shared.MZ2_WIDOW_BLASTER_40L, q_shared.MZ2_WIDOW_BLASTER_50L, q_shared.MZ2_WIDOW_BLASTER_60L, q_shared.MZ2_WIDOW_BLASTER_70L, q_shared.MZ2_WIDOW_RUN_1, q_shared.MZ2_WIDOW_RUN_2, q_shared.MZ2_WIDOW_RUN_3, q_shared.MZ2_WIDOW_RUN_4, q_shared.MZ2_WIDOW_RUN_5, q_shared.MZ2_WIDOW_RUN_6, q_shared.MZ2_WIDOW_RUN_7, q_shared.MZ2_WIDOW_RUN_8):
+		dl.color[0] = 0; dl.color[1] = 1; dl.color[2] = 0
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("tank/tnkatck3.wav"), 1, q_shared.ATTN_NORM, 0)
 
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
+	elif flash_number == q_shared.MZ2_WIDOW_DISRUPTOR:
+		dl.color[0] = -1; dl.color[1] = -1; dl.color[2] = -1
+		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/disint2.wav"), 1, q_shared.ATTN_NORM, 0)
 
-		CL_ParticleEffect (origin, vec3_origin, 0, 40);
-		CL_SmokeAndFlash(origin);
-		break;
+	elif flash_number in (q_shared.MZ2_WIDOW_PLASMABEAM, q_shared.MZ2_WIDOW2_BEAMER_1, q_shared.MZ2_WIDOW2_BEAMER_2, q_shared.MZ2_WIDOW2_BEAMER_3, q_shared.MZ2_WIDOW2_BEAMER_4, q_shared.MZ2_WIDOW2_BEAMER_5, q_shared.MZ2_WIDOW2_BEAM_SWEEP_1, q_shared.MZ2_WIDOW2_BEAM_SWEEP_2, q_shared.MZ2_WIDOW2_BEAM_SWEEP_3, q_shared.MZ2_WIDOW2_BEAM_SWEEP_4, q_shared.MZ2_WIDOW2_BEAM_SWEEP_5, q_shared.MZ2_WIDOW2_BEAM_SWEEP_6, q_shared.MZ2_WIDOW2_BEAM_SWEEP_7, q_shared.MZ2_WIDOW2_BEAM_SWEEP_8, q_shared.MZ2_WIDOW2_BEAM_SWEEP_9, q_shared.MZ2_WIDOW2_BEAM_SWEEP_10, q_shared.MZ2_WIDOW2_BEAM_SWEEP_11):
+		dl.radius = 300 + (random.getrandbits(15)&100)
+		dl.color[0] = 1; dl.color[1] = 1; dl.color[2] = 0
+		dl.die = cl_main.cl.time + 200
 
-// ======
-// ROGUE
-	case MZ2_STALKER_BLASTER:
-	case MZ2_DAEDALUS_BLASTER:
-	case MZ2_MEDIC_BLASTER_2:
-	case MZ2_WIDOW_BLASTER:
-	case MZ2_WIDOW_BLASTER_SWEEP1:
-	case MZ2_WIDOW_BLASTER_SWEEP2:
-	case MZ2_WIDOW_BLASTER_SWEEP3:
-	case MZ2_WIDOW_BLASTER_SWEEP4:
-	case MZ2_WIDOW_BLASTER_SWEEP5:
-	case MZ2_WIDOW_BLASTER_SWEEP6:
-	case MZ2_WIDOW_BLASTER_SWEEP7:
-	case MZ2_WIDOW_BLASTER_SWEEP8:
-	case MZ2_WIDOW_BLASTER_SWEEP9:
-	case MZ2_WIDOW_BLASTER_100:
-	case MZ2_WIDOW_BLASTER_90:
-	case MZ2_WIDOW_BLASTER_80:
-	case MZ2_WIDOW_BLASTER_70:
-	case MZ2_WIDOW_BLASTER_60:
-	case MZ2_WIDOW_BLASTER_50:
-	case MZ2_WIDOW_BLASTER_40:
-	case MZ2_WIDOW_BLASTER_30:
-	case MZ2_WIDOW_BLASTER_20:
-	case MZ2_WIDOW_BLASTER_10:
-	case MZ2_WIDOW_BLASTER_0:
-	case MZ2_WIDOW_BLASTER_10L:
-	case MZ2_WIDOW_BLASTER_20L:
-	case MZ2_WIDOW_BLASTER_30L:
-	case MZ2_WIDOW_BLASTER_40L:
-	case MZ2_WIDOW_BLASTER_50L:
-	case MZ2_WIDOW_BLASTER_60L:
-	case MZ2_WIDOW_BLASTER_70L:
-	case MZ2_WIDOW_RUN_1:
-	case MZ2_WIDOW_RUN_2:
-	case MZ2_WIDOW_RUN_3:
-	case MZ2_WIDOW_RUN_4:
-	case MZ2_WIDOW_RUN_5:
-	case MZ2_WIDOW_RUN_6:
-	case MZ2_WIDOW_RUN_7:
-	case MZ2_WIDOW_RUN_8:
-		dl->color[0] = 0;dl->color[1] = 1;dl->color[2] = 0;
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("tank/tnkatck3.wav"), 1, ATTN_NORM, 0);
-		break;
+# ROGUE
+# ======
+# --- Xian's shit ends ---
 
-	case MZ2_WIDOW_DISRUPTOR:
-		dl->color[0] = -1;dl->color[1] = -1;dl->color[2] = -1;
-		S_StartSound (NULL, ent, CHAN_WEAPON, S_RegisterSound("weapons/disint2.wav"), 1, ATTN_NORM, 0);
-		break;
 
-	case MZ2_WIDOW_PLASMABEAM:
-	case MZ2_WIDOW2_BEAMER_1:
-	case MZ2_WIDOW2_BEAMER_2:
-	case MZ2_WIDOW2_BEAMER_3:
-	case MZ2_WIDOW2_BEAMER_4:
-	case MZ2_WIDOW2_BEAMER_5:
-	case MZ2_WIDOW2_BEAM_SWEEP_1:
-	case MZ2_WIDOW2_BEAM_SWEEP_2:
-	case MZ2_WIDOW2_BEAM_SWEEP_3:
-	case MZ2_WIDOW2_BEAM_SWEEP_4:
-	case MZ2_WIDOW2_BEAM_SWEEP_5:
-	case MZ2_WIDOW2_BEAM_SWEEP_6:
-	case MZ2_WIDOW2_BEAM_SWEEP_7:
-	case MZ2_WIDOW2_BEAM_SWEEP_8:
-	case MZ2_WIDOW2_BEAM_SWEEP_9:
-	case MZ2_WIDOW2_BEAM_SWEEP_10:
-	case MZ2_WIDOW2_BEAM_SWEEP_11:
-		dl->radius = 300 + (rand()&100);
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		dl->die = cl.time + 200;
-		break;
-// ROGUE
-// ======
-
-// --- Xian's shit ends ---
-
-	}
-}
+"""
 
 
 /*
@@ -1248,6 +1052,42 @@ def CL_LogoutEffect (org, type): #vec3_t, int
 
 """
 ===============
+CL_ItemRespawnParticles
+
+===============
+"""
+def CL_ItemRespawnParticles (org): #vec3_t
+
+	#int			i, j;
+	#cparticle_t	*p;
+
+	for i in range(64):
+	
+		p = _alloc_particle()
+		if p is None:
+			return
+		active_particles.append(p)
+
+		p.time = cl_main.cl.time
+
+		p.color = 0xd4 + (random.getrandbits(15)&3)	# green
+
+		p.org[0] = org[0] + common.crand()*8
+		p.org[1] = org[1] + common.crand()*8
+		p.org[2] = org[2] + common.crand()*8
+
+		for j in range(3):
+			p.vel[j] = common.crand()*8
+
+		p.accel[0] = p.accel[1] = 0
+		p.accel[2] = -PARTICLE_GRAVITY*0.2
+		p.alpha = 1.0
+
+		p.alphavel = -1.0 / (1.0 + common.frand()*0.3)
+	
+
+"""
+===============
 CL_TeleporterParticles
 ===============
 """
@@ -1326,6 +1166,106 @@ def CL_BlasterTrail (start, end): #vec3_t, vec3_t
 		for j in range(3):
 		
 			p.org[j] = move[j] + common.crand()
+			p.vel[j] = common.crand()*5
+			p.accel[j] = 0
+		
+		q_shared.VectorAdd (move, vec, move)
+	
+
+"""
+===============
+CL_QuadTrail
+
+===============
+"""
+def CL_QuadTrail (start, end): #vec3_t, vec3_t
+
+	"""
+	vec3_t		move;
+	vec3_t		vec;
+	float		len;
+	int			j;
+	cparticle_t	*p;
+	int			dec;
+	"""
+	move = np.zeros((3,), dtype=np.float32)
+	vec = np.zeros((3,), dtype=np.float32)
+
+	q_shared.VectorCopy (start, move)
+	q_shared.VectorSubtract (end, start, vec)
+	length = q_shared.VectorNormalize (vec)
+
+	dec = 5
+	q_shared.VectorScale (vec, 5, vec)
+
+	while length > 0:
+	
+		length -= dec
+
+		p = _alloc_particle()
+		if p is None:
+			return
+		active_particles.append(p)
+		q_shared.VectorClear (p.accel)
+		
+		p.time = cl_main.cl.time
+
+		p.alpha = 1.0
+		p.alphavel = -1.0 / (0.8+common.frand()*0.2)
+		p.color = 115
+		for j in range(3):
+		
+			p.org[j] = move[j] + common.crand()*16
+			p.vel[j] = common.crand()*5
+			p.accel[j] = 0
+		
+		q_shared.VectorAdd (move, vec, move)
+	
+
+"""
+===============
+CL_FlagTrail
+
+===============
+"""
+def CL_FlagTrail (start, end, color): #vec3_t, vec3_t, float
+
+	"""
+	vec3_t		move;
+	vec3_t		vec;
+	float		len;
+	int			j;
+	cparticle_t	*p;
+	int			dec;
+	"""
+	move = np.zeros((3,), dtype=np.float32)
+	vec = np.zeros((3,), dtype=np.float32)
+
+	q_shared.VectorCopy (start, move)
+	q_shared.VectorSubtract (end, start, vec)
+	length = q_shared.VectorNormalize (vec)
+
+	dec = 5
+	q_shared.VectorScale (vec, 5, vec)
+
+	while length > 0:
+	
+		length -= dec
+
+		p = _alloc_particle()
+		if p is None:
+			return
+		active_particles.append(p)
+		q_shared.VectorClear (p.accel)
+		
+		p.time = cl_main.cl.time
+
+		p.alpha = 1.0
+		p.alphavel = -1.0 / (0.8+common.frand()*0.2)
+		p.color = color
+		for j in range(3):
+		
+			p.org[j] = move[j] + common.crand()*16
 			p.vel[j] = common.crand()*5
 			p.accel[j] = 0
 		
@@ -1979,6 +1919,84 @@ def CL_TrapParticles (ent): #entity_t *
 	
 				q_shared.VectorNormalize (dir)
 				vel = (50 + random.getrandbits(15))&63 # 50 + rand()&63
+				q_shared.VectorScale (dir, vel, p.vel)
+
+				p.accel[0] = p.accel[1] = 0
+				p.accel[2] = -PARTICLE_GRAVITY
+			
+
+"""
+===============
+CL_BFGExplosionParticles
+===============
+"""
+#FIXME combined with CL_ExplosionParticles
+def CL_BFGExplosionParticles (org): #vec3_t
+
+	#int			i, j;
+	#cparticle_t	*p;
+
+	for i in range(256):
+	
+		p = _alloc_particle()
+		if p is None:
+			return
+		active_particles.append(p)
+
+		p.time = cl_main.cl.time
+		p.color = 0xd0 + (random.getrandbits(15)&7)
+
+		for j in range(3):
+		
+			p.org[j] = org[j] + ((random.getrandbits(15)%32)-16)
+			p.vel[j] = (random.getrandbits(15)%384)-192
+		
+		p.accel[0] = p.accel[1] = 0
+		p.accel[2] = -PARTICLE_GRAVITY
+		p.alpha = 1.0
+
+		p.alphavel = -0.8 / (0.5 + common.frand()*0.3)
+	
+
+"""
+===============
+CL_TeleportParticles
+
+===============
+"""
+def CL_TeleportParticles (org): #vec3_t
+
+	#int			i, j, k;
+	#cparticle_t	*p;
+	#float		vel;
+	#vec3_t		dir;
+	dir = np.zeros((3,), dtype=np.float32)
+
+	for i in range(-16, 17, 4):
+		for j in range(-16, 17, 4):
+			for k in range(-16, 33, 4):
+			
+				p = _alloc_particle()
+				if p is None:
+					return
+				active_particles.append(p)
+
+				p.time = cl_main.cl.time
+				p.color = 7 + (random.getrandbits(15)&7)
+
+				p.alpha = 1.0
+				p.alphavel = -1.0 / (0.3 + (random.getrandbits(15)&7) * 0.02)
+				
+				p.org[0] = org[0] + i + (random.getrandbits(15)&3)
+				p.org[1] = org[1] + j + (random.getrandbits(15)&3)
+				p.org[2] = org[2] + k + (random.getrandbits(15)&3)
+	
+				dir[0] = j*8
+				dir[1] = i*8
+				dir[2] = k*8
+	
+				q_shared.VectorNormalize (dir)
+				vel = 50 + (random.getrandbits(15)&63)
 				q_shared.VectorScale (dir, vel, p.vel)
 
 				p.accel[0] = p.accel[1] = 0

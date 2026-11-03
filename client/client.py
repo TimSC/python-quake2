@@ -401,22 +401,27 @@ qboolean	CL_CheckOrDownloadFile (char *filename);
 void CL_AddNetgraph (void);
 
 //ROGUE
-typedef struct cl_sustain
-{
-	int			id;
-	int			type;
-	int			endtime;
-	int			nextthink;
-	int			thinkinterval;
-	vec3_t		org;
-	vec3_t		dir;
-	int			color;
-	int			count;
-	int			magnitude;
-	void		(*think)(struct cl_sustain *self);
-} cl_sustain_t;
+"""
+class cl_sustain_t(object):
 
-#define MAX_SUSTAINS		32
+	def __init__(self):
+		self.clear()
+
+	def clear(self): # memset to 0
+		self.id = 0 #int
+		self.type = 0 #int
+		self.endtime = 0 #int
+		self.nextthink = 0 #int
+		self.thinkinterval = 0 #int
+		self.org = np.zeros((3,), dtype=np.float32) #vec3_t
+		self.dir = np.zeros((3,), dtype=np.float32) #vec3_t
+		self.color = 0 #int
+		self.count = 0 #int
+		self.magnitude = 0 #int
+		self.think = None #void (*think)(struct cl_sustain *self);
+
+MAX_SUSTAINS = 32
+"""
 void CL_ParticleSteamEffect2(cl_sustain_t *self);
 
 void CL_TeleporterParticles (entity_state_t *ent);
