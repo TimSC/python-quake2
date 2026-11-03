@@ -527,9 +527,8 @@ NET
 */
 
 // net.h -- quake's interface to the networking layer
-
-#define	PORT_ANY	-1
 """
+PORT_ANY	= -1
 MAX_MSGLEN		= 1400		# max length of a message
 PACKET_HEADER	= 10			# two ints and a short
 
@@ -550,10 +549,10 @@ class netadr_t(object):
 
 		self.type = netadrtype_t.NA_LOOPBACK
 
-		self.ip = None #byte	[4]
-		self.ipx = None #byte	[10]
+		self.ip = bytes(4) #byte	[4]
+		self.ipx = bytes(10) #byte	[10]
 
-		self.port = None #unsigned short 
+		self.port = 0 #unsigned short, network byte order as in C
 
 """
 void		NET_Init (void);

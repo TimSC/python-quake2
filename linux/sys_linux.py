@@ -56,7 +56,9 @@ nostdout = None # cvar_t *;
 sys_frame_time = 0 #unsigned
 """
 uid_t saved_euid;
-qboolean stdin_active = true;
+"""
+stdin_active = True #qboolean
+"""
 
 // =======================================================================
 // General routines
@@ -283,11 +285,11 @@ def Sys_GetGameAPI (parms): # void * (returns void *)
 
 """
 /*****************************************************************************/
-
-void Sys_AppActivate (void)
-{
-}
 """
+def Sys_AppActivate ():
+
+	pass
+
 def Sys_SendKeyEvents ():
 
 	global sys_frame_time

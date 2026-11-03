@@ -123,7 +123,7 @@ def Netchan_OutOfBand (net_socket, adr, data): #int, netadr_t, byte *
 	#byte		send_buf[qcommon.MAX_MSGLEN];
 
 	# write the packet header
-	send = struct.pack(">l", -1)	# -1 sequence means out of band
+	send = struct.pack("<l", -1)	# MSG_WriteLong (&send, -1), -1 sequence means out of band
 	send += data
 
 	# send the datagram
@@ -177,15 +177,13 @@ Netchan_CanReliable
 
 Returns true if the last reliable message has acked
 ================
-*/
-qboolean Netchan_CanReliable (netchan_t *chan)
-{
-	if (chan->reliable_length)
-		return false;			// waiting for ack
-	return true;
-}
-
 """
+def Netchan_CanReliable (chan): #netchan_t * (returns qboolean)
+
+	if chan.reliable_length:
+		return False			# waiting for ack
+	return True
+
 def Netchan_NeedReliable (chan): #netchan_t *
 
 	# qboolean	send_reliable;

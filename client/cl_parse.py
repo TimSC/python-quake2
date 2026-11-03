@@ -59,69 +59,117 @@ while len(svc_strings) < 256:
 
 #=====================================
 
-def COM_StripExtension(name: str) -> str:
-	return name.split('.', 1)[0]
+def CL_DownloadFileName(fn): #char * (returns char *dest)
 
-def CL_DownloadFileName(filename: str) -> str:
-	if filename.startswith("players"):
-		return os.path.join(qcommon.BASEDIRNAME, filename)
-	return os.path.join(files.FS_Gamedir(), filename)
+	if fn[:7] == "players":
+		dest = "{}/{}".format(qcommon.BASEDIRNAME, fn)
+	else:
+		dest = "{}/{}".format(files.FS_Gamedir(), fn)
+	return dest
 
-def CL_CheckOrDownloadFile(filename: str) -> bool:
+"""
+===============
+CL_CheckOrDownloadFile
+
+Returns true if the file exists, otherwise it attempts
+to start a download from the server.
+===============
+"""
+def CL_CheckOrDownloadFile (filename): #char * (returns qboolean)
+
+	#FILE *fp;
+	#char	name[MAX_OSPATH];
 
 	if ".." in filename:
-		common.Com_Printf("Refusing to download a path with ..\n")
+	
+		common.Com_Printf ("Refusing to download a path with ..\n")
 		return True
-
-	length, _ = files.FS_LoadFile(filename)
-	if length != -1:
+	
+	if files.FS_LoadFile (filename)[0] != -1:
+		# it exists, no need to download
 		return True
-
+	
 	cl_main.cls.downloadname = filename
-	cl_main.cls.downloadtempname = COM_StripExtension(filename) + ".tmp"
 
-	download_path = CL_DownloadFileName(cl_main.cls.downloadtempname)
-	files.FS_CreatePath(download_path)
+	# download to a temp name, and only rename
+	# to the real name when done, so if interrupted
+	# a runt file wont be left
+	cl_main.cls.downloadtempname = q_shared.COM_StripExtension (cl_main.cls.downloadname)
+	cl_main.cls.downloadtempname += ".tmp"
+
+#ZOID
+	# check to see if we already have a tmp for this file, if so, try to resume
+	# open the file if not opened yet
+	name = CL_DownloadFileName(cl_main.cls.downloadtempname)
+
+#	FS_CreatePath (name);
+
 	try:
-		fp = open(download_path, "r+b")
+		fp = open (name, "r+b")
+	except OSError:
+		fp = None
+	if fp is not None: # it exists
+		#int len;
 		fp.seek(0, os.SEEK_END)
-		offset = fp.tell()
-		cl_main.cls.download = fp
-		common.Com_Printf("Resuming %s\n" % (cl_main.cls.downloadname,))
-		msg = "download %s %i" % (cl_main.cls.downloadname, offset)
-	except FileNotFoundError:
-		cl_main.cls.download = None
-		common.Com_Printf("Downloading %s\n" % cl_main.cls.downloadname)
-		msg = "download %s" % cl_main.cls.downloadname
+		length = fp.tell()
 
-	common.MSG_WriteByte(cl_main.cls.netchan.message, qcommon.clc_ops_e.clc_stringcmd.value)
-	common.MSG_WriteString(cl_main.cls.netchan.message, msg)
+		cl_main.cls.download = fp
+
+		# give the server an offset to start the download
+		common.Com_Printf ("Resuming {}\n".format(cl_main.cls.downloadname))
+		common.MSG_WriteByte (cl_main.cls.netchan.message, qcommon.clc_ops_e.clc_stringcmd.value)
+		common.MSG_WriteString (cl_main.cls.netchan.message,
+			"download {} {}".format(cl_main.cls.downloadname, length).encode('ascii'))
+	else:
+		common.Com_Printf ("Downloading {}\n".format(cl_main.cls.downloadname))
+		common.MSG_WriteByte (cl_main.cls.netchan.message, qcommon.clc_ops_e.clc_stringcmd.value)
+		common.MSG_WriteString (cl_main.cls.netchan.message,
+			"download {}".format(cl_main.cls.downloadname).encode('ascii'))
+	
 	cl_main.cls.downloadnumber += 1
+
 	return False
 
-def CL_Download_f():
+"""
+===============
+CL_Download_f
+
+Request a download from the server
+===============
+"""
+def CL_Download_f ():
+
+	#char filename[MAX_OSPATH];
 
 	if cmd.Cmd_Argc() != 2:
 		common.Com_Printf("Usage: download <filename>\n")
 		return
-
+	
 	filename = cmd.Cmd_Argv(1)
-	if ".." in filename:
-		common.Com_Printf("Refusing to download a path with ..\n")
-		return
 
-	length, _ = files.FS_LoadFile(filename)
-	if length != -1:
+	if ".." in filename:
+	
+		common.Com_Printf ("Refusing to download a path with ..\n")
+		return
+	
+	if files.FS_LoadFile (filename)[0] != -1:
+		# it exists, no need to download
 		common.Com_Printf("File already exists.\n")
 		return
-
+	
 	cl_main.cls.downloadname = filename
-	common.Com_Printf("Downloading %s\n" % cl_main.cls.downloadname)
+	common.Com_Printf ("Downloading {}\n".format(cl_main.cls.downloadname))
 
-	cl_main.cls.downloadtempname = COM_StripExtension(filename) + ".tmp"
+	# download to a temp name, and only rename
+	# to the real name when done, so if interrupted
+	# a runt file wont be left
+	cl_main.cls.downloadtempname = q_shared.COM_StripExtension (cl_main.cls.downloadname)
+	cl_main.cls.downloadtempname += ".tmp"
 
-	common.MSG_WriteByte(cl_main.cls.netchan.message, qcommon.clc_ops_e.clc_stringcmd.value)
-	common.MSG_WriteString(cl_main.cls.netchan.message, "download %s" % cl_main.cls.downloadname)
+	common.MSG_WriteByte (cl_main.cls.netchan.message, qcommon.clc_ops_e.clc_stringcmd.value)
+	common.MSG_WriteString (cl_main.cls.netchan.message,
+		"download {}".format(cl_main.cls.downloadname).encode('ascii'))
+
 	cl_main.cls.downloadnumber += 1
 
 """
@@ -152,152 +200,109 @@ CL_ParseDownload
 
 A download message has been received from the server
 =====================
-*/
-void CL_ParseDownload (void)
-{
-	int		size, percent;
-	char	name[MAX_OSPATH];
-	int		r;
+"""
+def CL_ParseDownload ():
 
-	// read the data
-	size = MSG_ReadShort (&net_chan.net_message);
-	percent = MSG_ReadByte (&net_chan.net_message);
-	if (size == -1)
-	{
-		Com_Printf ("Server does not have this file.\n");
-		if (cl_main.cls.download)
-		{
-			// if here, we tried to resume a file but the server said no
-			fclose (cl_main.cls.download);
-			cl_main.cls.download = NULL;
-		}
-		CL_RequestNextDownload ();
-		return;
-	}
+	#int		size, percent;
+	#char	name[MAX_OSPATH];
+	#int		r;
 
-	// open the file if not opened yet
-	if (!cl_main.cls.download)
-	{
-		CL_DownloadFileName(name, sizeof(name), cl_main.cls.downloadtempname);
+	# read the data
+	size = common.MSG_ReadShort (net_chan.net_message)
+	percent = common.MSG_ReadByte (net_chan.net_message)
+	if size == -1:
+	
+		common.Com_Printf ("Server does not have this file.\n")
+		if cl_main.cls.download is not None:
+		
+			# if here, we tried to resume a file but the server said no
+			cl_main.cls.download.close ()
+			cl_main.cls.download = None
+		
+		cl_main.CL_RequestNextDownload ()
+		return
+	
+	# open the file if not opened yet
+	if cl_main.cls.download is None:
+	
+		name = CL_DownloadFileName(cl_main.cls.downloadtempname)
 
-		FS_CreatePath (name);
+		files.FS_CreatePath (name)
 
-		cl_main.cls.download = fopen (name, "wb");
-		if (!cl_main.cls.download)
-		{
-			net_chan.net_message.readcount += size;
-			Com_Printf ("Failed to open %s\n", cl_main.cls.downloadtempname);
-			CL_RequestNextDownload ();
-			return;
-		}
-	}
+		try:
+			cl_main.cls.download = open (name, "wb")
+		except OSError:
+			cl_main.cls.download = None
+		if cl_main.cls.download is None:
+		
+			net_chan.net_message.readcount += size
+			common.Com_Printf ("Failed to open {}\n".format(cl_main.cls.downloadtempname))
+			cl_main.CL_RequestNextDownload ()
+			return
+		
+	cl_main.cls.download.write (net_chan.net_message.data[net_chan.net_message.readcount:net_chan.net_message.readcount + size])
+	net_chan.net_message.readcount += size
 
-	fwrite (net_chan.net_message.data + net_chan.net_message.readcount, 1, size, cl_main.cls.download);
-	net_chan.net_message.readcount += size;
-
-	if (percent != 100)
-	{
-		// request next block
+	if percent != 100:
+	
+		# request next block
+		"""
 // change display routines by zoid
 #if 0
 		Com_Printf (".");
-		if (10*(percent/10) != cl_main.cls.downloadpercent)
+		if (10*(percent/10) != cls.downloadpercent)
 		{
-			cl_main.cls.downloadpercent = 10*(percent/10);
-			Com_Printf ("%i%%", cl_main.cls.downloadpercent);
+			cls.downloadpercent = 10*(percent/10);
+			Com_Printf ("%i%%", cls.downloadpercent);
 		}
 #endif
-		cl_main.cls.downloadpercent = percent;
+		"""
+		cl_main.cls.downloadpercent = percent
 
-		MSG_WriteByte (&cl_main.cls.netchan.message, clc_stringcmd);
-		SZ_Print (&cl_main.cls.netchan.message, "nextdl");
-	}
-	else
-	{
-		char	oldn[MAX_OSPATH];
-		char	newn[MAX_OSPATH];
+		common.MSG_WriteByte (cl_main.cls.netchan.message, qcommon.clc_ops_e.clc_stringcmd.value)
+		common.SZ_Print (cl_main.cls.netchan.message, "nextdl")
+	
+	else:
+	
+		#char	oldn[MAX_OSPATH];
+		#char	newn[MAX_OSPATH];
 
-//		Com_Printf ("100%%\n");
-		fclose (cl_main.cls.download);
+#		Com_Printf ("100%%\n");
 
-		// rename the temp file to it's final name
-		CL_DownloadFileName(oldn, sizeof(oldn), cl_main.cls.downloadtempname);
-		CL_DownloadFileName(newn, sizeof(newn), cl_main.cls.downloadname);
-		r = rename (oldn, newn);
-		if (r)
-			Com_Printf ("failed to rename.\n");
+		cl_main.cls.download.close ()
 
-		cl_main.cls.download = NULL;
-		cl_main.cls.downloadpercent = 0;
+		# rename the temp file to it's final name
+		oldn = CL_DownloadFileName(cl_main.cls.downloadtempname)
+		newn = CL_DownloadFileName(cl_main.cls.downloadname)
+		try:
+			os.rename (oldn, newn)
+			r = 0
+		except OSError:
+			r = -1
+		if r:
+			common.Com_Printf ("failed to rename.\n")
 
-		// get another file if needed
+		cl_main.cls.download = None
+		cl_main.cls.downloadpercent = 0
 
-		CL_RequestNextDownload ();
-	}
-}
+		# get another file if needed
+
+		cl_main.CL_RequestNextDownload ()
 
 
-/*
+"""
 =====================================================================
 
   SERVER CONNECTING MESSAGES
 
 =====================================================================
-*/
+"""
 
-/*
+"""
 ==================
 CL_ParseServerData
 ==================
 """
-def CL_ParseDownload ():
-
-	size = common.MSG_ReadShort (net_chan.net_message)
-	percent = common.MSG_ReadByte (net_chan.net_message)
-
-	if size == -1:
-		common.Com_Printf ("Server does not have this file.\n")
-		if cl_main.cls.download:
-			cl_main.cls.download.close ()
-			cl_main.cls.download = None
-		cl_main.CL_RequestNextDownload ()
-		return
-
-	if not cl_main.cls.download:
-		download_path = CL_DownloadFileName (cl_main.cls.downloadtempname)
-		files.FS_CreatePath (download_path)
-		try:
-			cl_main.cls.download = open (download_path, "wb")
-		except OSError:
-			net_chan.net_message.readcount += size
-			common.Com_Printf ("Failed to open %s\n" % cl_main.cls.downloadtempname)
-			cl_main.CL_RequestNextDownload ()
-			return
-
-	data_start = net_chan.net_message.readcount
-	data_end = data_start + size
-	cl_main.cls.download.write (net_chan.net_message.data[data_start:data_end])
-	net_chan.net_message.readcount = data_end
-
-	if percent != 100:
-		cl_main.cls.downloadpercent = percent
-		common.MSG_WriteByte (cl_main.cls.netchan.message, qcommon.clc_ops_e.clc_stringcmd.value)
-		common.MSG_WriteString (cl_main.cls.netchan.message, "nextdl")
-		return
-
-	cl_main.cls.download.close ()
-	cl_main.cls.download = None
-	cl_main.cls.downloadpercent = 0
-
-	old_name = CL_DownloadFileName (cl_main.cls.downloadtempname)
-	new_name = CL_DownloadFileName (cl_main.cls.downloadname)
-	try:
-		os.rename (old_name, new_name)
-	except OSError:
-		common.Com_Printf ("failed to rename.\n")
-
-	cl_main.CL_RequestNextDownload ()
-
 def CL_ParseServerData ():
 
 	common.Com_DPrintf ("Serverdata packet received.\n")

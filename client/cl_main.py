@@ -19,10 +19,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 import os
 import struct
-from qcommon import cvar, common, cmd, files, net_chan, qcommon, cmodel
+from qcommon import cvar, common, cmd, files, net_chan, qcommon, cmodel, qfiles
 from game import q_shared
 from client import console, snd_dma, cl_scrn, client, cl_view, menu, cl_input, keys, cl_cin, cl_parse, cl_fx, cl_tent, cl_pred
-from linux import q_shlinux, vid_so, in_linux, net_udp, cd_linux
+from linux import q_shlinux, vid_so, in_linux, net_udp, cd_linux, sys_linux
+from server import sv_main
 
 """
 // cl_main.c  -- client main loop
@@ -228,96 +229,87 @@ def CL_Record_f ():
 
 //======================================================================
 
-/*
+"""
+"""
 ===================
 Cmd_ForwardToServer
 
-adds the current command line as a qcommon.clc_ops_e.clc_stringcmd to the client message.
+adds the current command line as a clc_stringcmd to the client message.
 things like godmode, noclip, etc, are commands directed to the server,
 so when they are typed in at the console, they will need to be forwarded.
 ===================
-*/
-void Cmd_ForwardToServer (void)
-{
-	char	*cmd;
+"""
+def Cmd_ForwardToServer ():
 
-	cmd = Cmd_Argv(0);
-	if (cls.state <= client.connstate_t.ca_connected || *cmd == '-' || *cmd == '+')
-	{
-		Com_Printf ("Unknown command \"%s\"\n", cmd);
-		return;
-	}
+	#char	*cmd;
 
-	MSG_WriteByte (&cls.netchan.message, qcommon.clc_ops_e.clc_stringcmd);
-	SZ_Print (&cls.netchan.message, cmd);
-	if (Cmd_Argc() > 1)
-	{
-		SZ_Print (&cls.netchan.message, " ");
-		SZ_Print (&cls.netchan.message, Cmd_Args());
-	}
-}
+	cmd_name = cmd.Cmd_Argv(0)
+	if cls.state.value <= client.connstate_t.ca_connected.value or cmd_name[:1] == '-' or cmd_name[:1] == '+':
+	
+		common.Com_Printf ("Unknown command \"{}\"\n".format(cmd_name))
+		return
+	
+	common.MSG_WriteByte (cls.netchan.message, qcommon.clc_ops_e.clc_stringcmd.value)
+	common.SZ_Print (cls.netchan.message, cmd_name)
+	if cmd.Cmd_Argc() > 1:
+	
+		common.SZ_Print (cls.netchan.message, " ")
+		common.SZ_Print (cls.netchan.message, cmd.Cmd_Args())
+	
 
-void CL_Setenv_f( void )
-{
-	int argc = Cmd_Argc();
+def CL_Setenv_f():
 
-	if ( argc > 2 )
-	{
-		char buffer[1000];
-		int i;
+	argc = cmd.Cmd_Argc()
 
-		strcpy( buffer, Cmd_Argv(1) );
-		strcat( buffer, "=" );
+	if argc > 2:
+	
+		#char buffer[1000];
+		#int i;
 
-		for ( i = 2; i < argc; i++ )
-		{
-			strcat( buffer, Cmd_Argv( i ) );
-			strcat( buffer, " " );
-		}
+		name = cmd.Cmd_Argv(1)
+		buffer = ""
 
-		putenv( buffer );
-	}
-	else if ( argc == 2 )
-	{
-		char *env = getenv( Cmd_Argv(1) );
+		for i in range(2, argc):
+		
+			buffer += cmd.Cmd_Argv( i )
+			buffer += " "
+		
+		os.environ[name] = buffer # strcpy( buffer, Cmd_Argv(1) ); strcat( buffer, "=" ); ... putenv( buffer );
+	
+	elif argc == 2:
+	
+		env = os.environ.get( cmd.Cmd_Argv(1) ) # getenv returns NULL when unset
 
-		if ( env )
-		{
-			Com_Printf( "%s=%s\n", Cmd_Argv(1), env );
-		}
-		else
-		{
-			Com_Printf( "%s undefined\n", Cmd_Argv(1), env );
-		}
-	}
-}
+		if env is not None:
+		
+			common.Com_Printf( "{}={}\n".format(cmd.Cmd_Argv(1), env) )
+		
+		else:
+		
+			common.Com_Printf( "{} undefined\n".format(cmd.Cmd_Argv(1)) )
+		
 
-
-/*
+"""
 ==================
 CL_ForwardToServer_f
 ==================
 """
 def CL_ForwardToServer_f ():
 
-	print ("CL_ForwardToServer_f")
-
-	"""
-	if (cls.state != client.connstate_t.ca_connected && cls.state != client.connstate_t.ca_active)
-	{
-		Com_Printf ("Can't \"%s\", not connected\n", Cmd_Argv(0));
-		return;
-	}
+	if cls.state != client.connstate_t.ca_connected and cls.state != client.connstate_t.ca_active:
 	
-	// don't forward the first argument
-	if (Cmd_Argc() > 1)
-	{
-		MSG_WriteByte (&cls.netchan.message, qcommon.clc_ops_e.clc_stringcmd);
-		SZ_Print (&cls.netchan.message, Cmd_Args());
-	}
-}
+		common.Com_Printf ("Can't \"{}\", not connected\n".format(cmd.Cmd_Argv(0)))
+		return
+	
+	# don't forward the first argument
+	if cmd.Cmd_Argc() > 1:
+	
+		common.MSG_WriteByte (cls.netchan.message, qcommon.clc_ops_e.clc_stringcmd.value)
+		common.SZ_Print (cls.netchan.message, cmd.Cmd_Args())
+	
 
 
+"""
 /*
 ==================
 CL_Pause_f
@@ -383,8 +375,8 @@ def CL_SendConnectPacket ():
 		cls.connect_time = 0
 		return
 	
-	if adr.port == 0 or adr.port is None:
-		adr.port = struct.pack(">H", qcommon.PORT_SERVER)
+	if not adr.port:
+		adr.port = q_shared.BigShort (struct.pack("=H", qcommon.PORT_SERVER)) # BigShort (PORT_SERVER)
 
 	port = int(cvar.Cvar_VariableValue ("qport"))
 	cvar.userinfo_modified = False
@@ -428,8 +420,8 @@ def CL_CheckForResend ():
 		cls.state = client.connstate_t.ca_disconnected
 		return
 
-	if adr.port == 0 or adr.port is None:
-		adr.port = struct.pack(">H", qcommon.PORT_SERVER)
+	if not adr.port:
+		adr.port = q_shared.BigShort (struct.pack("=H", qcommon.PORT_SERVER)) # BigShort (PORT_SERVER)
 
 	cls.connect_time = cls.realtime
 
@@ -439,104 +431,95 @@ def CL_CheckForResend ():
 
 
 
-# ================
-# CL_Connect_f
-# ================
+"""
+================
+CL_Connect_f
+
+================
+"""
 def CL_Connect_f ():
 
-	print ("CL_Connect_f")
-	"""
-	char	*server;
+	#char	*server;
 
-	if (Cmd_Argc() != 2)
-	{
-		Com_Printf ("usage: connect <server>\n");
-		return;	
-	}
+	if cmd.Cmd_Argc() != 2:
 	
-	if (Com_ServerState ())
-	{	// if running a local server, kill it and reissue
-		SV_Shutdown (va("Server quit\n", msg), false);
-	}
-	else
-	{
-		CL_Disconnect ();
-	}
+		common.Com_Printf ("usage: connect <server>\n")
+		return	
+	
+	if common.Com_ServerState ():
+		# if running a local server, kill it and reissue
+		sv_main.SV_Shutdown ("Server quit\n", False)
+	
+	else:
+	
+		CL_Disconnect ()
+	
+	server = cmd.Cmd_Argv (1)
 
-	server = Cmd_Argv (1);
+	net_udp.NET_Config (True)		# allow remote
 
-	net_udp.NET_Config (true);		// allow remote
+	CL_Disconnect ()
 
-	CL_Disconnect ();
-
-	cls.state = client.connstate_t.ca_connecting;
-	strncpy (cls.servername, server, sizeof(cls.servername)-1);
-	cls.connect_time = -99999;	// CL_CheckForResend() will fire immediately
-}
-	"""
+	cls.state = client.connstate_t.ca_connecting
+	cls.servername = server[:q_shared.MAX_OSPATH-1] # strncpy (cls.servername, server, sizeof(cls.servername)-1);
+	cls.connect_time = -99999	# CL_CheckForResend() will fire immediately
 
 
 """
-/*
 =====================
 CL_Rcon_f
 
   Send the rest of the command line over as
   an unconnected command.
 =====================
-*/
-void CL_Rcon_f (void)
-{
-	char	message[1024];
-	int		i;
-	netadr_t	to;
-
-	if (!rcon_client_password->string)
-	{
-		Com_Printf ("You must set 'rcon_password' before\n"
-					"issuing an rcon command.\n");
-		return;
-	}
-
-	message[0] = (char)255;
-	message[1] = (char)255;
-	message[2] = (char)255;
-	message[3] = (char)255;
-	message[4] = 0;
-
-	net_udp.NET_Config (true);		// allow remote
-
-	strcat (message, "rcon ");
-
-	strcat (message, rcon_client_password->string);
-	strcat (message, " ");
-
-	for (i=1 ; i<Cmd_Argc() ; i++)
-	{
-		strcat (message, Cmd_Argv(i));
-		strcat (message, " ");
-	}
-
-	if (cls.state >= client.connstate_t.ca_connected)
-		to = cls.netchan.remote_address;
-	else
-	{
-		if (!strlen(rcon_address->string))
-		{
-			Com_Printf ("You must either be connected,\n"
-						"or set the 'rcon_address' cvar\n"
-						"to issue rcon commands\n");
-
-			return;
-		}
-		NET_StringToAdr (rcon_address->string, &to);
-		if (to.port == 0)
-			to.port = BigShort (qcommon.PORT_SERVER);
-	}
-	
-	NET_SendPacket (qcommon.netsrc_t.NS_CLIENT, strlen(message)+1, message, to);
-}
 """
+def CL_Rcon_f ():
+
+	#char	message[1024];
+	#int		i;
+	#netadr_t	to;
+
+	if rcon_client_password.string is None:
+	
+		common.Com_Printf ("You must set 'rcon_password' before\n"
+					"issuing an rcon command.\n")
+		return
+	
+	message = bytearray(b"\xff\xff\xff\xff") # message[0..3] = (char)255; message[4] = 0;
+
+	net_udp.NET_Config (True)		# allow remote
+
+	message += b"rcon "
+
+	message += rcon_client_password.string.encode('ascii')
+	message += b" "
+
+	for i in range(1, cmd.Cmd_Argc()):
+	
+		message += cmd.Cmd_Argv(i).encode('ascii')
+		message += b" "
+	
+	if cls.state.value >= client.connstate_t.ca_connected.value:
+		to = cls.netchan.remote_address
+	else:
+	
+		if not len(rcon_address.string):
+		
+			common.Com_Printf ("You must either be connected,\n"
+						"or set the 'rcon_address' cvar\n"
+						"to issue rcon commands\n")
+
+			return
+		
+		to = net_udp.NET_StringToAdr (rcon_address.string)
+		if to is None: # C ignores the failure and sends to an empty address
+			to = qcommon.netadr_t()
+		if to.port == 0:
+			to.port = q_shared.BigShort (struct.pack("=H", qcommon.PORT_SERVER)) # BigShort (PORT_SERVER)
+	
+	message += b"\0"
+	net_udp.NET_SendPacket (qcommon.netsrc_t.NS_CLIENT, bytes(message), to) # strlen(message)+1
+
 
 
 # =====================
@@ -639,43 +622,45 @@ def CL_Packet_f ():
 	#char	*in, *out;
 	#netadr_t	adr;
 
-	if cmds.Cmd_Argc() != 3:
+	if cmd.Cmd_Argc() != 3:
 	
 		common.Com_Printf ("packet <destination> <contents>\n")
 		return
 	
+	net_udp.NET_Config (True)		# allow remote
+
+	adr = net_udp.NET_StringToAdr (cmd.Cmd_Argv(1))
+	if adr is None:
 	
-	"""
-	net_udp.NET_Config (true);		// allow remote
+		common.Com_Printf ("Bad address\n")
+		return
+	
+	if not adr.port:
+		adr.port = q_shared.BigShort (struct.pack("=H", qcommon.PORT_SERVER)) # BigShort (PORT_SERVER)
 
-	if (!NET_StringToAdr (Cmd_Argv(1), &adr))
-	{
-		Com_Printf ("Bad address\n");
-		return;
-	}
-	if (!adr.port)
-		adr.port = BigShort (qcommon.PORT_SERVER);
+	in_str = cmd.Cmd_Argv(2)
+	send = bytearray(b"\xff\xff\xff\xff") # send[0] = send[1] = send[2] = send[3] = (char)0xff;
 
-	in = Cmd_Argv(2);
-	out = send+4;
-	send[0] = send[1] = send[2] = send[3] = (char)0xff;
+	l = len (in_str)
+	i = 0
+	while i < l:
+	
+		if in_str[i] == '\\' and in_str[i+1:i+2] == 'n':
+		
+			send += b"\n"
+			i += 1
+		
+		else:
+			send += in_str[i].encode('latin-1')
+		i += 1
+	
+	# *out = 0;
 
-	l = strlen (in);
-	for (i=0 ; i<l ; i++)
-	{
-		if (in[i] == '\\' && in[i+1] == 'n')
-		{
-			*out++ = '\n';
-			i++;
-		}
-		else
-			*out++ = in[i];
-	}
-	*out = 0;
-
-	NET_SendPacket (qcommon.netsrc_t.NS_CLIENT, out-send, send, adr);
+	net_udp.NET_SendPacket (qcommon.netsrc_t.NS_CLIENT, bytes(send), adr) # out-send, excludes the terminator
 
 
+
+"""
 /*
 =================
 CL_Changing_f
@@ -771,14 +756,14 @@ def CL_PingServers_f ():
 	if not noudp.value:
 	
 		adr.type = qcommon.netadrtype_t.NA_BROADCAST
-		adr.port = struct.pack(">H", qcommon.PORT_SERVER) # BigShort(PORT_SERVER)
+		adr.port = q_shared.BigShort (struct.pack("=H", qcommon.PORT_SERVER)) # BigShort (PORT_SERVER)
 		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, adr, "info {}".format(qcommon.PROTOCOL_VERSION).encode("ascii"))
 	
 	noipx = cvar.Cvar_Get ("noipx", "0", q_shared.CVAR_NOSET)
 	if not noipx.value:
 	
 		adr.type = qcommon.netadrtype_t.NA_BROADCAST_IPX
-		adr.port = struct.pack(">H", qcommon.PORT_SERVER)
+		adr.port = q_shared.BigShort (struct.pack("=H", qcommon.PORT_SERVER)) # BigShort (PORT_SERVER)
 		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, adr, "info {}".format(qcommon.PROTOCOL_VERSION).encode("ascii"))
 	
 	# send a packet to each address book entry
@@ -797,7 +782,7 @@ def CL_PingServers_f ():
 			continue
 		
 		if not adr.port:
-			adr.port = struct.pack(">H", qcommon.PORT_SERVER)
+			adr.port = q_shared.BigShort (struct.pack("=H", qcommon.PORT_SERVER)) # BigShort (PORT_SERVER)
 		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, adr, "info {}".format(qcommon.PROTOCOL_VERSION).encode("ascii"))
 	
 
@@ -810,21 +795,21 @@ CL_Skins_f
 
 Load or download any custom player skins and models
 =================
-*/
-void CL_Skins_f (void)
-{
-	int		i;
+"""
+def CL_Skins_f ():
 
-	for (i=0 ; i<MAX_CLIENTS ; i++)
-	{
-		if (!cl.configstrings[q_shared.CS_PLAYERSKINS+i][0])
-			continue;
-		Com_Printf ("client %i: %s\n", i, cl.configstrings[q_shared.CS_PLAYERSKINS+i]); 
-		SCR_UpdateScreen ();
-		Sys_SendKeyEvents ();	// pump message loop
-		CL_ParseClientinfo (i);
-	}
-}
+	#int		i;
+
+	for i in range(q_shared.MAX_CLIENTS):
+	
+		if not cl.configstrings[q_shared.CS_PLAYERSKINS+i]:
+			continue
+		common.Com_Printf ("client {}: {}\n".format(i, cl.configstrings[q_shared.CS_PLAYERSKINS+i])) 
+		cl_scrn.SCR_UpdateScreen ()
+		sys_linux.Sys_SendKeyEvents ()	# pump message loop
+		cl_parse.CL_ParseClientinfo (i)
+	
+"""
 
 
 /*
@@ -839,17 +824,16 @@ def CL_ConnectionlessPacket ():
 	#char	*s;
 	#char	*c;
 	
-	#MSG_BeginReading (&net_message);
-	#MSG_ReadLong (&net_message);	// skip the -1
+	common.MSG_BeginReading (net_chan.net_message)
+	common.MSG_ReadLong (net_chan.net_message)	# skip the -1
 
-	s = net_chan.net_message.data[4:].decode("ascii")
+	s = common.MSG_ReadStringLine (net_chan.net_message)
 
 	cmd.Cmd_TokenizeString (s, False)
 
 	c = cmd.Cmd_Argv(0)
 
 	common.Com_Printf ("{}: {}\n".format(net_udp.NET_AdrToString (net_chan.net_from), c))
-	print ("CL_ConnectionlessPacket", c)
 
 	# server connection
 	if c == "client_connect":
@@ -858,63 +842,59 @@ def CL_ConnectionlessPacket ():
 		
 			common.Com_Printf ("Dup connect received.  Ignored.\n")
 			return
-
+		
 		net_chan.Netchan_Setup (qcommon.netsrc_t.NS_CLIENT, cls.netchan, net_chan.net_from, cls.quakePort)
-		common.MSG_WriteChar(cls.netchan.message, struct.pack("B", qcommon.clc_ops_e.clc_stringcmd.value))
-		common.MSG_WriteString(cls.netchan.message, b"new")
+		common.MSG_WriteChar (cls.netchan.message, struct.pack("B", qcommon.clc_ops_e.clc_stringcmd.value))
+		common.MSG_WriteString (cls.netchan.message, b"new")	
 		cls.state = client.connstate_t.ca_connected
 		return
 	
 	# server responding to a status broadcast
-	elif c == "info":
+	if c == "info":
 	
 		CL_ParseStatusMessage ()
 		return
 	
 	# remote command from gui front end
-	elif c == "cmd":
+	if c == "cmd":
 	
-		if not NET_IsLocalAddress(net_chan.net_from):
+		if not net_udp.NET_IsLocalAddress(net_chan.net_from):
 		
-			Com_Printf ("Command packet from remote host.  Ignored.\n")
+			common.Com_Printf ("Command packet from remote host.  Ignored.\n")
 			return
 		
-		Sys_AppActivate ()
-		s = MSG_ReadString (net_chan.net_message)
-		Cbuf_AddText (s)
-		Cbuf_AddText ("\n")
+		sys_linux.Sys_AppActivate ()
+		s = common.MSG_ReadString (net_chan.net_message)
+		cmd.Cbuf_AddText (s)
+		cmd.Cbuf_AddText ("\n")
 		return
 	
 	# print command from somewhere
-	elif c == "print":
+	if c == "print":
 	
-		s = MSG_ReadString (net_chan.net_message)
-		common.Com_Printf ("%s", s)
+		s = common.MSG_ReadString (net_chan.net_message)
+		common.Com_Printf ("{}".format(s))
 		return
 	
-
 	# ping from somewhere
-	elif c == "ping":
+	if c == "ping":
 	
-		Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, net_chan.net_from, "ack")
+		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, net_chan.net_from, b"ack")
 		return
 	
-
 	# challenge from the server we are connecting to
-	elif c == "challenge":
+	if c == "challenge":
 	
-		cls.challenge = atoi(Cmd_Argv(1))
+		cls.challenge = q_shared.atoi(cmd.Cmd_Argv(1))
 		CL_SendConnectPacket ()
 		return
 	
-
 	# echo request from server
-	elif c == "echo":
+	if c == "echo":
 	
-		Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, net_chan.net_from, "%s", Cmd_Argv(1) )
+		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, net_chan.net_from, "{}".format(cmd.Cmd_Argv(1)).encode('ascii') )
 		return
 	
-
 	common.Com_Printf ("Unknown command.\n")
 
 
@@ -926,15 +906,18 @@ A vain attempt to help bad TCP stacks that cause problems
 when they overflow
 =================
 */
-void CL_DumpPackets (void)
-{
-	while (NET_GetPacket (qcommon.netsrc_t.NS_CLIENT, &net_chan.net_from, &net_message))
-	{
-		Com_Printf ("dumnping a packet\n");
-	}
-}
+"""
+def CL_DumpPackets ():
 
-/*
+	while True:
+		rx, net_chan.net_from, net_chan.net_message = net_udp.NET_GetPacket (qcommon.netsrc_t.NS_CLIENT)
+		if not rx:
+			break
+	
+		common.Com_Printf ("dumnping a packet\n")
+	
+
+"""
 =================
 CL_ReadPackets
 =================
@@ -950,7 +933,7 @@ def CL_ReadPackets ():
 			# remote command packet
 			#
 
-			header = struct.unpack(">l", net_chan.net_message.data[:4])[0]
+			header = struct.unpack("<l", net_chan.net_message.data[:4])[0] # *(int *)net_message.data
 			if header == -1:
 				CL_ConnectionlessPacket ()
 				continue
@@ -959,9 +942,9 @@ def CL_ReadPackets ():
 			if cls.state == client.connstate_t.ca_disconnected or cls.state == client.connstate_t.ca_connecting:
 				continue		# dump it if not connected
 
-			if len(net_chan.net_message.data) < 8:
+			if net_chan.net_message.cursize < 8:
 			
-				common.Com_Printf ("{}: Runt packet\n".format(net_udp.net_udp.NET_AdrToString(net_chan.net_from)))
+				common.Com_Printf ("{}: Runt packet\n".format(net_udp.NET_AdrToString(net_chan.net_from)))
 				continue
 			
 
@@ -981,23 +964,23 @@ def CL_ReadPackets ():
 		finally:
 			rx, net_chan.net_from, net_chan.net_message = net_udp.NET_GetPacket (qcommon.netsrc_t.NS_CLIENT)
 
-	"""
-	//
-	// check timeout
-	//
-	if (cls.state >= client.connstate_t.ca_connected
-	 && cls.realtime - cls.netchan.last_received > cl_timeout->value*1000)
-	{
-		if (++cl.timeoutcount > 5)	// timeoutcount saves debugger
-		{
-			Com_Printf ("\nServer connection timed out.\n");
-			CL_Disconnect ();
-			return;
-		}
-	}
-	else
-		cl.timeoutcount = 0;
+	#
+	# check timeout
+	#
+	if ( cls.state.value >= client.connstate_t.ca_connected.value
+	 and cls.realtime - cls.netchan.last_received > cl_timeout.value*1000 ):
 	
+		cl.timeoutcount += 1
+		if cl.timeoutcount > 5:	# timeoutcount saves debugger
+		
+			common.Com_Printf ("\nServer connection timed out.\n")
+			CL_Disconnect ()
+			return
+		
+	else:
+		cl.timeoutcount = 0
+	
+	"""
 
 
 
@@ -1063,270 +1046,263 @@ precache_check: int = 0 # for autodownload of precache items
 precache_spawncount: int = 0
 precache_tex: int = 0
 precache_model_skin: int = 0
+precache_model = None #byte *, used for skin checking in alias models
+
+PLAYER_MULT = 5
+
+# ENV_CNT is map load, ENV_CNT+1 is first env map
+ENV_CNT = (q_shared.CS_PLAYERSKINS + q_shared.MAX_CLIENTS * PLAYER_MULT)
+TEXTURE_CNT = (ENV_CNT+13)
+
+env_suf = ["rt", "bk", "lf", "ft", "up", "dn"] #static const char *[6]
+
+def CL_RequestNextDownload ():
+
+	global precache_check, precache_model, precache_model_skin, precache_tex
+
+	#unsigned	map_checksum;		// for detecting cheater maps
+	#char fn[MAX_OSPATH];
+	#dmdl_t *pheader;
+
+	if cls.state != client.connstate_t.ca_connected:
+		return
+
+	if not sv_main.allow_download.value and precache_check < ENV_CNT:
+		precache_check = ENV_CNT
+
+#ZOID
+	if precache_check == q_shared.CS_MODELS: # confirm map
+		precache_check = q_shared.CS_MODELS+2 # 0 isn't used
+		if sv_main.allow_download_maps.value:
+			if not cl_parse.CL_CheckOrDownloadFile(cl.configstrings[q_shared.CS_MODELS+1]):
+				return # started a download
+	
+	if precache_check >= q_shared.CS_MODELS and precache_check < q_shared.CS_MODELS+q_shared.MAX_MODELS:
+		if sv_main.allow_download_models.value:
+			while (precache_check < q_shared.CS_MODELS+q_shared.MAX_MODELS and
+				cl.configstrings[precache_check]):
+				if (cl.configstrings[precache_check][0] == '*' or
+					cl.configstrings[precache_check][0] == '#'):
+					precache_check += 1
+					continue
+				
+				if precache_model_skin == 0:
+					if not cl_parse.CL_CheckOrDownloadFile(cl.configstrings[precache_check]):
+						precache_model_skin = 1
+						return # started a download
+					
+					precache_model_skin = 1
+				
+				# checking for skins in the model
+				if precache_model is None:
+
+					length, precache_model = files.FS_LoadFile (cl.configstrings[precache_check])
+					if precache_model is None:
+						precache_model_skin = 0
+						precache_check += 1
+						continue # couldn't load it
+					
+					if q_shared.LittleLong(precache_model[:4]) != qfiles.IDALIASHEADER:
+						# not an alias model
+						files.FS_FreeFile(precache_model)
+						precache_model = None
+						precache_model_skin = 0
+						precache_check += 1
+						continue
+					
+					pheader = qfiles.dmdl_t() # (dmdl_t *)precache_model
+					pheader.load(precache_model)
+					if pheader.version != qfiles.ALIAS_VERSION: # LittleLong (pheader->version)
+						precache_check += 1
+						precache_model_skin = 0
+						continue # couldn't load it
+					
+				pheader = qfiles.dmdl_t() # (dmdl_t *)precache_model
+				pheader.load(precache_model)
+
+				while precache_model_skin - 1 < pheader.num_skins: # LittleLong(pheader->num_skins)
+					skin_ofs = pheader.ofs_skins + (precache_model_skin - 1)*qfiles.MAX_SKINNAME # (char *)precache_model + LittleLong(pheader->ofs_skins) + (precache_model_skin - 1)*MAX_SKINNAME
+					skinname = bytes(precache_model[skin_ofs:skin_ofs+qfiles.MAX_SKINNAME]).split(b"\0")[0].decode('latin-1')
+					if not cl_parse.CL_CheckOrDownloadFile(skinname):
+						precache_model_skin += 1
+						return # started a download
+					
+					precache_model_skin += 1
+				
+				if precache_model is not None: 
+					files.FS_FreeFile(precache_model)
+					precache_model = None
+				
+				precache_model_skin = 0
+				precache_check += 1
+			
+		precache_check = q_shared.CS_SOUNDS
+	
+	if precache_check >= q_shared.CS_SOUNDS and precache_check < q_shared.CS_SOUNDS+q_shared.MAX_SOUNDS: 
+		if sv_main.allow_download_sounds.value:
+			if precache_check == q_shared.CS_SOUNDS:
+				precache_check += 1 # zero is blank
+			while (precache_check < q_shared.CS_SOUNDS+q_shared.MAX_SOUNDS and
+				cl.configstrings[precache_check]):
+				if cl.configstrings[precache_check][0] == '*':
+					precache_check += 1
+					continue
+				
+				fn = "sound/{}".format(cl.configstrings[precache_check])
+				precache_check += 1
+				if not cl_parse.CL_CheckOrDownloadFile(fn):
+					return # started a download
+			
+		precache_check = q_shared.CS_IMAGES
+	
+	if precache_check >= q_shared.CS_IMAGES and precache_check < q_shared.CS_IMAGES+q_shared.MAX_IMAGES:
+		if precache_check == q_shared.CS_IMAGES:
+			precache_check += 1 # zero is blank
+		while (precache_check < q_shared.CS_IMAGES+q_shared.MAX_IMAGES and
+			cl.configstrings[precache_check]):
+			fn = "pics/{}.pcx".format(cl.configstrings[precache_check])
+			precache_check += 1
+			if not cl_parse.CL_CheckOrDownloadFile(fn):
+				return # started a download
+		
+		precache_check = q_shared.CS_PLAYERSKINS
+	
+	# skins are special, since a player has three things to download:
+	# model, weapon model and skin
+	# so precache_check is now *3
+	if precache_check >= q_shared.CS_PLAYERSKINS and precache_check < q_shared.CS_PLAYERSKINS + q_shared.MAX_CLIENTS * PLAYER_MULT:
+		if sv_main.allow_download_players.value:
+			while precache_check < q_shared.CS_PLAYERSKINS + q_shared.MAX_CLIENTS * PLAYER_MULT:
+				#int i, n;
+				#char model[MAX_QPATH], skin[MAX_QPATH], *p;
+
+				i = (precache_check - q_shared.CS_PLAYERSKINS)//PLAYER_MULT
+				n = (precache_check - q_shared.CS_PLAYERSKINS)%PLAYER_MULT
+
+				if not cl.configstrings[q_shared.CS_PLAYERSKINS+i]:
+					precache_check = q_shared.CS_PLAYERSKINS + (i + 1) * PLAYER_MULT
+					continue
+				
+				p = cl.configstrings[q_shared.CS_PLAYERSKINS+i].find('\\')
+				if p != -1:
+					p += 1
+				else:
+					p = 0
+				model = cl.configstrings[q_shared.CS_PLAYERSKINS+i][p:]
+				p = model.find('/')
+				if p == -1:
+					p = model.find('\\')
+				if p != -1:
+					skin = model[p+1:]
+					model = model[:p] # *p++ = 0;
+				else:
+					skin = ""
+
+				# switch (n) with each case falling through to the next
+				if n == 0: # model
+					fn = "players/{}/tris.md2".format(model)
+					if not cl_parse.CL_CheckOrDownloadFile(fn):
+						precache_check = q_shared.CS_PLAYERSKINS + i * PLAYER_MULT + 1
+						return # started a download
+					
+					n += 1
+					#FALL THROUGH
+
+				if n == 1: # weapon model
+					fn = "players/{}/weapon.md2".format(model)
+					if not cl_parse.CL_CheckOrDownloadFile(fn):
+						precache_check = q_shared.CS_PLAYERSKINS + i * PLAYER_MULT + 2
+						return # started a download
+					
+					n += 1
+					#FALL THROUGH
+
+				if n == 2: # weapon skin
+					fn = "players/{}/weapon.pcx".format(model)
+					if not cl_parse.CL_CheckOrDownloadFile(fn):
+						precache_check = q_shared.CS_PLAYERSKINS + i * PLAYER_MULT + 3
+						return # started a download
+					
+					n += 1
+					#FALL THROUGH
+
+				if n == 3: # skin
+					fn = "players/{}/{}.pcx".format(model, skin)
+					if not cl_parse.CL_CheckOrDownloadFile(fn):
+						precache_check = q_shared.CS_PLAYERSKINS + i * PLAYER_MULT + 4
+						return # started a download
+					
+					n += 1
+					#FALL THROUGH
+
+				if n == 4: # skin_i
+					fn = "players/{}/{}_i.pcx".format(model, skin)
+					if not cl_parse.CL_CheckOrDownloadFile(fn):
+						precache_check = q_shared.CS_PLAYERSKINS + i * PLAYER_MULT + 5
+						return # started a download
+					
+					# move on to next model
+					precache_check = q_shared.CS_PLAYERSKINS + (i + 1) * PLAYER_MULT
+				
+		# precache phase completed
+		precache_check = ENV_CNT
+	
+	if precache_check == ENV_CNT:
+		precache_check = ENV_CNT + 1
+
+		_, map_checksum = cmodel.CM_LoadMap (cl.configstrings[q_shared.CS_MODELS+1], True)
+
+		if map_checksum != q_shared.atoi(cl.configstrings[q_shared.CS_MAPCHECKSUM]):
+			common.Com_Error (q_shared.ERR_DROP, "Local map version differs from server: {} != '{}'\n".format(
+				map_checksum, cl.configstrings[q_shared.CS_MAPCHECKSUM]))
+			return
+		
+	if precache_check > ENV_CNT and precache_check < TEXTURE_CNT:
+		if sv_main.allow_download.value and sv_main.allow_download_maps.value:
+			while precache_check < TEXTURE_CNT:
+				n = precache_check - ENV_CNT - 1
+				precache_check += 1
+
+				if n & 1:
+					fn = "env/{}{}.pcx".format( 
+						cl.configstrings[q_shared.CS_SKY], env_suf[n//2])
+				else:
+					fn = "env/{}{}.tga".format( 
+						cl.configstrings[q_shared.CS_SKY], env_suf[n//2])
+				if not cl_parse.CL_CheckOrDownloadFile(fn):
+					return # started a download
+			
+		precache_check = TEXTURE_CNT
+	
+	if precache_check == TEXTURE_CNT:
+		precache_check = TEXTURE_CNT+1
+		precache_tex = 0
+	
+	# confirm existance of textures, download any that don't exist
+	if precache_check == TEXTURE_CNT+1:
+		# from qcommon/cmodel.c
+		#extern int			numtexinfo;
+		#extern mapsurface_t	map_surfaces[];
+
+		if sv_main.allow_download.value and sv_main.allow_download_maps.value:
+			while precache_tex < cmodel.numtexinfo:
+				#char fn[MAX_OSPATH];
+
+				fn = "textures/{}.wal".format(cmodel.map_surfaces[precache_tex].rname)
+				precache_tex += 1
+				if not cl_parse.CL_CheckOrDownloadFile(fn):
+					return # started a download
+			
+		precache_check = TEXTURE_CNT+999
+	
+#ZOID
+	cl_parse.CL_RegisterSounds ()
+	cl_view.CL_PrepRefresh ()
+
+	common.MSG_WriteByte (cls.netchan.message, qcommon.clc_ops_e.clc_stringcmd.value)
+	common.MSG_WriteString (cls.netchan.message, "begin {}\n".format(precache_spawncount).encode('ascii') )
+
 """
-byte *precache_model; // used for skin checking in alias models
-
-#define PLAYER_MULT 5
-
-// ENV_CNT is map load, ENV_CNT+1 is first env map
-#define ENV_CNT (q_shared.CS_PLAYERSKINS + MAX_CLIENTS * PLAYER_MULT)
-#define TEXTURE_CNT (ENV_CNT+13)
-
-static const char *env_suf[6] = {"rt", "bk", "lf", "ft", "up", "dn"};
-
-void CL_RequestNextDownload (void)
-{
-	unsigned	map_checksum;		// for detecting cheater maps
-	char fn[MAX_OSPATH];
-	dmdl_t *pheader;
-
-	if (cls.state != client.connstate_t.ca_connected)
-		return;
-
-	if (!allow_download->value && precache_check < ENV_CNT)
-		precache_check = ENV_CNT;
-
-//ZOID
-	if (precache_check == q_shared.CS_MODELS) { // confirm map
-		precache_check = q_shared.CS_MODELS+2; // 0 isn't used
-		if (allow_download_maps->value)
-			if (!CL_CheckOrDownloadFile(cl.configstrings[q_shared.CS_MODELS+1]))
-				return; // started a download
-	}
-	if (precache_check >= q_shared.CS_MODELS && precache_check < q_shared.CS_MODELS+MAX_MODELS) {
-		if (allow_download_models->value) {
-			while (precache_check < q_shared.CS_MODELS+MAX_MODELS &&
-				cl.configstrings[precache_check][0]) {
-				if (cl.configstrings[precache_check][0] == '*' ||
-					cl.configstrings[precache_check][0] == '#') {
-					precache_check++;
-					continue;
-				}
-				if (precache_model_skin == 0) {
-					if (!CL_CheckOrDownloadFile(cl.configstrings[precache_check])) {
-						precache_model_skin = 1;
-						return; // started a download
-					}
-					precache_model_skin = 1;
-				}
-
-				// checking for skins in the model
-				if (!precache_model) {
-
-					FS_LoadFile (cl.configstrings[precache_check], (void **)&precache_model);
-					if (!precache_model) {
-						precache_model_skin = 0;
-						precache_check++;
-						continue; // couldn't load it
-					}
-					if (LittleLong(*(unsigned *)precache_model) != IDALIASHEADER) {
-						// not an alias model
-						FS_FreeFile(precache_model);
-						precache_model = 0;
-						precache_model_skin = 0;
-						precache_check++;
-						continue;
-					}
-					pheader = (dmdl_t *)precache_model;
-					if (LittleLong (pheader->version) != ALIAS_VERSION) {
-						precache_check++;
-						precache_model_skin = 0;
-						continue; // couldn't load it
-					}
-				}
-
-				pheader = (dmdl_t *)precache_model;
-
-				while (precache_model_skin - 1 < LittleLong(pheader->num_skins)) {
-					if (!CL_CheckOrDownloadFile((char *)precache_model +
-						LittleLong(pheader->ofs_skins) + 
-						(precache_model_skin - 1)*MAX_SKINNAME)) {
-						precache_model_skin++;
-						return; // started a download
-					}
-					precache_model_skin++;
-				}
-				if (precache_model) { 
-					FS_FreeFile(precache_model);
-					precache_model = 0;
-				}
-				precache_model_skin = 0;
-				precache_check++;
-			}
-		}
-		precache_check = q_shared.CS_SOUNDS;
-	}
-	if (precache_check >= q_shared.CS_SOUNDS && precache_check < q_shared.CS_SOUNDS+MAX_SOUNDS) { 
-		if (allow_download_sounds->value) {
-			if (precache_check == q_shared.CS_SOUNDS)
-				precache_check++; // zero is blank
-			while (precache_check < q_shared.CS_SOUNDS+MAX_SOUNDS &&
-				cl.configstrings[precache_check][0]) {
-				if (cl.configstrings[precache_check][0] == '*') {
-					precache_check++;
-					continue;
-				}
-				Com_sprintf(fn, sizeof(fn), "sound/%s", cl.configstrings[precache_check++]);
-				if (!CL_CheckOrDownloadFile(fn))
-					return; // started a download
-			}
-		}
-		precache_check = q_shared.CS_IMAGES;
-	}
-	if (precache_check >= q_shared.CS_IMAGES && precache_check < q_shared.CS_IMAGES+MAX_IMAGES) {
-		if (precache_check == q_shared.CS_IMAGES)
-			precache_check++; // zero is blank
-		while (precache_check < q_shared.CS_IMAGES+MAX_IMAGES &&
-			cl.configstrings[precache_check][0]) {
-			Com_sprintf(fn, sizeof(fn), "pics/%s.pcx", cl.configstrings[precache_check++]);
-			if (!CL_CheckOrDownloadFile(fn))
-				return; // started a download
-		}
-		precache_check = q_shared.CS_PLAYERSKINS;
-	}
-	// skins are special, since a player has three things to download:
-	// model, weapon model and skin
-	// so precache_check is now *3
-	if (precache_check >= q_shared.CS_PLAYERSKINS && precache_check < q_shared.CS_PLAYERSKINS + MAX_CLIENTS * PLAYER_MULT) {
-		if (allow_download_players->value) {
-			while (precache_check < q_shared.CS_PLAYERSKINS + MAX_CLIENTS * PLAYER_MULT) {
-				int i, n;
-				char model[MAX_QPATH], skin[MAX_QPATH], *p;
-
-				i = (precache_check - q_shared.CS_PLAYERSKINS)/PLAYER_MULT;
-				n = (precache_check - q_shared.CS_PLAYERSKINS)%PLAYER_MULT;
-
-				if (!cl.configstrings[q_shared.CS_PLAYERSKINS+i][0]) {
-					precache_check = q_shared.CS_PLAYERSKINS + (i + 1) * PLAYER_MULT;
-					continue;
-				}
-
-				if ((p = strchr(cl.configstrings[q_shared.CS_PLAYERSKINS+i], '\\')) != NULL)
-					p++;
-				else
-					p = cl.configstrings[q_shared.CS_PLAYERSKINS+i];
-				strcpy(model, p);
-				p = strchr(model, '/');
-				if (!p)
-					p = strchr(model, '\\');
-				if (p) {
-					*p++ = 0;
-					strcpy(skin, p);
-				} else
-					*skin = 0;
-
-				switch (n) {
-				case 0: // model
-					Com_sprintf(fn, sizeof(fn), "players/%s/tris.md2", model);
-					if (!CL_CheckOrDownloadFile(fn)) {
-						precache_check = q_shared.CS_PLAYERSKINS + i * PLAYER_MULT + 1;
-						return; // started a download
-					}
-					n++;
-					/*FALL THROUGH*/
-
-				case 1: // weapon model
-					Com_sprintf(fn, sizeof(fn), "players/%s/weapon.md2", model);
-					if (!CL_CheckOrDownloadFile(fn)) {
-						precache_check = q_shared.CS_PLAYERSKINS + i * PLAYER_MULT + 2;
-						return; // started a download
-					}
-					n++;
-					/*FALL THROUGH*/
-
-				case 2: // weapon skin
-					Com_sprintf(fn, sizeof(fn), "players/%s/weapon.pcx", model);
-					if (!CL_CheckOrDownloadFile(fn)) {
-						precache_check = q_shared.CS_PLAYERSKINS + i * PLAYER_MULT + 3;
-						return; // started a download
-					}
-					n++;
-					/*FALL THROUGH*/
-
-				case 3: // skin
-					Com_sprintf(fn, sizeof(fn), "players/%s/%s.pcx", model, skin);
-					if (!CL_CheckOrDownloadFile(fn)) {
-						precache_check = q_shared.CS_PLAYERSKINS + i * PLAYER_MULT + 4;
-						return; // started a download
-					}
-					n++;
-					/*FALL THROUGH*/
-
-				case 4: // skin_i
-					Com_sprintf(fn, sizeof(fn), "players/%s/%s_i.pcx", model, skin);
-					if (!CL_CheckOrDownloadFile(fn)) {
-						precache_check = q_shared.CS_PLAYERSKINS + i * PLAYER_MULT + 5;
-						return; // started a download
-					}
-					// move on to next model
-					precache_check = q_shared.CS_PLAYERSKINS + (i + 1) * PLAYER_MULT;
-				}
-			}
-		}
-		// precache phase completed
-		precache_check = ENV_CNT;
-	}
-
-	if (precache_check == ENV_CNT) {
-		precache_check = ENV_CNT + 1;
-
-		CM_LoadMap (cl.configstrings[q_shared.CS_MODELS+1], true, &map_checksum);
-
-		if (map_checksum != atoi(cl.configstrings[q_shared.CS_MAPCHECKSUM])) {
-			Com_Error (q_shared.ERR_DROP, "Local map version differs from server: %i != '%s'\n",
-				map_checksum, cl.configstrings[q_shared.CS_MAPCHECKSUM]);
-			return;
-		}
-	}
-
-	if (precache_check > ENV_CNT && precache_check < TEXTURE_CNT) {
-		if (allow_download->value && allow_download_maps->value) {
-			while (precache_check < TEXTURE_CNT) {
-				int n = precache_check++ - ENV_CNT - 1;
-
-				if (n & 1)
-					Com_sprintf(fn, sizeof(fn), "env/%s%s.pcx", 
-						cl.configstrings[q_shared.CS_SKY], env_suf[n/2]);
-				else
-					Com_sprintf(fn, sizeof(fn), "env/%s%s.tga", 
-						cl.configstrings[q_shared.CS_SKY], env_suf[n/2]);
-				if (!CL_CheckOrDownloadFile(fn))
-					return; // started a download
-			}
-		}
-		precache_check = TEXTURE_CNT;
-	}
-
-	if (precache_check == TEXTURE_CNT) {
-		precache_check = TEXTURE_CNT+1;
-		precache_tex = 0;
-	}
-
-	// confirm existance of textures, download any that don't exist
-	if (precache_check == TEXTURE_CNT+1) {
-		// from qcommon/cmodel.c
-		extern int			numtexinfo;
-		extern mapsurface_t	map_surfaces[];
-
-		if (allow_download->value && allow_download_maps->value) {
-			while (precache_tex < numtexinfo) {
-				char fn[MAX_OSPATH];
-
-				sprintf(fn, "textures/%s.wal", map_surfaces[precache_tex++].rname);
-				if (!CL_CheckOrDownloadFile(fn))
-					return; // started a download
-			}
-		}
-		precache_check = TEXTURE_CNT+999;
-	}
-
-//ZOID
-	CL_RegisterSounds ();
-	cl_view.CL_PrepRefresh ();
-
-	MSG_WriteByte (&cls.netchan.message, qcommon.clc_ops_e.clc_stringcmd);
-	MSG_WriteString (&cls.netchan.message, va("begin %i\n", precache_spawncount) );
-}
 
 /*
 =================
@@ -1338,7 +1314,7 @@ before allowing the client into the server
 """
 def CL_Precache_f ():
 
-	global precache_check, precache_spawncount, precache_tex, precache_model_skin
+	global precache_check, precache_spawncount, precache_tex, precache_model_skin, precache_model
 	
 	# Yet another hack to let old demos work
 	# the old precache sequence
@@ -1353,7 +1329,7 @@ def CL_Precache_f ():
 
 	precache_check = q_shared.CS_MODELS
 	precache_spawncount = int(cmd.Cmd_Argv(1))
-	precache_model = 0
+	precache_model = None
 	precache_model_skin = 0
 
 	CL_RequestNextDownload()
@@ -1466,9 +1442,7 @@ def CL_InitLocal ():
 	cmd.Cmd_AddCommand ("cmd", CL_ForwardToServer_f)
 	cmd.Cmd_AddCommand ("pause", CL_Pause_f)
 	cmd.Cmd_AddCommand ("pingservers", CL_PingServers_f)
-	"""
-	Cmd_AddCommand ("skins", CL_Skins_f);
-	"""
+	cmd.Cmd_AddCommand ("skins", CL_Skins_f)
 	cmd.Cmd_AddCommand ("userinfo", CL_Userinfo_f);
 	cmd.Cmd_AddCommand ("snd_restart", CL_Snd_Restart_f);
 
@@ -1480,19 +1454,16 @@ def CL_InitLocal ():
 	
 	cmd.Cmd_AddCommand ("connect", CL_Connect_f)
 	cmd.Cmd_AddCommand ("reconnect", CL_Reconnect_f)
-	"""
-	Cmd_AddCommand ("rcon", CL_Rcon_f);
+
+	cmd.Cmd_AddCommand ("rcon", CL_Rcon_f)
 
  	## Cmd_AddCommand ("packet", CL_Packet_f); # this is dangerous to leave in
 
-	Cmd_AddCommand ("setenv", CL_Setenv_f );
+	cmd.Cmd_AddCommand ("setenv", CL_Setenv_f )
 
-	"""
 	cmd.Cmd_AddCommand ("precache", CL_Precache_f)
-	"""
 
-	Cmd_AddCommand ("download", CL_Download_f);
-	"""
+	cmd.Cmd_AddCommand ("download", cl_parse.CL_Download_f)
 	#
 	# forward to server commands
 	#

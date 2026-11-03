@@ -26,25 +26,6 @@ from game import q_shared
 
 void Cmd_ForwardToServer (void);
 """
-def Cmd_ForwardToServer ():
-	from client import cl_main, client
-
-	cmd_name = Cmd_Argv(0)
-	if not cmd_name:
-		return
-	if int(cl_main.cls.state.value) <= int(client.connstate_t.ca_connected.value) \
-		or cmd_name.startswith("-") or cmd_name.startswith("+"):
-		common.Com_Printf ("Unknown command \"{}\"\n".format(cmd_name))
-		return
-
-	common.MSG_WriteByte(
-		cl_main.cls.netchan.message,
-		qcommon.clc_ops_e.clc_stringcmd.value,
-	)
-	common.SZ_Print (cl_main.cls.netchan.message, cmd_name)
-	if Cmd_Argc() > 1:
-		common.SZ_Print (cl_main.cls.netchan.message, " ")
-		common.SZ_Print (cl_main.cls.netchan.message, Cmd_Args())
 MAX_ALIAS_NAME = 32
 
 class cmdalias_t(object):
@@ -785,7 +766,8 @@ def Cmd_ExecuteString (text): #char *
 		return
 
 	# send it as a server command if we are connected
-	Cmd_ForwardToServer ()
+	from client import cl_main # Cmd_ForwardToServer is defined in cl_main.c
+	cl_main.Cmd_ForwardToServer ()
 
 """
 ============

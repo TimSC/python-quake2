@@ -621,7 +621,7 @@ def SV_ReadPackets ():
 	while rx:
 		try:
 			# check for connectionless packet (0xffffffff) first
-			header = struct.unpack(">l", net_chan.net_message.data[:4])
+			header = struct.unpack("<l", net_chan.net_message.data[:4]) # *(int *)net_message.data
 			if header[0] == -1:
 			
 				SV_ConnectionlessPacket ()

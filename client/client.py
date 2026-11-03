@@ -124,8 +124,8 @@ class client_state_t(object):
 		self.reset()
 
 	def reset(self):
+		self.timeoutcount = 0 #int
 		"""
-		int			timeoutcount;
 
 		int			timedemo_frames;
 		int			timedemo_start;

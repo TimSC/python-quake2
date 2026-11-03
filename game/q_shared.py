@@ -2590,18 +2590,21 @@ char *COM_SkipPath (char *pathname)
 	return last;
 }
 
-/*
+"""
+"""
 ============
 COM_StripExtension
 ============
-*/
-void COM_StripExtension (char *in, char *out)
-{
-	while (*in && *in != '.')
-		*out++ = *in++;
-	*out = 0;
-}
+"""
+def COM_StripExtension (in_str): #char * (returns char *out)
 
+	i = 0
+	while i < len(in_str) and in_str[i] != '.':
+		i += 1
+	out = in_str[:i]
+	return out
+
+"""
 /*
 ============
 COM_FileExtension
