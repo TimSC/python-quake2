@@ -202,7 +202,15 @@ Returns true if the box is completely outside the frustom
 """
 def R_CullBox (mins, maxs): #vec3_t, vec3_t (returns qboolean)
 
-	return gl_rsurf.R_CullBox (mins, maxs)
+	#int		i;
+
+	if r_nocull.value:
+		return False
+
+	for i in range(4):
+		if q_shared.BoxOnPlaneSide(mins, maxs, frustum[i]) == 2: # BOX_ON_PLANE_SIDE
+			return True
+	return False
 
 
 def R_RotateForEntity (e): #entity_t *
@@ -357,33 +365,6 @@ def R_DrawNullModel ():
 	GL.glEnable (GL.GL_TEXTURE_2D)
 
 
-def R_DrawCurrentEntity ():
-
-	# the body of both loops in R_DrawEntitiesOnList, which is repeated in the C
-	global currentmodel
-
-	if currententity.flags & q_shared.RF_BEAM:
-	
-		R_DrawBeam( currententity )
-	
-	else:
-	
-		currentmodel = currententity.model
-		if not currentmodel:
-		
-			R_DrawNullModel ()
-			return
-		
-		if currentmodel.type == gl_model_h.modtype_t.mod_alias:
-			gl_mesh.R_DrawAliasModel (currententity)
-		elif currentmodel.type == gl_model_h.modtype_t.mod_brush:
-			gl_rsurf.R_DrawBrushModel (currententity)
-		elif currentmodel.type == gl_model_h.modtype_t.mod_sprite:
-			R_DrawSpriteModel (currententity)
-		else:
-			ri.Sys_Error (q_shared.ERR_DROP, "Bad modeltype {} {}".format(currentmodel.name, currentmodel.type))
-		
-
 """
 =============
 R_DrawEntitiesOnList
@@ -391,7 +372,7 @@ R_DrawEntitiesOnList
 """
 def R_DrawEntitiesOnList ():
 
-	global currententity
+	global currententity, currentmodel
 
 	#int		i;
 
@@ -405,8 +386,28 @@ def R_DrawEntitiesOnList ():
 		if currententity.flags & q_shared.RF_TRANSLUCENT:
 			continue	# solid
 
-		R_DrawCurrentEntity ()
-	
+		if currententity.flags & q_shared.RF_BEAM:
+		
+			R_DrawBeam( currententity )
+		
+		else:
+		
+			currentmodel = currententity.model
+			if not currentmodel:
+			
+				R_DrawNullModel ()
+				continue
+			
+			if currentmodel.type == gl_model_h.modtype_t.mod_alias:
+				gl_mesh.R_DrawAliasModel (currententity)
+			elif currentmodel.type == gl_model_h.modtype_t.mod_brush:
+				gl_rsurf.R_DrawBrushModel (currententity)
+			elif currentmodel.type == gl_model_h.modtype_t.mod_sprite:
+				R_DrawSpriteModel (currententity)
+			else:
+				ri.Sys_Error (q_shared.ERR_DROP, "Bad modeltype")
+			
+
 	# draw transparent entities
 	# we could sort these if it ever becomes a problem...
 	GL.glDepthMask (0)		# no z writes
@@ -416,8 +417,28 @@ def R_DrawEntitiesOnList ():
 		if not (currententity.flags & q_shared.RF_TRANSLUCENT):
 			continue	# solid
 
-		R_DrawCurrentEntity ()
-	
+		if currententity.flags & q_shared.RF_BEAM:
+		
+			R_DrawBeam( currententity )
+		
+		else:
+		
+			currentmodel = currententity.model
+			if not currentmodel:
+			
+				R_DrawNullModel ()
+				continue
+			
+			if currentmodel.type == gl_model_h.modtype_t.mod_alias:
+				gl_mesh.R_DrawAliasModel (currententity)
+			elif currentmodel.type == gl_model_h.modtype_t.mod_brush:
+				gl_rsurf.R_DrawBrushModel (currententity)
+			elif currentmodel.type == gl_model_h.modtype_t.mod_sprite:
+				R_DrawSpriteModel (currententity)
+			else:
+				ri.Sys_Error (q_shared.ERR_DROP, "Bad modeltype")
+			
+
 	GL.glDepthMask (1)		# back to writing
 
 """

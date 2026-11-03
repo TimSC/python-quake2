@@ -68,14 +68,6 @@ class gllightmapstate_t(object):
 gl_lms = gllightmapstate_t()
 
 
-def R_CullBox(mins, maxs):
-    if gl_rmain.r_nocull and gl_rmain.r_nocull.value:
-        return False
-
-    for i in range(4):
-        if q_shared.BoxOnPlaneSide(mins, maxs, gl_rmain.frustum[i]) == 2:
-            return True
-    return False
 
 
 def R_TextureAnimation(texinfo):
@@ -552,7 +544,7 @@ def R_RecursiveWorldNode (node):
 
     dbg_nodes_visited += 1 # Q2PORT DEBUG
 
-    if R_CullBox (node.minmaxs[0:3], node.minmaxs[3:6]):
+    if gl_rmain.R_CullBox (node.minmaxs[0:3], node.minmaxs[3:6]):
         dbg_nodes_culled += 1 # Q2PORT DEBUG
         return
 
@@ -824,7 +816,7 @@ def R_DrawBrushModel (ent):
         q_shared.VectorAdd(origin, currentmodel.mins, mins)
         q_shared.VectorAdd(origin, currentmodel.maxs, maxs)
 
-    if R_CullBox(mins, maxs):
+    if gl_rmain.R_CullBox(mins, maxs):
         return
 
     gl_lms.lightmap_surfaces = [[] for _ in range(MAX_LIGHTMAPS)]

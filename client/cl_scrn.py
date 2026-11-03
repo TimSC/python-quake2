@@ -749,23 +749,48 @@ def DrawAltString (x, y, string):
 	DrawHUDString (string, x, y, 0, 0x80)
 
 
-def SCR_DrawField (x, y, color, width, value):
+"""
+==============
+SCR_DrawField
+==============
+"""
+def SCR_DrawField (x, y, color, width, value): #int, int, int, int, int
+
+	"""
+	char	num[16], *ptr;
+	int		l;
+	int		frame;
+	"""
+
 	if width < 1:
 		return
-	width = min(width, 5)
-	SCR_AddDirtyPoint (x, y)
-	SCR_AddDirtyPoint (x + width*CHAR_WIDTH + 2, y + 23)
-	num = str(value)
-	if len(num) > width:
-		num = num[-width:]
-	x_pos = x + 2 + CHAR_WIDTH*(width - len(num))
-	for ch in num:
-		frame = STAT_MINUS if ch == '-' else ord(ch) - ord('0')
-		if frame < 0 or frame > 10:
-			frame = 0
-		vid_so.re.DrawPic (x_pos, y, sb_nums[color][frame])
-		x_pos += CHAR_WIDTH
 
+	# draw number string
+	if width > 5:
+		width = 5
+
+	SCR_AddDirtyPoint (x, y)
+	SCR_AddDirtyPoint (x+width*CHAR_WIDTH+2, y+23)
+
+	num = "{}".format(int(value)) # Com_sprintf (num, sizeof(num), "%i", value);
+	l = len(num)
+	if l > width:
+		l = width
+	x += 2 + CHAR_WIDTH*(width - l)
+
+	ptr = 0
+	while ptr < len(num) and l:
+	
+		if num[ptr] == '-':
+			frame = STAT_MINUS
+		else:
+			frame = ord(num[ptr]) - ord('0')
+
+		vid_so.re.DrawPic (x,y,sb_nums[color][frame])
+		x += CHAR_WIDTH
+		ptr += 1
+		l -= 1
+	
 
 def SCR_TouchPics ():
 	for row in sb_nums:
@@ -786,158 +811,282 @@ def SCR_TouchPics ():
 			crosshair_pic = ""
 
 
-def SCR_ExecuteLayoutString (s):
-	if cl_main.cls.state != client.connstate_t.ca_active or not cl_main.cl.refresh_prepped:
+"""
+================
+SCR_ExecuteLayoutString 
+
+================
+"""
+def SCR_ExecuteLayoutString (s): #char *
+
+	"""
+	int		x, y;
+	int		value;
+	char	*token;
+	int		width;
+	int		index;
+	clientinfo_t	*ci;
+	"""
+	cl = cl_main.cl
+	viddef = vid_so.viddef
+
+	if cl_main.cls.state != client.connstate_t.ca_active or not cl.refresh_prepped:
 		return
+
 	if not s:
 		return
-	x = y = width = 0
+
+	x = 0
+	y = 0
+	width = 3
+
 	cursor = 0
-	while True:
-		token, cursor = common.COM_Parse(s, cursor)
-		if not token:
-			break
-		if token == 'xl':
-			token, cursor = common.COM_Parse(s, cursor)
+	while cursor is not None and cursor < len(s):
+	
+		token, cursor = common.COM_Parse (s, cursor)
+
+		if token == "xl":
+		
+			token, cursor = common.COM_Parse (s, cursor)
 			x = int(token)
 			continue
-		if token == 'xr':
-			token, cursor = common.COM_Parse(s, cursor)
-			x = vid_so.viddef.width + int(token)
+		
+		if token == "xr":
+		
+			token, cursor = common.COM_Parse (s, cursor)
+			x = viddef.width + int(token)
 			continue
-		if token == 'xv':
-			token, cursor = common.COM_Parse(s, cursor)
-			x = vid_so.viddef.width//2 - 160 + int(token)
+		
+		if token == "xv":
+		
+			token, cursor = common.COM_Parse (s, cursor)
+			x = viddef.width//2 - 160 + int(token)
 			continue
-		if token == 'yt':
-			token, cursor = common.COM_Parse(s, cursor)
+		
+		if token == "yt":
+		
+			token, cursor = common.COM_Parse (s, cursor)
 			y = int(token)
 			continue
-		if token == 'yb':
-			token, cursor = common.COM_Parse(s, cursor)
-			y = vid_so.viddef.height + int(token)
+		
+		if token == "yb":
+		
+			token, cursor = common.COM_Parse (s, cursor)
+			y = viddef.height + int(token)
 			continue
-		if token == 'yv':
-			token, cursor = common.COM_Parse(s, cursor)
-			y = vid_so.viddef.height//2 - 120 + int(token)
+		
+		if token == "yv":
+		
+			token, cursor = common.COM_Parse (s, cursor)
+			y = viddef.height//2 - 120 + int(token)
 			continue
-		if token == 'pic':
-			token, cursor = common.COM_Parse(s, cursor)
+		
+		if token == "pic":
+			# draw a pic from a stat number
+			token, cursor = common.COM_Parse (s, cursor)
+			value = cl.frame.playerstate.stats[int(token)]
+			if value >= q_shared.MAX_IMAGES:
+				common.Com_Error (q_shared.ERR_DROP, "Pic >= MAX_IMAGES")
+			if cl.configstrings[q_shared.CS_IMAGES+value]:
+			
+				SCR_AddDirtyPoint (x, y)
+				SCR_AddDirtyPoint (x+23, y+23)
+				vid_so.re.DrawPic (x, y, cl.configstrings[q_shared.CS_IMAGES+value])
+			
+			continue
+		
+		if token == "client":
+			# draw a deathmatch client block
+			#int		score, ping, time;
+
+			token, cursor = common.COM_Parse (s, cursor)
+			x = viddef.width//2 - 160 + int(token)
+			token, cursor = common.COM_Parse (s, cursor)
+			y = viddef.height//2 - 120 + int(token)
+			SCR_AddDirtyPoint (x, y)
+			SCR_AddDirtyPoint (x+159, y+31)
+
+			token, cursor = common.COM_Parse (s, cursor)
 			value = int(token)
-			if value < 0 or value >= q_shared.MAX_IMAGES:
-				continue
-			pic = cl_main.cl.configstrings[q_shared.CS_IMAGES + value]
-			if pic:
-				SCR_AddDirtyPoint(x, y)
-				SCR_AddDirtyPoint(x+23, y+23)
-				vid_so.re.DrawPic (x, y, pic)
-			continue
-		if token == 'client':
-			value, cursor = common.COM_Parse(s, cursor)
-			value = int(value)
-			x = vid_so.viddef.width//2 - 160 + value
-			token, cursor = common.COM_Parse(s, cursor)
-			y = vid_so.viddef.height//2 - 120 + int(token)
-			SCR_AddDirtyPoint(x, y)
-			SCR_AddDirtyPoint(x+159, y+31)
-			value, cursor = common.COM_Parse(s, cursor)
-			value = int(value)
-			if value < 0 or value >= q_shared.MAX_CLIENTS:
-				continue
-			ci = cl_main.cl.clientinfo[value]
-			score, cursor = common.COM_Parse(s, cursor)
-			score = int(score)
-			ping, cursor = common.COM_Parse(s, cursor)
-			ping = int(ping)
-			time, cursor = common.COM_Parse(s, cursor)
-			time = int(time)
+			if value >= q_shared.MAX_CLIENTS or value < 0:
+				common.Com_Error (q_shared.ERR_DROP, "client >= MAX_CLIENTS")
+			ci = cl.clientinfo[value]
+
+			token, cursor = common.COM_Parse (s, cursor)
+			score = int(token)
+
+			token, cursor = common.COM_Parse (s, cursor)
+			ping = int(token)
+
+			token, cursor = common.COM_Parse (s, cursor)
+			time = int(token)
+
 			DrawAltString (x+32, y, ci.name)
-			DrawString (x+32, y+8, "Score: ")
-			DrawAltString (x+32+7*8, y+8, str(score))
-			DrawString (x+32, y+16, f"Ping:  {ping}")
-			DrawString (x+32, y+24, f"Time:  {time}")
-			pic_token = ci.iconname if ci.iconname else cl_main.cl.baseclientinfo.iconname
-			if pic_token:
-				vid_so.re.DrawPic (x, y, pic_token)
+			DrawString (x+32, y+8,  "Score: ")
+			DrawAltString (x+32+7*8, y+8,  "{}".format(score))
+			DrawString (x+32, y+16, "Ping:  {}".format(ping))
+			DrawString (x+32, y+24, "Time:  {}".format(time))
+
+			if not ci.icon:
+				ci = cl.baseclientinfo
+			vid_so.re.DrawPic (x, y, ci.iconname)
 			continue
-		if token == 'ctf':
-			# simplified, treat like client
+		
+		if token == "ctf":
+			# draw a ctf client block
+			#int		score, ping;
+			#char	block[80];
+
+			token, cursor = common.COM_Parse (s, cursor)
+			x = viddef.width//2 - 160 + int(token)
+			token, cursor = common.COM_Parse (s, cursor)
+			y = viddef.height//2 - 120 + int(token)
+			SCR_AddDirtyPoint (x, y)
+			SCR_AddDirtyPoint (x+159, y+31)
+
+			token, cursor = common.COM_Parse (s, cursor)
+			value = int(token)
+			if value >= q_shared.MAX_CLIENTS or value < 0:
+				common.Com_Error (q_shared.ERR_DROP, "client >= MAX_CLIENTS")
+			ci = cl.clientinfo[value]
+
+			token, cursor = common.COM_Parse (s, cursor)
+			score = int(token)
+
+			token, cursor = common.COM_Parse (s, cursor)
+			ping = int(token)
+			if ping > 999:
+				ping = 999
+
+			block = "{:3d} {:3d} {:<12.12s}".format(score, ping, ci.name) # sprintf(block, "%3d %3d %-12.12s", score, ping, ci->name);
+
+			if value == cl.playernum:
+				DrawAltString (x, y, block)
+			else:
+				DrawString (x, y, block)
 			continue
-		if token == 'picn':
-			token, cursor = common.COM_Parse(s, cursor)
-			SCR_AddDirtyPoint(x, y)
-			SCR_AddDirtyPoint(x+23, y+23)
+		
+		if token == "picn":
+			# draw a pic from a name
+			token, cursor = common.COM_Parse (s, cursor)
+			SCR_AddDirtyPoint (x, y)
+			SCR_AddDirtyPoint (x+23, y+23)
 			vid_so.re.DrawPic (x, y, token)
 			continue
-		if token == 'num':
-			token, cursor = common.COM_Parse(s, cursor)
-			value = cl_main.cl.frame.playerstate.stats[int(token)]
+		
+		if token == "num":
+			# draw a number
+			token, cursor = common.COM_Parse (s, cursor)
+			width = int(token)
+			token, cursor = common.COM_Parse (s, cursor)
+			value = cl.frame.playerstate.stats[int(token)]
 			SCR_DrawField (x, y, 0, width, value)
 			continue
-		if token == 'hnum':
-			value = cl_main.cl.frame.playerstate.stats[q_shared.STAT_HEALTH]
+		
+		if token == "hnum":
+			# health number
+			#int		color;
+
+			width = 3
+			value = cl.frame.playerstate.stats[q_shared.STAT_HEALTH]
 			if value > 25:
-				color = 0
+				color = 0	# green
 			elif value > 0:
-				color = (cl_main.cl.frame.serverframe >> 2) & 1
+				color = (cl.frame.serverframe>>2) & 1		# flash
 			else:
 				color = 1
-			if cl_main.cl.frame.playerstate.stats[q_shared.STAT_FLASHES] & 1:
+
+			if cl.frame.playerstate.stats[q_shared.STAT_FLASHES] & 1:
 				vid_so.re.DrawPic (x, y, "field_3")
+
 			SCR_DrawField (x, y, color, width, value)
 			continue
-		if token == 'anum':
-			value = cl_main.cl.frame.playerstate.stats[q_shared.STAT_AMMO]
+		
+		if token == "anum":
+			# ammo number
+			#int		color;
+
+			width = 3
+			value = cl.frame.playerstate.stats[q_shared.STAT_AMMO]
 			if value > 5:
-				color = 0
+				color = 0	# green
 			elif value >= 0:
-				color = (cl_main.cl.frame.serverframe >> 2) & 1
+				color = (cl.frame.serverframe>>2) & 1		# flash
 			else:
-				continue
-			if cl_main.cl.frame.playerstate.stats[q_shared.STAT_FLASHES] & 4:
+				continue	# negative number = don't show
+
+			if cl.frame.playerstate.stats[q_shared.STAT_FLASHES] & 4:
 				vid_so.re.DrawPic (x, y, "field_3")
+
 			SCR_DrawField (x, y, color, width, value)
 			continue
-		if token == 'rnum':
-			value = cl_main.cl.frame.playerstate.stats[q_shared.STAT_ARMOR]
+		
+		if token == "rnum":
+			# armor number
+			#int		color;
+
+			width = 3
+			value = cl.frame.playerstate.stats[q_shared.STAT_ARMOR]
 			if value < 1:
 				continue
-			if cl_main.cl.frame.playerstate.stats[q_shared.STAT_FLASHES] & 2:
+
+			color = 0	# green
+
+			if cl.frame.playerstate.stats[q_shared.STAT_FLASHES] & 2:
 				vid_so.re.DrawPic (x, y, "field_3")
-			SCR_DrawField (x, y, 0, width, value)
+
+			SCR_DrawField (x, y, color, width, value)
 			continue
-		if token == 'stat_string':
-			token, cursor = common.COM_Parse(s, cursor)
+		
+		if token == "stat_string":
+		
+			token, cursor = common.COM_Parse (s, cursor)
 			index = int(token)
-			value = cl_main.cl.frame.playerstate.stats[index]
-			if value >= 0 and value < q_shared.MAX_CONFIGSTRINGS:
-				DrawString (x, y, cl_main.cl.configstrings[value])
+			if index < 0 or index >= q_shared.MAX_CONFIGSTRINGS:
+				common.Com_Error (q_shared.ERR_DROP, "Bad stat_string index")
+			index = cl.frame.playerstate.stats[index]
+			if index < 0 or index >= q_shared.MAX_CONFIGSTRINGS:
+				common.Com_Error (q_shared.ERR_DROP, "Bad stat_string index")
+			DrawString (x, y, cl.configstrings[index])
 			continue
-		if token == 'cstring':
-			token, cursor = common.COM_Parse(s, cursor)
+		
+		if token == "cstring":
+		
+			token, cursor = common.COM_Parse (s, cursor)
 			DrawHUDString (token, x, y, 320, 0)
 			continue
-		if token == 'string':
-			token, cursor = common.COM_Parse(s, cursor)
+		
+		if token == "string":
+		
+			token, cursor = common.COM_Parse (s, cursor)
 			DrawString (x, y, token)
 			continue
-		if token == 'cstring2':
-			token, cursor = common.COM_Parse(s, cursor)
-			DrawHUDString (token, x, y, 320, 0x80)
+		
+		if token == "cstring2":
+		
+			token, cursor = common.COM_Parse (s, cursor)
+			DrawHUDString (token, x, y, 320,0x80)
 			continue
-		if token == 'string2':
-			token, cursor = common.COM_Parse(s, cursor)
+		
+		if token == "string2":
+		
+			token, cursor = common.COM_Parse (s, cursor)
 			DrawAltString (x, y, token)
 			continue
-		if token == 'if':
-			token, cursor = common.COM_Parse(s, cursor)
-			if cl_main.cl.frame.playerstate.stats[int(token)]:
-				continue
-			while True:
-				peek, cursor = common.COM_Parse(s, cursor)
-				if not peek or peek == 'endif':
-					break
+		
+		if token == "if":
+			# draw a number
+			token, cursor = common.COM_Parse (s, cursor)
+			value = cl.frame.playerstate.stats[int(token)]
+			if not value:
+				# skip to endif
+				while cursor is not None and cursor < len(s) and token != "endif":
+				
+					token, cursor = common.COM_Parse (s, cursor)
+				
 			continue
+		
+
 # =============================================================================== # End layout parsing
 
 """
