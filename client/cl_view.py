@@ -27,7 +27,7 @@ import numpy as np
 from qcommon import cvar, common, cmd, cmodel
 from game import q_shared
 from client import cl_tent, cl_main, client, console, cl_scrn, cl_ents, ref
-from linux import vid_so, cd_linux, sys_linux
+from linux import q_shlinux, vid_so, cd_linux, sys_linux
 """
 #include "client.h"
 
