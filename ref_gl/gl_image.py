@@ -1444,8 +1444,9 @@ def GL_FindImage (name, imgType): #char *, imagetype_t (returns image_t *)
 		
 		pgimg = pygame.image.load(io.BytesIO(raw), "x.tga")
 		width, height = pgimg.get_size()
-		pgpix = bytearray(pgimg.get_view("0"))
-		image = GL_LoadPic (name, pgpix, width, height, imgType, 8)
+		# LoadTGA returns top down rows of 32 bit RGBA
+		pgpix = bytearray(pygame.image.tobytes(pgimg, "RGBA"))
+		image = GL_LoadPic (name, pgpix, width, height, imgType, 32)
 
 		# this is the original quake 2 approach:
 		#LoadTGA (name, &pic, &width, &height);

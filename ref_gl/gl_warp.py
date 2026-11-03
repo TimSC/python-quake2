@@ -265,18 +265,18 @@ void EmitWaterPolys (msurface_t *fa)
 
 
 //===================================================================
-
-
-vec3_t	skyclip[6] = {
-	{1,1,0},
-	{1,-1,0},
-	{0,-1,1},
-	{0,1,1},
-	{1,0,1},
-	{-1,0,1} 
-};
-int	c_sky;
 """
+
+skyclip = np.array([ # vec3_t[6]
+	[1,1,0],
+	[1,-1,0],
+	[0,-1,1],
+	[0,1,1],
+	[1,0,1],
+	[-1,0,1]
+], dtype=np.float32)
+c_sky = 0 #int
+
 # 1 = s, 2 = t, 3 = 2048
 st_to_vec = np.array([
 
@@ -292,115 +292,119 @@ st_to_vec = np.array([
 #	{-1,2,3},
 #	{1,2,-3}
 ], dtype=np.int8)
-"""
-// s = [0]/[2], t = [1]/[2]
-int	vec_to_st[6][3] =
-{
-	{-2,3,1},
-	{2,3,-1},
 
-	{1,3,2},
-	{-1,3,-2},
+# s = [0]/[2], t = [1]/[2]
+vec_to_st = np.array([ # int[6][3]
 
-	{-2,-1,3},
-	{-2,1,-3}
+	[-2,3,1],
+	[2,3,-1],
 
-//	{-1,2,3},
-//	{1,2,-3}
-};
-"""
+	[1,3,2],
+	[-1,3,-2],
+
+	[-2,-1,3],
+	[-2,1,-3]
+
+#	{-1,2,3},
+#	{1,2,-3}
+], dtype=np.int8)
+
 skymins = np.zeros((2,6), dtype=np.float32)
 skymaxs = np.zeros((2,6), dtype=np.float32)
 
 sky_min = None # float
 sky_max = None # float	
 """
-void DrawSkyPolygon (int nump, vec3_t vecs)
-{
+==============
+DrawSkyPolygon
+==============
+"""
+def DrawSkyPolygon (nump, vecs): # int, vec3_t * (array [nump][3])
+
+	global c_sky
+
+	"""
 	int		i,j;
 	vec3_t	v, av;
 	float	s, t, dv;
 	int		axis;
 	float	*vp;
+	"""
 
-	c_sky++;
-#if 0
-glBegin (GL_POLYGON);
-for (i=0 ; i<nump ; i++, vecs+=3)
-{
-	VectorAdd(vecs, r_origin, v);
-	qglVertex3fv (v);
-}
-glEnd();
-return;
-#endif
-	// decide which face it maps to
-	VectorCopy (vec3_origin, v);
-	for (i=0, vp=vecs ; i<nump ; i++, vp+=3)
-	{
-		VectorAdd (vp, v, v);
-	}
-	av[0] = fabs(v[0]);
-	av[1] = fabs(v[1]);
-	av[2] = fabs(v[2]);
-	if (av[0] > av[1] && av[0] > av[2])
-	{
-		if (v[0] < 0)
-			axis = 1;
-		else
-			axis = 0;
-	}
-	else if (av[1] > av[2] && av[1] > av[0])
-	{
-		if (v[1] < 0)
-			axis = 3;
-		else
-			axis = 2;
-	}
-	else
-	{
-		if (v[2] < 0)
-			axis = 5;
-		else
-			axis = 4;
-	}
+	c_sky += 1
+	# decide which face it maps to
+	v = np.zeros((3,), dtype=np.float32) # VectorCopy (vec3_origin, v);
+	for i in range(nump):
+		q_shared.VectorAdd (vecs[i], v, v)
 
-	// project new texture coords
-	for (i=0 ; i<nump ; i++, vecs+=3)
-	{
-		j = vec_to_st[axis][2];
-		if (j > 0)
-			dv = vecs[j - 1];
-		else
-			dv = -vecs[-j - 1];
-		if (dv < 0.001)
-			continue;	// don't divide by zero
-		j = vec_to_st[axis][0];
-		if (j < 0)
-			s = -vecs[-j -1] / dv;
-		else
-			s = vecs[j-1] / dv;
-		j = vec_to_st[axis][1];
-		if (j < 0)
-			t = -vecs[-j -1] / dv;
-		else
-			t = vecs[j-1] / dv;
+	av = np.abs(v)
+	if av[0] > av[1] and av[0] > av[2]:
+	
+		if v[0] < 0:
+			axis = 1
+		else:
+			axis = 0
+	
+	elif av[1] > av[2] and av[1] > av[0]:
+	
+		if v[1] < 0:
+			axis = 3
+		else:
+			axis = 2
+	
+	else:
+	
+		if v[2] < 0:
+			axis = 5
+		else:
+			axis = 4
+	
+	# project new texture coords
+	for i in range(nump):
+	
+		j = vec_to_st[axis][2]
+		if j > 0:
+			dv = vecs[i][j - 1]
+		else:
+			dv = -vecs[i][-j - 1]
+		if dv < 0.001:
+			continue	# don't divide by zero
+		j = vec_to_st[axis][0]
+		if j < 0:
+			s = -vecs[i][-j -1] / dv
+		else:
+			s = vecs[i][j-1] / dv
+		j = vec_to_st[axis][1]
+		if j < 0:
+			t = -vecs[i][-j -1] / dv
+		else:
+			t = vecs[i][j-1] / dv
 
-		if (s < skymins[0][axis])
-			skymins[0][axis] = s;
-		if (t < skymins[1][axis])
-			skymins[1][axis] = t;
-		if (s > skymaxs[0][axis])
-			skymaxs[0][axis] = s;
-		if (t > skymaxs[1][axis])
-			skymaxs[1][axis] = t;
-	}
-}
+		if s < skymins[0][axis]:
+			skymins[0][axis] = s
+		if t < skymins[1][axis]:
+			skymins[1][axis] = t
+		if s > skymaxs[0][axis]:
+			skymaxs[0][axis] = s
+		if t > skymaxs[1][axis]:
+			skymaxs[1][axis] = t
+	
 
-#define	ON_EPSILON		0.1			// point on plane side epsilon
-#define	MAX_CLIP_VERTS	64
-void ClipSkyPolygon (int nump, vec3_t vecs, int stage)
-{
+ON_EPSILON = 0.1			# point on plane side epsilon
+MAX_CLIP_VERTS = 64
+
+SIDE_FRONT = 0
+SIDE_BACK = 1
+SIDE_ON = 2
+
+"""
+==============
+ClipSkyPolygon
+==============
+"""
+def ClipSkyPolygon (nump, vecs, stage): # int, vec3_t * (array [nump][3]), int
+
+	"""
 	float	*norm;
 	float	*v;
 	qboolean	front, back;
@@ -410,110 +414,107 @@ void ClipSkyPolygon (int nump, vec3_t vecs, int stage)
 	vec3_t	newv[2][MAX_CLIP_VERTS];
 	int		newc[2];
 	int		i, j;
+	"""
 
-	if (nump > MAX_CLIP_VERTS-2)
-		ri.Sys_Error (ERR_DROP, "ClipSkyPolygon: MAX_CLIP_VERTS");
-	if (stage == 6)
-	{	// fully clipped, so draw it
-		DrawSkyPolygon (nump, vecs);
-		return;
-	}
+	if nump > MAX_CLIP_VERTS-2:
+		gl_rmain.ri.Sys_Error (q_shared.ERR_DROP, "ClipSkyPolygon: MAX_CLIP_VERTS")
+	if stage == 6:
+		# fully clipped, so draw it
+		DrawSkyPolygon (nump, vecs)
+		return
+	
+	dists = [0.0] * MAX_CLIP_VERTS
+	sides = [0] * MAX_CLIP_VERTS
 
-	front = back = false;
-	norm = skyclip[stage];
-	for (i=0, v = vecs ; i<nump ; i++, v+=3)
-	{
-		d = DotProduct (v, norm);
-		if (d > ON_EPSILON)
-		{
-			front = true;
-			sides[i] = SIDE_FRONT;
-		}
-		else if (d < -ON_EPSILON)
-		{
-			back = true;
-			sides[i] = SIDE_BACK;
-		}
-		else
-			sides[i] = SIDE_ON;
-		dists[i] = d;
-	}
+	front = back = False
+	norm = skyclip[stage]
+	for i in range(nump):
+	
+		d = q_shared.DotProduct (vecs[i], norm)
+		if d > ON_EPSILON:
+		
+			front = True
+			sides[i] = SIDE_FRONT
+		
+		elif d < -ON_EPSILON:
+		
+			back = True
+			sides[i] = SIDE_BACK
+		
+		else:
+			sides[i] = SIDE_ON
+		dists[i] = d
+	
+	if not front or not back:
+		# not clipped
+		ClipSkyPolygon (nump, vecs, stage+1)
+		return
+	
+	# clip it
+	sides[nump] = sides[0]
+	dists[nump] = dists[0]
+	#VectorCopy (vecs, (vecs+(i*3)) ); wrap around is done with (i+1) % nump below
+	newv = np.zeros((2, MAX_CLIP_VERTS, 3), dtype=np.float32) #vec3_t [2][MAX_CLIP_VERTS]
+	newc = [0, 0]
 
-	if (!front || !back)
-	{	// not clipped
-		ClipSkyPolygon (nump, vecs, stage+1);
-		return;
-	}
+	for i in range(nump):
+	
+		v = vecs[i]
+		vnext = vecs[(i+1) % nump]
 
-	// clip it
-	sides[i] = sides[0];
-	dists[i] = dists[0];
-	VectorCopy (vecs, (vecs+(i*3)) );
-	newc[0] = newc[1] = 0;
+		if sides[i] == SIDE_FRONT:
+			q_shared.VectorCopy (v, newv[0][newc[0]])
+			newc[0] += 1
+		elif sides[i] == SIDE_BACK:
+			q_shared.VectorCopy (v, newv[1][newc[1]])
+			newc[1] += 1
+		elif sides[i] == SIDE_ON:
+			q_shared.VectorCopy (v, newv[0][newc[0]])
+			newc[0] += 1
+			q_shared.VectorCopy (v, newv[1][newc[1]])
+			newc[1] += 1
+		
+		if sides[i] == SIDE_ON or sides[i+1] == SIDE_ON or sides[i+1] == sides[i]:
+			continue
 
-	for (i=0, v = vecs ; i<nump ; i++, v+=3)
-	{
-		switch (sides[i])
-		{
-		case SIDE_FRONT:
-			VectorCopy (v, newv[0][newc[0]]);
-			newc[0]++;
-			break;
-		case SIDE_BACK:
-			VectorCopy (v, newv[1][newc[1]]);
-			newc[1]++;
-			break;
-		case SIDE_ON:
-			VectorCopy (v, newv[0][newc[0]]);
-			newc[0]++;
-			VectorCopy (v, newv[1][newc[1]]);
-			newc[1]++;
-			break;
-		}
+		d = dists[i] / (dists[i] - dists[i+1])
+		for j in range(3):
+		
+			e = v[j] + d*(vnext[j] - v[j])
+			newv[0][newc[0]][j] = e
+			newv[1][newc[1]][j] = e
+		
+		newc[0] += 1
+		newc[1] += 1
+	
+	# continue
+	ClipSkyPolygon (newc[0], newv[0], stage+1)
+	ClipSkyPolygon (newc[1], newv[1], stage+1)
 
-		if (sides[i] == SIDE_ON || sides[i+1] == SIDE_ON || sides[i+1] == sides[i])
-			continue;
 
-		d = dists[i] / (dists[i] - dists[i+1]);
-		for (j=0 ; j<3 ; j++)
-		{
-			e = v[j] + d*(v[j+3] - v[j]);
-			newv[0][newc[0]][j] = e;
-			newv[1][newc[1]][j] = e;
-		}
-		newc[0]++;
-		newc[1]++;
-	}
-
-	// continue
-	ClipSkyPolygon (newc[0], newv[0][0], stage+1);
-	ClipSkyPolygon (newc[1], newv[1][0], stage+1);
-}
-
-/*
+"""
 =================
 R_AddSkySurface
 =================
-*/
-void R_AddSkySurface (msurface_t *fa)
-{
+"""
+def R_AddSkySurface (fa): # msurface_t *
+
+	"""
 	int			i;
 	vec3_t		verts[MAX_CLIP_VERTS];
 	glpoly_t	*p;
+	"""
 
-	// calculate vertex values for sky box
-	for (p=fa->polys ; p ; p=p->next)
-	{
-		for (i=0 ; i<p->numverts ; i++)
-		{
-			VectorSubtract (p->verts[i], r_origin, verts[i]);
-		}
-		ClipSkyPolygon (p->numverts, verts[0], 0);
-	}
-}
+	# calculate vertex values for sky box
+	p = fa.polys
+	while p:
+	
+		verts = p.verts[:p.numverts, :3] - gl_rmain.r_origin # VectorSubtract (p->verts[i], r_origin, verts[i])
+		ClipSkyPolygon (p.numverts, verts, 0)
+		p = p.next
+	
 
-
-/*
+"""
 ==============
 R_ClearSkyBox
 ==============
@@ -591,7 +592,7 @@ def R_DrawSkyBox ():
 		for i in range(6):
 			if skymins[0][i] < skymaxs[0][i] and skymins[1][i] < skymaxs[1][i]:
 				break
-		if i == 6:
+		else: # i == 6 in C
 			return		# nothing visible
 
 	GL.glPushMatrix ()
@@ -650,10 +651,10 @@ def R_SetSky (name, rotate, axis): # char *, float, vec3_t
 	for i in range(6):
 	
 		# chop down rotating skies for less memory
-		if gl_rmain.gl_skymip.value is not None or skyrotate:
+		if gl_rmain.gl_skymip.value or skyrotate:
 			gl_rmain.gl_picmip.value+=1
 
-		if qgl_linux.qglColorTableEXT and gl_ext_palettedtexture.value:
+		if qgl_linux.qglColorTableEXT and gl_rmain.gl_ext_palettedtexture.value:
 			pathname = "env/{}{}.pcx".format(skyname, suf[i])
 		else:
 			pathname  = "env/{}{}.tga".format(skyname, suf[i])
@@ -662,7 +663,7 @@ def R_SetSky (name, rotate, axis): # char *, float, vec3_t
 		if sky_images[i] is None:
 			sky_images[i] = gl_rmain.r_notexture
 
-		if gl_rmain.gl_skymip.value is not None or skyrotate:
+		if gl_rmain.gl_skymip.value or skyrotate:
 			# take less memory
 			gl_rmain.gl_picmip.value -= 1
 			sky_min = 1.0/256
@@ -672,8 +673,4 @@ def R_SetSky (name, rotate, axis): # char *, float, vec3_t
 			sky_min = 1.0/512
 			sky_max = 511.0/512
 
-
-def R_AddSkySurface(surf):
-    """Placeholder for sky surface handling until warping is ported."""
-    return
 		
