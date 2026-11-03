@@ -699,9 +699,9 @@ class csurface_t(object):
 
 	def __init__(self):
 
-		self.name = None # char[16]
-		self.flags = None # int
-		self.value = None # int
+		self.name = "" # char[16], zeroed as C statics are (nullsurface relies on it)
+		self.flags = 0 # int
+		self.value = 0 # int
 
 class mapsurface_t(object):  # used internally due to name len probs //ZOID
 
