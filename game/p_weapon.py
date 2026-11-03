@@ -49,10 +49,8 @@ static byte		is_silenced;
 
 
 void weapon_grenade_fire (edict_t *ent, qboolean held);
-
-
-
-
+"""
+"""
 /*
 ===============
 PlayerNoise
@@ -65,10 +63,8 @@ Monsters that don't directly see the player can move
 to a noise in hopes of seeing the player from there.
 ===============
 */
-
-
-
-
+"""
+"""
 /*
 ===============
 ChangeWeapon
@@ -77,13 +73,15 @@ The old weapon has been dropped all the way, so make the new one
 current
 ===============
 */
-
+"""
+"""
 /*
 =================
 NoAmmoWeaponChange
 =================
 */
-
+"""
+"""
 /*
 =================
 Think_Weapon
@@ -91,8 +89,8 @@ Think_Weapon
 Called by ClientBeginServerFrame and ClientThink
 =================
 */
-
-
+"""
+"""
 /*
 ================
 Use_Weapon
@@ -100,16 +98,15 @@ Use_Weapon
 Make the weapon ready if there is ammo
 ================
 */
-
-
-
+"""
+"""
 /*
 ================
 Drop_Weapon
 ================
 */
-
-
+"""
+"""
 /*
 ================
 Weapon_Generic
@@ -120,9 +117,8 @@ A generic function to handle the basics of weapon thinking
 #define FRAME_FIRE_FIRST		(FRAME_ACTIVATE_LAST + 1)
 #define FRAME_IDLE_FIRST		(FRAME_FIRE_LAST + 1)
 #define FRAME_DEACTIVATE_FIRST	(FRAME_IDLE_LAST + 1)
-
-
-
+"""
+"""
 /*
 ======================================================================
 
@@ -134,9 +130,8 @@ GRENADE
 #define GRENADE_TIMER		3.0
 #define GRENADE_MINSPEED	400
 #define GRENADE_MAXSPEED	800
-
-
-
+"""
+"""
 /*
 ======================================================================
 
@@ -144,9 +139,8 @@ GRENADE LAUNCHER
 
 ======================================================================
 */
-
-
-
+"""
+"""
 /*
 ======================================================================
 
@@ -154,10 +148,8 @@ ROCKET
 
 ======================================================================
 */
-
-
-
-
+"""
+"""
 /*
 ======================================================================
 
@@ -165,14 +157,8 @@ BLASTER / HYPERBLASTER
 
 ======================================================================
 */
-
-
-
-
-
-
-
-
+"""
+"""
 /*
 ======================================================================
 
@@ -180,13 +166,8 @@ MACHINEGUN / CHAINGUN
 
 ======================================================================
 */
-
-
-
-
-
-
-
+"""
+"""
 /*
 ======================================================================
 
@@ -194,14 +175,8 @@ SHOTGUN / SUPERSHOTGUN
 
 ======================================================================
 */
-
-
-
-
-
-
-
-
+"""
+"""
 /*
 ======================================================================
 
@@ -209,11 +184,8 @@ RAILGUN
 
 ======================================================================
 */
-
-
-
-
-
+"""
+"""
 /*
 ======================================================================
 
@@ -545,7 +517,7 @@ def Drop_Weapon (ent, item):
 	}
 	"""
 
-def Weapon_Generic (ent, FRAME_ACTIVATE_LAST, FRAME_FIRE_LAST, FRAME_IDLE_LAST, FRAME_DEACTIVATE_LAST, pause_frames, fire_frames, ent)):
+def Weapon_Generic (ent, FRAME_ACTIVATE_LAST, FRAME_FIRE_LAST, FRAME_IDLE_LAST, FRAME_DEACTIVATE_LAST, pause_frames, fire_frames, fire):
 	pass
 	"""
 	void Weapon_Generic (edict_t *ent, int FRAME_ACTIVATE_LAST, int FRAME_FIRE_LAST, int FRAME_IDLE_LAST, int FRAME_DEACTIVATE_LAST, int *pause_frames, int *fire_frames, void (*fire)(edict_t *ent))

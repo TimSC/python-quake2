@@ -40,9 +40,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 #include "g_local.h"
-
-
-
+"""
+"""
 /*
 ==============================================================================
 
@@ -84,44 +83,50 @@ typedef struct
 
 ipfilter_t	ipfilters[MAX_IPFILTERS];
 int			numipfilters;
-
+"""
+"""
 /*
 =================
 StringToFilter
 =================
 */
-
+"""
+"""
 /*
 =================
 SV_FilterPacket
 =================
 */
-
-
+"""
+"""
 /*
 =================
 SV_AddIP_f
 =================
 */
-
+"""
+"""
 /*
 =================
 SV_RemoveIP_f
 =================
 */
-
+"""
+"""
 /*
 =================
 SV_ListIP_f
 =================
 */
-
+"""
+"""
 /*
 =================
 SV_WriteIP_f
 =================
 */
-
+"""
+"""
 /*
 =================
 ServerCommand
@@ -131,7 +136,6 @@ The game can issue gi.argc() / gi.argv() commands to get the rest
 of the parameters
 =================
 */
-
 """
 
 def Svcmd_Test_f ():
@@ -189,7 +193,7 @@ def StringToFilter (s, f):
 	}
 	"""
 
-def SV_FilterPacket (from):
+def SV_FilterPacket (from_):
 	pass
 	"""
 	qboolean SV_FilterPacket (char *from)

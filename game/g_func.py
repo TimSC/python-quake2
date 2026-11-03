@@ -39,7 +39,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 #include "g_local.h"
-
+"""
+"""
 /*
 =========================================================
 
@@ -104,12 +105,8 @@ void Think_AccelMove (edict_t *ent);
 //
 // Support routines for angular movement (changes in angle using avelocity)
 //
-
-
-
-
-
-
+"""
+"""
 /*
 ==============
 Think_AccelMove
@@ -168,11 +165,8 @@ check either the X_AXIS or Y_AXIS box to change that.
 REVERSE will cause the it to rotate in the opposite direction.
 STOP mean it will stop moving instead of pushing entities
 */
-
-
-
-
-
+"""
+"""
 /*
 ======================================================================
 
@@ -197,15 +191,8 @@ When a button is touched, it moves some distance in the direction of it's angle,
 4) metallic click
 5) in-out
 */
-
-
-
-
-
-
-
-
-
+"""
+"""
 /*
 ======================================================================
 
@@ -398,8 +385,6 @@ void door_secret_done (edict_t *self);
 /*QUAKED func_killbox (1 0 0) ?
 Kills everything inside when fired, irrespective of protection.
 */
-
-
 """
 
 def Move_Done (ent):
@@ -450,7 +435,7 @@ def Move_Begin (ent):
 	}
 	"""
 
-def Move_Calc (ent, dest, void(func)(edict_t)):
+def Move_Calc (ent, dest, func):
 	pass
 	"""
 	void Move_Calc (edict_t *ent, vec3_t dest, void(*func)(edict_t*))
@@ -556,7 +541,7 @@ def AngleMove_Begin (ent):
 	}
 	"""
 
-def AngleMove_Calc (ent, void(func)(edict_t)):
+def AngleMove_Calc (ent, func):
 	pass
 	"""
 	void AngleMove_Calc (edict_t *ent, void(*func)(edict_t*))

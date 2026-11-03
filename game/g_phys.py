@@ -59,22 +59,23 @@ flying/floating monsters are SOLID_SLIDEBOX and MOVETYPE_FLY
 solid_edge items only clip against bsp models.
 
 */
-
-
+"""
+"""
 /*
 ============
 SV_TestEntityPosition
 
 ============
 */
-
-
+"""
+"""
 /*
 ================
 SV_CheckVelocity
 ================
 */
-
+"""
+"""
 /*
 =============
 SV_RunThink
@@ -82,7 +83,8 @@ SV_RunThink
 Runs thinking code for this frame if necessary
 =============
 */
-
+"""
+"""
 /*
 ==================
 SV_Impact
@@ -90,8 +92,8 @@ SV_Impact
 Two entities have touched, so run their touch functions
 ==================
 */
-
-
+"""
+"""
 /*
 ==================
 ClipVelocity
@@ -101,9 +103,8 @@ returns the blocked flags (1 = floor, 2 = step / wall)
 ==================
 */
 #define	STOP_EPSILON	0.1
-
-
-
+"""
+"""
 /*
 ============
 SV_FlyMove
@@ -116,15 +117,16 @@ Returns the clipflags if the velocity was modified (hit something solid)
 ============
 */
 #define	MAX_CLIP_PLANES	5
-
-
+"""
+"""
 /*
 ============
 SV_AddGravity
 
 ============
 */
-
+"""
+"""
 /*
 ===============================================================================
 
@@ -132,7 +134,8 @@ PUSHMOVE
 
 ===============================================================================
 */
-
+"""
+"""
 /*
 ============
 SV_PushEntity
@@ -152,7 +155,8 @@ typedef struct
 pushed_t	pushed[MAX_EDICTS], *pushed_p;
 
 edict_t	*obstacle;
-
+"""
+"""
 /*
 ============
 SV_Push
@@ -161,7 +165,8 @@ Objects need to be moved back on a failed push,
 otherwise riders would continue to slide.
 ============
 */
-
+"""
+"""
 /*
 ================
 SV_Physics_Pusher
@@ -172,7 +177,8 @@ push all box objects
 */
 
 //==================================================================
-
+"""
+"""
 /*
 =============
 SV_Physics_None
@@ -180,7 +186,8 @@ SV_Physics_None
 Non moving objects can only think
 =============
 */
-
+"""
+"""
 /*
 =============
 SV_Physics_Noclip
@@ -188,7 +195,8 @@ SV_Physics_Noclip
 A moving object that doesn't obey physics
 =============
 */
-
+"""
+"""
 /*
 ==============================================================================
 
@@ -196,7 +204,8 @@ TOSS / BOUNCE
 
 ==============================================================================
 */
-
+"""
+"""
 /*
 =============
 SV_Physics_Toss
@@ -204,7 +213,8 @@ SV_Physics_Toss
 Toss, bounce, and fly movement.  When onground, do nothing.
 =============
 */
-
+"""
+"""
 /*
 ===============================================================================
 
@@ -212,7 +222,8 @@ STEPPING MOVEMENT
 
 ===============================================================================
 */
-
+"""
+"""
 /*
 =============
 SV_Physics_Step
@@ -234,6 +245,8 @@ FIXME: is this true?
 
 
 //============================================================================
+"""
+"""
 /*
 ================
 G_RunEntity
@@ -320,7 +333,7 @@ def SV_Impact (e1, trace):
 	}
 	"""
 
-def ClipVelocity (in, normal, out, overbounce):
+def ClipVelocity (in_, normal, out, overbounce):
 	pass
 	"""
 	int ClipVelocity (vec3_t in, vec3_t normal, vec3_t out, float overbounce)
