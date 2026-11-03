@@ -1479,13 +1479,28 @@ will be freed.
 ================
 """
 def GL_FreeUnusedImages():
+
+	#int		i;
+	#image_t	*image;
+
+	# never free r_notexture or particle texture
+	# FIXME these are still None until R_InitParticleTexture is ported
+	if gl_rmain.r_notexture is not None:
+		gl_rmain.r_notexture.registration_sequence = gl_model.registration_sequence
+	if gl_rmain.r_particletexture is not None:
+		gl_rmain.r_particletexture.registration_sequence = gl_model.registration_sequence
+
 	for image in gltextures[:numgltextures]:
-		seq = image.registration_sequence
-		if seq == 0 or seq == gl_model.registration_sequence:
-			continue
-		if image.texnum:
-			GL.glDeleteTextures(1, (image.texnum,))
-		image.__init__()
+
+		if image.registration_sequence == gl_model.registration_sequence:
+			continue		# used this sequence
+		if not image.registration_sequence:
+			continue		# free image_t slot
+		if image.type == imagetype_t.it_pic:
+			continue		# don't free pics
+		# free it
+		GL.glDeleteTextures(1, (image.texnum,))
+		image.__init__() # memset (image, 0, sizeof(*image))
 
 
 def Draw_GetPalette ():
