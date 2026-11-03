@@ -718,7 +718,7 @@ def R_RenderView (fd): #refdef_t *
 	if r_norefresh.value:
 		return
 	
-	r_newrefdef = copy.deepcopy(fd)
+	r_newrefdef = fd.copy() # r_newrefdef = *fd
 	
 	if r_worldmodel is None and not ( r_newrefdef.rdflags & q_shared.RDF_NOWORLDMODEL ):
 		ri.Sys_Error (q_shared.ERR_DROP, "R_RenderView: NULL worldmodel")

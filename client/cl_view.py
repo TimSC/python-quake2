@@ -97,7 +97,7 @@ def V_AddEntity (ent):
 
 	if r_numentities >= ref.MAX_ENTITIES:
 		return
-	r_entities[r_numentities] = copy.deepcopy(ent)
+	r_entities[r_numentities] = ent.copy() # r_entities[r_numentities++] = *ent
 	r_numentities += 1
 
 

@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 import numpy as np
 import math
 import random
-from qcommon import common, net_chan
+from qcommon import common, net_chan, qcommon
 from game import q_shared
 from client import cl_main, cl_view, ref, snd_dma
 """
@@ -1217,8 +1217,101 @@ def CL_BubbleTrail(start, end):
 	_trail_particles(start, end, 0xFF, 8.0)
 
 
-def CL_FlyEffect(ent, origin):
-	_trail_particles(origin, origin, 0xE0, 1.0)
+"""
+===============
+CL_FlyParticles
+===============
+"""
+BEAMLENGTH = 16
+
+avelocities = np.zeros((qcommon.NUMVERTEXNORMALS, 3), dtype=np.float32) #static vec3_t [NUMVERTEXNORMALS]
+
+def CL_FlyParticles (origin, count): #vec3_t, int
+
+	"""
+	int			i;
+	cparticle_t	*p;
+	float		angle;
+	float		sr, sp, sy, cr, cp, cy;
+	vec3_t		forward;
+	float		dist = 64;
+	float		ltime;
+	"""
+	forward = np.zeros((3,), dtype=np.float32)
+
+	if count > qcommon.NUMVERTEXNORMALS:
+		count = qcommon.NUMVERTEXNORMALS
+
+	if not avelocities[0][0]:
+		for i in range(qcommon.NUMVERTEXNORMALS*3):
+			avelocities.flat[i] = (random.randint(0, 255)) * 0.01
+
+	ltime = float(cl_main.cl.time) / 1000.0
+	for i in range(0, count, 2):
+
+		angle = ltime * avelocities[i][0]
+		sy = math.sin(angle)
+		cy = math.cos(angle)
+		angle = ltime * avelocities[i][1]
+		sp = math.sin(angle)
+		cp = math.cos(angle)
+		angle = ltime * avelocities[i][2]
+		sr = math.sin(angle)
+		cr = math.cos(angle)
+
+		forward[0] = cp*cy
+		forward[1] = cp*sy
+		forward[2] = -sp
+
+		p = _alloc_particle()
+		if p is None:
+			return
+		active_particles.append(p)
+
+		p.time = cl_main.cl.time
+
+		dist = math.sin(ltime + i)*64
+		p.org[0] = origin[0] + common.bytedirs[i][0]*dist + forward[0]*BEAMLENGTH
+		p.org[1] = origin[1] + common.bytedirs[i][1]*dist + forward[1]*BEAMLENGTH
+		p.org[2] = origin[2] + common.bytedirs[i][2]*dist + forward[2]*BEAMLENGTH
+
+		q_shared.VectorClear (p.vel)
+		q_shared.VectorClear (p.accel)
+
+		p.color = 0
+		p.colorvel = 0
+
+		p.alpha = 1
+		p.alphavel = -100
+
+
+def CL_FlyEffect (ent, origin): #centity_t *, vec3_t
+
+	#int		n;
+	#int		count;
+	#int		starttime;
+
+	if ent.fly_stoptime < cl_main.cl.time:
+
+		starttime = cl_main.cl.time
+		ent.fly_stoptime = cl_main.cl.time + 60000
+
+	else:
+
+		starttime = ent.fly_stoptime - 60000
+
+	n = cl_main.cl.time - starttime
+	if n < 20000:
+		count = int(n * 162 / 20000.0)
+	else:
+
+		n = ent.fly_stoptime - cl_main.cl.time
+		if n < 20000:
+			count = int(n * 162 / 20000.0)
+		else:
+			count = 162
+
+	CL_FlyParticles (origin, count)
 
 
 def CL_BfgParticles(ent):

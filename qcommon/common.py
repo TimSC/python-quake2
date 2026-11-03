@@ -750,11 +750,13 @@ def MSG_ReadChar (msg_read): #sizebuf_t *
 	assert isinstance(msg_read, qcommon.sizebuf_t)
 
 	#int	c;
-	
+
 	if msg_read.readcount+1 > msg_read.cursize:
 		c = -1
 	else:
 		c = msg_read.data[msg_read.readcount]
+		if c > 127: # (signed char)
+			c -= 256
 	msg_read.readcount+=1
 	
 	return c
@@ -870,7 +872,7 @@ def MSG_ReadString (msg_read): #sizebuf_t *
 		c = MSG_ReadChar (msg_read)
 		if c == -1 or c == 0:
 			break
-		st += c.to_bytes(1, 'big')
+		st.append(c & 0xff)
 		l+=1
 	
 	#string[l] = 0;
@@ -890,9 +892,9 @@ def MSG_ReadStringLine (msg_read): # sizebuf_t * (returns char *)
 	while l < readStringSize-1:
 	
 		c = MSG_ReadChar (msg_read)
-		if c == -1 or c == 0 or c == '\n':
+		if c == -1 or c == 0 or c == ord('\n'):
 			break
-		st += c.to_bytes(1, 'big')
+		st.append(c & 0xff)
 		l+=1
 	
 	#string[l] = 0

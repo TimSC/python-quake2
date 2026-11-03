@@ -877,7 +877,7 @@ def CL_AddPacketEntities (frame):
 		cl_view.V_AddEntity(ent)
 
 		if effects & q_shared.EF_COLOR_SHELL:
-			shell_ent = copy.deepcopy(ent)
+			shell_ent = ent.copy()
 			shell_ent.flags = renderfx | q_shared.RF_TRANSLUCENT
 			shell_ent.alpha = 0.30
 			cl_view.V_AddEntity(shell_ent)

@@ -17,6 +17,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
+import copy
 import numpy as np
 """
 #ifndef __REF_H
@@ -96,6 +97,15 @@ class entity_t(object):
 		self.skin = None # struct image_s	*, NULL for inline skin
 		self.flags = 0 # int
 
+	def copy(self):
+		# struct assignment, arrays are copied but pointers (model, skin) stay shared.
+		# copy.deepcopy would also copy the whole model.
+		out = copy.copy(self)
+		out.angles = self.angles.copy()
+		out.origin = self.origin.copy()
+		out.oldorigin = self.oldorigin.copy()
+		return out
+
 
 """
 #define ENTITY_FLAGS  68
@@ -154,6 +164,15 @@ class refdef_t(object):
 		particle_t	*particles;
 
 		"""
+
+	def copy(self):
+		# struct assignment, arrays are copied but pointers (entities, lightstyles...) stay shared.
+		# copy.deepcopy would also copy every entity model and the world.
+		out = copy.copy(self)
+		out.vieworg = self.vieworg.copy()
+		out.viewangles = self.viewangles.copy()
+		out.blend = self.blend.copy()
+		return out
 
 
 API_VERSION = 3
