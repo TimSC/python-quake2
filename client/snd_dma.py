@@ -605,7 +605,8 @@ def S_IssuePlaysound (ps): #playsound_t *
 	sc = snd_mem.S_LoadSound (ch.sfx)
 	ch.end = paintedtime + sc.length
 
-	ch.chan.set_volume(ch.leftvol/255, ch.rightvol/255)
+	# Q2PORT: the C mixer scales by ch->leftvol and s_volume (snd_vol, snd_scaletable) as it paints
+	ch.chan.set_volume(ch.leftvol/255 * s_volume.value, ch.rightvol/255 * s_volume.value)
 	ch.chan.play(sc.data)
 
 """
@@ -941,7 +942,7 @@ def S_AddLoopSounds ():
 		if ch.loop_sfx is not sfx:
 			ch.chan.play(sc.data, loops=-1)
 			ch.loop_sfx = sfx
-		ch.chan.set_volume(ch.leftvol/255, ch.rightvol/255)
+		ch.chan.set_volume(ch.leftvol/255 * s_volume.value, ch.rightvol/255 * s_volume.value)
 	
 """
 
@@ -1128,7 +1129,7 @@ def S_Update(origin, forward, right, up): #vec3_t, vec3_t, vec3_t, vec3_t
 			continue
 		
 		if ch.chan is not None:
-			ch.chan.set_volume(ch.leftvol/255, ch.rightvol/255) # Q2PORT: the C mixer reads leftvol and rightvol each paint
+			ch.chan.set_volume(ch.leftvol/255 * s_volume.value, ch.rightvol/255 * s_volume.value) # Q2PORT: the C mixer reads leftvol, rightvol and s_volume each paint
 	
 	# add loopsounds
 	S_AddLoopSounds ()
