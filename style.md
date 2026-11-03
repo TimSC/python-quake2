@@ -167,6 +167,11 @@ only when a literal translation is impossible or far too slow.
   similar numeric arrays. For example, an alias model's frame vertices
   are a numpy array, but its GL command list is a plain list of ints and
   floats.
+- C linked lists made of `next`/`chain` pointers become Python lists. For
+  example, `surf.polys` is a list of `glpoly_t`, and `r_alpha_surfaces` is a
+  list of surfaces. Where C prepends to a chain and the order matters,
+  `append` and then iterate `reversed()`; prepend with `insert(0, ...)` when
+  the list is only built once.
 - `vec3_t` and other fixed-size float arrays are
   `np.zeros((3,), dtype=np.float32)`. Vector "macros" change the array
   in place so that C output parameters still work:

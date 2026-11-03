@@ -46,7 +46,7 @@ class image_t(object):
 		self.width, self.height = None, None #int, source image
 		self.upload_width, self.upload_height = None, None #int, after power of two and picmip
 		self.registration_sequence = 0 #int, 0 = free
-		self.texturechain = None #struct msurface_s	*, for sort-by-texture world drawing
+		self.texturechain = [] #msurface_t list, for sort-by-texture world drawing
 		self.texnum = 0 #int, gl texture binding
 		self.sl, self.tl, self.sh, self.th = 0.0, 0.0, 0.0, 0.0 #float, 0,0 - 1,1 unless part of the scrap
 		self.scrap = False #qboolean

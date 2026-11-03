@@ -857,11 +857,9 @@ def R_RenderView (fd): #refdef_t *
 	R_SetFrustum ()
 
 	R_SetupGL ()
-	"""
 
-	R_MarkLeaves ();	// done here so we know if we're in water
+	gl_rsurf.R_MarkLeaves ()	# done here so we know if we're in water
 
-	"""
 	gl_rsurf.dbg_nodes_visited, gl_rsurf.dbg_nodes_culled, gl_rsurf.dbg_leafs_drawn = 0, 0, 0 # Q2PORT DEBUG
 	c_brush_polys = 0 # Q2PORT DEBUG
 

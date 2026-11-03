@@ -138,8 +138,7 @@ def SubdividePolygon (numverts, verts): #int, float * (array [numverts][3])
 	# add a point in the center to help keep warp valid
 	poly = gl_model_h.glpoly_t() # Hunk_Alloc (sizeof(glpoly_t) + ((numverts-4)+2) * VERTEXSIZE*sizeof(float))
 	poly.verts = np.zeros((numverts+2, gl_model_h.VERTEXSIZE), dtype=np.float32)
-	poly.next = warpface.polys
-	warpface.polys = poly
+	warpface.polys.insert(0, poly) # poly->next = warpface->polys; warpface->polys = poly;
 	poly.numverts = numverts+2
 	total = np.zeros((3,), dtype=np.float32) # VectorClear (total);
 	total_s = 0
@@ -245,9 +244,8 @@ def EmitWaterPolys (fa): #msurface_t *
 		scroll = -64 * ( (rdt*0.5) - int(rdt*0.5) )
 	else:
 		scroll = 0
-	bp = fa.polys
-	while bp:
-	
+	for bp in fa.polys:
+
 		p = bp
 
 		GL.glBegin (GL.GL_TRIANGLE_FAN)
@@ -267,8 +265,7 @@ def EmitWaterPolys (fa): #msurface_t *
 			GL.glVertex3f (v[0], v[1], v[2])
 		
 		GL.glEnd ()
-		bp = bp.next
-	
+
 
 #===================================================================
 
@@ -511,13 +508,11 @@ def R_AddSkySurface (fa): # msurface_t *
 	"""
 
 	# calculate vertex values for sky box
-	p = fa.polys
-	while p:
-	
+	for p in fa.polys:
+
 		verts = p.verts[:p.numverts, :3] - gl_rmain.r_origin # VectorSubtract (p->verts[i], r_origin, verts[i])
 		ClipSkyPolygon (p.numverts, verts, 0)
-		p = p.next
-	
+
 
 """
 ==============

@@ -273,8 +273,7 @@ VERTEXSIZE = 7
 class glpoly_t(object):
 
 	def __init__(self):
-		self.next = None
-		self.chain = None
+		# struct glpoly_s *next, *chain; are replaced by lists of polys
 		self.numverts = 0
 		self.flags = 0
 		self.verts = np.zeros((4, VERTEXSIZE), dtype=np.float32)
@@ -294,9 +293,9 @@ class msurface_t(object):
 		self.light_t = 0
 		self.dlight_s = 0
 		self.dlight_t = 0
-		self.polys = None
-		self.texturechain = None
-		self.lightmapchain = None
+		self.polys = [] # glpoly_t list, multiple if warped
+		# struct msurface_s *texturechain, *lightmapchain; are replaced by the
+		# image_t.texturechain, gl_lms.lightmap_surfaces and r_alpha_surfaces lists
 		self.texinfo = None
 		self.dlightframe = 0
 		self.dlightbits = 0

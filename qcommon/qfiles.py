@@ -741,9 +741,9 @@ class dleaf_t(object):
 
 	def load(self, buff):
 
-		self.contents = q_shared.LittleLong(buff[:4])
-		self.cluster = q_shared.LittleShort (buff[4:6])
-		self.area = q_shared.LittleShort (buff[6:8])
+		self.contents = q_shared.LittleSLong(buff[:4]) # int
+		self.cluster = q_shared.LittleSShort (buff[4:6]) # short, -1 for no cluster
+		self.area = q_shared.LittleSShort (buff[6:8]) # short
 		c = 8
 		for i in range(3):
 			self.mins[i] = q_shared.LittleSShort(buff[c:c+2])
@@ -751,13 +751,13 @@ class dleaf_t(object):
 		for i in range(3):
 			self.maxs[i] = q_shared.LittleSShort(buff[c:c+2])
 			c += 2
-		self.firstleafface = q_shared.LittleSShort(buff[c:c+2])
+		self.firstleafface = q_shared.LittleShort(buff[c:c+2]) # unsigned short
 		c += 2
-		self.numleaffaces = q_shared.LittleSShort(buff[c:c+2])
+		self.numleaffaces = q_shared.LittleShort(buff[c:c+2]) # unsigned short
 		c += 2
-		self.firstleafbrush = q_shared.LittleSShort(buff[c:c+2])
+		self.firstleafbrush = q_shared.LittleShort(buff[c:c+2]) # unsigned short
 		c += 2
-		self.numleafbrushes = q_shared.LittleSShort(buff[c:c+2])
+		self.numleafbrushes = q_shared.LittleShort(buff[c:c+2]) # unsigned short
 
 
 class dbrushside_t(object):

@@ -8,1032 +8,1622 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
+// GL_RSURF.C: surface-related refresh code
+#include <assert.h>
+
+#include "gl_local.h"
 """
-
-import math
-import OpenGL.GL as GL
 import numpy as np
+import OpenGL.GL as GL
 from ref_gl import gl_warp, gl_image, gl_rmain, gl_model, gl_model_h, gl_light
 from linux import qgl_linux
 from game import q_shared
 from qcommon import qfiles
 from client import ref
 
-"""
-Python port of the GL surface handling code is still in progress.
-The original C source is preserved in quake2-original/ref_gl/gl_rsurf.c for reference.
-"""
+modelorg = np.zeros((3,), dtype=np.float32) #static vec3_t, relative to viewpoint
 
-modelorg = np.zeros((3,), dtype=np.float32)
-
-class entity_t(object):
-    """Temporary entity placeholder used during world rendering."""
-
-    def __init__(self):
-        self.frame = 0
+r_alpha_surfaces = [] #msurface_t list, was a chain through msurface_t.texturechain
 
 DYNAMIC_LIGHT_WIDTH = 128
 DYNAMIC_LIGHT_HEIGHT = 128
 
 LIGHTMAP_BYTES = 4
 
-BLOCK_WIDTH = 128
-BLOCK_HEIGHT = 128
-LIGHTMAP_BYTES = 4
-MAX_LIGHTMAPS = 128
-BACKFACE_EPSILON = 0.01
+BLOCK_WIDTH		= 128
+BLOCK_HEIGHT	= 128
 
-r_alpha_surfaces = None
+MAX_LIGHTMAPS	= 128
 
-
-class gllightmapstate_t(object):
-
-    def __init__(self):
-        self.allocated = [0] * BLOCK_WIDTH
-        self.lightmap_buffer = bytearray(4 * BLOCK_WIDTH * BLOCK_HEIGHT)
-        self.current_lightmap_texture = 1
-        self.internal_format = None
-        self.lightmap_surfaces = [[] for _ in range(MAX_LIGHTMAPS)]
-        self.lightmap_surfaces = [[] for _ in range(MAX_LIGHTMAPS)]
-
-
-gl_lms = gllightmapstate_t()
-
-
-
-
-def R_TextureAnimation(texinfo):
-    if texinfo and texinfo.image:
-        return texinfo.image
-    return gl_rmain.r_notexture
-
-
-def GL_RenderLightmappedPoly(surf): # msurface_t *
-    # ported from id 3.21 gl_rsurf.c
-    nv = surf.polys.numverts
-    image = R_TextureAnimation(surf.texinfo)
-    is_dynamic = False
-    lmtex = surf.lightmaptexturenum
-    lightstyles = gl_rmain.r_newrefdef.lightstyles
-
-    dynamic = False
-    smap = 0
-    while smap < qfiles.MAXLIGHTMAPS and surf.styles[smap] != 255:
-        if lightstyles[surf.styles[smap]].white != surf.cached_light[smap]:
-            dynamic = True
-            break
-        smap += 1
-
-    # dynamic this frame or dynamic previously
-    if dynamic or surf.dlightframe == gl_rmain.r_framecount:
-        if gl_rmain.gl_dynamic.value:
-            if not (surf.texinfo.flags & (q_shared.SURF_SKY | q_shared.SURF_TRANS33 | q_shared.SURF_TRANS66 | q_shared.SURF_WARP)):
-                is_dynamic = True
-
-    tex_base = gl_rmain.gl_state.lightmap_textures
-
-    if is_dynamic:
-        smax = (surf.extents[0] >> 4) + 1
-        tmax = (surf.extents[1] >> 4) + 1
-        temp = bytearray(smax * tmax * LIGHTMAP_BYTES) # unsigned temp[128*128]
-
-        # C reads styles[map] even when map == MAXLIGHTMAPS, treat that as no style
-        style = surf.styles[smap] if smap < qfiles.MAXLIGHTMAPS else 255
-        if (style >= 32 or style == 0) and surf.dlightframe != gl_rmain.r_framecount:
-            gl_light.R_BuildLightMap(surf, temp, smax * LIGHTMAP_BYTES)
-            gl_light.R_SetCacheState(surf)
-
-            gl_image.GL_MBind(GL.GL_TEXTURE1, tex_base + surf.lightmaptexturenum)
-
-            lmtex = surf.lightmaptexturenum
-        else:
-            gl_light.R_BuildLightMap(surf, temp, smax * LIGHTMAP_BYTES)
-
-            gl_image.GL_MBind(GL.GL_TEXTURE1, tex_base + 0)
-
-            lmtex = 0
-
-        GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0,
-                           surf.light_s, surf.light_t,
-                           smax, tmax,
-                           GL_LIGHTMAP_FORMAT,
-                           GL.GL_UNSIGNED_BYTE, bytes(temp))
-
-    gl_rmain.c_brush_polys += 1
-
-    gl_image.GL_MBind(GL.GL_TEXTURE0, image.texnum)
-    gl_image.GL_MBind(GL.GL_TEXTURE1, tex_base + lmtex)
-
-    scroll = 0.0
-    if surf.texinfo.flags & q_shared.SURF_FLOWING:
-        scroll = -64 * ((gl_rmain.r_newrefdef.time / 40.0) - int(gl_rmain.r_newrefdef.time / 40.0))
-        if scroll == 0.0:
-            scroll = -64.0
-
-    p = surf.polys
-    while p:
-        v = p.verts
-        GL.glBegin(GL.GL_POLYGON)
-        for i in range(nv):
-            GL.glMultiTexCoord2f(GL.GL_TEXTURE0, v[i, 3] + scroll, v[i, 4])
-            GL.glMultiTexCoord2f(GL.GL_TEXTURE1, v[i, 5], v[i, 6])
-            GL.glVertex3fv(v[i, :3])
-        GL.glEnd()
-        p = p.chain
-
-
-def R_AddSkySurface(surf):
-    if surf is None:
-        return
-    gl_warp.R_AddSkySurface(surf)
-
+c_visible_lightmaps = 0 #int
+c_visible_textures = 0 #int
 
 GL_LIGHTMAP_FORMAT = GL.GL_RGBA
 
+BACKFACE_EPSILON = 0.01 # from gl_local.h
 
-def LM_InitBlock():
-
-    gl_lms.allocated = [0] * BLOCK_WIDTH
-    gl_lms.lightmap_surfaces = [[] for _ in range(MAX_LIGHTMAPS)]
-
-
-def LM_AllocBlock(w, h):
-
-    best = BLOCK_HEIGHT
-    best_x = 0
-    best_y = 0
-
-    for i in range(BLOCK_WIDTH - w):
-        best2 = 0
-        for j in range(w):
-            if gl_lms.allocated[i + j] >= best:
-                break
-            best2 = max(best2, gl_lms.allocated[i + j])
-        else:
-            best = best2
-            best_x = i
-            best_y = best2
-
-    if best + h > BLOCK_HEIGHT:
-        return None
-
-    for i in range(w):
-        gl_lms.allocated[best_x + i] = best + h
-
-    return best_x, best_y
-
-
-def LM_UploadBlock(dynamic=False):
-    """Upload the allocated lightmap block to the selected GL texture."""
-    texture = 0 if dynamic else gl_lms.current_lightmap_texture
-    tex_base = gl_rmain.gl_state.lightmap_textures or gl_image.TEXNUM_LIGHTMAPS
-    gl_image.GL_Bind(tex_base + texture)
-    GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
-    GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
-
-    GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
-
-    if dynamic:
-        height = max(gl_lms.allocated) if gl_lms.allocated else 0
-        if height == 0:
-            return
-        size = BLOCK_WIDTH * height * LIGHTMAP_BYTES
-        GL.glTexSubImage2D(
-            GL.GL_TEXTURE_2D,
-            0,
-            0,
-            0,
-            BLOCK_WIDTH,
-            height,
-            GL_LIGHTMAP_FORMAT,
-            GL.GL_UNSIGNED_BYTE,
-            gl_lms.lightmap_buffer[:size],
-        )
-    else:
-        GL.glTexImage2D(
-            GL.GL_TEXTURE_2D,
-            0,
-            gl_lms.internal_format or GL.GL_RGBA,
-            BLOCK_WIDTH,
-            BLOCK_HEIGHT,
-            0,
-            GL_LIGHTMAP_FORMAT,
-            GL.GL_UNSIGNED_BYTE,
-            gl_lms.lightmap_buffer,
-        )
-        gl_lms.current_lightmap_texture += 1
-        if gl_lms.current_lightmap_texture == MAX_LIGHTMAPS:
-            gl_rmain.ri.Sys_Error(
-                q_shared.ERR_DROP, "LM_UploadBlock() - MAX_LIGHTMAPS exceeded"
-            )
-
-
-def GL_CreateSurfaceLightmap(surf):
-    if surf.flags & (gl_model_h.SURF_DRAWSKY | gl_model_h.SURF_DRAWTURB):
-        return
-
-    smax = (surf.extents[0] >> 4) + 1
-    tmax = (surf.extents[1] >> 4) + 1
-
-    result = LM_AllocBlock(smax, tmax)
-    if result is None:
-        LM_UploadBlock(False)
-        LM_InitBlock()
-        result = LM_AllocBlock(smax, tmax)
-        if result is None:
-            gl_rmain.ri.Sys_Error(
-                q_shared.ERR_FATAL,
-                "Consecutive calls to LM_AllocBlock(%d,%d) failed" % (smax, tmax),
-            )
-
-    surf.light_s, surf.light_t = result
-    surf.lightmaptexturenum = gl_lms.current_lightmap_texture
-
-    offset = (surf.light_t * BLOCK_WIDTH + surf.light_s) * LIGHTMAP_BYTES
-    dest = memoryview(gl_lms.lightmap_buffer)[
-        offset : offset + LIGHTMAP_BYTES * BLOCK_WIDTH * tmax
-    ]
-
-    gl_light.R_SetCacheState(surf)
-    gl_light.R_BuildLightMap(surf, dest, BLOCK_WIDTH * LIGHTMAP_BYTES)
-
-
-def GL_BuildPolygonFromSurface(surf):
-
-    currentmodel = gl_rmain.currentmodel
-    if currentmodel is None or currentmodel.vertexes is None:
-        return
-
-    texinfo = surf.texinfo
-    if texinfo is None:
-        return
-
-    pedges = currentmodel.edges
-    numverts = surf.numedges
-    poly = gl_model_h.glpoly_t()
-    poly.next = surf.polys
-    poly.flags = surf.flags
-    poly.chain = surf.polys
-    surf.polys = poly
-    poly.numverts = numverts
-
-    if poly.verts.shape[0] != numverts:
-        poly.verts = np.zeros((numverts, gl_model_h.VERTEXSIZE), dtype=np.float32)
-
-    for i in range(numverts):
-        lindex = int(currentmodel.surfedges[surf.firstedge + i])
-        if lindex >= 0:
-            edge = pedges[lindex]
-            vertex_idx = int(edge[0])
-        else:
-            edge = pedges[-lindex]
-            vertex_idx = int(edge[1])
-
-        vec = currentmodel.vertexes[vertex_idx]
-
-        s = (
-            vec[0] * texinfo.vecs[0][0]
-            + vec[1] * texinfo.vecs[0][1]
-            + vec[2] * texinfo.vecs[0][2]
-            + texinfo.vecs[0][3]
-        )
-        t = (
-            vec[0] * texinfo.vecs[1][0]
-            + vec[1] * texinfo.vecs[1][1]
-            + vec[2] * texinfo.vecs[1][2]
-            + texinfo.vecs[1][3]
-        )
-
-        width = texinfo.image.width if texinfo.image else 1.0
-        height = texinfo.image.height if texinfo.image else 1.0
-        s /= width
-        t /= height
-
-        poly.verts[i, :3] = vec
-        poly.verts[i, 3] = s
-        poly.verts[i, 4] = t
-
-        light_s = (
-            vec[0] * texinfo.vecs[0][0]
-            + vec[1] * texinfo.vecs[0][1]
-            + vec[2] * texinfo.vecs[0][2]
-            + texinfo.vecs[0][3]
-        )
-        light_t = (
-            vec[0] * texinfo.vecs[1][0]
-            + vec[1] * texinfo.vecs[1][1]
-            + vec[2] * texinfo.vecs[1][2]
-            + texinfo.vecs[1][3]
-        )
-        light_s -= surf.texturemins[0]
-        light_t -= surf.texturemins[1]
-        light_s += surf.light_s * 16 + 8
-        light_t += surf.light_t * 16 + 8
-        light_s /= BLOCK_WIDTH * 16
-        light_t /= BLOCK_HEIGHT * 16
-
-        poly.verts[i, 5] = light_s
-        poly.verts[i, 6] = light_t
-
-
-def GL_BeginBuildingLightmaps(m):
-    LM_InitBlock()
-    gl_rmain.r_framecount = 1
-    gl_image.GL_EnableMultitexture(True)
-    gl_image.GL_SelectTexture(GL.GL_TEXTURE1)
-
-    # setup the base lightstyles so the lightmaps won't have to be regenerated
-    # the first time they're seen
-    lightstyles = [] # static lightstyle_t[MAX_LIGHTSTYLES]
-    for i in range(q_shared.MAX_LIGHTSTYLES):
-        ls = ref.lightstyle_t()
-        ls.rgb[0] = 1
-        ls.rgb[1] = 1
-        ls.rgb[2] = 1
-        ls.white = 3
-        lightstyles.append(ls)
-    gl_rmain.r_newrefdef.lightstyles = lightstyles
-
-    if not gl_rmain.gl_state.lightmap_textures:
-        gl_rmain.gl_state.lightmap_textures = gl_image.TEXNUM_LIGHTMAPS
-
-    gl_lms.current_lightmap_texture = 1
-
-    # if mono lightmaps are enabled and we want to use alpha
-    # blending (a,1-a) then we're likely running on a 3DLabs
-    # Permedia2, which needs alpha lightmaps stored in GL_RGBA format.
-    mode = gl_rmain.gl_monolightmap.string[0].upper()
-    if mode == 'A':
-        gl_lms.internal_format = gl_image.gl_tex_alpha_format
-    # try to do hacked colored lighting with a blended texture
-    elif mode == 'C':
-        gl_lms.internal_format = gl_image.gl_tex_alpha_format
-    elif mode == 'I':
-        gl_lms.internal_format = GL.GL_INTENSITY8
-    elif mode == 'L':
-        gl_lms.internal_format = GL.GL_LUMINANCE8
-    else:
-        gl_lms.internal_format = gl_image.gl_tex_solid_format
-
-    # initialize the dynamic lightmap texture
-    dummy = bytes(4 * BLOCK_WIDTH * BLOCK_HEIGHT) # unsigned dummy[128*128]
-    gl_image.GL_Bind(gl_rmain.gl_state.lightmap_textures + 0)
-    GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
-    GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
-    GL.glTexImage2D(GL.GL_TEXTURE_2D,
-                    0,
-                    gl_lms.internal_format,
-                    BLOCK_WIDTH, BLOCK_HEIGHT,
-                    0,
-                    GL_LIGHTMAP_FORMAT,
-                    GL.GL_UNSIGNED_BYTE,
-                    dummy)
-
-
-def GL_EndBuildingLightmaps():
-    LM_UploadBlock(False)
-    gl_image.GL_EnableMultitexture(False)
-
-
-def R_DrawWorld ():
-
-    if not gl_rmain.r_drawworld.value:
-        return
-
-    if gl_rmain.r_newrefdef.rdflags & q_shared.RDF_NOWORLDMODEL:
-        return
-
-    R_MarkLeaves ()
-
-    gl_rmain.currentmodel = gl_rmain.r_worldmodel
-    q_shared.VectorCopy (gl_rmain.r_newrefdef.vieworg, modelorg)
-
-    ent = entity_t()
-    ent.frame = int(gl_rmain.r_newrefdef.time * 2)
-    gl_rmain.currententity = ent
-
-    gl_rmain.gl_state.currenttextures[0] = -1
-    gl_rmain.gl_state.currenttextures[1] = -1
-
-    GL.glColor3f (1.0, 1.0, 1.0)
-    gl_lms.lightmap_surfaces = [[] for _ in range(MAX_LIGHTMAPS)] # memset (gl_lms.lightmap_surfaces, 0, ...)
-    gl_warp.R_ClearSkyBox ()
-
-    root_node = (
-        gl_rmain.r_worldmodel.nodes[0]
-        if gl_rmain.r_worldmodel and gl_rmain.r_worldmodel.nodes
-        else None
-    )
-
-    if qgl_linux.qglMTexCoord2fSGIS:
-
-        gl_image.GL_EnableMultitexture (True)
-
-        gl_image.GL_SelectTexture (GL.GL_TEXTURE0)
-        gl_image.GL_TexEnv (GL.GL_REPLACE)
-        gl_image.GL_SelectTexture (GL.GL_TEXTURE1)
-
-        if gl_rmain.gl_lightmap.value:
-            gl_image.GL_TexEnv (GL.GL_REPLACE)
-        else:
-            gl_image.GL_TexEnv (GL.GL_MODULATE)
-
-        R_RecursiveWorldNode (root_node)
-
-        gl_image.GL_EnableMultitexture (False)
-    else:
-
-        R_RecursiveWorldNode (root_node)
-
-    DrawTextureChains ()
-    R_BlendLightmaps ()
-
-    gl_warp.R_DrawSkyBox ()
-    R_DrawTriangleOutlines ()
-
-
-def R_MarkLeaves ():
-
-    world = gl_rmain.r_worldmodel
-    if world is None:
-        return
-
-    if (
-        gl_rmain.r_oldviewcluster == gl_rmain.r_viewcluster
-        and gl_rmain.r_oldviewcluster2 == gl_rmain.r_viewcluster2
-        and not gl_rmain.r_novis.value
-        and gl_rmain.r_viewcluster != -1
-    ):
-        return
-
-    if gl_rmain.gl_lockpvs and gl_rmain.gl_lockpvs.value:
-        return
-
-    gl_rmain.r_visframecount += 1
-    gl_rmain.r_oldviewcluster = gl_rmain.r_viewcluster
-    gl_rmain.r_oldviewcluster2 = gl_rmain.r_viewcluster2
-
-    if gl_rmain.r_novis.value or gl_rmain.r_viewcluster == -1 or not world.vis:
-        for leaf in world.leafs:
-            leaf.visframe = gl_rmain.r_visframecount
-        for node in world.nodes:
-            node.visframe = gl_rmain.r_visframecount
-        return
-
-    row = (world.numleafs + 7) // 8
-    base_vis = gl_model.Mod_ClusterPVS(gl_rmain.r_viewcluster, world)
-    if base_vis is None:
-        vis = bytearray(row)
-    else:
-        vis = bytearray(base_vis)
-
-    if gl_rmain.r_viewcluster2 != gl_rmain.r_viewcluster and gl_rmain.r_viewcluster2 != -1:
-        fatvis = bytearray(row)
-        fatvis[:len(vis)] = vis[:row]
-        vis2_raw = gl_model.Mod_ClusterPVS(gl_rmain.r_viewcluster2, world)
-        vis2 = bytearray(vis2_raw if vis2_raw is not None else [0]*row)
-        for i in range(row):
-            val1 = fatvis[i]
-            val2 = vis2[i] if i < len(vis2) else 0
-            fatvis[i] = val1 | val2
-        vis = fatvis
-    else:
-        vis = vis[:row]
-        if len(vis) < row:
-            vis += bytearray(row - len(vis))
-
-    for leaf in world.leafs:
-        cluster = leaf.cluster
-        if cluster == -1:
-            continue
-        idx = cluster >> 3
-
-        if idx < len(vis) and (vis[idx] & (1 << (cluster & 7))):
-            node = leaf
-            while node:
-                if node.visframe == gl_rmain.r_visframecount:
-                    break
-                node.visframe = gl_rmain.r_visframecount
-                node = node.parent
+class gllightmapstate_t(object):
 
+	def __init__(self):
+
+		self.internal_format = None #int
+		self.current_lightmap_texture = 1 #int
 
+		self.lightmap_surfaces = [[] for _ in range(MAX_LIGHTMAPS)] #msurface_t *[MAX_LIGHTMAPS], each chain is a list
+
+		self.allocated = [0] * BLOCK_WIDTH #int [BLOCK_WIDTH]
+
+		# the lightmap texture data needs to be kept in
+		# main memory so texsubimage can update properly
+		self.lightmap_buffer = bytearray(4*BLOCK_WIDTH*BLOCK_HEIGHT) #byte [4*BLOCK_WIDTH*BLOCK_HEIGHT]
+
+gl_lms = gllightmapstate_t() #static gllightmapstate_t
+
+"""
+static void		LM_InitBlock( void );
+static void		LM_UploadBlock( qboolean dynamic );
+static qboolean	LM_AllocBlock (int w, int h, int *x, int *y);
+
+extern void R_SetCacheState( msurface_t *surf );
+extern void R_BuildLightMap (msurface_t *surf, byte *dest, int stride);
+"""
+"""
+=============================================================
+
+	BRUSH MODELS
+
+=============================================================
+"""
+
+"""
+===============
+R_TextureAnimation
+
+Returns the proper texture for a given time and base texture
+===============
+"""
+def R_TextureAnimation (tex): #mtexinfo_t * (returns image_t *)
+
+	#int		c;
+
+	if not tex.next:
+		return tex.image
+
+	c = gl_rmain.currententity.frame % tex.numframes
+	while c:
+
+		tex = tex.next
+		c -= 1
+
+	return tex.image
+
+"""
+#if 0
+/*
+=================
+WaterWarpPolyVerts
+
+Mangles the x and y coordinates in a copy of the poly
+so that any drawing routine can be water warped
+=================
+*/
+glpoly_t *WaterWarpPolyVerts (glpoly_t *p)
+{
+	int		i;
+	float	*v, *nv;
+	static byte	buffer[1024];
+	glpoly_t *out;
+
+	out = (glpoly_t *)buffer;
+
+	out->numverts = p->numverts;
+	v = p->verts[0];
+	nv = out->verts[0];
+	for (i=0 ; i<p->numverts ; i++, v+= VERTEXSIZE, nv+=VERTEXSIZE)
+	{
+		nv[0] = v[0] + 4*sin(v[1]*0.05+r_newrefdef.time)*sin(v[2]*0.05+r_newrefdef.time);
+		nv[1] = v[1] + 4*sin(v[0]*0.05+r_newrefdef.time)*sin(v[2]*0.05+r_newrefdef.time);
+
+		nv[2] = v[2];
+		nv[3] = v[3];
+		nv[4] = v[4];
+		nv[5] = v[5];
+		nv[6] = v[6];
+	}
+
+	return out;
+}
+
+/*
+================
+DrawGLWaterPoly
+
+Warp the vertex coordinates
+================
+*/
+void DrawGLWaterPoly (glpoly_t *p)
+{
+	int		i;
+	float	*v;
+
+	p = WaterWarpPolyVerts (p);
+	qglBegin (GL_TRIANGLE_FAN);
+	v = p->verts[0];
+	for (i=0 ; i<p->numverts ; i++, v+= VERTEXSIZE)
+	{
+		qglTexCoord2f (v[3], v[4]);
+		qglVertex3fv (v);
+	}
+	qglEnd ();
+}
+void DrawGLWaterPolyLightmap (glpoly_t *p)
+{
+	int		i;
+	float	*v;
+
+	p = WaterWarpPolyVerts (p);
+	qglBegin (GL_TRIANGLE_FAN);
+	v = p->verts[0];
+	for (i=0 ; i<p->numverts ; i++, v+= VERTEXSIZE)
+	{
+		qglTexCoord2f (v[5], v[6]);
+		qglVertex3fv (v);
+	}
+	qglEnd ();
+}
+#endif
+"""
+
+"""
+================
+DrawGLPoly
+================
+"""
+def DrawGLPoly (p): #glpoly_t *
+
+	#int		i;
+	#float	*v;
+
+	GL.glBegin (GL.GL_POLYGON)
+	for v in p.verts[:p.numverts].tolist():
+
+		GL.glTexCoord2f (v[3], v[4])
+		GL.glVertex3f (v[0], v[1], v[2])
+
+	GL.glEnd ()
+
+#============
+#PGM
+"""
+================
+DrawGLFlowingPoly -- version of DrawGLPoly that handles scrolling texture
+================
+"""
+def DrawGLFlowingPoly (fa): #msurface_t *
 
+	"""
+	int		i;
+	float	*v;
+	glpoly_t *p;
+	float	scroll;
+	"""
+
+	p = fa.polys[0]
+
+	scroll = -64 * ( (gl_rmain.r_newrefdef.time / 40.0) - int(gl_rmain.r_newrefdef.time / 40.0) )
+	if scroll == 0.0:
+		scroll = -64.0
+
+	GL.glBegin (GL.GL_POLYGON)
+	for v in p.verts[:p.numverts].tolist():
+
+		GL.glTexCoord2f ((v[3] + scroll), v[4])
+		GL.glVertex3f (v[0], v[1], v[2])
+
+	GL.glEnd ()
+#PGM
+#============
+
+"""
+** R_DrawTriangleOutlines
+"""
+def R_DrawTriangleOutlines ():
+
+	#int			i, j;
+	#glpoly_t	*p;
+
+	if not gl_rmain.gl_showtris.value:
+		return
+
+	GL.glDisable (GL.GL_TEXTURE_2D)
+	GL.glDisable (GL.GL_DEPTH_TEST)
+	GL.glColor4f (1,1,1,1)
+
+	for i in range(MAX_LIGHTMAPS):
+
+		#msurface_t *surf;
+
+		for surf in gl_lms.lightmap_surfaces[i]:
+
+			for p in surf.polys:
+
+				for j in range(2, p.numverts):
+
+					GL.glBegin (GL.GL_LINE_STRIP)
+					GL.glVertex3fv (p.verts[0][:3])
+					GL.glVertex3fv (p.verts[j-1][:3])
+					GL.glVertex3fv (p.verts[j][:3])
+					GL.glVertex3fv (p.verts[0][:3])
+					GL.glEnd ()
+
+	GL.glEnable (GL.GL_DEPTH_TEST)
+	GL.glEnable (GL.GL_TEXTURE_2D)
+
+"""
+** DrawGLPolyChain
+"""
+def DrawGLPolyChain( polys, soffset, toffset ): #glpoly_t list (was a chain), float, float
+
+	if soffset == 0 and toffset == 0:
+
+		for p in polys:
+
+			#float *v;
+			#int j;
+
+			GL.glBegin (GL.GL_POLYGON)
+			for v in p.verts[:p.numverts].tolist():
+
+				GL.glTexCoord2f (v[5], v[6] )
+				GL.glVertex3f (v[0], v[1], v[2])
+
+			GL.glEnd ()
+
+	else:
+
+		for p in polys:
+
+			#float *v;
+			#int j;
+
+			GL.glBegin (GL.GL_POLYGON)
+			for v in p.verts[:p.numverts].tolist():
+
+				GL.glTexCoord2f (v[5] - soffset, v[6] - toffset )
+				GL.glVertex3f (v[0], v[1], v[2])
+
+			GL.glEnd ()
+
+
+"""
+** R_BlendLightMaps
+**
+** This routine takes all the given light mapped surfaces in the world and
+** blends them into the framebuffer.
+"""
+def R_BlendLightmaps ():
+
+	global c_visible_lightmaps
+
+	#int			i;
+	#msurface_t	*surf, *newdrawsurf = 0;
+
+	# don't bother if we're set to fullbright
+	if gl_rmain.r_fullbright.value:
+		return
+	if not gl_rmain.r_worldmodel.lightdata:
+		return
+
+	# don't bother writing Z
+	GL.glDepthMask( 0 )
+
+	#
+	# set the appropriate blending mode unless we're only looking at the
+	# lightmaps.
+	#
+	if not gl_rmain.gl_lightmap.value:
+
+		GL.glEnable (GL.GL_BLEND)
+
+		if gl_rmain.gl_saturatelighting.value:
+
+			GL.glBlendFunc( GL.GL_ONE, GL.GL_ONE )
+
+		else:
+
+			if gl_rmain.gl_monolightmap.string[0] != '0':
+
+				mode = gl_rmain.gl_monolightmap.string[0].upper()
+				if mode == 'I':
+					GL.glBlendFunc (GL.GL_ZERO, GL.GL_SRC_COLOR )
+				elif mode == 'L':
+					GL.glBlendFunc (GL.GL_ZERO, GL.GL_SRC_COLOR )
+				else: # case 'A': default:
+					GL.glBlendFunc( GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA )
+
+			else:
+
+				GL.glBlendFunc (GL.GL_ZERO, GL.GL_SRC_COLOR )
+
+	if gl_rmain.currentmodel is gl_rmain.r_worldmodel:
+		c_visible_lightmaps = 0
+
+	#
+	# render static lightmaps first
+	#
+	for i in range(1, MAX_LIGHTMAPS):
+
+		if gl_lms.lightmap_surfaces[i]:
+
+			if gl_rmain.currentmodel is gl_rmain.r_worldmodel:
+				c_visible_lightmaps += 1
+			gl_image.GL_Bind( gl_rmain.gl_state.lightmap_textures + i)
+
+			for surf in gl_lms.lightmap_surfaces[i]:
+
+				if surf.polys:
+					DrawGLPolyChain( surf.polys, 0, 0 )
+
+	#
+	# render dynamic lightmaps
+	#
+	if gl_rmain.gl_dynamic.value:
+
+		LM_InitBlock()
+
+		gl_image.GL_Bind( gl_rmain.gl_state.lightmap_textures+0 )
+
+		if gl_rmain.currentmodel is gl_rmain.r_worldmodel:
+			c_visible_lightmaps += 1
+
+		dynamic_surfaces = gl_lms.lightmap_surfaces[0]
+		newdrawsurf = 0 # index into dynamic_surfaces, was a pointer into the chain
+
+		for surf_i, surf in enumerate(dynamic_surfaces):
+
+			#int		smax, tmax;
+			#byte	*base;
+
+			smax = (surf.extents[0]>>4)+1
+			tmax = (surf.extents[1]>>4)+1
+
+			ok, surf.dlight_s, surf.dlight_t = LM_AllocBlock( smax, tmax )
+			if ok:
+
+				base = ( surf.dlight_t * BLOCK_WIDTH + surf.dlight_s ) * LIGHTMAP_BYTES
+
+				gl_light.R_BuildLightMap (surf, memoryview(gl_lms.lightmap_buffer)[base:], BLOCK_WIDTH*LIGHTMAP_BYTES)
+
+			else:
+
+				#msurface_t *drawsurf;
+
+				# upload what we have so far
+				LM_UploadBlock( True )
+
+				# draw all surfaces that use this lightmap
+				for drawsurf in dynamic_surfaces[newdrawsurf:surf_i]:
+
+					if drawsurf.polys:
+						DrawGLPolyChain( drawsurf.polys,
+							              ( drawsurf.light_s - drawsurf.dlight_s ) * ( 1.0 / 128.0 ),
+										( drawsurf.light_t - drawsurf.dlight_t ) * ( 1.0 / 128.0 ) )
+
+				newdrawsurf = surf_i
+
+				# clear the block
+				LM_InitBlock()
+
+				# try uploading the block now
+				ok, surf.dlight_s, surf.dlight_t = LM_AllocBlock( smax, tmax )
+				if not ok:
+
+					gl_rmain.ri.Sys_Error( q_shared.ERR_FATAL, "Consecutive calls to LM_AllocBlock({},{}) failed (dynamic)\n".format(smax, tmax) )
+
+				base = ( surf.dlight_t * BLOCK_WIDTH + surf.dlight_s ) * LIGHTMAP_BYTES
+
+				gl_light.R_BuildLightMap (surf, memoryview(gl_lms.lightmap_buffer)[base:], BLOCK_WIDTH*LIGHTMAP_BYTES)
+
+		#
+		# draw remainder of dynamic lightmaps that haven't been uploaded yet
+		#
+		if dynamic_surfaces[newdrawsurf:]:
+			LM_UploadBlock( True )
+
+		for surf in dynamic_surfaces[newdrawsurf:]:
+
+			if surf.polys:
+				DrawGLPolyChain( surf.polys, ( surf.light_s - surf.dlight_s ) * ( 1.0 / 128.0 ), ( surf.light_t - surf.dlight_t ) * ( 1.0 / 128.0 ) )
+
+	#
+	# restore state
+	#
+	GL.glDisable (GL.GL_BLEND)
+	GL.glBlendFunc (GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+	GL.glDepthMask( 1 )
+
+"""
+================
+R_RenderBrushPoly
+================
+"""
+def R_RenderBrushPoly (fa): #msurface_t *
+
+	"""
+	int			maps;
+	image_t		*image;
+	qboolean is_dynamic = false;
+	"""
+	is_dynamic = False
+
+	gl_rmain.c_brush_polys += 1
+
+	image = R_TextureAnimation (fa.texinfo)
+
+	if fa.flags & gl_model_h.SURF_DRAWTURB:
+
+		gl_image.GL_Bind( image.texnum )
+
+		# warp texture, no lightmaps
+		gl_image.GL_TexEnv( GL.GL_MODULATE )
+		GL.glColor4f( gl_rmain.gl_state.inverse_intensity,
+			        gl_rmain.gl_state.inverse_intensity,
+					gl_rmain.gl_state.inverse_intensity,
+					1.0 )
+		gl_warp.EmitWaterPolys (fa)
+		gl_image.GL_TexEnv( GL.GL_REPLACE )
+
+		return
+
+	else:
+
+		gl_image.GL_Bind( image.texnum )
+
+		gl_image.GL_TexEnv( GL.GL_REPLACE )
+
+#======
+#PGM
+	if fa.texinfo.flags & q_shared.SURF_FLOWING:
+		DrawGLFlowingPoly (fa)
+	else:
+		DrawGLPoly (fa.polys[0])
+#PGM
+#======
+
+	#
+	# check for lightmap modification
+	#
+	dynamic = False
+	maps = 0
+	while maps < qfiles.MAXLIGHTMAPS and fa.styles[maps] != 255:
+
+		if gl_rmain.r_newrefdef.lightstyles[fa.styles[maps]].white != fa.cached_light[maps]:
+			dynamic = True
+			break # goto dynamic;
+		maps += 1
+
+	# dynamic this frame or dynamic previously
+	if dynamic or ( fa.dlightframe == gl_rmain.r_framecount ):
+
+	#dynamic:
+		if gl_rmain.gl_dynamic.value:
+
+			if not ( fa.texinfo.flags & (q_shared.SURF_SKY|q_shared.SURF_TRANS33|q_shared.SURF_TRANS66|q_shared.SURF_WARP ) ):
+
+				is_dynamic = True
+
+	if is_dynamic:
+
+		# C reads styles[maps] even when maps == MAXLIGHTMAPS, treat that as no style
+		style = fa.styles[maps] if maps < qfiles.MAXLIGHTMAPS else 255
+		if ( style >= 32 or style == 0 ) and ( fa.dlightframe != gl_rmain.r_framecount ):
+
+			#unsigned	temp[34*34];
+			#int			smax, tmax;
+
+			smax = (fa.extents[0]>>4)+1
+			tmax = (fa.extents[1]>>4)+1
+			temp = bytearray(smax*tmax*4)
+
+			gl_light.R_BuildLightMap( fa, temp, smax*4 )
+			gl_light.R_SetCacheState( fa )
+
+			gl_image.GL_Bind( gl_rmain.gl_state.lightmap_textures + fa.lightmaptexturenum )
+
+			GL.glTexSubImage2D( GL.GL_TEXTURE_2D, 0,
+							  fa.light_s, fa.light_t,
+							  smax, tmax,
+							  GL_LIGHTMAP_FORMAT,
+							  GL.GL_UNSIGNED_BYTE, bytes(temp) )
+
+			gl_lms.lightmap_surfaces[fa.lightmaptexturenum].append(fa)
+
+		else:
+
+			gl_lms.lightmap_surfaces[0].append(fa)
+
+	else:
+
+		gl_lms.lightmap_surfaces[fa.lightmaptexturenum].append(fa)
+
+
+"""
+================
+R_DrawAlphaSurfaces
+
+Draw water surfaces and windows.
+The BSP tree is waled front to back, so unwinding the chain
+of alpha_surfaces will draw back to front, giving proper ordering.
+================
+"""
+def R_DrawAlphaSurfaces ():
+
+	#msurface_t	*s;
+	#float		intens;
+
+	#
+	# go back to the world matrix
+	#
+	GL.glLoadMatrixf (gl_rmain.r_world_matrix)
+
+	GL.glEnable (GL.GL_BLEND)
+	gl_image.GL_TexEnv( GL.GL_MODULATE )
+
+	# the textures are prescaled up for a better lighting range,
+	# so scale it back down
+	intens = gl_rmain.gl_state.inverse_intensity
+
+	# the C chain is built by prepending, so walk the list backwards to unwind it
+	for s in reversed(r_alpha_surfaces):
+
+		gl_image.GL_Bind(s.texinfo.image.texnum)
+		gl_rmain.c_brush_polys += 1
+		if s.texinfo.flags & q_shared.SURF_TRANS33:
+			GL.glColor4f (intens,intens,intens,0.33)
+		elif s.texinfo.flags & q_shared.SURF_TRANS66:
+			GL.glColor4f (intens,intens,intens,0.66)
+		else:
+			GL.glColor4f (intens,intens,intens,1)
+		if s.flags & gl_model_h.SURF_DRAWTURB:
+			gl_warp.EmitWaterPolys (s)
+		elif s.texinfo.flags & q_shared.SURF_FLOWING:			# PGM	9/16/98
+			DrawGLFlowingPoly (s)							# PGM
+		else:
+			DrawGLPoly (s.polys[0])
+
+	gl_image.GL_TexEnv( GL.GL_REPLACE )
+	GL.glColor4f (1,1,1,1)
+	GL.glDisable (GL.GL_BLEND)
+
+	r_alpha_surfaces.clear() # r_alpha_surfaces = NULL;
+
+"""
+================
+DrawTextureChains
+================
+"""
+def DrawTextureChains ():
+
+	global c_visible_textures
+
+	"""
+	int		i;
+	msurface_t	*s;
+	image_t		*image;
+	"""
+
+	c_visible_textures = 0
+
+#	GL_TexEnv( GL_REPLACE );
+
+	if not qgl_linux.qglSelectTextureSGIS and not qgl_linux.qglActiveTextureARB:
+
+		for image in gl_image.gltextures[:gl_image.numgltextures]:
+
+			if not image.registration_sequence:
+				continue
+			if not image.texturechain:
+				continue
+			c_visible_textures += 1
+
+			for s in image.texturechain:
+				R_RenderBrushPoly (s)
+
+			image.texturechain = []
+
+	else:
+
+		for image in gl_image.gltextures[:gl_image.numgltextures]:
+
+			if not image.registration_sequence:
+				continue
+			if not image.texturechain:
+				continue
+			c_visible_textures += 1
+
+			for s in image.texturechain:
+
+				if not ( s.flags & gl_model_h.SURF_DRAWTURB ):
+					R_RenderBrushPoly (s)
+
+		gl_image.GL_EnableMultitexture( False )
+		for image in gl_image.gltextures[:gl_image.numgltextures]:
+
+			if not image.registration_sequence:
+				continue
+			if not image.texturechain:
+				continue
+
+			for s in image.texturechain:
+
+				if s.flags & gl_model_h.SURF_DRAWTURB:
+					R_RenderBrushPoly (s)
+
+			image.texturechain = []
+
+#		GL_EnableMultitexture( true );
+
+	gl_image.GL_TexEnv( GL.GL_REPLACE )
+
+
+def GL_RenderLightmappedPoly( surf ): #msurface_t *
+
+	"""
+	int		i, nv = surf->polys->numverts;
+	int		map;
+	float	*v;
+	image_t *image = R_TextureAnimation( surf->texinfo );
+	qboolean is_dynamic = false;
+	unsigned lmtex = surf->lightmaptexturenum;
+	glpoly_t *p;
+	"""
+	nv = surf.polys[0].numverts
+	image = R_TextureAnimation( surf.texinfo )
+	is_dynamic = False
+	lmtex = surf.lightmaptexturenum
+
+	dynamic = False
+	map = 0
+	while map < qfiles.MAXLIGHTMAPS and surf.styles[map] != 255:
+
+		if gl_rmain.r_newrefdef.lightstyles[surf.styles[map]].white != surf.cached_light[map]:
+			dynamic = True
+			break # goto dynamic;
+		map += 1
+
+	# dynamic this frame or dynamic previously
+	if dynamic or ( surf.dlightframe == gl_rmain.r_framecount ):
+
+	#dynamic:
+		if gl_rmain.gl_dynamic.value:
+
+			if not (surf.texinfo.flags & (q_shared.SURF_SKY|q_shared.SURF_TRANS33|q_shared.SURF_TRANS66|q_shared.SURF_WARP ) ):
+
+				is_dynamic = True
+
+	if is_dynamic:
+
+		#unsigned	temp[128*128];
+		#int			smax, tmax;
+
+		# C reads styles[map] even when map == MAXLIGHTMAPS, treat that as no style
+		style = surf.styles[map] if map < qfiles.MAXLIGHTMAPS else 255
+		if ( style >= 32 or style == 0 ) and ( surf.dlightframe != gl_rmain.r_framecount ):
+
+			smax = (surf.extents[0]>>4)+1
+			tmax = (surf.extents[1]>>4)+1
+			temp = bytearray(smax*tmax*4)
+
+			gl_light.R_BuildLightMap( surf, temp, smax*4 )
+			gl_light.R_SetCacheState( surf )
+
+			gl_image.GL_MBind( GL.GL_TEXTURE1, gl_rmain.gl_state.lightmap_textures + surf.lightmaptexturenum )
+
+			lmtex = surf.lightmaptexturenum
+
+			GL.glTexSubImage2D( GL.GL_TEXTURE_2D, 0,
+							  surf.light_s, surf.light_t,
+							  smax, tmax,
+							  GL_LIGHTMAP_FORMAT,
+							  GL.GL_UNSIGNED_BYTE, bytes(temp) )
+
+
+		else:
+
+			smax = (surf.extents[0]>>4)+1
+			tmax = (surf.extents[1]>>4)+1
+			temp = bytearray(smax*tmax*4)
+
+			gl_light.R_BuildLightMap( surf, temp, smax*4 )
+
+			gl_image.GL_MBind( GL.GL_TEXTURE1, gl_rmain.gl_state.lightmap_textures + 0 )
+
+			lmtex = 0
+
+			GL.glTexSubImage2D( GL.GL_TEXTURE_2D, 0,
+							  surf.light_s, surf.light_t,
+							  smax, tmax,
+							  GL_LIGHTMAP_FORMAT,
+							  GL.GL_UNSIGNED_BYTE, bytes(temp) )
+
+		gl_rmain.c_brush_polys += 1
+
+		gl_image.GL_MBind( GL.GL_TEXTURE0, image.texnum )
+		gl_image.GL_MBind( GL.GL_TEXTURE1, gl_rmain.gl_state.lightmap_textures + lmtex )
+
+#==========
+#PGM
+		if surf.texinfo.flags & q_shared.SURF_FLOWING:
+
+			#float scroll;
+
+			scroll = -64 * ( (gl_rmain.r_newrefdef.time / 40.0) - int(gl_rmain.r_newrefdef.time / 40.0) )
+			if scroll == 0.0:
+				scroll = -64.0
+
+			for p in surf.polys:
+
+				GL.glBegin (GL.GL_POLYGON)
+				for v in p.verts[:nv].tolist():
+
+					GL.glMultiTexCoord2f( GL.GL_TEXTURE0, (v[3]+scroll), v[4])
+					GL.glMultiTexCoord2f( GL.GL_TEXTURE1, v[5], v[6])
+					GL.glVertex3f (v[0], v[1], v[2])
+
+				GL.glEnd ()
+
+		else:
+
+			for p in surf.polys:
+
+				GL.glBegin (GL.GL_POLYGON)
+				for v in p.verts[:nv].tolist():
+
+					GL.glMultiTexCoord2f( GL.GL_TEXTURE0, v[3], v[4])
+					GL.glMultiTexCoord2f( GL.GL_TEXTURE1, v[5], v[6])
+					GL.glVertex3f (v[0], v[1], v[2])
+
+				GL.glEnd ()
+
+#PGM
+#==========
+
+	else:
+
+		gl_rmain.c_brush_polys += 1
+
+		gl_image.GL_MBind( GL.GL_TEXTURE0, image.texnum )
+		gl_image.GL_MBind( GL.GL_TEXTURE1, gl_rmain.gl_state.lightmap_textures + lmtex )
+
+#==========
+#PGM
+		if surf.texinfo.flags & q_shared.SURF_FLOWING:
+
+			#float scroll;
+
+			scroll = -64 * ( (gl_rmain.r_newrefdef.time / 40.0) - int(gl_rmain.r_newrefdef.time / 40.0) )
+			if scroll == 0.0:
+				scroll = -64.0
+
+			for p in surf.polys:
+
+				GL.glBegin (GL.GL_POLYGON)
+				for v in p.verts[:nv].tolist():
+
+					GL.glMultiTexCoord2f( GL.GL_TEXTURE0, (v[3]+scroll), v[4])
+					GL.glMultiTexCoord2f( GL.GL_TEXTURE1, v[5], v[6])
+					GL.glVertex3f (v[0], v[1], v[2])
+
+				GL.glEnd ()
+
+		else:
+
+#PGM
+#==========
+			for p in surf.polys:
+
+				GL.glBegin (GL.GL_POLYGON)
+				for v in p.verts[:nv].tolist():
+
+					GL.glMultiTexCoord2f( GL.GL_TEXTURE0, v[3], v[4])
+					GL.glMultiTexCoord2f( GL.GL_TEXTURE1, v[5], v[6])
+					GL.glVertex3f (v[0], v[1], v[2])
+
+				GL.glEnd ()
+
+#==========
+#PGM
+
+#PGM
+#==========
+
+
+"""
+=================
+R_DrawInlineBModel
+=================
+"""
+def R_DrawInlineBModel ():
+
+	"""
+	int			i, k;
+	cplane_t	*pplane;
+	float		dot;
+	msurface_t	*psurf;
+	dlight_t	*lt;
+	"""
+	currentmodel = gl_rmain.currentmodel
+	currententity = gl_rmain.currententity
+
+	# calculate dynamic lighting for bmodel
+	if not gl_rmain.gl_flashblend.value:
+
+		for k in range(gl_rmain.r_newrefdef.num_dlights):
+
+			lt = gl_rmain.r_newrefdef.dlights[k]
+			gl_light.R_MarkLights (lt, 1<<k, currentmodel.nodes[currentmodel.firstnode])
+
+	if currententity.flags & q_shared.RF_TRANSLUCENT:
+
+		GL.glEnable (GL.GL_BLEND)
+		GL.glColor4f (1,1,1,0.25)
+		gl_image.GL_TexEnv( GL.GL_MODULATE )
+
+	#
+	# draw texture
+	#
+	for i in range(currentmodel.nummodelsurfaces):
+
+		psurf = currentmodel.surfaces[currentmodel.firstmodelsurface + i]
+
+		# find which side of the node we are on
+		pplane = psurf.plane
+
+		dot = q_shared.DotProduct (modelorg, pplane.normal) - pplane.dist
+
+		# draw the polygon
+		if (((psurf.flags & gl_model_h.SURF_PLANEBACK) and (dot < -BACKFACE_EPSILON)) or
+			(not (psurf.flags & gl_model_h.SURF_PLANEBACK) and (dot > BACKFACE_EPSILON))):
+
+			if psurf.texinfo.flags & (q_shared.SURF_TRANS33|q_shared.SURF_TRANS66):
+				# add to the translucent chain
+				r_alpha_surfaces.append(psurf)
+
+			elif qgl_linux.qglMTexCoord2fSGIS and not ( psurf.flags & gl_model_h.SURF_DRAWTURB ):
+
+				GL_RenderLightmappedPoly( psurf )
+
+			else:
+
+				gl_image.GL_EnableMultitexture( False )
+				R_RenderBrushPoly( psurf )
+				gl_image.GL_EnableMultitexture( True )
+
+	if not (currententity.flags & q_shared.RF_TRANSLUCENT):
+
+		if not qgl_linux.qglMTexCoord2fSGIS:
+			R_BlendLightmaps ()
+
+	else:
+
+		GL.glDisable (GL.GL_BLEND)
+		GL.glColor4f (1,1,1,1)
+		gl_image.GL_TexEnv( GL.GL_REPLACE )
+
+
+"""
+=================
+R_DrawBrushModel
+=================
+"""
+def R_DrawBrushModel (e): #entity_t *
+
+	"""
+	vec3_t		mins, maxs;
+	int			i;
+	qboolean	rotated;
+	"""
+	currentmodel = gl_rmain.currentmodel
+	mins = np.zeros((3,), dtype=np.float32)
+	maxs = np.zeros((3,), dtype=np.float32)
+
+	if currentmodel.nummodelsurfaces == 0:
+		return
+
+	gl_rmain.currententity = e
+	gl_rmain.gl_state.currenttextures[0] = gl_rmain.gl_state.currenttextures[1] = -1
+
+	if e.angles[0] or e.angles[1] or e.angles[2]:
+
+		rotated = True
+		for i in range(3):
+
+			mins[i] = e.origin[i] - currentmodel.radius
+			maxs[i] = e.origin[i] + currentmodel.radius
+
+	else:
+
+		rotated = False
+		q_shared.VectorAdd (e.origin, currentmodel.mins, mins)
+		q_shared.VectorAdd (e.origin, currentmodel.maxs, maxs)
+
+	if gl_rmain.R_CullBox (mins, maxs):
+		return
+
+	GL.glColor3f (1,1,1)
+	gl_lms.lightmap_surfaces = [[] for _ in range(MAX_LIGHTMAPS)] # memset (gl_lms.lightmap_surfaces, 0, sizeof(gl_lms.lightmap_surfaces));
+
+	q_shared.VectorSubtract (gl_rmain.r_newrefdef.vieworg, e.origin, modelorg)
+	if rotated:
+
+		#vec3_t	temp;
+		#vec3_t	forward, right, up;
+		forward = np.zeros((3,), dtype=np.float32)
+		right = np.zeros((3,), dtype=np.float32)
+		up = np.zeros((3,), dtype=np.float32)
+
+		temp = modelorg.copy() # VectorCopy (modelorg, temp);
+		q_shared.AngleVectors (e.angles, forward, right, up)
+		modelorg[0] = q_shared.DotProduct (temp, forward)
+		modelorg[1] = -q_shared.DotProduct (temp, right)
+		modelorg[2] = q_shared.DotProduct (temp, up)
+
+	GL.glPushMatrix ()
+	e.angles[0] = -e.angles[0]	# stupid quake bug
+	e.angles[2] = -e.angles[2]	# stupid quake bug
+	gl_rmain.R_RotateForEntity (e)
+	e.angles[0] = -e.angles[0]	# stupid quake bug
+	e.angles[2] = -e.angles[2]	# stupid quake bug
+
+	gl_image.GL_EnableMultitexture( True )
+	gl_image.GL_SelectTexture( GL.GL_TEXTURE0)
+	gl_image.GL_TexEnv( GL.GL_REPLACE )
+	gl_image.GL_SelectTexture( GL.GL_TEXTURE1)
+	gl_image.GL_TexEnv( GL.GL_MODULATE )
+
+	R_DrawInlineBModel ()
+	gl_image.GL_EnableMultitexture( False )
+
+	GL.glPopMatrix ()
+
+"""
+=============================================================
+
+	WORLD MODEL
+
+=============================================================
+"""
 
 # Q2PORT DEBUG: per frame world node counters, printed by gl_rmain.R_DebugFrustum
 dbg_nodes_visited, dbg_nodes_culled, dbg_leafs_drawn = 0, 0, 0
 
-def R_RecursiveWorldNode (node):
-    global dbg_nodes_visited, dbg_nodes_culled, dbg_leafs_drawn
-
-    if node is None:
-        return
-
-    if node.contents == q_shared.CONTENTS_SOLID:
-        return
-
-    if node.visframe != gl_rmain.r_visframecount:
-        return
-
-    dbg_nodes_visited += 1 # Q2PORT DEBUG
-
-    if gl_rmain.R_CullBox (node.minmaxs[0:3], node.minmaxs[3:6]):
-        dbg_nodes_culled += 1 # Q2PORT DEBUG
-        return
-
-    if node.contents != -1:
-        dbg_leafs_drawn += 1 # Q2PORT DEBUG
-        leaf = node
-        areabits = gl_rmain.r_newrefdef.areabits
-        if areabits:
-            area = leaf.area
-            idx = area >> 3
-            mask = 1 << (area & 7)
-            if idx >= len(areabits) or not (areabits[idx] & mask):
-                return
-
-        for surf in leaf.firstmarksurface:
-            surf.visframe = gl_rmain.r_framecount
-        return
-
-    plane = node.plane
-    if plane is None:
-        return
-
-    if plane.type == qfiles.PLANE_X:
-        dot = modelorg[0] - plane.dist
-    elif plane.type == qfiles.PLANE_Y:
-        dot = modelorg[1] - plane.dist
-    elif plane.type == qfiles.PLANE_Z:
-        dot = modelorg[2] - plane.dist
-    else:
-        dot = q_shared.DotProduct (modelorg, plane.normal) - plane.dist
-
-    side = 0 if dot >= 0 else 1
-    sidebit = 0 if side == 0 else q_shared.SURF_PLANEBACK
-
-    R_RecursiveWorldNode (node.children[side])
-
-    world = gl_rmain.r_worldmodel
-    surfaces = world.surfaces
-    start = node.firstsurface
-    end = start + node.numsurfaces
-    for surf in surfaces[start:end]:
-        if surf.visframe != gl_rmain.r_framecount:
-            continue
-        if (surf.flags & q_shared.SURF_PLANEBACK) != sidebit:
-            continue
-
-        texinfo = surf.texinfo
-        flags = texinfo.flags if texinfo else 0
-
-        if flags & q_shared.SURF_SKY:
-            R_AddSkySurface (surf)
-        elif flags & (q_shared.SURF_TRANS33 | q_shared.SURF_TRANS66):
-            global r_alpha_surfaces
-            surf.texturechain = r_alpha_surfaces
-            r_alpha_surfaces = surf
-        else:
-            if qgl_linux.qglMTexCoord2fSGIS and not (surf.flags & gl_model_h.SURF_DRAWTURB):
-                GL_RenderLightmappedPoly (surf)
-            else:
-                image = R_TextureAnimation (surf.texinfo)
-                surf.texturechain = image.texturechain
-                image.texturechain = surf
-
-    R_RecursiveWorldNode (node.children[1 - side])
-
-
-def R_RenderBrushPoly(surf):
-    if surf is None:
-        return
-
-    gl_rmain.c_brush_polys += 1
-
-    image = R_TextureAnimation(surf.texinfo)
-    if not image:
-        return
-
-    if surf.flags & gl_model_h.SURF_DRAWTURB:
-        gl_image.GL_Bind(image.texnum)
-        gl_image.GL_TexEnv(GL.GL_MODULATE)
-        intensity = getattr(gl_rmain.gl_state, "inverse_intensity", 1.0) or 1.0
-        GL.glColor4f(intensity, intensity, intensity, 1.0)
-        gl_warp.EmitWaterPolys(surf)
-        gl_image.GL_TexEnv(GL.GL_REPLACE)
-        return
-
-    gl_image.GL_Bind(image.texnum)
-    gl_image.GL_TexEnv(GL.GL_REPLACE)
-
-    if surf.texinfo and (surf.texinfo.flags & q_shared.SURF_FLOWING):
-        DrawGLFlowingPoly(surf)
-    else:
-        DrawGLPoly(surf.polys)
-
-    style_changed = False
-    style_index = None
-    for i in range(qfiles.MAXLIGHTMAPS):
-        style = surf.styles[i] if i < len(surf.styles) else 255
-        if style == 255:
-            break
-        lightstyle = gl_rmain.r_newrefdef.lightstyles[style]
-        if lightstyle.get("white", 0) != surf.cached_light[i]:
-            style_changed = True
-            style_index = style
-            break
-
-    if surf.dlightframe == gl_rmain.r_framecount:
-        style_changed = True
-
-    is_dynamic = False
-    texinfo_flags = surf.texinfo.flags if surf.texinfo else 0
-    if style_changed:
-        dynamic_flags = (
-            q_shared.SURF_SKY
-            | q_shared.SURF_TRANS33
-            | q_shared.SURF_TRANS66
-            | q_shared.SURF_WARP
-        )
-        if (
-            getattr(gl_rmain.gl_dynamic, "value", False)
-            and not (texinfo_flags & dynamic_flags)
-        ):
-            is_dynamic = True
-
-    tex_base = gl_rmain.gl_state.lightmap_textures or gl_image.TEXNUM_LIGHTMAPS
-
-    if is_dynamic:
-        style = (
-            surf.styles[mismatch_index]
-            if mismatch_index is not None and mismatch_index < len(surf.styles)
-            else 255
-        )
-        need_rebuild = (
-            style != 255
-            and (style >= 32 or style == 0)
-            and surf.dlightframe != gl_rmain.r_framecount
-        )
-
-        if need_rebuild:
-            smax = (surf.extents[0] >> 4) + 1
-            tmax = (surf.extents[1] >> 4) + 1
-            temp = bytearray(smax * tmax * LIGHTMAP_BYTES)
-            gl_light.R_BuildLightMap(surf, temp, smax * LIGHTMAP_BYTES)
-            gl_light.R_SetCacheState(surf)
-
-            gl_image.GL_Bind(tex_base + surf.lightmaptexturenum)
-            GL.glTexSubImage2D(
-                GL.GL_TEXTURE_2D,
-                0,
-                surf.light_s,
-                surf.light_t,
-                smax,
-                tmax,
-                GL_LIGHTMAP_FORMAT,
-                GL.GL_UNSIGNED_BYTE,
-                temp,
-            )
-            surf.lightmapchain = gl_lms.lightmap_surfaces[surf.lightmaptexturenum]
-            gl_lms.lightmap_surfaces[surf.lightmaptexturenum].append(surf)
-        else:
-            surf.lightmapchain = gl_lms.lightmap_surfaces[0]
-            gl_lms.lightmap_surfaces[0].append(surf)
-    else:
-        surf.lightmapchain = gl_lms.lightmap_surfaces[surf.lightmaptexturenum]
-        gl_lms.lightmap_surfaces[surf.lightmaptexturenum].append(surf)
-
-
-def DrawTextureChains ():
-    """Iterates texture chains, dispatching brush polys for rendering."""
-
-    for image in gl_image.gltextures[: gl_image.numgltextures]:
-
-        if not image.registration_sequence:
-            continue
-
-        surf = image.texturechain
-        if not surf:
-            continue
-
-        while surf:
-            R_RenderBrushPoly(surf)
-            surf = surf.texturechain
-
-        image.texturechain = None
-
-
-def R_DrawInlineBModel ():
-    global r_alpha_surfaces
-
-    currentmodel = gl_rmain.currentmodel
-    if currentmodel is None:
-        return
-
-    if not (gl_rmain.gl_flashblend and gl_rmain.gl_flashblend.value):
-        node = None
-        if currentmodel.nodes and 0 <= currentmodel.firstnode < len(currentmodel.nodes):
-            node = currentmodel.nodes[currentmodel.firstnode]
-        dlights = getattr(gl_rmain.r_newrefdef, "dlights", [])
-        num_dlights = getattr(gl_rmain.r_newrefdef, "num_dlights", 0)
-        for k in range(min(num_dlights, len(dlights))):
-            lt = dlights[k]
-            if node is None:
-                break
-            gl_light.R_MarkLights(lt, 1 << k, node)
-
-    start = max(0, currentmodel.firstmodelsurface)
-    end = min(len(currentmodel.surfaces), start + currentmodel.nummodelsurfaces)
-
-    ent_flags = getattr(gl_rmain.currententity, "flags", 0)
-    if ent_flags & q_shared.RF_TRANSLUCENT:
-        GL.glEnable(GL.GL_BLEND)
-        GL.glColor4f(1.0, 1.0, 1.0, 0.25)
-        gl_image.GL_TexEnv(GL.GL_MODULATE)
-
-    for surf in currentmodel.surfaces[start:end]:
-        plane = surf.plane
-        if plane is None:
-            continue
-        dot = q_shared.DotProduct(modelorg, plane.normal) - plane.dist
-        is_backface = bool(surf.flags & gl_model_h.SURF_PLANEBACK)
-        match = (is_backface and dot < -BACKFACE_EPSILON) or (
-            not is_backface and dot > BACKFACE_EPSILON
-        )
-        if not match:
-            continue
-
-        texinfo = surf.texinfo
-        flags = texinfo.flags if texinfo else 0
-
-        if flags & (q_shared.SURF_TRANS33 | q_shared.SURF_TRANS66):
-            surf.texturechain = r_alpha_surfaces
-            r_alpha_surfaces = surf
-        elif qgl_linux.qglMTexCoord2fSGIS and not (surf.flags & gl_model_h.SURF_DRAWTURB):
-            GL_RenderLightmappedPoly(surf)
-        else:
-            gl_image.GL_EnableMultitexture(False)
-            R_RenderBrushPoly(surf)
-            gl_image.GL_EnableMultitexture(True)
-
-    if not (ent_flags & q_shared.RF_TRANSLUCENT):
-        if not qgl_linux.qglMTexCoord2fSGIS:
-            R_BlendLightmaps()
-    else:
-        GL.glDisable(GL.GL_BLEND)
-        GL.glColor4f(1.0, 1.0, 1.0, 1.0)
-        gl_image.GL_TexEnv(GL.GL_REPLACE)
-
-
-def R_DrawBrushModel (ent):
-    currentmodel = gl_rmain.currentmodel
-    if currentmodel is None or currentmodel.nummodelsurfaces == 0:
-        return
-
-    gl_rmain.currententity = ent
-    gl_rmain.gl_state.currenttextures[0] = -1
-    gl_rmain.gl_state.currenttextures[1] = -1
-
-    origin = ent.origin
-    mins = np.empty((3,), dtype=np.float32)
-    maxs = np.empty((3,), dtype=np.float32)
-    angles = ent.angles
-    rotated = bool(angles[0] or angles[1] or angles[2])
-
-    if rotated:
-        radius = currentmodel.radius
-        for i in range(3):
-            mins[i] = origin[i] - radius
-            maxs[i] = origin[i] + radius
-    else:
-        q_shared.VectorAdd(origin, currentmodel.mins, mins)
-        q_shared.VectorAdd(origin, currentmodel.maxs, maxs)
-
-    if gl_rmain.R_CullBox(mins, maxs):
-        return
-
-    gl_lms.lightmap_surfaces = [[] for _ in range(MAX_LIGHTMAPS)]
-
-    GL.glColor3f(1.0, 1.0, 1.0)
-
-    q_shared.VectorSubtract(gl_rmain.r_newrefdef.vieworg, origin, modelorg)
-
-    if rotated:
-        temp = modelorg.copy()
-        forward = np.zeros((3,), dtype=np.float32)
-        right = np.zeros((3,), dtype=np.float32)
-        up = np.zeros((3,), dtype=np.float32)
-        q_shared.AngleVectors(angles, forward, right, up)
-        modelorg[0] = q_shared.DotProduct(temp, forward)
-        modelorg[1] = -q_shared.DotProduct(temp, right)
-        modelorg[2] = q_shared.DotProduct(temp, up)
-
-    GL.glPushMatrix()
-    angles[0] = -angles[0]
-    angles[2] = -angles[2]
-    gl_rmain.R_RotateForEntity(ent)
-    angles[0] = -angles[0]
-    angles[2] = -angles[2]
-
-    gl_image.GL_EnableMultitexture(True)
-    gl_image.GL_SelectTexture(GL.GL_TEXTURE0)
-    gl_image.GL_TexEnv(GL.GL_REPLACE)
-    gl_image.GL_SelectTexture(GL.GL_TEXTURE1)
-    gl_image.GL_TexEnv(GL.GL_MODULATE)
-
-    R_DrawInlineBModel()
-    gl_image.GL_EnableMultitexture(False)
-
-    GL.glPopMatrix()
-
-def DrawGLPolyChain(polys, soffset=0.0, toffset=0.0):
-    while polys:
-        GL.glBegin(GL.GL_POLYGON)
-        verts = polys.verts
-        for j in range(polys.numverts):
-            GL.glTexCoord2f(verts[j, 5] - soffset, verts[j, 6] - toffset)
-            GL.glVertex3fv(verts[j, :3])
-        GL.glEnd()
-        polys = polys.chain
-
-
-def DrawGLPoly(polys):
-    """Draw a regular polygon chain using texture coordinates from the surface."""
-    while polys:
-        gl_rmain.c_brush_polys += 1
-        GL.glBegin(GL.GL_POLYGON)
-        for j in range(polys.numverts):
-            v = polys.verts[j]
-            GL.glTexCoord2f(v[3], v[4])
-            GL.glVertex3fv(v[:3])
-        GL.glEnd()
-        polys = polys.chain
-
-
-def DrawGLFlowingPoly(surf):
-    """Draw a flowing surface by scrolling its texture coordinates."""
-    if not surf or not surf.polys:
-        return
-    poly = surf.polys
-    scroll = -64 * ((gl_rmain.r_newrefdef.time / 40.0) - int(gl_rmain.r_newrefdef.time / 40.0))
-    if scroll == 0.0:
-        scroll = -64.0
-    gl_rmain.c_brush_polys += 1
-    GL.glBegin(GL.GL_POLYGON)
-    for i in range(poly.numverts):
-        v = poly.verts[i]
-        GL.glTexCoord2f(v[3] + scroll, v[4])
-        GL.glVertex3fv(v[:3])
-    GL.glEnd()
-
-
-def R_BlendLightmaps ():
-    """Blends the static and dynamic lightmapped surfaces."""
-    world = gl_rmain.r_worldmodel
-    if gl_rmain.r_fullbright.value or world is None or not world.lightdata:
-        return
-
-    GL.glDepthMask(GL.GL_FALSE)
-
-    # set the appropriate blending mode unless we're only looking at the
-    # lightmaps.
-    if not gl_rmain.gl_lightmap.value:
-        GL.glEnable(GL.GL_BLEND)
-
-        if gl_rmain.gl_saturatelighting.value:
-            GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE)
-        else:
-            if gl_rmain.gl_monolightmap.string[0] != '0':
-                mode = gl_rmain.gl_monolightmap.string[0].upper()
-                if mode == 'I':
-                    GL.glBlendFunc(GL.GL_ZERO, GL.GL_SRC_COLOR)
-                elif mode == 'L':
-                    GL.glBlendFunc(GL.GL_ZERO, GL.GL_SRC_COLOR)
-                else: # 'A' and default
-                    GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
-            else:
-                GL.glBlendFunc(GL.GL_ZERO, GL.GL_SRC_COLOR)
-
-    tex_base = gl_rmain.gl_state.lightmap_textures or gl_image.TEXNUM_LIGHTMAPS
-
-    for idx, surfaces in enumerate(gl_lms.lightmap_surfaces):
-        if idx == 0 or not surfaces:
-            continue
-        gl_image.GL_Bind(tex_base + idx)
-        for surf in surfaces:
-            if surf.polys:
-                DrawGLPolyChain(surf.polys, 0.0, 0.0)
-
-    if (
-        gl_rmain.gl_dynamic
-        and gl_rmain.gl_dynamic.value
-        and gl_lms.lightmap_surfaces[0]
-    ):
-        LM_InitBlock()
-        gl_image.GL_Bind(tex_base + 0)
-        dyn_surfaces = gl_lms.lightmap_surfaces[0]
-        newdrawsurf_idx = 0
-        for idx, surf in enumerate(dyn_surfaces):
-            smax = (surf.extents[0] >> 4) + 1
-            tmax = (surf.extents[1] >> 4) + 1
-            result = LM_AllocBlock(smax, tmax)
-            if result is None:
-                LM_UploadBlock(True)
-                for drawsurf in dyn_surfaces[newdrawsurf_idx:idx]:
-                    if drawsurf.polys:
-                        soff = (drawsurf.light_s - drawsurf.dlight_s) * (1.0 / 128.0)
-                        toff = (drawsurf.light_t - drawsurf.dlight_t) * (1.0 / 128.0)
-                        DrawGLPolyChain(drawsurf.polys, soff, toff)
-                newdrawsurf_idx = idx
-                LM_InitBlock()
-                result = LM_AllocBlock(smax, tmax)
-                if result is None:
-                    raise RuntimeError("LM_AllocBlock failed twice (dynamic)")
-            surf.dlight_s, surf.dlight_t = result
-            offset = (surf.dlight_t * BLOCK_WIDTH + surf.dlight_s) * LIGHTMAP_BYTES
-            dest = memoryview(gl_lms.lightmap_buffer)[
-                offset : offset + BLOCK_WIDTH * LIGHTMAP_BYTES * tmax
-            ]
-            gl_light.R_BuildLightMap(surf, dest, BLOCK_WIDTH * LIGHTMAP_BYTES)
-        if newdrawsurf_idx < len(dyn_surfaces):
-            LM_UploadBlock(True)
-        for drawsurf in dyn_surfaces[newdrawsurf_idx:]:
-            if drawsurf.polys:
-                soff = (drawsurf.light_s - drawsurf.dlight_s) * (1.0 / 128.0)
-                toff = (drawsurf.light_t - drawsurf.dlight_t) * (1.0 / 128.0)
-                DrawGLPolyChain(drawsurf.polys, soff, toff)
-
-    # restore state
-    GL.glDisable(GL.GL_BLEND)
-    GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
-    GL.glDepthMask(GL.GL_TRUE)
-
-
-def R_DrawAlphaSurfaces():
-    global r_alpha_surfaces
-
-    if r_alpha_surfaces is None:
-        return
-
-    GL.glLoadMatrixf(gl_rmain.r_world_matrix)
-    GL.glEnable(GL.GL_BLEND)
-    gl_image.GL_TexEnv(GL.GL_MODULATE)
-
-    intensity = getattr(gl_rmain.gl_state, "inverse_intensity", 1.0) or 1.0
-    surf = r_alpha_surfaces
-    while surf:
-        texnum = surf.texinfo.image.texnum if surf.texinfo and surf.texinfo.image else 0
-        gl_image.GL_Bind(texnum)
-        flags = surf.texinfo.flags if surf.texinfo else 0
-        alpha = 1.0
-        if flags & q_shared.SURF_TRANS33:
-            alpha = 0.33
-        elif flags & q_shared.SURF_TRANS66:
-            alpha = 0.66
-        GL.glColor4f(intensity, intensity, intensity, alpha)
-
-        if surf.flags & gl_model_h.SURF_DRAWTURB:
-            gl_warp.EmitWaterPolys(surf)
-        elif flags & q_shared.SURF_FLOWING:
-            DrawGLFlowingPoly(surf)
-        else:
-            DrawGLPoly(surf.polys)
-
-        surf = surf.texturechain
-
-    gl_image.GL_TexEnv(GL.GL_REPLACE)
-    GL.glColor4f(1.0, 1.0, 1.0, 1.0)
-    GL.glDisable(GL.GL_BLEND)
-    r_alpha_surfaces = None
-
-
-def R_DrawTriangleOutlines ():
-    if gl_rmain.gl_showtris is None or not gl_rmain.gl_showtris.value:
-        return
-
-    GL.glDisable(GL.GL_TEXTURE_2D)
-    GL.glDisable(GL.GL_DEPTH_TEST)
-    GL.glColor4f(1.0, 1.0, 1.0, 1.0)
-
-    for surfaces in gl_lms.lightmap_surfaces:
-        for surf in surfaces:
-            poly = surf.polys
-            while poly:
-                for j in range(2, poly.numverts):
-                    GL.glBegin(GL.GL_LINE_STRIP)
-                    GL.glVertex3fv(poly.verts[0, :3])
-                    GL.glVertex3fv(poly.verts[j - 1, :3])
-                    GL.glVertex3fv(poly.verts[j, :3])
-                    GL.glVertex3fv(poly.verts[0, :3])
-                    GL.glEnd()
-                poly = poly.chain
-
-    GL.glEnable(GL.GL_DEPTH_TEST)
-    GL.glEnable(GL.GL_TEXTURE_2D)
+"""
+================
+R_RecursiveWorldNode
+================
+"""
+def R_RecursiveWorldNode (node): #mnode_t *
+
+	global dbg_nodes_visited, dbg_nodes_culled, dbg_leafs_drawn
+
+	"""
+	int			c, side, sidebit;
+	cplane_t	*plane;
+	msurface_t	*surf, **mark;
+	mleaf_t		*pleaf;
+	float		dot;
+	image_t		*image;
+	"""
+
+	if node.contents == q_shared.CONTENTS_SOLID:
+		return		# solid
+
+	if node.visframe != gl_rmain.r_visframecount:
+		return
+
+	dbg_nodes_visited += 1 # Q2PORT DEBUG
+
+	if gl_rmain.R_CullBox (node.minmaxs[0:3], node.minmaxs[3:6]):
+		dbg_nodes_culled += 1 # Q2PORT DEBUG
+		return
+
+	# if a leaf node, draw stuff
+	if node.contents != -1:
+
+		dbg_leafs_drawn += 1 # Q2PORT DEBUG
+		pleaf = node
+
+		# check for door connected areas
+		if gl_rmain.r_newrefdef.areabits:
+
+			if not (gl_rmain.r_newrefdef.areabits[pleaf.area>>3] & (1<<(pleaf.area&7)) ):
+				return		# not visible
+
+		for mark in pleaf.firstmarksurface[:pleaf.nummarksurfaces]:
+			mark.visframe = gl_rmain.r_framecount
+
+		return
+
+	# node is just a decision point, so go down the apropriate sides
+
+	# find which side of the node we are on
+	plane = node.plane
+
+	if plane.type == qfiles.PLANE_X:
+		dot = modelorg[0] - plane.dist
+	elif plane.type == qfiles.PLANE_Y:
+		dot = modelorg[1] - plane.dist
+	elif plane.type == qfiles.PLANE_Z:
+		dot = modelorg[2] - plane.dist
+	else:
+		dot = q_shared.DotProduct (modelorg, plane.normal) - plane.dist
+
+	if dot >= 0:
+
+		side = 0
+		sidebit = 0
+
+	else:
+
+		side = 1
+		sidebit = gl_model_h.SURF_PLANEBACK
+
+	# recurse down the children, front side first
+	R_RecursiveWorldNode (node.children[side])
+
+	# draw stuff
+	surfaces = gl_rmain.r_worldmodel.surfaces
+	for surf in surfaces[node.firstsurface:node.firstsurface + node.numsurfaces]:
+
+		if surf.visframe != gl_rmain.r_framecount:
+			continue
+
+		if (surf.flags & gl_model_h.SURF_PLANEBACK) != sidebit:
+			continue		# wrong side
+
+		if surf.texinfo.flags & q_shared.SURF_SKY:
+			# just adds to visible sky bounds
+			gl_warp.R_AddSkySurface (surf)
+
+		elif surf.texinfo.flags & (q_shared.SURF_TRANS33|q_shared.SURF_TRANS66):
+			# add to the translucent chain
+			r_alpha_surfaces.append(surf)
+
+		else:
+
+			if qgl_linux.qglMTexCoord2fSGIS and not ( surf.flags & gl_model_h.SURF_DRAWTURB ):
+
+				GL_RenderLightmappedPoly( surf )
+
+			else:
+
+				# the polygon is visible, so add it to the texture
+				# sorted chain
+				# FIXME: this is a hack for animation
+				image = R_TextureAnimation (surf.texinfo)
+				image.texturechain.append(surf)
+
+	# recurse down the back side
+	R_RecursiveWorldNode (node.children[1 - side]) # !side
+	"""
+	for ( ; c ; c--, surf++)
+	{
+		if (surf->visframe != r_framecount)
+			continue;
+
+		if ( (surf->flags & SURF_PLANEBACK) != sidebit )
+			continue;		// wrong side
+
+		if (surf->texinfo->flags & SURF_SKY)
+		{	// just adds to visible sky bounds
+			R_AddSkySurface (surf);
+		}
+		else if (surf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66))
+		{	// add to the translucent chain
+//			surf->texturechain = alpha_surfaces;
+//			alpha_surfaces = surf;
+		}
+		else
+		{
+			if ( qglMTexCoord2fSGIS && !( surf->flags & SURF_DRAWTURB ) )
+			{
+				GL_RenderLightmappedPoly( surf );
+			}
+			else
+			{
+				// the polygon is visible, so add it to the texture
+				// sorted chain
+				// FIXME: this is a hack for animation
+				image = R_TextureAnimation (surf->texinfo);
+				surf->texturechain = image->texturechain;
+				image->texturechain = surf;
+			}
+		}
+	}
+	"""
+
+
+"""
+=============
+R_DrawWorld
+=============
+"""
+def R_DrawWorld ():
+
+	#entity_t	ent;
+
+	if not gl_rmain.r_drawworld.value:
+		return
+
+	if gl_rmain.r_newrefdef.rdflags & q_shared.RDF_NOWORLDMODEL:
+		return
+
+	gl_rmain.currentmodel = gl_rmain.r_worldmodel
+
+	q_shared.VectorCopy (gl_rmain.r_newrefdef.vieworg, modelorg)
+
+	# auto cycle the world frame for texture animation
+	ent = ref.entity_t() # memset (&ent, 0, sizeof(ent));
+	ent.frame = int(gl_rmain.r_newrefdef.time*2)
+	gl_rmain.currententity = ent
+
+	gl_rmain.gl_state.currenttextures[0] = gl_rmain.gl_state.currenttextures[1] = -1
+
+	GL.glColor3f (1,1,1)
+	gl_lms.lightmap_surfaces = [[] for _ in range(MAX_LIGHTMAPS)] # memset (gl_lms.lightmap_surfaces, 0, sizeof(gl_lms.lightmap_surfaces));
+	gl_warp.R_ClearSkyBox ()
+
+	if qgl_linux.qglMTexCoord2fSGIS:
+
+		gl_image.GL_EnableMultitexture( True )
+
+		gl_image.GL_SelectTexture( GL.GL_TEXTURE0)
+		gl_image.GL_TexEnv( GL.GL_REPLACE )
+		gl_image.GL_SelectTexture( GL.GL_TEXTURE1)
+
+		if gl_rmain.gl_lightmap.value:
+			gl_image.GL_TexEnv( GL.GL_REPLACE )
+		else:
+			gl_image.GL_TexEnv( GL.GL_MODULATE )
+
+		R_RecursiveWorldNode (gl_rmain.r_worldmodel.nodes[0])
+
+		gl_image.GL_EnableMultitexture( False )
+
+	else:
+
+		R_RecursiveWorldNode (gl_rmain.r_worldmodel.nodes[0])
+
+	#
+	# theoretically nothing should happen in the next two functions
+	# if multitexture is enabled
+	#
+	DrawTextureChains ()
+	R_BlendLightmaps ()
+
+	gl_warp.R_DrawSkyBox ()
+
+	R_DrawTriangleOutlines ()
+
+
+"""
+===============
+R_MarkLeaves
+
+Mark the leaves and nodes that are in the PVS for the current
+cluster
+===============
+"""
+def R_MarkLeaves ():
+
+	"""
+	byte	*vis;
+	byte	fatvis[MAX_MAP_LEAFS/8];
+	mnode_t	*node;
+	int		i, c;
+	mleaf_t	*leaf;
+	int		cluster;
+	"""
+	r_worldmodel = gl_rmain.r_worldmodel
+
+	if gl_rmain.r_oldviewcluster == gl_rmain.r_viewcluster and gl_rmain.r_oldviewcluster2 == gl_rmain.r_viewcluster2 and not gl_rmain.r_novis.value and gl_rmain.r_viewcluster != -1:
+		return
+
+	# development aid to let you run around and see exactly where
+	# the pvs ends
+	if gl_rmain.gl_lockpvs.value:
+		return
+
+	gl_rmain.r_visframecount += 1
+	gl_rmain.r_oldviewcluster = gl_rmain.r_viewcluster
+	gl_rmain.r_oldviewcluster2 = gl_rmain.r_viewcluster2
+
+	if gl_rmain.r_novis.value or gl_rmain.r_viewcluster == -1 or not r_worldmodel.vis:
+
+		# mark everything
+		for i in range(r_worldmodel.numleafs):
+			r_worldmodel.leafs[i].visframe = gl_rmain.r_visframecount
+		for i in range(r_worldmodel.numnodes):
+			r_worldmodel.nodes[i].visframe = gl_rmain.r_visframecount
+		return
+
+	vis = gl_model.Mod_ClusterPVS (gl_rmain.r_viewcluster, r_worldmodel)
+	# may have to combine two clusters because of solid water boundaries
+	if gl_rmain.r_viewcluster2 != gl_rmain.r_viewcluster:
+
+		fatvis = bytearray(qfiles.MAX_MAP_LEAFS//8)
+		n = min((r_worldmodel.numleafs+7)//8, len(vis))
+		fatvis[:n] = vis[:n] # memcpy (fatvis, vis, (r_worldmodel->numleafs+7)/8);
+		vis = gl_model.Mod_ClusterPVS (gl_rmain.r_viewcluster2, r_worldmodel)
+		c = (r_worldmodel.numleafs+31)//32
+		for i in range(min(c*4, len(vis))): # ((int *)fatvis)[i] |= ((int *)vis)[i];
+			fatvis[i] |= vis[i]
+		vis = fatvis
+
+	for i in range(r_worldmodel.numleafs):
+
+		leaf = r_worldmodel.leafs[i]
+		cluster = leaf.cluster
+		if cluster == -1:
+			continue
+		if vis[cluster>>3] & (1<<(cluster&7)):
+
+			node = leaf
+			while True:
+
+				if node.visframe == gl_rmain.r_visframecount:
+					break
+				node.visframe = gl_rmain.r_visframecount
+				node = node.parent
+				if not node:
+					break
+
+	"""
+#if 0
+	for (i=0 ; i<r_worldmodel->vis->numclusters ; i++)
+	{
+		if (vis[i>>3] & (1<<(i&7)))
+		{
+			node = (mnode_t *)&r_worldmodel->leafs[i];	// FIXME: cluster
+			do
+			{
+				if (node->visframe == r_visframecount)
+					break;
+				node->visframe = r_visframecount;
+				node = node->parent;
+			} while (node);
+		}
+	}
+#endif
+	"""
+
+
+"""
+=============================================================================
+
+  LIGHTMAP ALLOCATION
+
+=============================================================================
+"""
+
+def LM_InitBlock():
+
+	gl_lms.allocated = [0] * BLOCK_WIDTH # memset( gl_lms.allocated, 0, sizeof( gl_lms.allocated ) );
+
+
+def LM_UploadBlock( dynamic ): #qboolean
+
+	#int texture;
+	#int height = 0;
+	height = 0
+
+	if dynamic:
+
+		texture = 0
+
+	else:
+
+		texture = gl_lms.current_lightmap_texture
+
+	gl_image.GL_Bind( gl_rmain.gl_state.lightmap_textures + texture )
+	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
+	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+
+	if dynamic:
+
+		#int i;
+
+		for i in range(BLOCK_WIDTH):
+
+			if gl_lms.allocated[i] > height:
+				height = gl_lms.allocated[i]
+
+		GL.glTexSubImage2D( GL.GL_TEXTURE_2D,
+						  0,
+						  0, 0,
+						  BLOCK_WIDTH, height,
+						  GL_LIGHTMAP_FORMAT,
+						  GL.GL_UNSIGNED_BYTE,
+						  bytes(gl_lms.lightmap_buffer) )
+
+	else:
+
+		GL.glTexImage2D( GL.GL_TEXTURE_2D,
+					   0,
+					   gl_lms.internal_format,
+					   BLOCK_WIDTH, BLOCK_HEIGHT,
+					   0,
+					   GL_LIGHTMAP_FORMAT,
+					   GL.GL_UNSIGNED_BYTE,
+					   bytes(gl_lms.lightmap_buffer) )
+		gl_lms.current_lightmap_texture += 1
+		if gl_lms.current_lightmap_texture == MAX_LIGHTMAPS:
+			gl_rmain.ri.Sys_Error( q_shared.ERR_DROP, "LM_UploadBlock() - MAX_LIGHTMAPS exceeded\n" )
+
+
+# returns a texture number and the position inside it
+def LM_AllocBlock (w, h): #int, int (returns qboolean, int x, int y)
+
+	#int		i, j;
+	#int		best, best2;
+	x = y = 0
+
+	best = BLOCK_HEIGHT
+
+	for i in range(BLOCK_WIDTH-w):
+
+		best2 = 0
+
+		for j in range(w):
+
+			if gl_lms.allocated[i+j] >= best:
+				break
+			if gl_lms.allocated[i+j] > best2:
+				best2 = gl_lms.allocated[i+j]
+
+		else: # j == w
+			# this is a valid spot
+			x = i
+			y = best = best2
+
+	if best + h > BLOCK_HEIGHT:
+		return False, x, y
+
+	for i in range(w):
+		gl_lms.allocated[x + i] = best + h
+
+	return True, x, y
+
+"""
+================
+GL_BuildPolygonFromSurface
+================
+"""
+def GL_BuildPolygonFromSurface(fa): #msurface_t *
+
+	"""
+	int			i, lindex, lnumverts;
+	medge_t		*pedges, *r_pedge;
+	int			vertpage;
+	float		*vec;
+	float		s, t;
+	glpoly_t	*poly;
+	vec3_t		total;
+	"""
+	currentmodel = gl_rmain.currentmodel
+	total = np.zeros((3,), dtype=np.float32)
+
+	# reconstruct the polygon
+	pedges = currentmodel.edges
+	lnumverts = fa.numedges
+	vertpage = 0
+
+	q_shared.VectorClear (total)
+	#
+	# draw texture
+	#
+	poly = gl_model_h.glpoly_t() # Hunk_Alloc (sizeof(glpoly_t) + (lnumverts-4) * VERTEXSIZE*sizeof(float));
+	poly.verts = np.zeros((lnumverts, gl_model_h.VERTEXSIZE), dtype=np.float32)
+	poly.flags = fa.flags
+	fa.polys.insert(0, poly) # poly->next = fa->polys; fa->polys = poly;
+	poly.numverts = lnumverts
+
+	# FIXME r_notexture is None until R_InitParticleTexture is ported, so guard the image size
+	image_width = fa.texinfo.image.width if fa.texinfo.image is not None else 1
+	image_height = fa.texinfo.image.height if fa.texinfo.image is not None else 1
+
+	for i in range(lnumverts):
+
+		lindex = int(currentmodel.surfedges[fa.firstedge + i])
+
+		if lindex > 0:
+
+			r_pedge = pedges[lindex]
+			vec = currentmodel.vertexes[r_pedge[0]]
+
+		else:
+
+			r_pedge = pedges[-lindex]
+			vec = currentmodel.vertexes[r_pedge[1]]
+
+		s = q_shared.DotProduct (vec, fa.texinfo.vecs[0]) + fa.texinfo.vecs[0][3]
+		s /= image_width
+
+		t = q_shared.DotProduct (vec, fa.texinfo.vecs[1]) + fa.texinfo.vecs[1][3]
+		t /= image_height
+
+		q_shared.VectorAdd (total, vec, total)
+		poly.verts[i][:3] = vec # VectorCopy (vec, poly->verts[i]);
+		poly.verts[i][3] = s
+		poly.verts[i][4] = t
+
+		#
+		# lightmap texture coordinates
+		#
+		s = q_shared.DotProduct (vec, fa.texinfo.vecs[0]) + fa.texinfo.vecs[0][3]
+		s -= fa.texturemins[0]
+		s += fa.light_s*16
+		s += 8
+		s /= BLOCK_WIDTH*16 #fa->texinfo->texture->width;
+
+		t = q_shared.DotProduct (vec, fa.texinfo.vecs[1]) + fa.texinfo.vecs[1][3]
+		t -= fa.texturemins[1]
+		t += fa.light_t*16
+		t += 8
+		t /= BLOCK_HEIGHT*16 #fa->texinfo->texture->height;
+
+		poly.verts[i][5] = s
+		poly.verts[i][6] = t
+
+	poly.numverts = lnumverts
+
+"""
+========================
+GL_CreateSurfaceLightmap
+========================
+"""
+def GL_CreateSurfaceLightmap (surf): #msurface_t *
+
+	#int		smax, tmax;
+	#byte	*base;
+
+	if surf.flags & (gl_model_h.SURF_DRAWSKY|gl_model_h.SURF_DRAWTURB):
+		return
+
+	smax = (surf.extents[0]>>4)+1
+	tmax = (surf.extents[1]>>4)+1
+
+	ok, surf.light_s, surf.light_t = LM_AllocBlock( smax, tmax )
+	if not ok:
+
+		LM_UploadBlock( False )
+		LM_InitBlock()
+		ok, surf.light_s, surf.light_t = LM_AllocBlock( smax, tmax )
+		if not ok:
+
+			gl_rmain.ri.Sys_Error( q_shared.ERR_FATAL, "Consecutive calls to LM_AllocBlock({},{}) failed\n".format(smax, tmax) )
+
+	surf.lightmaptexturenum = gl_lms.current_lightmap_texture
+
+	base = (surf.light_t * BLOCK_WIDTH + surf.light_s) * LIGHTMAP_BYTES
+
+	gl_light.R_SetCacheState( surf )
+	gl_light.R_BuildLightMap (surf, memoryview(gl_lms.lightmap_buffer)[base:], BLOCK_WIDTH*LIGHTMAP_BYTES)
+
+
+"""
+==================
+GL_BeginBuildingLightmaps
+
+==================
+"""
+def GL_BeginBuildingLightmaps (m): #model_t *
+
+	"""
+	static lightstyle_t	lightstyles[MAX_LIGHTSTYLES];
+	int				i;
+	unsigned		dummy[128*128];
+	"""
+
+	gl_lms.allocated = [0] * BLOCK_WIDTH # memset( gl_lms.allocated, 0, sizeof(gl_lms.allocated) );
+
+	gl_rmain.r_framecount = 1		# no dlightcache
+
+	gl_image.GL_EnableMultitexture( True )
+	gl_image.GL_SelectTexture( GL.GL_TEXTURE1)
+
+	#
+	# setup the base lightstyles so the lightmaps won't have to be regenerated
+	# the first time they're seen
+	#
+	lightstyles = []
+	for i in range(q_shared.MAX_LIGHTSTYLES):
+
+		ls = ref.lightstyle_t()
+		ls.rgb[0] = 1
+		ls.rgb[1] = 1
+		ls.rgb[2] = 1
+		ls.white = 3
+		lightstyles.append(ls)
+
+	gl_rmain.r_newrefdef.lightstyles = lightstyles
+
+	if not gl_rmain.gl_state.lightmap_textures:
+
+		gl_rmain.gl_state.lightmap_textures	= gl_image.TEXNUM_LIGHTMAPS
+#		gl_state.lightmap_textures	= gl_state.texture_extension_number;
+#		gl_state.texture_extension_number = gl_state.lightmap_textures + MAX_LIGHTMAPS;
+
+	gl_lms.current_lightmap_texture = 1
+
+	#
+	# if mono lightmaps are enabled and we want to use alpha
+	# blending (a,1-a) then we're likely running on a 3DLabs
+	# Permedia2.  In a perfect world we'd use a GL_ALPHA lightmap
+	# in order to conserve space and maximize bandwidth, however
+	# this isn't a perfect world.
+	#
+	# So we have to use alpha lightmaps, but stored in GL_RGBA format,
+	# which means we only get 1/16th the color resolution we should when
+	# using alpha lightmaps.  If we find another board that supports
+	# only alpha lightmaps but that can at least support the GL_ALPHA
+	# format then we should change this code to use real alpha maps.
+	#
+	mode = gl_rmain.gl_monolightmap.string[0].upper()
+	if mode == 'A':
+
+		gl_lms.internal_format = gl_image.gl_tex_alpha_format
+
+	#
+	# try to do hacked colored lighting with a blended texture
+	#
+	elif mode == 'C':
+
+		gl_lms.internal_format = gl_image.gl_tex_alpha_format
+
+	elif mode == 'I':
+
+		gl_lms.internal_format = GL.GL_INTENSITY8
+
+	elif mode == 'L':
+
+		gl_lms.internal_format = GL.GL_LUMINANCE8
+
+	else:
+
+		gl_lms.internal_format = gl_image.gl_tex_solid_format
+
+	#
+	# initialize the dynamic lightmap texture
+	#
+	dummy = bytes(4*128*128)
+	gl_image.GL_Bind( gl_rmain.gl_state.lightmap_textures + 0 )
+	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
+	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+	GL.glTexImage2D( GL.GL_TEXTURE_2D,
+				   0,
+				   gl_lms.internal_format,
+				   BLOCK_WIDTH, BLOCK_HEIGHT,
+				   0,
+				   GL_LIGHTMAP_FORMAT,
+				   GL.GL_UNSIGNED_BYTE,
+				   dummy )
+
+"""
+=======================
+GL_EndBuildingLightmaps
+=======================
+"""
+def GL_EndBuildingLightmaps ():
+
+	LM_UploadBlock( False )
+	gl_image.GL_EnableMultitexture( False )
+

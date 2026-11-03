@@ -490,22 +490,21 @@ def Mod_LoadTexinfo (l: qfiles.lump_t):
 		out.append(out_obj)
 
 	
+	# out->next = loadmodel->texinfo + next; the index is turned into a reference
+	# once all the texinfos exist
+	for i in range(count):
+		if loadmodel.texinfo[i].next is not None:
+			loadmodel.texinfo[i].next = loadmodel.texinfo[loadmodel.texinfo[i].next]
+
 	# count animation frames
 	for i in range(count):
-	
+
 		out = loadmodel.texinfo[i]
 		out.numframes = 1
-		step = None
-		if out.next is not None:
-			step = loadmodel.texinfo[out.next]
-
-		while step is not None and id(step) != id(out):
+		step = out.next
+		while step is not None and step is not out:
 			out.numframes+=1
-
-			if step.next is not None:
-				step = loadmodel.texinfo[step.next]
-			else:
-				step = None
+			step = step.next
 
 
 """
