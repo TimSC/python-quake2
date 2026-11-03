@@ -31,7 +31,7 @@ from client import ref
 from linux import gl_glx, qgl_linux
 from game import q_shared
 from qcommon import cvar, cmd, files, qcommon, qfiles
-from ref_gl import gl_draw, gl_image, gl_rmisc, gl_model, gl_warp, gl_rsurf
+from ref_gl import gl_draw, gl_image, gl_rmisc, gl_model, gl_model_h, gl_warp, gl_rsurf, gl_mesh, gl_light
 
 REF_VERSION = "GL 0.01"
 
@@ -194,137 +194,233 @@ def R_SetFrustum():
         frustum[i].dist = q_shared.DotProduct(r_origin, frustum[i].normal)
         frustum[i].signbits = SignbitsForPlane(frustum[i])
 """
-//==================================================================================
+=================
+R_CullBox
 
-/*
+Returns true if the box is completely outside the frustom
+=================
+"""
+def R_CullBox (mins, maxs): #vec3_t, vec3_t (returns qboolean)
+
+	return gl_rsurf.R_CullBox (mins, maxs)
+
+
+def R_RotateForEntity (e): #entity_t *
+
+	GL.glTranslatef (e.origin[0],  e.origin[1],  e.origin[2])
+
+	GL.glRotatef (e.angles[1],  0, 0, 1)
+	GL.glRotatef (-e.angles[0],  0, 1, 0)
+	GL.glRotatef (-e.angles[2],  1, 0, 0)
+
+"""
+=============================================================
+
+  SPRITE MODELS
+
+=============================================================
+"""
+
+"""
+=================
+R_DrawSpriteModel
+
+=================
+"""
+def R_DrawSpriteModel (e): #entity_t *
+
+	"""
+	float alpha = 1.0F;
+	vec3_t	point;
+	dsprframe_t	*frame;
+	float		*up, *right;
+	dsprite_t		*psprite;
+	"""
+	alpha = 1.0
+	point = np.zeros((3,), dtype=np.float32)
+
+	# don't even bother culling, because it's just a single
+	# polygon without a surface cache
+
+	psprite = currentmodel.extradata
+
+	e.frame %= psprite.numframes
+
+	frame = psprite.frames[e.frame]
+
+	"""
+#if 0
+	if (psprite->type == SPR_ORIENTED)
+	{	// bullet marks on walls
+	vec3_t		v_forward, v_right, v_up;
+
+	AngleVectors (currententity->angles, v_forward, v_right, v_up);
+		up = v_up;
+		right = v_right;
+	}
+	else
+#endif
+	"""
+	# normal sprite
+	up = vup
+	right = vright
+
+	if e.flags & q_shared.RF_TRANSLUCENT:
+		alpha = e.alpha
+
+	if alpha != 1.0:
+		GL.glEnable( GL.GL_BLEND )
+
+	GL.glColor4f( 1, 1, 1, alpha )
+
+	gl_image.GL_Bind(currentmodel.skins[e.frame].texnum)
+
+	gl_image.GL_TexEnv( GL.GL_MODULATE )
+
+	if alpha == 1.0:
+		GL.glEnable (GL.GL_ALPHA_TEST)
+	else:
+		GL.glDisable( GL.GL_ALPHA_TEST )
+
+	GL.glBegin (GL.GL_QUADS)
+
+	GL.glTexCoord2f (0, 1)
+	q_shared.VectorMA (e.origin, -frame.origin_y, up, point)
+	q_shared.VectorMA (point, -frame.origin_x, right, point)
+	GL.glVertex3fv (point)
+
+	GL.glTexCoord2f (0, 0)
+	q_shared.VectorMA (e.origin, frame.height - frame.origin_y, up, point)
+	q_shared.VectorMA (point, -frame.origin_x, right, point)
+	GL.glVertex3fv (point)
+
+	GL.glTexCoord2f (1, 0)
+	q_shared.VectorMA (e.origin, frame.height - frame.origin_y, up, point)
+	q_shared.VectorMA (point, frame.width - frame.origin_x, right, point)
+	GL.glVertex3fv (point)
+
+	GL.glTexCoord2f (1, 1)
+	q_shared.VectorMA (e.origin, -frame.origin_y, up, point)
+	q_shared.VectorMA (point, frame.width - frame.origin_x, right, point)
+	GL.glVertex3fv (point)
+	
+	GL.glEnd ()
+
+	GL.glDisable (GL.GL_ALPHA_TEST)
+	gl_image.GL_TexEnv( GL.GL_REPLACE )
+
+	if alpha != 1.0:
+		GL.glDisable( GL.GL_BLEND )
+
+	GL.glColor4f( 1, 1, 1, 1 )
+
+#==================================================================================
+
+"""
 =============
 R_DrawNullModel
 =============
-*/
-void R_DrawNullModel (void)
-{
+"""
+def R_DrawNullModel ():
+
+	"""
 	vec3_t	shadelight;
 	int		i;
+	"""
+	shadelight = np.zeros((3,), dtype=np.float32)
 
-	if ( currententity->flags & RF_FULLBRIGHT )
-		shadelight[0] = shadelight[1] = shadelight[2] = 1.0;
-	else
-		R_LightPoint (currententity->origin, shadelight);
+	if currententity.flags & q_shared.RF_FULLBRIGHT:
+		shadelight[0] = shadelight[1] = shadelight[2] = 1.0
+	else:
+		gl_light.R_LightPoint (currententity.origin, shadelight)
 
-	qglPushMatrix ();
-	R_RotateForEntity (currententity);
+	GL.glPushMatrix ()
+	R_RotateForEntity (currententity)
 
-	qglDisable (GL_TEXTURE_2D);
-	qglColor3fv (shadelight);
+	GL.glDisable (GL.GL_TEXTURE_2D)
+	GL.glColor3fv (shadelight)
 
-	qglBegin (GL_TRIANGLE_FAN);
-	qglVertex3f (0, 0, -16);
-	for (i=0 ; i<=4 ; i++)
-		qglVertex3f (16*cos(i*M_PI/2), 16*sin(i*M_PI/2), 0);
-	qglEnd ();
+	GL.glBegin (GL.GL_TRIANGLE_FAN)
+	GL.glVertex3f (0, 0, -16)
+	for i in range(5):
+		GL.glVertex3f (16*math.cos(i*math.pi/2), 16*math.sin(i*math.pi/2), 0)
+	GL.glEnd ()
 
-	qglBegin (GL_TRIANGLE_FAN);
-	qglVertex3f (0, 0, 16);
-	for (i=4 ; i>=0 ; i--)
-		qglVertex3f (16*cos(i*M_PI/2), 16*sin(i*M_PI/2), 0);
-	qglEnd ();
+	GL.glBegin (GL.GL_TRIANGLE_FAN)
+	GL.glVertex3f (0, 0, 16)
+	for i in range(4, -1, -1):
+		GL.glVertex3f (16*math.cos(i*math.pi/2), 16*math.sin(i*math.pi/2), 0)
+	GL.glEnd ()
 
-	qglColor3f (1,1,1);
-	qglPopMatrix ();
-	qglEnable (GL_TEXTURE_2D);
-}
+	GL.glColor3f (1,1,1)
+	GL.glPopMatrix ()
+	GL.glEnable (GL.GL_TEXTURE_2D)
 
-/*
+
+def R_DrawCurrentEntity ():
+
+	# the body of both loops in R_DrawEntitiesOnList, which is repeated in the C
+	global currentmodel
+
+	if currententity.flags & q_shared.RF_BEAM:
+	
+		R_DrawBeam( currententity )
+	
+	else:
+	
+		currentmodel = currententity.model
+		if not currentmodel:
+		
+			R_DrawNullModel ()
+			return
+		
+		if currentmodel.type == gl_model_h.modtype_t.mod_alias:
+			gl_mesh.R_DrawAliasModel (currententity)
+		elif currentmodel.type == gl_model_h.modtype_t.mod_brush:
+			gl_rsurf.R_DrawBrushModel (currententity)
+		elif currentmodel.type == gl_model_h.modtype_t.mod_sprite:
+			R_DrawSpriteModel (currententity)
+		else:
+			ri.Sys_Error (q_shared.ERR_DROP, "Bad modeltype")
+		
+
+"""
 =============
 R_DrawEntitiesOnList
 =============
-*/
-void R_DrawEntitiesOnList (void)
-{
-	int		i;
+"""
+def R_DrawEntitiesOnList ():
 
-	if (!r_drawentities->value)
-		return;
+	global currententity
 
-	// draw non-transparent first
-	for (i=0 ; i<r_newrefdef.num_entities ; i++)
-	{
-		currententity = &r_newrefdef.entities[i];
-		if (currententity->flags & RF_TRANSLUCENT)
-			continue;	// solid
+	#int		i;
 
-		if ( currententity->flags & RF_BEAM )
-		{
-			R_DrawBeam( currententity );
-		}
-		else
-		{
-			currentmodel = currententity->model;
-			if (!currentmodel)
-			{
-				R_DrawNullModel ();
-				continue;
-			}
-			switch (currentmodel->type)
-			{
-			case mod_alias:
-				R_DrawAliasModel (currententity);
-				break;
-			case mod_brush:
-				R_DrawBrushModel (currententity);
-				break;
-			case mod_sprite:
-				R_DrawSpriteModel (currententity);
-				break;
-			default:
-				ri.Sys_Error (ERR_DROP, "Bad modeltype");
-				break;
-			}
-		}
-	}
+	if not r_drawentities.value:
+		return
 
-	// draw transparent entities
-	// we could sort these if it ever becomes a problem...
-	qglDepthMask (0);		// no z writes
-	for (i=0 ; i<r_newrefdef.num_entities ; i++)
-	{
-		currententity = &r_newrefdef.entities[i];
-		if (!(currententity->flags & RF_TRANSLUCENT))
-			continue;	// solid
+	# draw non-transparent first
+	for i in range(r_newrefdef.num_entities):
+	
+		currententity = r_newrefdef.entities[i]
+		if currententity.flags & q_shared.RF_TRANSLUCENT:
+			continue	# solid
 
-		if ( currententity->flags & RF_BEAM )
-		{
-			R_DrawBeam( currententity );
-		}
-		else
-		{
-			currentmodel = currententity->model;
+		R_DrawCurrentEntity ()
+	
+	# draw transparent entities
+	# we could sort these if it ever becomes a problem...
+	GL.glDepthMask (0)		# no z writes
+	for i in range(r_newrefdef.num_entities):
+	
+		currententity = r_newrefdef.entities[i]
+		if not (currententity.flags & q_shared.RF_TRANSLUCENT):
+			continue	# solid
 
-			if (!currentmodel)
-			{
-				R_DrawNullModel ();
-				continue;
-			}
-			switch (currentmodel->type)
-			{
-			case mod_alias:
-				R_DrawAliasModel (currententity);
-				break;
-			case mod_brush:
-				R_DrawBrushModel (currententity);
-				break;
-			case mod_sprite:
-				R_DrawSpriteModel (currententity);
-				break;
-			default:
-				ri.Sys_Error (ERR_DROP, "Bad modeltype");
-				break;
-			}
-		}
-	}
-	qglDepthMask (1);		// back to writing
+		R_DrawCurrentEntity ()
+	
+	GL.glDepthMask (1)		# back to writing
 
-}
+"""
 
 /*
 ** GL_DrawParticles
@@ -751,9 +847,9 @@ def R_RenderView (fd): #refdef_t *
 	gl_rsurf.R_DrawWorld ()
 
 	R_DebugFrustum () # Q2PORT DEBUG
-	"""
 
-	R_DrawEntitiesOnList ();
+	R_DrawEntitiesOnList ()
+	"""
 
 	R_RenderDlights ();
 
@@ -1523,11 +1619,12 @@ def R_SetPalette (palette): #const unsigned char *
 
 """
 ** R_DrawBeam
-*/
-void R_DrawBeam( entity_t *e )
-{
-#define NUM_BEAM_SEGS 6
+"""
+NUM_BEAM_SEGS = 6
 
+def R_DrawBeam( e ): #entity_t *
+
+	"""
 	int	i;
 	float r, g, b;
 
@@ -1535,60 +1632,58 @@ void R_DrawBeam( entity_t *e )
 	vec3_t direction, normalized_direction;
 	vec3_t	start_points[NUM_BEAM_SEGS], end_points[NUM_BEAM_SEGS];
 	vec3_t oldorigin, origin;
+	"""
+	perpvec = np.zeros((3,), dtype=np.float32)
+	start_points = np.zeros((NUM_BEAM_SEGS, 3), dtype=np.float32)
+	end_points = np.zeros((NUM_BEAM_SEGS, 3), dtype=np.float32)
 
-	oldorigin[0] = e->oldorigin[0];
-	oldorigin[1] = e->oldorigin[1];
-	oldorigin[2] = e->oldorigin[2];
+	oldorigin = e.oldorigin.copy()
+	origin = e.origin.copy()
 
-	origin[0] = e->origin[0];
-	origin[1] = e->origin[1];
-	origin[2] = e->origin[2];
+	direction = oldorigin - origin
+	normalized_direction = direction.copy()
 
-	normalized_direction[0] = direction[0] = oldorigin[0] - origin[0];
-	normalized_direction[1] = direction[1] = oldorigin[1] - origin[1];
-	normalized_direction[2] = direction[2] = oldorigin[2] - origin[2];
+	if q_shared.VectorNormalize( normalized_direction ) == 0:
+		return
 
-	if ( VectorNormalize( normalized_direction ) == 0 )
-		return;
+	q_shared.PerpendicularVector( perpvec, normalized_direction )
+	q_shared.VectorScale( perpvec, e.frame / 2, perpvec )
 
-	PerpendicularVector( perpvec, normalized_direction );
-	VectorScale( perpvec, e->frame / 2, perpvec );
+	for i in range(6):
+	
+		q_shared.RotatePointAroundVector( start_points[i], normalized_direction, perpvec, (360.0/NUM_BEAM_SEGS)*i )
+		q_shared.VectorAdd( start_points[i], origin, start_points[i] )
+		q_shared.VectorAdd( start_points[i], direction, end_points[i] )
+	
+	GL.glDisable( GL.GL_TEXTURE_2D )
+	GL.glEnable( GL.GL_BLEND )
+	GL.glDepthMask( GL.GL_FALSE )
 
-	for ( i = 0; i < 6; i++ )
-	{
-		RotatePointAroundVector( start_points[i], normalized_direction, perpvec, (360.0/NUM_BEAM_SEGS)*i );
-		VectorAdd( start_points[i], origin, start_points[i] );
-		VectorAdd( start_points[i], direction, end_points[i] );
-	}
+	col = gl_image.d_8to24table[e.skinnum & 0xFF] # 4 bytes, r g b a
+	r = col[0]
+	g = col[1]
+	b = col[2]
 
-	qglDisable( GL_TEXTURE_2D );
-	qglEnable( GL_BLEND );
-	qglDepthMask( GL_FALSE );
+	r *= 1/255.0
+	g *= 1/255.0
+	b *= 1/255.0
 
-	r = ( d_8to24table[e->skinnum & 0xFF] ) & 0xFF;
-	g = ( d_8to24table[e->skinnum & 0xFF] >> 8 ) & 0xFF;
-	b = ( d_8to24table[e->skinnum & 0xFF] >> 16 ) & 0xFF;
+	GL.glColor4f( r, g, b, e.alpha )
 
-	r *= 1/255.0F;
-	g *= 1/255.0F;
-	b *= 1/255.0F;
+	GL.glBegin( GL.GL_TRIANGLE_STRIP )
+	for i in range(NUM_BEAM_SEGS):
+	
+		GL.glVertex3fv( start_points[i] )
+		GL.glVertex3fv( end_points[i] )
+		GL.glVertex3fv( start_points[(i+1)%NUM_BEAM_SEGS] )
+		GL.glVertex3fv( end_points[(i+1)%NUM_BEAM_SEGS] )
+	
+	GL.glEnd()
 
-	qglColor4f( r, g, b, e->alpha );
-
-	qglBegin( GL_TRIANGLE_STRIP );
-	for ( i = 0; i < NUM_BEAM_SEGS; i++ )
-	{
-		qglVertex3fv( start_points[i] );
-		qglVertex3fv( end_points[i] );
-		qglVertex3fv( start_points[(i+1)%NUM_BEAM_SEGS] );
-		qglVertex3fv( end_points[(i+1)%NUM_BEAM_SEGS] );
-	}
-	qglEnd();
-
-	qglEnable( GL_TEXTURE_2D );
-	qglDisable( GL_BLEND );
-	qglDepthMask( GL_TRUE );
-}
+	GL.glEnable( GL.GL_TEXTURE_2D )
+	GL.glDisable( GL.GL_BLEND )
+	GL.glDepthMask( GL.GL_TRUE )
+"""
 
 //===================================================================
 

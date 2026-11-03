@@ -775,7 +775,7 @@ def CL_AddPacketEntities (frame):
 		elif effects & q_shared.EF_ANIM_ALL:
 			ent.frame = autoanim
 		elif effects & q_shared.EF_ANIM_ALLFAST:
-			ent.frame = cl_main.cl.time // 100
+			ent.frame = int(cl_main.cl.time) // 100 # cl.time is int in C
 		else:
 			ent.frame = s1.frame
 

@@ -973,53 +973,59 @@ def Mod_LoadAliasModel (mod, buff): #model_t *, void *
 			"index_st": index_st,
 		})
 
-	frames = []
+	#
+	# load the frames
+	#
+	frames = [] # daliasframe_t[num_frames]
 	frame_offset = header.ofs_frames
 	for _ in range(header.num_frames):
 		frame_data = buff[frame_offset:frame_offset + header.framesize]
-		scale = np.array(struct.unpack_from("<3f", frame_data, 0), dtype=np.float32)
-		translate = np.array(struct.unpack_from("<3f", frame_data, 12), dtype=np.float32)
-		name_bytes = frame_data[24:40]
-		frame_name = name_bytes.split(b'\x00', 1)[0].decode("ascii", "ignore")
+		frame = qfiles.daliasframe_t()
+		frame.scale = np.array(struct.unpack_from("<3f", frame_data, 0), dtype=np.float32)
+		frame.translate = np.array(struct.unpack_from("<3f", frame_data, 12), dtype=np.float32)
+		frame.name = frame_data[24:40].split(b'\x00', 1)[0].decode("ascii", "ignore")
 
-		verts = []
-		cur = 40
-		for _ in range(header.num_xyz):
-			v0 = frame_data[cur]
-			v1 = frame_data[cur + 1]
-			v2 = frame_data[cur + 2]
-			lightnormalindex = frame_data[cur + 3]
-			verts.append({
-				"v": (v0, v1, v2),
-				"lightnormalindex": lightnormalindex,
-			})
-			cur += 4
+		# dtrivertx_t[num_xyz] as rows of v[0], v[1], v[2], lightnormalindex
+		frame.verts = np.frombuffer(frame_data, dtype=np.uint8, count=header.num_xyz*4, offset=40).reshape((header.num_xyz, 4))
 
-		frames.append({
-			"name": frame_name,
-			"scale": scale,
-			"translate": translate,
-			"verts": verts,
-		})
+		frames.append(frame)
 		frame_offset += header.framesize
 
+	#
+	# load the glcmds
+	#
+	# The C stores these as ints, with the texture coordinates being floats
+	# punned into the same array. Decode them here into a plain list of
+	# count, then (s float, t float, index_xyz int) per vertex, ending with 0.
 	glcmds = []
-	if header.num_glcmds > 0:
-		cmd_offset = header.ofs_glcmds
-		for i in range(header.num_glcmds):
-			cmd_bytes = buff[cmd_offset + 4*i: cmd_offset + 4*(i+1)]
-			glcmds.append(q_shared.LittleLong(cmd_bytes))
+	cmd_offset = header.ofs_glcmds
+	cmd_end = header.ofs_glcmds + header.num_glcmds*4
+	while cmd_offset < cmd_end:
+		count = struct.unpack_from("<i", buff, cmd_offset)[0]
+		cmd_offset += 4
+		glcmds.append(count)
+		if not count:
+			break
+		for _ in range(abs(count)):
+			s, t, index_xyz = struct.unpack_from("<ffi", buff, cmd_offset)
+			cmd_offset += 12
+			glcmds.extend((s, t, index_xyz))
+
+	header.stverts = stverts
+	header.triangles = triangles
+	header.frames = frames
+	header.glcmds = glcmds
 
 	mod.type = gl_model_h.modtype_t.mod_alias
 	mod.numframes = header.num_frames
-	mod.extradata = {
-		"header": header,
-		"buffer": buff,
-		"stverts": stverts,
-		"triangles": triangles,
-		"frames": frames,
-		"glcmds": glcmds,
-	}
+	mod.extradata = header # paliashdr
+
+	mod.mins[0] = -32
+	mod.mins[1] = -32
+	mod.mins[2] = -32
+	mod.maxs[0] = 32
+	mod.maxs[1] = 32
+	mod.maxs[2] = 32
 
 def Mod_LoadSpriteModel (mod, buff): # model_t *, void *
 

@@ -949,6 +949,8 @@ RDF_NOWORLDMODEL	= 2		# used for player configuration screen
 #define RDF_UVGOGGLES		8
 //ROGUE
 """
+RDF_IRGOGGLES		= 4
+RDF_UVGOGGLES		= 8
 #
 # muzzle flashes / player effects
 #
@@ -1485,8 +1487,8 @@ class entity_state_t(object):
 		self.angles: vec3_t = np.zeros((3,), dtype=np.float32)
 		self.old_origin: vec3_t = np.zeros((3,), dtype=np.float32) # for lerping
 		self.modelindex: int = 0
-		self.modelindex2, self.modelindex3, self.modelindex4 = None, None, None # weapons, CTF flags, etc, int
-		self.frame: int = None
+		self.modelindex2, self.modelindex3, self.modelindex4 = 0, 0, 0 # weapons, CTF flags, etc, int
+		self.frame: int = 0
 		self.skinnum: int = 0
 		self.effects: int = 0	# PGM - we're filling it, so it needs to be unsigned, unsigned int
 		self.renderfx: int = 0

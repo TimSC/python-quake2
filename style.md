@@ -162,6 +162,11 @@ only when a literal translation is impossible or far too slow.
 
 ## Data types
 
+- Use plain Python objects (classes, lists, ints, floats, `str`) for most
+  data. Use numpy only for geometry: vectors, vertices, model frames and
+  similar numeric arrays. For example, an alias model's frame vertices
+  are a numpy array, but its GL command list is a plain list of ints and
+  floats.
 - `vec3_t` and other fixed-size float arrays are
   `np.zeros((3,), dtype=np.float32)`. Vector "macros" change the array
   in place so that C output parameters still work:

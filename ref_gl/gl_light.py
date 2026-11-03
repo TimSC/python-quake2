@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 import numpy as np
 from game import q_shared
 from qcommon import qfiles
-from ref_gl import gl_rmain
+from ref_gl import gl_rmain, gl_model_h
 """
 // r_light.c
 
@@ -217,8 +217,10 @@ lightplane = None #cplane_t *, used as shadow plane
 lightspot = np.zeros((3,), dtype=np.float32)
 
 
-def RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t
-	pass
+def RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (returns int)
+
+	global lightplane
+
 	"""
 	float		front, back, frac;
 	int			side;
@@ -231,93 +233,92 @@ def RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t
 	byte		*lightmap;
 	int			maps;
 	int			r;
-
-	if (node->contents != -1)
-		return -1;		// didn't hit anything
-	
-// calculate mid point
-
-// FIXME: optimize for axial
-	plane = node->plane;
-	front = DotProduct (start, plane->normal) - plane->dist;
-	back = DotProduct (end, plane->normal) - plane->dist;
-	side = front < 0;
-	
-	if ( (back < 0) == side)
-		return RecursiveLightPoint (node->children[side], start, end);
-	
-	frac = front / (front-back);
-	mid[0] = start[0] + (end[0] - start[0])*frac;
-	mid[1] = start[1] + (end[1] - start[1])*frac;
-	mid[2] = start[2] + (end[2] - start[2])*frac;
-	
-// go down front side	
-	r = RecursiveLightPoint (node->children[side], start, mid);
-	if (r >= 0)
-		return r;		// hit something
-		
-	if ( (back < 0) == side )
-		return -1;		// didn't hit anuthing
-		
-// check for impact on this node
-	VectorCopy (mid, lightspot);
-	lightplane = plane;
-
-	surf = r_worldmodel->surfaces + node->firstsurface;
-	for (i=0 ; i<node->numsurfaces ; i++, surf++)
-	{
-		if (surf->flags&(SURF_DRAWTURB|SURF_DRAWSKY)) 
-			continue;	// no lightmaps
-
-		tex = surf->texinfo;
-		
-		s = DotProduct (mid, tex->vecs[0]) + tex->vecs[0][3];
-		t = DotProduct (mid, tex->vecs[1]) + tex->vecs[1][3];;
-
-		if (s < surf->texturemins[0] ||
-		t < surf->texturemins[1])
-			continue;
-		
-		ds = s - surf->texturemins[0];
-		dt = t - surf->texturemins[1];
-		
-		if ( ds > surf->extents[0] || dt > surf->extents[1] )
-			continue;
-
-		if (!surf->samples)
-			return 0;
-
-		ds >>= 4;
-		dt >>= 4;
-
-		lightmap = surf->samples;
-		VectorCopy (vec3_origin, pointcolor);
-		if (lightmap)
-		{
-			vec3_t scale;
-
-			lightmap += 3*(dt * ((surf->extents[0]>>4)+1) + ds);
-
-			for (maps = 0 ; maps < MAXLIGHTMAPS && surf->styles[maps] != 255 ;
-					maps++)
-			{
-				for (i=0 ; i<3 ; i++)
-					scale[i] = gl_modulate->value*r_newrefdef.lightstyles[surf->styles[maps]].rgb[i];
-
-				pointcolor[0] += lightmap[0] * scale[0] * (1.0/255);
-				pointcolor[1] += lightmap[1] * scale[1] * (1.0/255);
-				pointcolor[2] += lightmap[2] * scale[2] * (1.0/255);
-				lightmap += 3*((surf->extents[0]>>4)+1) *
-						((surf->extents[1]>>4)+1);
-			}
-		}
-		
-		return 1;
-	}
-
-// go down back side
-	return RecursiveLightPoint (node->children[!side], mid, end);
 	"""
+
+	if node.contents != -1:
+		return -1		# didn't hit anything
+	
+	# calculate mid point
+
+	# FIXME: optimize for axial
+	plane = node.plane
+	front = q_shared.DotProduct (start, plane.normal) - plane.dist
+	back = q_shared.DotProduct (end, plane.normal) - plane.dist
+	side = 1 if front < 0 else 0
+	
+	if (back < 0) == side:
+		return RecursiveLightPoint (node.children[side], start, end)
+	
+	frac = front / (front-back)
+	mid = np.zeros((3,), dtype=np.float32)
+	mid[0] = start[0] + (end[0] - start[0])*frac
+	mid[1] = start[1] + (end[1] - start[1])*frac
+	mid[2] = start[2] + (end[2] - start[2])*frac
+	
+	# go down front side	
+	r = RecursiveLightPoint (node.children[side], start, mid)
+	if r >= 0:
+		return r		# hit something
+		
+	if (back < 0) == side:
+		return -1		# didn't hit anuthing
+		
+	# check for impact on this node
+	q_shared.VectorCopy (mid, lightspot)
+	lightplane = plane
+
+	surfaces = gl_rmain.r_worldmodel.surfaces
+	for i in range(node.numsurfaces):
+	
+		surf = surfaces[node.firstsurface + i]
+		if surf.flags&(gl_model_h.SURF_DRAWTURB|gl_model_h.SURF_DRAWSKY):
+			continue	# no lightmaps
+
+		tex = surf.texinfo
+		
+		s = int(q_shared.DotProduct (mid, tex.vecs[0]) + tex.vecs[0][3])
+		t = int(q_shared.DotProduct (mid, tex.vecs[1]) + tex.vecs[1][3])
+
+		if s < surf.texturemins[0] or t < surf.texturemins[1]:
+			continue
+		
+		ds = s - surf.texturemins[0]
+		dt = t - surf.texturemins[1]
+		
+		if ds > surf.extents[0] or dt > surf.extents[1]:
+			continue
+
+		if surf.samples is None:
+			return 0
+
+		ds >>= 4
+		dt >>= 4
+
+		lightmap = surf.samples
+		q_shared.VectorClear (pointcolor) # VectorCopy (vec3_origin, pointcolor)
+		if lightmap is not None:
+		
+			scale = [0.0, 0.0, 0.0] #vec3_t
+
+			lightmap_p = 3*(dt * ((surf.extents[0]>>4)+1) + ds)
+
+			maps = 0
+			while maps < qfiles.MAXLIGHTMAPS and surf.styles[maps] != 255:
+			
+				for j in range(3):
+					scale[j] = gl_rmain.gl_modulate.value*gl_rmain.r_newrefdef.lightstyles[surf.styles[maps]].rgb[j]
+
+				pointcolor[0] += lightmap[lightmap_p+0] * scale[0] * (1.0/255)
+				pointcolor[1] += lightmap[lightmap_p+1] * scale[1] * (1.0/255)
+				pointcolor[2] += lightmap[lightmap_p+2] * scale[2] * (1.0/255)
+				lightmap_p += 3*((surf.extents[0]>>4)+1) * \
+						((surf.extents[1]>>4)+1)
+				maps += 1
+			
+		return 1
+	
+	# go down back side
+	return RecursiveLightPoint (node.children[1 - side], mid, end)
 
 
 """
@@ -326,7 +327,7 @@ R_LightPoint
 ===============
 """
 def R_LightPoint (p, color): #vec3_t, vec3_t
-	pass
+
 	"""
 	vec3_t		end;
 	float		r;
@@ -335,48 +336,42 @@ def R_LightPoint (p, color): #vec3_t, vec3_t
 	float		light;
 	vec3_t		dist;
 	float		add;
-	
-	if (!r_worldmodel->lightdata)
-	{
-		color[0] = color[1] = color[2] = 1.0;
-		return;
-	}
-	
-	end[0] = p[0];
-	end[1] = p[1];
-	end[2] = p[2] - 2048;
-	
-	r = RecursiveLightPoint (r_worldmodel->nodes, p, end);
-	
-	if (r == -1)
-	{
-		VectorCopy (vec3_origin, color);
-	}
-	else
-	{
-		VectorCopy (pointcolor, color);
-	}
-
-	//
-	// add dynamic lights
-	//
-	light = 0;
-	dl = r_newrefdef.dlights;
-	for (lnum=0 ; lnum<r_newrefdef.num_dlights ; lnum++, dl++)
-	{
-		VectorSubtract (currententity->origin,
-						dl->origin,
-						dist);
-		add = dl->intensity - VectorLength(dist);
-		add *= (1.0/256);
-		if (add > 0)
-		{
-			VectorMA (color, add, dl->color, color);
-		}
-	}
-
-	VectorScale (color, gl_modulate->value, color);
 	"""
+	
+	if gl_rmain.r_worldmodel.lightdata is None:
+	
+		color[0] = color[1] = color[2] = 1.0
+		return
+	
+	end = np.zeros((3,), dtype=np.float32)
+	end[0] = p[0]
+	end[1] = p[1]
+	end[2] = p[2] - 2048
+	
+	r = RecursiveLightPoint (gl_rmain.r_worldmodel.nodes[0], p, end)
+	
+	if r == -1:
+		q_shared.VectorClear (color) # VectorCopy (vec3_origin, color)
+	else:
+		q_shared.VectorCopy (pointcolor, color)
+
+	#
+	# add dynamic lights
+	#
+	dist = np.zeros((3,), dtype=np.float32)
+	dlights = gl_rmain.r_newrefdef.dlights
+	for lnum in range(gl_rmain.r_newrefdef.num_dlights):
+	
+		dl = dlights[lnum]
+		q_shared.VectorSubtract (gl_rmain.currententity.origin,
+						dl.origin,
+						dist)
+		add = dl.intensity - q_shared.VectorLength(dist)
+		add *= (1.0/256)
+		if add > 0:
+			q_shared.VectorMA (color, add, dl.color, color)
+	
+	q_shared.VectorScale (color, gl_rmain.gl_modulate.value, color)
 
 
 """
