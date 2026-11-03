@@ -344,16 +344,10 @@ def BoxOnPlaneSide(emins, emaxs, plane):
 			return 2
 		return 3
 
-	dist1 = 0.0
-	dist2 = 0.0
-	for axis in range(3):
-		normal = plane.normal[axis]
-		if (plane.signbits >> axis) & 1:
-			dist1 += normal * emins[axis]
-			dist2 += normal * emaxs[axis]
-		else:
-			dist1 += normal * emaxs[axis]
-			dist2 += normal * emins[axis]
+	#Q2PORT: the two extreme corners, vectorised
+	n = plane.normal
+	dist1 = float(n @ np.where(n < 0, emins, emaxs))
+	dist2 = float(n @ np.where(n < 0, emaxs, emins))
 
 	sides = 0
 	if dist1 >= plane.dist:

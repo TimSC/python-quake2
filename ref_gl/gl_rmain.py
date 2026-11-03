@@ -241,8 +241,27 @@ def R_CullBox (mins, maxs): #vec3_t, vec3_t (returns qboolean)
 	if r_nocull.value:
 		return False
 
-	for i in range(4):
-		if q_shared.BoxOnPlaneSide(mins, maxs, frustum[i]) == 2: # BOX_ON_PLANE_SIDE
+	#Q2PORT: BOX_ON_PLANE_SIDE inlined as in the C macro; the frustum
+	#planes are always PLANE_ANYZ, so only the most positive corner of
+	#the box needs testing against each plane
+	for p in frustum:
+
+		n = p.normal
+		sb = p.signbits
+		if sb & 1:
+			dist = n[0]*mins[0]
+		else:
+			dist = n[0]*maxs[0]
+		if sb & 2:
+			dist += n[1]*mins[1]
+		else:
+			dist += n[1]*maxs[1]
+		if sb & 4:
+			dist += n[2]*mins[2]
+		else:
+			dist += n[2]*maxs[2]
+
+		if p.dist >= dist: # side == 2, box fully on the negative side
 			return True
 	return False
 
