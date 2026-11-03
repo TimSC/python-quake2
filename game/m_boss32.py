@@ -38,6 +38,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
+"""
+"""
 /*
 ==============================================================================
 
@@ -478,15 +480,16 @@ Makron Torso. This needs to be spawned in
 
 /*QUAKED monster_makron (1 .5 0) (-30 -30 0) (30 30 90) Ambush Trigger_Spawn Sight
 */
-
-
+"""
+"""
 /*
 =================
 MakronSpawn
 
 =================
 */
-
+"""
+"""
 /*
 =================
 MakronToss

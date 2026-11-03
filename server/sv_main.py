@@ -107,7 +107,8 @@ CONNECTIONLESS COMMANDS
 
 ==============================================================================
 */
-
+"""
+"""
 /*
 ===============
 SV_StatusString
@@ -145,7 +146,8 @@ char	*SV_StatusString (void)
 
 	return status;
 }
-
+"""
+"""
 /*
 ================
 SVC_Status
@@ -162,7 +164,8 @@ void SVC_Status (void)
 	Com_EndRedirect ();
 #endif
 }
-
+"""
+"""
 /*
 ================
 SVC_Ack
@@ -173,7 +176,8 @@ void SVC_Ack (void)
 {
 	Com_Printf ("Ping acknowledge from %s\n", net_udp.NET_AdrToString(net_chan.net_from));
 }
-
+"""
+"""
 /*
 ================
 SVC_Info
@@ -207,7 +211,8 @@ void SVC_Info (void)
 
 	net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, "info\n%s", string);
 }
-
+"""
+"""
 /*
 ================
 SVC_Ping
@@ -219,8 +224,8 @@ void SVC_Ping (void)
 {
 	net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, "ack");
 }
-
-
+"""
+"""
 /*
 =================
 SVC_GetChallenge
@@ -265,7 +270,8 @@ void SVC_GetChallenge (void)
 	// send it back
 	net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, "challenge %i", sv_init.svs.challenges[i].challenge);
 }
-
+"""
+"""
 /*
 ==================
 SVC_DirectConnect
@@ -524,7 +530,8 @@ def SV_ConnectionlessPacket ():
 
 """
 //============================================================================
-
+"""
+"""
 /*
 ===================
 SV_CalcPings
@@ -574,8 +581,8 @@ void SV_CalcPings (void)
 		cl.edict->client->ping = cl.ping;
 	}
 }
-
-
+"""
+"""
 /*
 ===================
 SV_GiveMsec
@@ -839,9 +846,9 @@ def SV_Frame (msec): #int
 	SV_PrepWorldFrame ()
 
 """
-
 //============================================================================
-
+"""
+"""
 /*
 ================
 Master_Heartbeat
@@ -884,7 +891,8 @@ void Master_Heartbeat (void)
 			net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, master_adr[i], "heartbeat\n%s", string);
 		}
 }
-
+"""
+"""
 /*
 =================
 Master_Shutdown

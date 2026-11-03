@@ -31,7 +31,8 @@ import pygame
 int			cache_full_cycle;
 
 byte *S_Alloc (int size);
-
+"""
+"""
 /*
 ================
 ResampleSfx
@@ -95,7 +96,8 @@ void ResampleSfx (sfx_t *sfx, int inrate, int inwidth, byte *data)
 }
 
 //=============================================================================
-
+"""
+"""
 /*
 ==============
 S_LoadSound

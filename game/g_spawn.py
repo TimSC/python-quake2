@@ -288,7 +288,8 @@ spawn_t	spawns[] = {
 
 	{NULL, NULL}
 };
-
+"""
+"""
 /*
 ===============
 ED_CallSpawn
@@ -296,16 +297,15 @@ ED_CallSpawn
 Finds the spawn function for the entity and calls it
 ===============
 */
-
+"""
+"""
 /*
 =============
 ED_NewString
 =============
 */
-
-
-
-
+"""
+"""
 /*
 ===============
 ED_ParseField
@@ -314,7 +314,8 @@ Takes a key/value pair and sets the binary values
 in an edict
 ===============
 */
-
+"""
+"""
 /*
 ====================
 ED_ParseEdict
@@ -340,8 +341,8 @@ ed should be a properly initialized empty edict.
 
 	return data;
 }
-
-
+"""
+"""
 /*
 ================
 G_FindTeams
@@ -352,7 +353,8 @@ All but the first will have the FL_TEAMSLAVE flag set.
 All but the last will have the teamchain field set to the next one
 ================
 */
-
+"""
+"""
 /*
 ==============
 SpawnEntities

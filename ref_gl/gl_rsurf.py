@@ -107,6 +107,8 @@ def R_TextureAnimation (tex): #mtexinfo_t * (returns image_t *)
 
 """
 #if 0
+"""
+"""
 /*
 =================
 WaterWarpPolyVerts
@@ -141,7 +143,8 @@ glpoly_t *WaterWarpPolyVerts (glpoly_t *p)
 
 	return out;
 }
-
+"""
+"""
 /*
 ================
 DrawGLWaterPoly

@@ -226,8 +226,7 @@ def InitGame ():
 		g_main.g_edicts.append(game.edict_t())
 	g_main.glob.edicts = g_main.g_edicts
 	g_main.glob.max_edicts = game.maxentities
-	"""
-
+"""
 	// initialize all clients for this game
 	game.maxclients = maxclients->value;
 	game.clients = g_main.gi.TagMalloc (game.maxclients * sizeof(game.clients[0]), TAG_GAME);
@@ -405,7 +404,8 @@ void ReadField (FILE *f, field_t *field, byte *base)
 }
 
 //=========================================================
-
+"""
+"""
 /*
 ==============
 WriteClient
@@ -436,7 +436,8 @@ void WriteClient (FILE *f, gclient_t *client)
 		WriteField2 (f, field, (byte *)client);
 	}
 }
-
+"""
+"""
 /*
 ==============
 ReadClient
@@ -455,7 +456,8 @@ void ReadClient (FILE *f, gclient_t *client)
 		ReadField (f, field, (byte *)client);
 	}
 }
-
+"""
+"""
 /*
 ============
 WriteGame
@@ -528,8 +530,8 @@ void ReadGame (char *filename)
 }
 
 //==========================================================
-
-
+"""
+"""
 /*
 ==============
 WriteEdict
@@ -561,7 +563,8 @@ void WriteEdict (FILE *f, edict_t *ent)
 	}
 
 }
-
+"""
+"""
 /*
 ==============
 WriteLevelLocals
@@ -592,8 +595,8 @@ void WriteLevelLocals (FILE *f)
 		WriteField2 (f, field, (byte *)&level);
 	}
 }
-
-
+"""
+"""
 /*
 ==============
 ReadEdict
@@ -612,7 +615,8 @@ void ReadEdict (FILE *f, edict_t *ent)
 		ReadField (f, field, (byte *)ent);
 	}
 }
-
+"""
+"""
 /*
 ==============
 ReadLevelLocals
@@ -631,7 +635,8 @@ void ReadLevelLocals (FILE *f)
 		ReadField (f, field, (byte *)&level);
 	}
 }
-
+"""
+"""
 /*
 =================
 WriteLevel
@@ -674,8 +679,8 @@ void WriteLevel (char *filename)
 
 	fclose (f);
 }
-
-
+"""
+"""
 /*
 =================
 ReadLevel

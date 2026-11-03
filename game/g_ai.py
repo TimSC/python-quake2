@@ -53,8 +53,8 @@ int			enemy_range;
 float		enemy_yaw;
 
 //============================================================================
-
-
+"""
+"""
 /*
 =================
 AI_SetSightClient
@@ -70,7 +70,8 @@ In coop games, sight_client will cycle between the clients.
 */
 
 //============================================================================
-
+"""
+"""
 /*
 =============
 ai_move
@@ -79,8 +80,8 @@ Move the specified distance at current facing.
 This replaces the QC functions: ai_forward, ai_back, ai_pain, and ai_painforward
 ==============
 */
-
-
+"""
+"""
 /*
 =============
 ai_stand
@@ -89,8 +90,8 @@ Used for standing around and looking for players
 Distance is for slight position adjustments needed by the animations
 ==============
 */
-
-
+"""
+"""
 /*
 =============
 ai_walk
@@ -98,8 +99,8 @@ ai_walk
 The monster is walking it's beat
 =============
 */
-
-
+"""
+"""
 /*
 =============
 ai_charge
@@ -108,8 +109,8 @@ Turns towards target and advances
 Use this call with a distnace of 0 to replace ai_face
 ==============
 */
-
-
+"""
+"""
 /*
 =============
 ai_turn
@@ -145,7 +146,8 @@ time > .pausetime.
 
 walkmove(angle, speed) primitive is all or nothing
 */
-
+"""
+"""
 /*
 =============
 range
@@ -157,7 +159,8 @@ returns the range catagorization of an entity reletive to self
 3	only triggered by damage
 =============
 */
-
+"""
+"""
 /*
 =============
 visible
@@ -165,8 +168,8 @@ visible
 returns 1 if the entity is visible to self, even if not infront ()
 =============
 */
-
-
+"""
+"""
 /*
 =============
 infront
@@ -177,10 +180,8 @@ returns 1 if the entity is in front (in sight) of self
 
 
 //============================================================================
-
-
-
-
+"""
+"""
 /*
 ===========
 FindTarget
@@ -201,7 +202,8 @@ slower noticing monsters.
 
 
 //=============================================================================
-
+"""
+"""
 /*
 ============
 FacingIdeal
@@ -211,9 +213,8 @@ FacingIdeal
 
 
 //=============================================================================
-
-
-
+"""
+"""
 /*
 =============
 ai_run_melee
@@ -221,8 +222,8 @@ ai_run_melee
 Turn and close until within an angle to launch a melee attack
 =============
 */
-
-
+"""
+"""
 /*
 =============
 ai_run_missile
@@ -230,8 +231,8 @@ ai_run_missile
 Turn in place until within an angle to launch a missile attack
 =============
 */
-
-
+"""
+"""
 /*
 =============
 ai_run_slide
@@ -239,8 +240,8 @@ ai_run_slide
 Strafe sideways, but stay at aproximately the same range
 =============
 */
-
-
+"""
+"""
 /*
 =============
 ai_checkattack
@@ -249,8 +250,8 @@ Decides if we're going to attack or do something else
 used by ai_run and ai_stand
 =============
 */
-
-
+"""
+"""
 /*
 =============
 ai_run

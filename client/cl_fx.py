@@ -216,7 +216,8 @@ cdlight_t *CL_AllocDlight (int key)
 	dl->key = key;
 	return dl;
 }
-
+"""
+"""
 /*
 ===============
 CL_NewDlight
@@ -233,8 +234,8 @@ void CL_NewDlight (int key, float x, float y, float z, float radius, float time)
 	dl->radius = radius;
 	dl->die = cl.time + time;
 }
-
-
+"""
+"""
 /*
 ===============
 CL_RunDLights
@@ -262,7 +263,8 @@ void CL_RunDLights (void)
 			dl->radius = 0;
 	}
 }
-
+"""
+"""
 /*
 ==============
 CL_ParseMuzzleFlash
@@ -681,8 +683,6 @@ def CL_ParseMuzzleFlash2 ():
 
 
 """
-
-
 /*
 ===============
 CL_AddDLights
@@ -730,9 +730,8 @@ void CL_AddDLights (void)
 //PGM
 //=====
 }
-
-
-
+"""
+"""
 /*
 ==============================================================
 
@@ -766,8 +765,8 @@ cparticle_t	*active_particles, *free_particles;
 
 cparticle_t	particles[MAX_PARTICLES];
 int			cl_numparticles = MAX_PARTICLES;
-
-
+"""
+"""
 /*
 ===============
 CL_ClearParticles

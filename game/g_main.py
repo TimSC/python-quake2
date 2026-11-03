@@ -186,8 +186,8 @@ void Com_Printf (char *msg, ...)
 #endif
 
 //======================================================================
-
-
+"""
+"""
 /*
 =================
 ClientEndServerFrames
@@ -209,7 +209,8 @@ void ClientEndServerFrames (void)
 	}
 
 }
-
+"""
+"""
 /*
 =================
 CreateTargetChangeLevel
@@ -227,7 +228,8 @@ edict_t *CreateTargetChangeLevel(char *map)
 	ent->map = level.nextmap;
 	return ent;
 }
-
+"""
+"""
 /*
 =================
 EndDMLevel
@@ -287,8 +289,8 @@ void EndDMLevel (void)
 		BeginIntermission (ent);
 	}
 }
-
-
+"""
+"""
 /*
 =================
 CheckNeedPass
@@ -314,7 +316,8 @@ void CheckNeedPass (void)
 		gi.cvar_set("needpass", va("%d", need));
 	}
 }
-
+"""
+"""
 /*
 =================
 CheckDMRules
@@ -358,8 +361,8 @@ void CheckDMRules (void)
 		}
 	}
 }
-
-
+"""
+"""
 /*
 =============
 ExitLevel
@@ -389,7 +392,8 @@ void ExitLevel (void)
 	}
 
 }
-
+"""
+"""
 /*
 ================
 G_RunFrame

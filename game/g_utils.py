@@ -41,10 +41,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // g_utils.c -- misc utility functions for game module
 
 #include "g_local.h"
-
-
-
-
+"""
+"""
 /*
 =============
 G_Find
@@ -57,8 +55,8 @@ NULL will be returned if the end of the list is reached.
 
 =============
 */
-
-
+"""
+"""
 /*
 =================
 findradius
@@ -68,8 +66,8 @@ Returns entities that have origins within a spherical area
 findradius (origin, radius)
 =================
 */
-
-
+"""
+"""
 /*
 =============
 G_PickTarget
@@ -83,11 +81,8 @@ NULL will be returned if the end of the list is reached.
 =============
 */
 #define MAXCHOICES	8
-
-
-
-
-
+"""
+"""
 /*
 ==============================
 G_UseTargets
@@ -104,8 +99,8 @@ match (string)self.target and call their .use function
 
 ==============================
 */
-
-
+"""
+"""
 /*
 =============
 TempVector
@@ -114,8 +109,8 @@ This is just a convenience function
 for making temporary vectors for function calls
 =============
 */
-
-
+"""
+"""
 /*
 =============
 VectorToString
@@ -130,15 +125,8 @@ vec3_t VEC_UP		= {0, -1, 0};
 vec3_t MOVEDIR_UP	= {0, 0, 1};
 vec3_t VEC_DOWN		= {0, -2, 0};
 vec3_t MOVEDIR_DOWN	= {0, 0, -1};
-
-
-
-
-
-
-
-
-
+"""
+"""
 /*
 =================
 G_Spawn
@@ -150,7 +138,8 @@ instead of being removed and recreated, which can cause interpolated
 angles and bad trails.
 =================
 */
-
+"""
+"""
 /*
 =================
 G_FreeEdict
@@ -158,15 +147,16 @@ G_FreeEdict
 Marks the edict as free
 =================
 */
-
-
+"""
+"""
 /*
 ============
 G_TouchTriggers
 
 ============
 */
-
+"""
+"""
 /*
 ============
 G_TouchSolids
@@ -175,10 +165,8 @@ Call after linking a new trigger in during gameplay
 to force all entities it covers to immediately touch it
 ============
 */
-
-
-
-
+"""
+"""
 /*
 ==============================================================================
 
@@ -186,7 +174,8 @@ Kill box
 
 ==============================================================================
 */
-
+"""
+"""
 /*
 =================
 KillBox

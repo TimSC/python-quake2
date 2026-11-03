@@ -593,8 +593,8 @@ typedef struct _TargaHeader {
 	unsigned short	x_origin, y_origin, width, height;
 	unsigned char	pixel_size, attributes;
 } TargaHeader;
-
-
+"""
+"""
 /*
 =============
 LoadTGA
@@ -783,8 +783,8 @@ void LoadTGA (char *name, byte **pic, int *width, int *height)
 
 	gl_rmain.ri.FS_FreeFile (buffer);
 }
-
-
+"""
+"""
 /*
 ====================================================================
 
@@ -792,8 +792,8 @@ IMAGE FLOOD FILLING
 
 ====================================================================
 */
-
-
+"""
+"""
 /*
 =================
 Mod_FloodFillSkin
@@ -802,8 +802,8 @@ Fill background pixels so mipmapping doesn't have haloes
 =================
 */
 //=======================================================
-
-
+"""
+"""
 /*
 ================
 GL_ResampleTexture

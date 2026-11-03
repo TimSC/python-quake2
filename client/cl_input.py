@@ -357,7 +357,8 @@ void IN_UseDown (void) {KeyDown(&in_use);}
 void IN_UseUp (void) {KeyUp(&in_use);}
 
 void IN_Impulse (void) {in_impulse=atoi(Cmd_Argv(1));}
-
+"""
+"""
 /*
 ===============
 CL_KeyState
@@ -412,8 +413,8 @@ cvar_t	*cl_pitchspeed;
 cvar_t	*cl_run;
 
 cvar_t	*cl_anglespeedkey;
-
-
+"""
+"""
 /*
 ================
 CL_AdjustAngles
@@ -448,7 +449,8 @@ void CL_AdjustAngles (void)
 	cl_main.cl.viewangles[PITCH] -= speed*cl_pitchspeed->value * up;
 	cl_main.cl.viewangles[PITCH] += speed*cl_pitchspeed->value * down;
 }
-
+"""
+"""
 /*
 ================
 CL_BaseMove

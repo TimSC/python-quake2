@@ -1946,9 +1946,8 @@ void PerpendicularVector( vec3_t dst, const vec3_t src )
 	*/
 	VectorNormalize( dst );
 }
-
-
-
+"""
+"""
 /*
 ================
 R_ConcatRotations
@@ -1975,8 +1974,8 @@ void R_ConcatRotations (float in1[3][3], float in2[3][3], float out[3][3])
 	out[2][2] = in1[2][0] * in2[0][2] + in1[2][1] * in2[1][2] +
 				in1[2][2] * in2[2][2];
 }
-
-
+"""
+"""
 /*
 ================
 R_ConcatTransforms
@@ -2039,7 +2038,8 @@ __declspec( naked ) long Q_ftol( float f )
 }
 #pragma warning (default:4035)
 #endif
-
+"""
+"""
 /*
 ===============
 LerpAngle
@@ -2103,7 +2103,8 @@ int BoxOnPlaneSide2 (vec3_t emins, vec3_t emaxs, struct cplane_s *p)
 
 	return sides;
 }
-
+"""
+"""
 /*
 ==================
 BoxOnPlaneSide
@@ -2564,7 +2565,8 @@ int Q_log2(int val)
 
 
 //====================================================================================
-
+"""
+"""
 /*
 ============
 COM_SkipPath
@@ -2583,7 +2585,6 @@ char *COM_SkipPath (char *pathname)
 	}
 	return last;
 }
-
 """
 """
 ============
@@ -2619,7 +2620,8 @@ char *COM_FileExtension (char *in)
 	exten[i] = 0;
 	return exten;
 }
-
+"""
+"""
 /*
 ============
 COM_FileBase
@@ -2646,7 +2648,8 @@ void COM_FileBase (char *in, char *out)
 		out[s-s2] = 0;
 	}
 }
-
+"""
+"""
 /*
 ============
 COM_FilePath
@@ -2666,8 +2669,8 @@ void COM_FilePath (char *in, char *out)
 	strncpy (out,in, s-in);
 	out[s-in] = 0;
 }
-
-
+"""
+"""
 /*
 ==================
 COM_DefaultExtension
@@ -2691,7 +2694,8 @@ void COM_DefaultExtension (char *path, char *extension)
 
 	strcat (path, extension);
 }
-
+"""
+"""
 /*
 ============================================================================
 
@@ -3000,7 +3004,6 @@ def Q_strcasecmp (s1, s2): #char *, char *
 	##return Q_strncasecmp (s1, s2, 99999);
 
 """
-
 void Com_sprintf (char *dest, int size, char *fmt, ...)
 {
 	int		len;
@@ -3014,7 +3017,8 @@ void Com_sprintf (char *dest, int size, char *fmt, ...)
 		Com_Printf ("Com_sprintf: overflow of %i in %i\n", len, size);
 	strncpy (dest, bigbuffer, size-1);
 }
-
+"""
+"""
 /*
 =====================================================================
 
@@ -3022,7 +3026,8 @@ void Com_sprintf (char *dest, int size, char *fmt, ...)
 
 =====================================================================
 */
-
+"""
+"""
 /*
 ===============
 Info_ValueForKey

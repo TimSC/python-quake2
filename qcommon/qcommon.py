@@ -443,8 +443,8 @@ void	Cmd_ForwardToServer (void);
 // adds the current command line as a clc_stringcmd to the client message.
 // things like godmode, noclip, etc, are commands directed to the server,
 // so when they are typed in at the console, they will need to be forwarded.
-
-
+"""
+"""
 /*
 ==============================================================
 
@@ -517,7 +517,8 @@ char	*Cvar_Serverinfo (void);
 extern	qboolean	userinfo_modified;
 // this is set each time a CVAR_USERINFO variable is changed
 // so that the client knows to send it to the server
-
+"""
+"""
 /*
 ==============================================================
 
@@ -638,8 +639,8 @@ void Netchan_OutOfBandPrint (int net_socket, netadr_t adr, char *format, ...);
 qboolean Netchan_Process (netchan_t *chan, sizebuf_t *msg);
 
 qboolean Netchan_CanReliable (netchan_t *chan);
-
-
+"""
+"""
 /*
 ==============================================================
 
@@ -696,7 +697,8 @@ qboolean	CM_HeadnodeVisible (int headnode, byte *visbits);
 
 void		CM_WritePortalState (FILE *f);
 void		CM_ReadPortalState (FILE *f);
-
+"""
+"""
 /*
 ==============================================================
 
@@ -710,7 +712,8 @@ Common between server and client so prediction matches
 extern float pm_airaccelerate;
 
 void Pmove (pmove_t *pmove);
-
+"""
+"""
 /*
 ==============================================================
 
@@ -739,8 +742,8 @@ void	FS_Read (void *buffer, int len, FILE *f);
 void	FS_FreeFile (void *buffer);
 
 void	FS_CreatePath (char *path);
-
-
+"""
+"""
 /*
 ==============================================================
 
@@ -748,7 +751,6 @@ MISC
 
 ==============================================================
 */
-
 """
 ERR_FATAL	= 0		# exit the entire game with a popup window
 ERR_DROP	= 1		# print to console and disconnect from game
@@ -805,8 +807,8 @@ extern	vec3_t	bytedirs[NUMVERTEXNORMALS];
 
 // this is in the client code, but can be used for debugging from server
 void SCR_DebugGraph (float value, int color);
-
-
+"""
+"""
 /*
 ==============================================================
 
@@ -830,7 +832,8 @@ void	Sys_Error (char *error, ...);
 void	Sys_Quit (void);
 char	*Sys_GetClipboardData( void );
 void	Sys_CopyProtect (void);
-
+"""
+"""
 /*
 ==============================================================
 
@@ -849,6 +852,5 @@ void SCR_BeginLoadingPlaque (void);
 void SV_Init (void);
 void SV_Shutdown (char *finalmsg, qboolean reconnect);
 void SV_Frame (int msec);
-
 """
 

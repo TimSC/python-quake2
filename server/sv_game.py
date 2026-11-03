@@ -27,7 +27,6 @@ from qcommon import cvar
 """
 ge = None #game.game_export_t()
 """
-
 /*
 ===============
 PF_Unicast
@@ -56,8 +55,8 @@ void PF_Unicast (edict_t *ent, qboolean reliable)
 
 	SZ_Clear (&sv.multicast);
 }
-
-
+"""
+"""
 /*
 ===============
 PF_dprintf
@@ -76,8 +75,8 @@ void PF_dprintf (char *fmt, ...)
 
 	Com_Printf ("%s", msg);
 }
-
-
+"""
+"""
 /*
 ===============
 PF_cprintf
@@ -107,8 +106,8 @@ void PF_cprintf (edict_t *ent, int level, char *fmt, ...)
 	else
 		Com_Printf ("%s", msg);
 }
-
-
+"""
+"""
 /*
 ===============
 PF_centerprintf
@@ -134,8 +133,8 @@ void PF_centerprintf (edict_t *ent, char *fmt, ...)
 	MSG_WriteString (&sv.multicast,msg);
 	PF_Unicast (ent, true);
 }
-
-
+"""
+"""
 /*
 ===============
 PF_error
@@ -154,8 +153,8 @@ void PF_error (char *fmt, ...)
 
 	Com_Error (qcommon.ERR_DROP, "Game Error: %s", msg);
 }
-
-
+"""
+"""
 /*
 =================
 PF_setmodel
@@ -186,7 +185,8 @@ void PF_setmodel (edict_t *ent, char *name)
 	}
 
 }
-
+"""
+"""
 /*
 ===============
 PF_Configstring
@@ -227,8 +227,8 @@ void PF_WriteString (char *s) {MSG_WriteString (&sv.multicast, s);}
 void PF_WritePos (vec3_t pos) {MSG_WritePos (&sv.multicast, pos);}
 void PF_WriteDir (vec3_t dir) {MSG_WriteDir (&sv.multicast, dir);}
 void PF_WriteAngle (float f) {MSG_WriteAngle (&sv.multicast, f);}
-
-
+"""
+"""
 /*
 =================
 PF_inPVS
@@ -257,8 +257,8 @@ qboolean PF_inPVS (vec3_t p1, vec3_t p2)
 		return false;		// a door blocks sight
 	return true;
 }
-
-
+"""
+"""
 /*
 =================
 PF_inPHS
@@ -298,7 +298,8 @@ void PF_StartSound (edict_t *entity, int channel, int sound_num, float volume,
 }
 
 //==============================================
-
+"""
+"""
 /*
 ===============
 SV_ShutdownGameProgs

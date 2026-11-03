@@ -455,8 +455,8 @@ void TossClientWeapon (edict_t *self)
 		drop->think = G_FreeEdict;
 	}
 }
-
-
+"""
+"""
 /*
 ==================
 LookAtKiller
@@ -494,7 +494,8 @@ void LookAtKiller (edict_t *self, edict_t *inflictor, edict_t *attacker)
 	
 
 }
-
+"""
+"""
 /*
 ==================
 player_die
@@ -597,7 +598,8 @@ void player_die (edict_t *self, edict_t *inflictor, edict_t *attacker, int damag
 }
 
 //=======================================================================
-
+"""
+"""
 /*
 ==============
 InitClientPersistant
@@ -638,7 +640,8 @@ void InitClientResp (gclient_t *client)
 	client->resp.enterframe = level.framenum;
 	client->resp.coop_respawn = client->pers;
 }
-
+"""
+"""
 /*
 ==================
 SaveClientData
@@ -675,9 +678,8 @@ void FetchClientEntData (edict_t *ent)
 	if (coop->value)
 		ent->client->resp.score = ent->client->pers.score;
 }
-
-
-
+"""
+"""
 /*
 =======================================================================
 
@@ -685,7 +687,8 @@ void FetchClientEntData (edict_t *ent)
 
 =======================================================================
 */
-
+"""
+"""
 /*
 ================
 PlayersRangeFromSpot
@@ -723,7 +726,8 @@ float	PlayersRangeFromSpot (edict_t *spot)
 
 	return bestplayerdistance;
 }
-
+"""
+"""
 /*
 ================
 SelectRandomDeathmatchSpawnPoint
@@ -781,7 +785,8 @@ edict_t *SelectRandomDeathmatchSpawnPoint (void)
 
 	return spot;
 }
-
+"""
+"""
 /*
 ================
 SelectFarthestDeathmatchSpawnPoint
@@ -865,8 +870,8 @@ edict_t *SelectCoopSpawnPoint (edict_t *ent)
 
 	return spot;
 }
-
-
+"""
+"""
 /*
 ===========
 SelectSpawnPoint
@@ -1086,8 +1091,8 @@ void spectator_respawn (edict_t *ent)
 }
 
 //==============================================================
-
-
+"""
+"""
 /*
 ===========
 PutClientInServer
@@ -1258,7 +1263,8 @@ void PutClientInServer (edict_t *ent)
 	client->newweapon = client->pers.weapon;
 	ChangeWeapon (ent);
 }
-
+"""
+"""
 /*
 =====================
 ClientBeginDeathmatch
@@ -1294,8 +1300,8 @@ void ClientBeginDeathmatch (edict_t *ent)
 	// make sure all view stuff is valid
 	ClientEndServerFrame (ent);
 }
-
-
+"""
+"""
 /*
 ===========
 ClientBegin

@@ -74,21 +74,23 @@ void Use_Quad (edict_t *ent, gitem_t *item);
 static int	quad_drop_timeout_hack;
 
 //======================================================================
-
+"""
+"""
 /*
 ===============
 GetItemByIndex
 ===============
 */
-
-
+"""
+"""
 /*
 ===============
 FindItemByClassname
 
 ===============
 */
-
+"""
+"""
 /*
 ===============
 FindItem
@@ -151,7 +153,8 @@ FindItem
 
 
 //======================================================================
-
+"""
+"""
 /*
 ===============
 Touch_Item
@@ -165,14 +168,15 @@ Touch_Item
 
 
 //======================================================================
-
+"""
+"""
 /*
 ================
 droptofloor
 ================
 */
-
-
+"""
+"""
 /*
 ===============
 PrecacheItem
@@ -182,7 +186,8 @@ This will be called for each item spawned in a level,
 and for each item in each client's inventory.
 ===============
 */
-
+"""
+"""
 /*
 ============
 SpawnItem
@@ -1192,11 +1197,8 @@ tank commander's head
 
 /*QUAKED item_health_mega (.3 .3 1) (-16 -16 -16) (16 16 16)
 */
-
-
-
-
-
+"""
+"""
 /*
 ===============
 SetItemNames

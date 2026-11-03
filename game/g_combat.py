@@ -41,7 +41,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // g_combat.c
 
 #include "g_local.h"
-
+"""
+"""
 /*
 ============
 CanDamage
@@ -50,22 +51,22 @@ Returns true if the inflictor can directly damage the target.  Used for
 explosions and melee attacks.
 ============
 */
-
-
+"""
+"""
 /*
 ============
 Killed
 ============
 */
-
-
+"""
+"""
 /*
 ================
 SpawnDamage
 ================
 */
-
-
+"""
+"""
 /*
 ============
 T_Damage
@@ -90,12 +91,8 @@ dflags		these flags are used to control how T_Damage works
 	DAMAGE_NO_PROTECTION	kills godmode, armor, everything
 ============
 */
-
-
-
-
-
-
+"""
+"""
 /*
 ============
 T_RadiusDamage

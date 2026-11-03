@@ -44,8 +44,12 @@ only when a literal translation is impossible or far too slow.
 - Paste C that hasn't been ported yet into the `.py` file unchanged,
   inside a `"""` string at the same place it was in the C. Large parts
   of most files are still like this, and that is expected.
-- When you port a function, move it out of the string and leave the C
-  either side of it as it was.
+- Keep each `"""` block to a single C function (banner comment through
+  the closing `}`). Don't bundle several pending functions into one big
+  block: split at each `/*` / `==================` banner so blocks stay
+  small and side-by-side diffs stay aligned. Non-function units (a struct
+  typedef, the `#include`/define preamble, a frame table, the GL function-
+  pointer list) may share a block, since they aren't functions.
 - C local variable declarations become a `"""` block at the top of the
   function body. This records the C types:
 

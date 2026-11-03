@@ -142,7 +142,8 @@ void S_TransferStereo16 (unsigned long *pbuf, int endtime)
 		lpaintedtime += (snd_linear_count>>1);
 	}
 }
-
+"""
+"""
 /*
 ===================
 S_TransferPaintBuffer
@@ -217,8 +218,8 @@ void S_TransferPaintBuffer(int endtime)
 		}
 	}
 }
-
-
+"""
+"""
 /*
 ===============================================================================
 
@@ -229,7 +230,6 @@ CHANNEL MIXING
 
 void S_PaintChannelFrom8 (channel_t *ch, sfxcache_t *sc, int endtime, int offset);
 void S_PaintChannelFrom16 (channel_t *ch, sfxcache_t *sc, int endtime, int offset);
-
 """
 raw_buff = bytearray()
 

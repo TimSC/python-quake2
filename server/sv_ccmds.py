@@ -22,7 +22,8 @@ from server import sv_init, sv_main
 from linux import net_udp
 """
 #include "server.h"
-
+"""
+"""
 /*
 ===============================================================================
 
@@ -31,7 +32,8 @@ OPERATOR CONSOLE ONLY COMMANDS
 These commands can only be entered from stdin or by a remote operator datagram
 ===============================================================================
 */
-
+"""
+"""
 /*
 ====================
 SV_SetMaster_f
@@ -42,7 +44,7 @@ Specify a list of master servers
 def SV_SetMaster_f ():
 
 	pass
-	"""
+"""
 	int		i, slot;
 
 	// only dedicated servers send heartbeats
@@ -83,9 +85,8 @@ def SV_SetMaster_f ():
 
 	svs.last_heartbeat = -9999999;
 }
-
-
-
+"""
+"""
 /*
 ==================
 SV_SetPlayer
@@ -141,8 +142,8 @@ qboolean SV_SetPlayer (void)
 	Com_Printf ("Userid %s is not on the server\n", s);
 	return false;
 }
-
-
+"""
+"""
 /*
 ===============================================================================
 
@@ -150,7 +151,8 @@ SAVEGAME FILES
 
 ===============================================================================
 */
-
+"""
+"""
 /*
 =====================
 SV_WipeSavegame
@@ -161,7 +163,7 @@ Delete save/<XXX>/
 def SV_WipeSavegame (savename): #char *
 
 	pass
-	"""
+"""
 	char	name[MAX_OSPATH];
 	char	*s;
 
@@ -189,8 +191,8 @@ def SV_WipeSavegame (savename): #char *
 	}
 	Sys_FindClose ();
 }
-
-
+"""
+"""
 /*
 ================
 CopyFile
@@ -225,8 +227,8 @@ void CopyFile (char *src, char *dst)
 	fclose (f1);
 	fclose (f2);
 }
-
-
+"""
+"""
 /*
 ================
 SV_CopySaveGame
@@ -274,8 +276,8 @@ void SV_CopySaveGame (char *src, char *dst)
 	}
 	Sys_FindClose ();
 }
-
-
+"""
+"""
 /*
 ==============
 SV_WriteLevelFile
@@ -303,7 +305,8 @@ void SV_WriteLevelFile (void)
 	Com_sprintf (name, sizeof(name), "%s/save/current/%s.sav", FS_Gamedir(), sv.name);
 	ge->WriteLevel (name);
 }
-
+"""
+"""
 /*
 ==============
 SV_ReadLevelFile
@@ -331,7 +334,8 @@ void SV_ReadLevelFile (void)
 	Com_sprintf (name, sizeof(name), "%s/save/current/%s.sav", FS_Gamedir(), sv.name);
 	ge->ReadLevel (name);
 }
-
+"""
+"""
 /*
 ==============
 SV_WriteServerFile
@@ -404,7 +408,8 @@ void SV_WriteServerFile (qboolean autosave)
 	Com_sprintf (name, sizeof(name), "%s/save/current/game.ssv", FS_Gamedir());
 	ge->WriteGame (name, autosave);
 }
-
+"""
+"""
 /*
 ==============
 SV_ReadServerFile
@@ -458,10 +463,8 @@ void SV_ReadServerFile (void)
 
 
 //=========================================================
-
-
-
-
+"""
+"""
 /*
 ==================
 SV_DemoMap_f

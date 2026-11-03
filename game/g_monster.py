@@ -61,26 +61,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //
 // Monster utility functions
 //
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+"""
+"""
 /*
 ================
 monster_use
@@ -91,12 +73,8 @@ Using a monster makes it angry at the current activator
 
 
 void monster_start_go (edict_t *self);
-
-
-
-
-
-
+"""
+"""
 /*
 ================
 monster_death_use
@@ -108,18 +86,6 @@ enemy as activator.
 
 
 //============================================================================
-
-
-
-
-
-
-
-
-
-
-
-
 """
 
 def monster_fire_bullet (self, start, dir, damage, kick, hspread, vspread, flashtype):

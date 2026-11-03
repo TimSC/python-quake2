@@ -26,7 +26,8 @@ from game import q_shared
 // sv_main.c -- server main program
 
 #include "server.h"
-
+"""
+"""
 /*
 =============================================================================
 
@@ -50,8 +51,8 @@ void SV_FlushRedirect (int sv_redirected, char *outputbuf)
 		MSG_WriteString (&sv_client->netchan.message, outputbuf);
 	}
 }
-
-
+"""
+"""
 /*
 =============================================================================
 
@@ -59,8 +60,8 @@ EVENT MESSAGES
 
 =============================================================================
 */
-
-
+"""
+"""
 /*
 =================
 SV_ClientPrintf
@@ -84,7 +85,8 @@ void SV_ClientPrintf (sv_init.client_t *cl, int level, char *fmt, ...)
 	MSG_WriteByte (&cl->netchan.message, level);
 	MSG_WriteString (&cl->netchan.message, string);
 }
-
+"""
+"""
 /*
 =================
 SV_BroadcastPrintf
@@ -127,7 +129,8 @@ void SV_BroadcastPrintf (int level, char *fmt, ...)
 		MSG_WriteString (&cl->netchan.message, string);
 	}
 }
-
+"""
+"""
 /*
 =================
 SV_BroadcastCommand
@@ -368,8 +371,8 @@ void SV_StartSound (vec3_t origin, edict_t *entity, int channel,
 			SV_Multicast (origin, MULTICAST_ALL);
 	}
 }           
-
-
+"""
+"""
 /*
 ===============================================================================
 
@@ -377,9 +380,8 @@ FRAME UPDATES
 
 ===============================================================================
 */
-
-
-
+"""
+"""
 /*
 =======================
 SV_SendClientDatagram

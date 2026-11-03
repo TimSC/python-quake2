@@ -136,7 +136,6 @@ def V_AddLightStyle (style, r, g, b):
 	ls.rgb[1] = g
 	ls.rgb[2] = b
 """
-
 /*
 ================
 V_TestParticles
@@ -166,7 +165,8 @@ void V_TestParticles (void)
 		p->alpha = cl_testparticles->value;
 	}
 }
-
+"""
+"""
 /*
 ================
 V_TestEntities
@@ -198,7 +198,8 @@ void V_TestEntities (void)
 		ent->skin = cl_main.cl.baseclientinfo.skin;
 	}
 }
-
+"""
+"""
 /*
 ================
 V_TestLights
@@ -231,7 +232,6 @@ void V_TestLights (void)
 		dl->intensity = 200;
 	}
 }
-
 """
 # ===================================================================
 # CL_PrepRefresh

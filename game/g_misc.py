@@ -58,29 +58,22 @@ Usually enclosed in the middle of a door.
 */
 
 //=====================================================
-
-
+"""
+"""
 /*
 =================
 Misc functions
 =================
 */
-
-
-
+"""
+"""
 /*
 =================
 gibs
 =================
 */
-
-
-
-
-
-
-
-
+"""
+"""
 /*
 =================
 debris
@@ -370,7 +363,6 @@ Stepping onto this disc will teleport players to the targeted misc_teleporter_de
 /*QUAKED misc_teleporter_dest (1 0 0) (-32 -32 -24) (32 32 -16)
 Point teleporters at these.
 */
-
 """
 
 def Use_Areaportal (ent, other, activator):

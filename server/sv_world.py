@@ -165,8 +165,8 @@ void SV_UnlinkEdict (edict_t *ent)
 	RemoveLink (&ent.area);
 	ent.area.prev = ent.area.next = NULL;
 }
-
-
+"""
+"""
 /*
 ===============
 SV_LinkEdict
@@ -355,8 +355,8 @@ void SV_LinkEdict (edict_t *ent)
 		InsertLinkBefore (&ent.area, &node.solid_edicts);
 
 }
-
-
+"""
+"""
 /*
 ====================
 SV_AreaEdicts_r
@@ -411,7 +411,8 @@ void SV_AreaEdicts_r (areanode_t *node)
 	if ( area_mins[node.axis] < node.dist )
 		SV_AreaEdicts_r ( node.children[1] );
 }
-
+"""
+"""
 /*
 ================
 SV_AreaEdicts
@@ -434,7 +435,8 @@ int SV_AreaEdicts (vec3_t mins, vec3_t maxs, edict_t **list,
 
 
 //===========================================================================
-
+"""
+"""
 /*
 =============
 SV_PointContents
@@ -484,9 +486,8 @@ typedef struct
 	edict_t		*passedict;
 	int			contentmask;
 } moveclip_t;
-
-
-
+"""
+"""
 /*
 ================
 SV_HullForEntity
@@ -519,7 +520,8 @@ int SV_HullForEntity (edict_t *ent)
 
 
 //===========================================================================
-
+"""
+"""
 /*
 ====================
 SV_ClipMoveToEntities
@@ -591,8 +593,8 @@ void SV_ClipMoveToEntities ( moveclip_t *clip )
 			clip.trace.startsolid = true;
 	}
 }
-
-
+"""
+"""
 /*
 ==================
 SV_TraceBounds
@@ -622,7 +624,8 @@ boxmaxs[0] = boxmaxs[1] = boxmaxs[2] = 9999;
 	}
 #endif
 }
-
+"""
+"""
 /*
 ==================
 SV_Trace

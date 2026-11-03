@@ -540,8 +540,8 @@ playsound_t *S_AllocPlaysound (void)
 	
 	return ps;
 }
-
-
+"""
+"""
 /*
 =================
 S_FreePlaysound
@@ -559,9 +559,8 @@ void S_FreePlaysound (playsound_t *ps)
 	ps->prev = &s_freeplays;
 	s_freeplays.next = ps;
 }
-
-
-
+"""
+"""
 /*
 ===============
 S_IssuePlaysound

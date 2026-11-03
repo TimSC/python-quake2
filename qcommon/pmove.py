@@ -924,8 +924,8 @@ def Pmove(pmove):
   walking up a step should kill some velocity
 
 */
-
-
+"""
+"""
 /*
 ==================
 PM_ClipVelocity
@@ -952,10 +952,8 @@ void PM_ClipVelocity (vec3_t in, vec3_t normal, vec3_t out, float overbounce)
 			out[i] = 0;
 	}
 }
-
-
-
-
+"""
+"""
 /*
 ==================
 PM_StepSlideMove
@@ -1120,7 +1118,8 @@ void PM_StepSlideMove_ (void)
 		VectorCopy (primal_velocity, pml.velocity);
 	}
 }
-
+"""
+"""
 /*
 ==================
 PM_StepSlideMove
@@ -1192,8 +1191,8 @@ void PM_StepSlideMove (void)
 	// if we were walking along a plane, then we need to copy the Z over
 	pml.velocity[2] = down_v[2];
 }
-
-
+"""
+"""
 /*
 ==================
 PM_Friction
@@ -1244,8 +1243,8 @@ void PM_Friction (void)
 	vel[1] = vel[1] * newspeed;
 	vel[2] = vel[2] * newspeed;
 }
-
-
+"""
+"""
 /*
 ==============
 PM_Accelerate
@@ -1288,7 +1287,8 @@ void PM_AirAccelerate (vec3_t wishdir, float wishspeed, float accel)
 	for (i=0 ; i<3 ; i++)
 		pml.velocity[i] += accelspeed*wishdir[i];	
 }
-
+"""
+"""
 /*
 =============
 PM_AddCurrents
@@ -1381,8 +1381,8 @@ void PM_AddCurrents (vec3_t	wishvel)
 		VectorMA (wishvel, 100 /* pm->groundentity->speed */, v, wishvel);
 	}
 }
-
-
+"""
+"""
 /*
 ===================
 PM_WaterMove
@@ -1423,8 +1423,8 @@ void PM_WaterMove (void)
 
 	PM_StepSlideMove ();
 }
-
-
+"""
+"""
 /*
 ===================
 PM_AirMove
@@ -1519,9 +1519,8 @@ void PM_AirMove (void)
 		PM_StepSlideMove ();
 	}
 }
-
-
-
+"""
+"""
 /*
 =============
 PM_CatagorizePosition
@@ -1627,8 +1626,8 @@ void PM_CatagorizePosition (void)
 	}
 
 }
-
-
+"""
+"""
 /*
 =============
 PM_CheckJump
@@ -1680,8 +1679,8 @@ void PM_CheckJump (void)
 	if (pml.velocity[2] < 270)
 		pml.velocity[2] = 270;
 }
-
-
+"""
+"""
 /*
 =============
 PM_CheckSpecialMovement
@@ -1731,8 +1730,8 @@ void PM_CheckSpecialMovement (void)
 	pm->s.pm_flags |= PMF_TIME_WATERJUMP;
 	pm->s.pm_time = 255;
 }
-
-
+"""
+"""
 /*
 ===============
 PM_FlyMove
@@ -1823,8 +1822,8 @@ void PM_FlyMove (qboolean doclip)
 		VectorMA (pml.origin, pml.frametime, pml.velocity, pml.origin);
 	}
 }
-
-
+"""
+"""
 /*
 ==============
 PM_CheckDuck
@@ -1883,8 +1882,8 @@ void PM_CheckDuck (void)
 		pm->viewheight = 22;
 	}
 }
-
-
+"""
+"""
 /*
 ==============
 PM_DeadMove
@@ -1928,7 +1927,8 @@ qboolean	PM_GoodPosition (void)
 
 	return !trace.allsolid;
 }
-
+"""
+"""
 /*
 ================
 PM_SnapPosition
@@ -1981,6 +1981,8 @@ void PM_SnapPosition (void)
 
 #if 0
 //NO LONGER USED
+"""
+"""
 /*
 ================
 PM_InitialSnapPosition
@@ -2018,6 +2020,8 @@ void PM_InitialSnapPosition (void)
 	Com_DPrintf ("Bad InitialSnapPosition\n");
 }
 #else
+"""
+"""
 /*
 ================
 PM_InitialSnapPosition
@@ -2053,7 +2057,8 @@ void PM_InitialSnapPosition(void)
 }
 
 #endif
-
+"""
+"""
 /*
 ================
 PM_ClampAngles
@@ -2088,7 +2093,8 @@ void PM_ClampAngles (void)
 	}
 	AngleVectors (pm->viewangles, pml.forward, pml.right, pml.up);
 }
-
+"""
+"""
 /*
 ================
 Pmove

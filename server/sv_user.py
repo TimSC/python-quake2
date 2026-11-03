@@ -28,7 +28,6 @@ from game import q_shared
 """
 sv_player = None #edict_t *
 """
-
 /*
 ============================================================
 
@@ -37,7 +36,8 @@ USER STRINGCMD EXECUTION
 sv_client and sv_player will be valid.
 ============================================================
 */
-
+"""
+"""
 /*
 ==================
 SV_BeginDemoServer
