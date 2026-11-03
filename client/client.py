@@ -134,8 +134,8 @@ class client_state_t(object):
 		int			timedemo_start;
 		"""
 		self.refresh_prepped = False # false if on new level or new ref dll
+		self.sound_prepped = False # qboolean, ambient sounds can start
 		"""
-		qboolean	sound_prepped;		// ambient sounds can start
 		qboolean	force_refdef;		// vid has changed, so we can't use a paused refdef
 		"""
 		self.parse_entities: int = 0 # index (not anded off) into cl_parse_entities[]
@@ -179,7 +179,9 @@ class client_state_t(object):
 		self.lerpfrac: float = 0.0		# between oldframe and frame
 
 		self.refdef = ref.refdef_t()
-		self.v_forward, self.v_right, self.v_up = None, None, None #vec3_t, set when refdef.angles is set
+		self.v_forward = np.zeros((3,), dtype=np.float32) #vec3_t, set when refdef.angles is set
+		self.v_right = np.zeros((3,), dtype=np.float32) #vec3_t
+		self.v_up = np.zeros((3,), dtype=np.float32) #vec3_t
 
 		#
 		# transient data from server

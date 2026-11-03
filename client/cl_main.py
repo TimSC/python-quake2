@@ -1685,8 +1685,7 @@ def CL_Frame (msec): #int
 		common.time_after_ref = q_shlinux.Sys_Milliseconds ()
 
 	# update audio
-	#S_Update (cl.refdef.vieworg, cl.v_forward, cl.v_right, cl.v_up)
-	snd_dma.S_Update (None, cl.v_forward, cl.v_right, cl.v_up) #FIXME Simplified while porting
+	snd_dma.S_Update (cl.refdef.vieworg, cl.v_forward, cl.v_right, cl.v_up)
 
 	cd_linux.CDAudio_Update()
 

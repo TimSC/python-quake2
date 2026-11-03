@@ -137,6 +137,7 @@ def SNDDMA_Init(): #(returns qboolean)
     }
 	"""
 	snd_dma.dma.speed, snd_format, snd_channels = pygame.mixer.get_init()
+	snd_dma.dma.channels = snd_channels # Q2PORT: the channels pygame's mixer was opened with
 
 	"""
 	if (!dma.speed) {

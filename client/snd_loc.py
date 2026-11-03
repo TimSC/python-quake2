@@ -89,6 +89,7 @@ class dma_t(object):
 class channel_t(object):
 	def __init__(self):
 		self.chan = None			# pygame mixer channel
+		self.loop_sfx = None		# sfx_t *, Q2PORT: see below
 		self.clear()
 
 	def clear(self):
@@ -101,10 +102,15 @@ class channel_t(object):
 		self.entnum = 0				# int, to allow overriding a specific sound
 		self.entchannel = 0			# int
 		self.origin = np.zeros((3,), dtype=np.float32)			# vec3_t, only use if fixed_origin is set
-		self.dist_mult = np.zeros((3,), dtype=np.float32)		# vec_t, distance multiplier (attenuation/clipK)
+		self.dist_mult = 0.0		# vec_t, distance multiplier (attenuation/clipK)
 		self.master_vol = 0			# int, 0-255 master volume
 		self.fixed_origin = False	# qboolean, use origin instead of fetching entnum's origin
 		self.autosound = False		# qboolean, from an entity->sound, cleared each frame
+
+	# Q2PORT: loop_sfx is the looped sfx the pygame channel is playing. It is kept
+	# when the autosound channel is cleared each frame, so S_AddLoopSounds can keep
+	# the loop playing instead of restarting it, as the C mixer resumes it at
+	# paintedtime % length.
 
 class wavinfo_t(object):
 	def __init__(self):

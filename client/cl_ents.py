@@ -1363,13 +1363,6 @@ def CL_CalcViewValues ():
 			ops.kick_angles[i], ps.kick_angles[i], lerp
 		)
 
-	if cl_main.cl.v_forward is None:
-		cl_main.cl.v_forward = np.zeros((3,), dtype=np.float32)
-	if cl_main.cl.v_right is None:
-		cl_main.cl.v_right = np.zeros((3,), dtype=np.float32)
-	if cl_main.cl.v_up is None:
-		cl_main.cl.v_up = np.zeros((3,), dtype=np.float32)
-
 	q_shared.AngleVectors(
 		cl_main.cl.refdef.viewangles,
 		cl_main.cl.v_forward,
