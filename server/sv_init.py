@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 import copy
 import random
+import struct
 from enum import Enum
 from server import sv_main, sv_send, sv_game, sv_world, sv_game
 from client import cl_main, cl_scrn
@@ -206,60 +207,59 @@ class server_static_t(object):
 svs = server_static_t()				# persistant server info
 sv = server_t()					# local server
 """
-/*
 ================
 SV_FindIndex
 
 ================
-*/
-int SV_FindIndex (char *name, int start, int max, qboolean create)
-{
-	int		i;
+"""
+def SV_FindIndex (name, start, max, create): #char *, int, int, qboolean
+
+	#int		i;
 	
-	if (!name || !name[0])
-		return 0;
+	if name is None or not name:
+		return 0
 
-	for (i=1 ; i<max && sv.configstrings[start+i][0] ; i++)
-		if (!strcmp(sv.configstrings[start+i], name))
-			return i;
+	i = 1
+	while i<max and sv.configstrings[start+i]:
+		if sv.configstrings[start+i] == name:
+			return i
+		i += 1
 
-	if (!create)
-		return 0;
+	if not create:
+		return 0
 
-	if (i == max)
-		Com_Error (qcommon.ERR_DROP, "*Index: overflow");
+	if i == max:
+		common.Com_Error (q_shared.ERR_DROP, "*Index: overflow")
 
-	strncpy (sv.configstrings[start+i], name, sizeof(sv.configstrings[i]));
+	sv.configstrings[start+i] = name[:q_shared.MAX_QPATH] # strncpy (sv.configstrings[start+i], name, sizeof(sv.configstrings[i]));
 
-	if (sv.state != ss_loading)
-	{	// send the update to everyone
-		SZ_Clear (&sv.multicast);
-		MSG_WriteChar (&sv.multicast, svc_configstring);
-		MSG_WriteShort (&sv.multicast, start+i);
-		MSG_WriteString (&sv.multicast, name);
-		SV_Multicast (vec3_origin, MULTICAST_ALL_R);
-	}
-
-	return i;
-}
-
-
-int SV_ModelIndex (char *name)
-{
-	return SV_FindIndex (name, CS_MODELS, MAX_MODELS, true);
-}
-
-int SV_SoundIndex (char *name)
-{
-	return SV_FindIndex (name, CS_SOUNDS, MAX_SOUNDS, true);
-}
-
-int SV_ImageIndex (char *name)
-{
-	return SV_FindIndex (name, CS_IMAGES, MAX_IMAGES, true);
-}
+	if sv.state != server_state_t.ss_loading:
+		# send the update to everyone
+		common.SZ_Clear (sv.multicast)
+		common.MSG_WriteChar (sv.multicast, struct.pack("b", qcommon.svc_ops_e.svc_configstring.value))
+		common.MSG_WriteShort (sv.multicast, start+i)
+		common.MSG_WriteString (sv.multicast, name.encode('ascii'))
+		sv_send.SV_Multicast (q_shared.vec3_origin, q_shared.multicast_t.MULTICAST_ALL_R)
+	
+	return i
 
 
+def SV_ModelIndex (name): #char *
+
+	return SV_FindIndex (name, q_shared.CS_MODELS, q_shared.MAX_MODELS, True)
+
+
+def SV_SoundIndex (name): #char *
+
+	return SV_FindIndex (name, q_shared.CS_SOUNDS, q_shared.MAX_SOUNDS, True)
+
+
+def SV_ImageIndex (name): #char *
+
+	return SV_FindIndex (name, q_shared.CS_IMAGES, q_shared.MAX_IMAGES, True)
+
+
+"""
 /*
 ================
 SV_CreateBaseline

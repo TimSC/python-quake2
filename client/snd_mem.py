@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 import io
 from qcommon import files, common
 from client import snd_loc, snd_dma
+from game import q_shared
 import pygame
 """
 // snd_mem.c: sound caching
@@ -142,6 +143,14 @@ def S_LoadSound (s): #sfx_t * (returns sfxcache_t *)
 		common.Com_DPrintf ("Couldn't load {}\n".format(namebuffer))
 		return None
 	
+	info = GetWavinfo (s.name, data, size)
+	if info.channels != 1:
+	
+		common.Com_Printf ("{} is a stereo sample\n".format(s.name))
+		return None
+	
+	stepscale = info.rate / snd_dma.dma.speed
+
 	sc = snd_loc.sfxcache_t()
 	# Pass a file object so pygame parses the wav header and converts the mono
 	# data to the mixer format. Raw bytes are treated as samples already in the
@@ -149,16 +158,6 @@ def S_LoadSound (s): #sfx_t * (returns sfxcache_t *)
 	sc.data = pygame.mixer.Sound(file=io.BytesIO(data))
 
 	"""
-
-	info = GetWavinfo (s->name, data, size);
-	if (info.channels != 1)
-	{
-		Com_Printf ("%s is a stereo sample\n",s->name);
-		FS_FreeFile (data);
-		return NULL;
-	}
-
-	stepscale = (float)info.rate / dma.speed;	
 	len = info.samples / stepscale;
 
 	len = len * info.width * info.channels;
@@ -173,16 +172,20 @@ def S_LoadSound (s): #sfx_t * (returns sfxcache_t *)
 	}
 	"""
 	sc.length = int(sc.data.get_length() * snd_dma.dma.speed) # in samples, like paintedtime
-	"""
-	sc->loopstart = info.loopstart;
-	sc->speed = info.rate;
-	sc->width = info.width;
-	sc->stereo = info.channels;
+	sc.loopstart = info.loopstart
+	sc.speed = info.rate
+	sc.width = info.width
+	sc.stereo = info.channels
 
+	# pygame resamples the data, so only the loopstart scaling from ResampleSfx is applied
+	if sc.loopstart != -1:
+		sc.loopstart = int(sc.loopstart / stepscale)
+	sc.speed = snd_dma.dma.speed
+	"""
 	ResampleSfx (s, sc->speed, sc->width, data + info.dataofs);
 
 	FS_FreeFile (data);
-"""
+	"""
 	return sc;
 
 
@@ -197,180 +200,192 @@ WAV loading
 */
 
 
-byte	*data_p;
-byte 	*iff_end;
-byte 	*last_chunk;
-byte 	*iff_data;
-int 	iff_chunk_len;
+"""
+
+data_p = None #byte	*, index into iff_buf, None for NULL
+iff_end = None #byte 	*
+last_chunk = None #byte 	*
+iff_data = None #byte 	*
+iff_chunk_len = None #int
+iff_buf = None # the wav buffer the pointers above index into
 
 
-short GetLittleShort(void)
-{
-	short val = 0;
-	val = *data_p;
-	val = val + (*(data_p+1)<<8);
-	data_p += 2;
-	return val;
-}
+def GetLittleShort():
 
-int GetLittleLong(void)
-{
-	int val = 0;
-	val = *data_p;
-	val = val + (*(data_p+1)<<8);
-	val = val + (*(data_p+2)<<16);
-	val = val + (*(data_p+3)<<24);
-	data_p += 4;
-	return val;
-}
+	global data_p
 
-void FindNextChunk(char *name)
-{
-	while (1)
-	{
-		data_p=last_chunk;
-
-		if (data_p >= iff_end)
-		{	// didn't find the chunk
-			data_p = NULL;
-			return;
-		}
-		
-		data_p += 4;
-		iff_chunk_len = GetLittleLong();
-		if (iff_chunk_len < 0)
-		{
-			data_p = NULL;
-			return;
-		}
-//		if (iff_chunk_len > 1024*1024)
-//			Sys_Error ("FindNextChunk: %i length is past the 1 meg sanity limit", iff_chunk_len);
-		data_p -= 8;
-		last_chunk = data_p + 8 + ( (iff_chunk_len + 1) & ~1 );
-		if (!strncmp(data_p, name, 4))
-			return;
-	}
-}
-
-void FindChunk(char *name)
-{
-	last_chunk = iff_data;
-	FindNextChunk (name);
-}
+	val = 0
+	val = iff_buf[data_p]
+	val = val + (iff_buf[data_p+1]<<8)
+	data_p += 2
+	if val >= 0x8000: # short
+		val -= 0x10000
+	return val
 
 
-void DumpChunks(void)
-{
-	char	str[5];
+def GetLittleLong():
+
+	global data_p
+
+	val = 0
+	val = iff_buf[data_p]
+	val = val + (iff_buf[data_p+1]<<8)
+	val = val + (iff_buf[data_p+2]<<16)
+	val = val + (iff_buf[data_p+3]<<24)
+	data_p += 4
+	if val >= 0x80000000: # int
+		val -= 0x100000000
+	return val
+
+
+def FindNextChunk(name): #char *
+
+	global data_p, iff_chunk_len, last_chunk
+
+	while True:
 	
-	str[4] = 0;
-	data_p=iff_data;
-	do
-	{
-		memcpy (str, data_p, 4);
-		data_p += 4;
-		iff_chunk_len = GetLittleLong();
-		Com_Printf ("0x%x : %s (%d)\n", (int)(data_p - 4), str, iff_chunk_len);
-		data_p += (iff_chunk_len + 1) & ~1;
-	} while (data_p < iff_end);
-}
+		data_p=last_chunk
 
-/*
+		if data_p >= iff_end:
+			# didn't find the chunk
+			data_p = None
+			return
+		
+		data_p += 4
+		iff_chunk_len = GetLittleLong()
+		if iff_chunk_len < 0:
+		
+			data_p = None
+			return
+		
+#		if (iff_chunk_len > 1024*1024)
+#			Sys_Error ("FindNextChunk: %i length is past the 1 meg sanity limit", iff_chunk_len);
+		data_p -= 8
+		last_chunk = data_p + 8 + ( (iff_chunk_len + 1) & ~1 )
+		if iff_buf[data_p:data_p+4] == name:
+			return
+	
+
+def FindChunk(name): #char *
+
+	global last_chunk
+
+	last_chunk = iff_data
+	FindNextChunk (name)
+
+
+def DumpChunks():
+
+	global data_p, iff_chunk_len
+
+	#char	str[5];
+	
+	data_p=iff_data
+	while True:
+	
+		st = iff_buf[data_p:data_p+4].decode('ascii', 'replace')
+		data_p += 4
+		iff_chunk_len = GetLittleLong()
+		common.Com_Printf ("0x{:x} : {} ({:d})\n".format(data_p - 4, st, iff_chunk_len))
+		data_p += (iff_chunk_len + 1) & ~1
+		if not (data_p < iff_end):
+			break
+	
+"""
 ============
 GetWavinfo
 ============
-*/
-wavinfo_t GetWavinfo (char *name, byte *wav, int wavlength)
-{
+"""
+def GetWavinfo (name, wav, wavlength): #char *, byte *, int (returns wavinfo_t)
+
+	global data_p, iff_data, iff_end, iff_buf
+
+	"""
 	wavinfo_t	info;
 	int     i;
 	int     format;
 	int		samples;
+	"""
 
-	memset (&info, 0, sizeof(info));
+	info = snd_loc.wavinfo_t() # memset (&info, 0, sizeof(info));
 
-	if (!wav)
-		return info;
+	if wav is None:
+		return info
 		
-	iff_data = wav;
-	iff_end = wav + wavlength;
+	iff_buf = wav
+	iff_data = 0
+	iff_end = wavlength
 
-// find "RIFF" chunk
-	FindChunk("RIFF");
-	if (!(data_p && !strncmp(data_p+8, "WAVE", 4)))
-	{
-		Com_Printf("Missing RIFF/WAVE chunks\n");
-		return info;
-	}
-
-// get "fmt " chunk
-	iff_data = data_p + 12;
-// DumpChunks ();
-
-	FindChunk("fmt ");
-	if (!data_p)
-	{
-		Com_Printf("Missing fmt chunk\n");
-		return info;
-	}
-	data_p += 8;
-	format = GetLittleShort();
-	if (format != 1)
-	{
-		Com_Printf("Microsoft PCM format only\n");
-		return info;
-	}
-
-	info.channels = GetLittleShort();
-	info.rate = GetLittleLong();
-	data_p += 4+2;
-	info.width = GetLittleShort() / 8;
-
-// get cue chunk
-	FindChunk("cue ");
-	if (data_p)
-	{
-		data_p += 32;
-		info.loopstart = GetLittleLong();
-//		Com_Printf("loopstart=%d\n", sfx->loopstart);
-
-	// if the next chunk is a LIST chunk, look for a cue length marker
-		FindNextChunk ("LIST");
-		if (data_p)
-		{
-			if (!strncmp (data_p + 28, "mark", 4))
-			{	// this is not a proper parse, but it works with cooledit...
-				data_p += 24;
-				i = GetLittleLong ();	// samples in loop
-				info.samples = info.loopstart + i;
-//				Com_Printf("looped length: %i\n", i);
-			}
-		}
-	}
-	else
-		info.loopstart = -1;
-
-// find data chunk
-	FindChunk("data");
-	if (!data_p)
-	{
-		Com_Printf("Missing data chunk\n");
-		return info;
-	}
-
-	data_p += 4;
-	samples = GetLittleLong () / info.width;
-
-	if (info.samples)
-	{
-		if (samples < info.samples)
-			Com_Error (ERR_DROP, "Sound %s has a bad loop length", name);
-	}
-	else
-		info.samples = samples;
-
-	info.dataofs = data_p - wav;
+	# find "RIFF" chunk
+	FindChunk(b"RIFF")
+	if not (data_p is not None and iff_buf[data_p+8:data_p+12] == b"WAVE"):
 	
-	return info;
-}
-"""
+		common.Com_Printf("Missing RIFF/WAVE chunks\n")
+		return info
+	
+	# get "fmt " chunk
+	iff_data = data_p + 12
+	# DumpChunks ();
+
+	FindChunk(b"fmt ")
+	if data_p is None:
+	
+		common.Com_Printf("Missing fmt chunk\n")
+		return info
+	
+	data_p += 8
+	format = GetLittleShort()
+	if format != 1:
+	
+		common.Com_Printf("Microsoft PCM format only\n")
+		return info
+	
+	info.channels = GetLittleShort()
+	info.rate = GetLittleLong()
+	data_p += 4+2
+	info.width = GetLittleShort() // 8
+
+	# get cue chunk
+	FindChunk(b"cue ")
+	if data_p is not None:
+	
+		data_p += 32
+		info.loopstart = GetLittleLong()
+#		Com_Printf("loopstart=%d\n", sfx->loopstart);
+
+		# if the next chunk is a LIST chunk, look for a cue length marker
+		FindNextChunk (b"LIST")
+		if data_p is not None:
+		
+			if iff_buf[data_p + 28:data_p + 32] == b"mark":
+				# this is not a proper parse, but it works with cooledit...
+				data_p += 24
+				i = GetLittleLong ()	# samples in loop
+				info.samples = info.loopstart + i
+#				Com_Printf("looped length: %i\n", i);
+			
+	else:
+		info.loopstart = -1
+
+	# find data chunk
+	FindChunk(b"data")
+	if data_p is None:
+	
+		common.Com_Printf("Missing data chunk\n")
+		return info
+	
+	data_p += 4
+	samples = int(GetLittleLong () / info.width)
+
+	if info.samples:
+	
+		if samples < info.samples:
+			common.Com_Error (q_shared.ERR_DROP, "Sound {} has a bad loop length".format(name))
+	
+	else:
+		info.samples = samples
+
+	info.dataofs = data_p # data_p - wav
+	
+	return info
+

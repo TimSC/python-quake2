@@ -25,7 +25,7 @@ try:
 except ModuleNotFoundError:
 	from client import cl_cin_extras
 from client import cl_main, cl_scrn, client, snd_dma
-from qcommon import files, cvar, common, qcommon
+from qcommon import files, cvar, common, qcommon, qfiles
 from game import q_shared
 from linux import q_shlinux, vid_so, cd_linux
 """
@@ -78,7 +78,6 @@ SCR_LoadPCX
 """
 def SCR_LoadPCX (filename): # char * (byte **pic, byte **palette, int *width, int *height)
 
-	print ("SCR_LoadPCX")
 	"""
 	byte	*raw;
 	pcx_t	*pcx;
@@ -86,80 +85,78 @@ def SCR_LoadPCX (filename): # char * (byte **pic, byte **palette, int *width, in
 	int		len;
 	int		dataByte, runLength;
 	byte	*out, *pix;
+	"""
 
-	*pic = NULL;
+	pic = None
 
-	//
-	// load the file
-	//
-	len = FS_LoadFile (filename, (void **)&raw);
-	if (!raw)
-		return;	// Com_Printf ("Bad pcx file %s\n", filename);
+	#
+	# load the file
+	#
+	length, raw = files.FS_LoadFile (filename)
+	if raw is None:
+		return None, None, None, None	# Com_Printf ("Bad pcx file %s\n", filename);
 
-	//
-	// parse the PCX file
-	//
-	pcx = (pcx_t *)raw;
-	raw = &pcx->data;
+	#
+	# parse the PCX file
+	#
+	pcx = qfiles.pcx_t()
+	pcx.Read(raw) # pcx = (pcx_t *)raw;
+	data = pcx.data # raw = &pcx->data;
+	r = 0 # index into data
 
-	if (pcx->manufacturer != 0x0a
-		|| pcx->version != 5
-		|| pcx->encoding != 1
-		|| pcx->bits_per_pixel != 8
-		|| pcx->xmax >= 640
-		|| pcx->ymax >= 480)
-	{
-		Com_Printf ("Bad pcx file %s\n", filename);
-		return;
-	}
+	if (pcx.manufacturer != 0x0a
+		or pcx.version != 5
+		or pcx.encoding != 1
+		or pcx.bits_per_pixel != 8
+		or pcx.xmax >= 640
+		or pcx.ymax >= 480):
+	
+		common.Com_Printf ("Bad pcx file {}\n".format(filename))
+		return None, None, None, None
+	
+	out = bytearray ( (pcx.ymax+1) * (pcx.xmax+1) )
 
-	out = Z_Malloc ( (pcx->ymax+1) * (pcx->xmax+1) );
+	pic = out
 
-	*pic = out;
+	pix = 0 # index into out
 
-	pix = out;
+	palette = bytes(raw[length - 768:length]) # memcpy (*palette, (byte *)pcx + len - 768, 768);
+	
+	width = pcx.xmax+1
+	height = pcx.ymax+1
 
-	if (palette)
-	{
-		*palette = Z_Malloc(768);
-		memcpy (*palette, (byte *)pcx + len - 768, 768);
-	}
+	for y in range(pcx.ymax+1):
+	
+		x = 0
+		while x<=pcx.xmax:
+		
+			dataByte = data[r]
+			r += 1
 
-	if (width)
-		*width = pcx->xmax+1;
-	if (height)
-		*height = pcx->ymax+1;
+			if (dataByte & 0xC0) == 0xC0:
+			
+				runLength = dataByte & 0x3F
+				dataByte = data[r]
+				r += 1
+			
+			else:
+				runLength = 1
 
-	for (y=0 ; y<=pcx->ymax ; y++, pix += pcx->xmax+1)
-	{
-		for (x=0 ; x<=pcx->xmax ; )
-		{
-			dataByte = *raw++;
+			while runLength > 0:
+				runLength -= 1
+				out[pix + x] = dataByte
+				x += 1
+		
+		pix += pcx.xmax+1
 
-			if((dataByte & 0xC0) == 0xC0)
-			{
-				runLength = dataByte & 0x3F;
-				dataByte = *raw++;
-			}
-			else
-				runLength = 1;
+	if r + 128 > length: # raw - (byte *)pcx > len
+	
+		common.Com_Printf ("PCX file {} was malformed".format(filename))
+		pic = None
+	
+	return pic, palette, width, height
 
-			while(runLength-- > 0)
-				pix[x++] = dataByte;
-		}
-
-	}
-
-	if ( raw - (byte *)pcx > len)
-	{
-		Com_Printf ("PCX file %s was malformed", filename);
-		Z_Free (*pic);
-		*pic = NULL;
-	}
-
-	FS_FreeFile (pcx);
-}
-
+"""
 //=============================================================
 
 /*
@@ -529,7 +526,7 @@ def SCR_PlayCinematic (arg): # char *
 	if dot == ".pcx":
 		
 		# static pcx image
-		Com_sprintf (name, sizeof(name), "pics/%s", arg)
+		name = "pics/{}".format(arg)
 		cin.pic, palette, cin.width, cin.height = SCR_LoadPCX (name)
 		cl_main.cl.cinematicframe = -1
 		cl_main.cl.cinematictime = 1

@@ -312,8 +312,8 @@ def CL_DeltaEntity (frame, newnum, old, bits): #frame_t *, int, entity_state_t *
 		or abs(state.origin[0] - ent.current.origin[0]) > 512
 		or abs(state.origin[1] - ent.current.origin[1]) > 512
 		or abs(state.origin[2] - ent.current.origin[2]) > 512
-		or state.event == q_shared.entity_event_t.EV_PLAYER_TELEPORT
-		or state.event == q_shared.entity_event_t.EV_OTHER_TELEPORT
+		or state.event == q_shared.EV_PLAYER_TELEPORT
+		or state.event == q_shared.EV_OTHER_TELEPORT
 		):
 	
 		ent.serverframe = -99
@@ -324,7 +324,7 @@ def CL_DeltaEntity (frame, newnum, old, bits): #frame_t *, int, entity_state_t *
 		ent.trailcount = 1024		# for diminishing rocket / grenade trails
 		# duplicate the current state so lerping doesn't hurt anything
 		ent.prev = copy.deepcopy(state) # ent->prev = *state;
-		if state.event == q_shared.entity_event_t.EV_OTHER_TELEPORT:
+		if state.event == q_shared.EV_OTHER_TELEPORT:
 		
 			q_shared.VectorCopy (state.origin, ent.prev.origin)
 			q_shared.VectorCopy (state.origin, ent.lerp_origin)
@@ -594,16 +594,28 @@ def CL_ParsePlayerstate (oldframe, newframe): #frame_t *, frame_t *
 			state.stats[i] = common.MSG_ReadShort(net_chan.net_message)
 
 
+"""
+==================
+CL_FireEntityEvents
 
-def CL_FireEntityEvents (frame):
+==================
+"""
+def CL_FireEntityEvents (frame): #frame_t *
+
+	#entity_state_t		*s1;
+	#int					pnum, num;
+
 	for pnum in range(frame.num_entities):
-		num = (frame.parse_entities + pnum) & (client.MAX_PARSE_ENTITIES - 1)
+	
+		num = (frame.parse_entities + pnum)&(client.MAX_PARSE_ENTITIES-1)
 		s1 = cl_main.cl_parse_entities[num]
-		if s1.event and hasattr(cl_fx, "CL_EntityEvent"):
-			cl_fx.CL_EntityEvent(s1)
-		effects = s1.effects or 0
-		if effects & q_shared.EF_TELEPORTER and hasattr(cl_fx, "CL_TeleporterParticles"):
-			cl_fx.CL_TeleporterParticles(s1)
+		if s1.event:
+			cl_fx.CL_EntityEvent (s1)
+
+		# EF_TELEPORTER acts like an event, but is not cleared each frame
+		if s1.effects & q_shared.EF_TELEPORTER:
+			cl_fx.CL_TeleporterParticles (s1)
+	
 
 
 #================

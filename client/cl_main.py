@@ -67,52 +67,49 @@ extern	cvar_t *allow_download_maps;
 //======================================================================
 
 
-/*
+"""
+"""
 ====================
 CL_WriteDemoMessage
 
 Dumps the current net message, prefixed by the length
 ====================
-*/
-void CL_WriteDemoMessage (void)
-{
-	int		len, swlen;
+"""
+def CL_WriteDemoMessage ():
 
-	// the first eight bytes are just packet sequencing stuff
-	len = net_message.cursize-8;
-	swlen = LittleLong(len);
-	fwrite (&swlen, 4, 1, cls.demofile);
-	fwrite (net_message.data+8,	len, 1, cls.demofile);
-}
+	#int		len, swlen;
+
+	# the first eight bytes are just packet sequencing stuff
+	length = net_chan.net_message.cursize-8
+	cls.demofile.write (struct.pack("<i", length)) # swlen = LittleLong(len); fwrite (&swlen, 4, 1, cls.demofile);
+	cls.demofile.write (net_chan.net_message.data[8:8+length])
 
 
-/*
+"""
 ====================
 CL_Stop_f
 
 stop recording a demo
 ====================
-*/
-void CL_Stop_f (void)
-{
-	int		len;
+"""
+def CL_Stop_f ():
 
-	if (!cls.demorecording)
-	{
-		Com_Printf ("Not recording a demo.\n");
-		return;
-	}
+	#int		len;
 
-// finish up
-	len = -1;
-	fwrite (&len, 4, 1, cls.demofile);
-	fclose (cls.demofile);
-	cls.demofile = NULL;
-	cls.demorecording = false;
-	Com_Printf ("Stopped demo.\n");
-}
+	if not cls.demorecording:
+	
+		common.Com_Printf ("Not recording a demo.\n")
+		return
+	
+	# finish up
+	length = -1
+	cls.demofile.write (struct.pack("<i", length))
+	cls.demofile.close ()
+	cls.demofile = None
+	cls.demorecording = False
+	common.Com_Printf ("Stopped demo.\n")
 
-/*
+"""
 ====================
 CL_Record_f
 
@@ -120,9 +117,10 @@ record <demoname>
 
 Begins recording a demo from the current position
 ====================
-*/
-void CL_Record_f (void)
-{
+"""
+def CL_Record_f ():
+
+	"""
 	char	name[MAX_OSPATH];
 	char	buf_data[MAX_MSGLEN];
 	sizebuf_t	buf;
@@ -130,109 +128,103 @@ void CL_Record_f (void)
 	int		len;
 	entity_state_t	*ent;
 	entity_state_t	nullstate;
+	"""
+	buf = qcommon.sizebuf_t()
 
-	if (Cmd_Argc() != 2)
-	{
-		Com_Printf ("record <demoname>\n");
-		return;
-	}
+	if cmd.Cmd_Argc() != 2:
+	
+		common.Com_Printf ("record <demoname>\n")
+		return
+	
+	if cls.demorecording:
+	
+		common.Com_Printf ("Already recording.\n")
+		return
+	
+	if cls.state != client.connstate_t.ca_active:
+	
+		common.Com_Printf ("You must be in a level to record.\n")
+		return
+	
+	#
+	# open the demo file
+	#
+	name = "{}/demos/{}.dm2".format(files.FS_Gamedir(), cmd.Cmd_Argv(1))
 
-	if (cls.demorecording)
-	{
-		Com_Printf ("Already recording.\n");
-		return;
-	}
+	common.Com_Printf ("recording to {}.\n".format(name))
+	files.FS_CreatePath (name)
+	try:
+		cls.demofile = open (name, "wb")
+	except OSError:
+		cls.demofile = None
+	if cls.demofile is None:
+	
+		common.Com_Printf ("ERROR: couldn't open.\n")
+		return
+	
+	cls.demorecording = True
 
-	if (cls.state != client.connstate_t.ca_active)
-	{
-		Com_Printf ("You must be in a level to record.\n");
-		return;
-	}
+	# don't start saving messages until a non-delta compressed message is received
+	cls.demowaiting = True
 
-	//
-	// open the demo file
-	//
-	Com_sprintf (name, sizeof(name), "%s/demos/%s.dm2", files.FS_Gamedir(), Cmd_Argv(1));
+	#
+	# write out messages to hold the startup information
+	#
+	common.SZ_Init (buf, qcommon.MAX_MSGLEN)
 
-	Com_Printf ("recording to %s.\n", name);
-	FS_CreatePath (name);
-	cls.demofile = fopen (name, "wb");
-	if (!cls.demofile)
-	{
-		Com_Printf ("ERROR: couldn't open.\n");
-		return;
-	}
-	cls.demorecording = true;
+	# send the serverdata
+	common.MSG_WriteByte (buf, qcommon.svc_ops_e.svc_serverdata.value)
+	common.MSG_WriteLong (buf, qcommon.PROTOCOL_VERSION)
+	common.MSG_WriteLong (buf, 0x10000 + cl.servercount)
+	common.MSG_WriteByte (buf, 1)	# demos are always attract loops
+	common.MSG_WriteString (buf, cl.gamedir.encode('ascii'))
+	common.MSG_WriteShort (buf, cl.playernum)
 
-	// don't start saving messages until a non-delta compressed message is received
-	cls.demowaiting = true;
+	common.MSG_WriteString (buf, cl.configstrings[q_shared.CS_NAME].encode('ascii'))
 
-	//
-	// write out messages to hold the startup information
-	//
-	SZ_Init (&buf, buf_data, sizeof(buf_data));
+	# configstrings
+	for i in range(q_shared.MAX_CONFIGSTRINGS):
+	
+		if cl.configstrings[i]:
+		
+			if buf.cursize + len (cl.configstrings[i]) + 32 > buf.maxsize:
+				# write it out
+				cls.demofile.write (struct.pack("<i", buf.cursize)) # len = LittleLong (buf.cursize); fwrite (&len, 4, 1, cls.demofile);
+				cls.demofile.write (buf.data[:buf.cursize])
+				buf.cursize = 0
+			
+			common.MSG_WriteByte (buf, qcommon.svc_ops_e.svc_configstring.value)
+			common.MSG_WriteShort (buf, i)
+			common.MSG_WriteString (buf, cl.configstrings[i].encode('ascii'))
+		
+	# baselines
+	nullstate = q_shared.entity_state_t() # memset (&nullstate, 0, sizeof(nullstate));
+	for i in range(q_shared.MAX_EDICTS):
+	
+		ent = cl_entities[i].baseline
+		if not ent.modelindex:
+			continue
 
-	// send the serverdata
-	MSG_WriteByte (&buf, svc_serverdata);
-	MSG_WriteLong (&buf, qcommon.PROTOCOL_VERSION);
-	MSG_WriteLong (&buf, 0x10000 + cl.servercount);
-	MSG_WriteByte (&buf, 1);	// demos are always attract loops
-	MSG_WriteString (&buf, cl.gamedir);
-	MSG_WriteShort (&buf, cl.playernum);
+		if buf.cursize + 64 > buf.maxsize:
+			# write it out
+			cls.demofile.write (struct.pack("<i", buf.cursize))
+			cls.demofile.write (buf.data[:buf.cursize])
+			buf.cursize = 0
+		
+		common.MSG_WriteByte (buf, qcommon.svc_ops_e.svc_spawnbaseline.value)		
+		common.MSG_WriteDeltaEntity (nullstate, cl_entities[i].baseline, buf, True, True)
+	
+	common.MSG_WriteByte (buf, qcommon.svc_ops_e.svc_stufftext.value)
+	common.MSG_WriteString (buf, b"precache\n")
 
-	MSG_WriteString (&buf, cl.configstrings[q_shared.CS_NAME]);
+	# write it to the demo file
 
-	// configstrings
-	for (i=0 ; i<MAX_CONFIGSTRINGS ; i++)
-	{
-		if (cl.configstrings[i][0])
-		{
-			if (buf.cursize + strlen (cl.configstrings[i]) + 32 > buf.maxsize)
-			{	// write it out
-				len = LittleLong (buf.cursize);
-				fwrite (&len, 4, 1, cls.demofile);
-				fwrite (buf.data, buf.cursize, 1, cls.demofile);
-				buf.cursize = 0;
-			}
+	cls.demofile.write (struct.pack("<i", buf.cursize))
+	cls.demofile.write (buf.data[:buf.cursize])
 
-			MSG_WriteByte (&buf, svc_configstring);
-			MSG_WriteShort (&buf, i);
-			MSG_WriteString (&buf, cl.configstrings[i]);
-		}
+	# the rest of the demo file will be individual frames
 
-	}
-
-	// baselines
-	memset (&nullstate, 0, sizeof(nullstate));
-	for (i=0; i<q_shared.MAX_EDICTS ; i++)
-	{
-		ent = &cl_entities[i].baseline;
-		if (!ent->modelindex)
-			continue;
-
-		if (buf.cursize + 64 > buf.maxsize)
-		{	// write it out
-			len = LittleLong (buf.cursize);
-			fwrite (&len, 4, 1, cls.demofile);
-			fwrite (buf.data, buf.cursize, 1, cls.demofile);
-			buf.cursize = 0;
-		}
-
-		MSG_WriteByte (&buf, svc_spawnbaseline);		
-		MSG_WriteDeltaEntity (&nullstate, &cl_entities[i].baseline, &buf, true, true);
-	}
-
-	MSG_WriteByte (&buf, svc_stufftext);
-	MSG_WriteString (&buf, "precache\n");
-
-	// write it to the demo file
-
-	len = LittleLong (buf.cursize);
-	fwrite (&len, 4, 1, cls.demofile);
-	fwrite (buf.data, buf.cursize, 1, cls.demofile);
-
-	// the rest of the demo file will be individual frames
-}
+"""
 
 //======================================================================
 
@@ -1480,10 +1472,8 @@ def CL_InitLocal ():
 
 	cmd.Cmd_AddCommand ("changing", CL_Changing_f)
 	cmd.Cmd_AddCommand ("disconnect", CL_Disconnect_f)
-	"""
-	Cmd_AddCommand ("record", CL_Record_f);
-	Cmd_AddCommand ("stop", CL_Stop_f);
-	"""
+	cmd.Cmd_AddCommand ("record", CL_Record_f)
+	cmd.Cmd_AddCommand ("stop", CL_Stop_f)
 	cmd.Cmd_AddCommand ("quit", CL_Quit_f)
 	
 	cmd.Cmd_AddCommand ("connect", CL_Connect_f)

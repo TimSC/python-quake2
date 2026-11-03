@@ -106,17 +106,16 @@ class channel_t(object):
 		self.fixed_origin = False	# qboolean, use origin instead of fetching entnum's origin
 		self.autosound = False		# qboolean, from an entity->sound, cleared each frame
 
-"""
-typedef struct
-{
-	int			rate;
-	int			width;
-	int			channels;
-	int			loopstart;
-	int			samples;
-	int			dataofs;		// chunk starts this many bytes from file start
-} wavinfo_t;
+class wavinfo_t(object):
+	def __init__(self):
+		self.rate = 0 #int
+		self.width = 0 #int
+		self.channels = 0 #int
+		self.loopstart = 0 #int
+		self.samples = 0 #int
+		self.dataofs = 0 #int, chunk starts this many bytes from file start
 
+"""
 
 /*
 ====================================================================

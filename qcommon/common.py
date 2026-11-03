@@ -75,41 +75,41 @@ time_before_ref = None #int
 time_after_ref = None #int
 
 """
-/*
 ============================================================================
 
 CLIENT / SERVER interactions
 
 ============================================================================
-*/
+"""
 
-static int	rd_target;
-static char	*rd_buffer;
-static int	rd_buffersize;
-static void	(*rd_flush)(int target, char *buffer);
+rd_target = 0 #static int
+rd_buffer = None #static char *, python strings are immutable so the text is held here and passed to rd_flush
+rd_buffersize = 0 #static int
+rd_flush = None #static void	(*rd_flush)(int target, char *buffer);
 
-void Com_BeginRedirect (int target, char *buffer, int buffersize, void (*flush))
-{
-	if (!target || !buffer || !buffersize || !flush)
-		return;
-	rd_target = target;
-	rd_buffer = buffer;
-	rd_buffersize = buffersize;
-	rd_flush = flush;
+def Com_BeginRedirect (target, buffer, buffersize, flush): #int, char *, int, void (*flush)
 
-	*rd_buffer = 0;
-}
+	global rd_target, rd_buffer, rd_buffersize, rd_flush
 
-void Com_EndRedirect (void)
-{
-	rd_flush(rd_target, rd_buffer);
+	if not target or buffer is None or not buffersize or flush is None:
+		return
+	rd_target = target
+	rd_buffer = ""
+	rd_buffersize = buffersize
+	rd_flush = flush
 
-	rd_target = 0;
-	rd_buffer = NULL;
-	rd_buffersize = 0;
-	rd_flush = NULL;
-}
+def Com_EndRedirect ():
 
+	global rd_target, rd_buffer, rd_buffersize, rd_flush
+
+	rd_flush(rd_target, rd_buffer)
+
+	rd_target = 0
+	rd_buffer = None
+	rd_buffersize = 0
+	rd_flush = None
+
+"""
 =============
 Com_Printf
 
@@ -119,6 +119,8 @@ to the apropriate place.
 """
 def Com_Printf (msg): #char *
 
+	global rd_buffer
+
 	"""
 	va_list		argptr;
 	char		msg[MAXPRINTMSG];
@@ -126,18 +128,18 @@ def Com_Printf (msg): #char *
 	va_start (argptr,fmt);
 	vsprintf (msg,fmt,argptr);
 	va_end (argptr);
+	"""
 
-	if (rd_target)
-	{
-		if ((strlen (msg) + strlen(rd_buffer)) > (rd_buffersize - 1))
-		{
-			rd_flush(rd_target, rd_buffer);
-			*rd_buffer = 0;
-		}
-		strcat (rd_buffer, msg);
-		return;
-	}
-"""
+	if rd_target:
+	
+		if (len (msg) + len(rd_buffer)) > (rd_buffersize - 1):
+		
+			rd_flush(rd_target, rd_buffer)
+			rd_buffer = ""
+		
+		rd_buffer += msg
+		return
+	
 	console.Con_Print(msg)
 
 	# also echo to debugging console
@@ -360,7 +362,7 @@ def MSG_WriteShort (sb: qcommon.sizebuf_t, c):
 """
 	offset = SZ_GetSpace(sb, 2)
 
-	struct.pack_into("<H", sb.data, offset, c)
+	struct.pack_into("<H", sb.data, offset, int(c) & 0xffff) # C writes the low 16 bits
 
 def MSG_WriteSShort (sb: qcommon.sizebuf_t, c):
 
@@ -385,7 +387,7 @@ def MSG_WriteLong (sb: qcommon.sizebuf_t, c: int): #sizebuf_t *sb, int c)
 
 	offset = SZ_GetSpace(sb, 4)
 
-	struct.pack_into("<L", sb.data, offset, c)
+	struct.pack_into("<L", sb.data, offset, int(c) & 0xffffffff) # C writes the low 32 bits
 
 def MSG_WriteSLong (sb: qcommon.sizebuf_t, c: int): #sizebuf_t *sb, int c)
 
@@ -393,22 +395,18 @@ def MSG_WriteSLong (sb: qcommon.sizebuf_t, c: int): #sizebuf_t *sb, int c)
 
 	struct.pack_into("<l", sb.data, offset, c)
 
-"""
-void MSG_WriteFloat (sizebuf_t *sb, float f)
-{
+def MSG_WriteFloat (sb, f): #sizebuf_t *, float
+
+	"""
 	union
 	{
 		float	f;
 		int	l;
 	} dat;
+	"""
 	
-	
-	dat.f = f;
-	dat.l = LittleLong (dat.l);
-	
-	SZ_Write (sb, &dat.l, 4);
-}
-"""
+	SZ_Write (sb, struct.pack("<f", f)) # dat.f = f; dat.l = LittleLong (dat.l); SZ_Write (sb, &dat.l, 4);
+
 def MSG_WriteString (sb: qcommon.sizebuf_t, s): #sizebuf_t
 
 	assert isinstance(s, bytes) or isinstance(s, bytearray) or s is None
@@ -421,30 +419,24 @@ def MSG_WriteString (sb: qcommon.sizebuf_t, s): #sizebuf_t
 		SZ_Write (sb, s)
 		SZ_Write (sb, b"\0")
 
-"""
-void MSG_WriteCoord (sizebuf_t *sb, float f)
-{
-	MSG_WriteShort (sb, (int)(f*8));
-}
+def MSG_WriteCoord (sb, f): #sizebuf_t *, float
 
-void MSG_WritePos (sizebuf_t *sb, vec3_t pos)
-{
-	MSG_WriteShort (sb, (int)(pos[0]*8));
-	MSG_WriteShort (sb, (int)(pos[1]*8));
-	MSG_WriteShort (sb, (int)(pos[2]*8));
-}
+	MSG_WriteShort (sb, int(f*8))
 
-void MSG_WriteAngle (sizebuf_t *sb, float f)
-{
-	MSG_WriteByte (sb, (int)(f*256/360) & 255);
-}
+def MSG_WritePos (sb, pos): #sizebuf_t *, vec3_t
 
-void MSG_WriteAngle16 (sizebuf_t *sb, float f)
-{
-	MSG_WriteShort (sb, ANGLE2SHORT(f));
-}
+	MSG_WriteShort (sb, int(pos[0]*8))
+	MSG_WriteShort (sb, int(pos[1]*8))
+	MSG_WriteShort (sb, int(pos[2]*8))
 
-"""
+def MSG_WriteAngle (sb, f): #sizebuf_t *, float
+
+	MSG_WriteByte (sb, int(f*256/360) & 255)
+
+def MSG_WriteAngle16 (sb, f): #sizebuf_t *, float
+
+	MSG_WriteShort (sb, q_shared.ANGLE2SHORT(f))
+
 def MSG_WriteDeltaUsercmd (buf, from_cmd, cmd): #sizebuf_t *, usercmd_t *, usercmd_t *
 
 	bits = 0
@@ -489,33 +481,28 @@ def MSG_WriteDeltaUsercmd (buf, from_cmd, cmd): #sizebuf_t *, usercmd_t *, userc
 	MSG_WriteByte(buf, cmd.lightlevel)
 
 
-"""
-void MSG_WriteDir (sizebuf_t *sb, vec3_t dir)
-{
-	int		i, best;
-	float	d, bestd;
+def MSG_WriteDir (sb, dir): #sizebuf_t *, vec3_t
+
+	#int		i, best;
+	#float	d, bestd;
 	
-	if (!dir)
-	{
-		MSG_WriteByte (sb, 0);
-		return;
-	}
+	if dir is None:
+	
+		MSG_WriteByte (sb, 0)
+		return
+	
+	bestd = 0
+	best = 0
+	for i in range(qcommon.NUMVERTEXNORMALS):
+	
+		d = q_shared.DotProduct (dir, bytedirs[i])
+		if d > bestd:
+		
+			bestd = d
+			best = i
+		
+	MSG_WriteByte (sb, best)
 
-	bestd = 0;
-	best = 0;
-	for (i=0 ; i<qcommon.NUMVERTEXNORMALS ; i++)
-	{
-		d = DotProduct (dir, bytedirs[i]);
-		if (d > bestd)
-		{
-			bestd = d;
-			best = i;
-		}
-	}
-	MSG_WriteByte (sb, best);
-}
-
-"""
 def MSG_ReadDir (sb):
 
 	if not isinstance(sb, qcommon.sizebuf_t):
@@ -524,7 +511,7 @@ def MSG_ReadDir (sb):
 
 	b = MSG_ReadByte (sb)
 	if b >= qcommon.NUMVERTEXNORMALS:
-		Com_Error (ERR_DROP, "MSF_ReadDir: out of range")
+		Com_Error (q_shared.ERR_DROP, "MSF_ReadDir: out of range")
 	dirOut = np.zeros((3,), dtype=np.float32)
 	q_shared.VectorCopy (bytedirs[b], dirOut)
 	return dirOut
@@ -537,203 +524,195 @@ MSG_WriteDeltaEntity
 Writes part of a packetentities message.
 Can delta from either a baseline or a previous packet_entity
 ==================
-*/
-void MSG_WriteDeltaEntity (entity_state_t *from, entity_state_t *to, sizebuf_t *msg, qboolean force, qboolean newentity)
-{
-	int		bits;
-
-	if (!to->number)
-		Com_Error (q_shared.ERR_FATAL, "Unset entity number");
-	if (to->number >= MAX_EDICTS)
-		Com_Error (q_shared.ERR_FATAL, "Entity number >= MAX_EDICTS");
-
-# send an update
-	bits = 0;
-
-	if (to->number >= 256)
-		bits |= U_NUMBER16;		// number8 is implicit otherwise
-
-	if (to->origin[0] != from->origin[0])
-		bits |= U_ORIGIN1;
-	if (to->origin[1] != from->origin[1])
-		bits |= U_ORIGIN2;
-	if (to->origin[2] != from->origin[2])
-		bits |= U_ORIGIN3;
-
-	if ( to->angles[0] != from->angles[0] )
-		bits |= U_ANGLE1;		
-	if ( to->angles[1] != from->angles[1] )
-		bits |= U_ANGLE2;
-	if ( to->angles[2] != from->angles[2] )
-		bits |= U_ANGLE3;
-		
-	if ( to->skinnum != from->skinnum )
-	{
-		if ((unsigned)to->skinnum < 256)
-			bits |= U_SKIN8;
-		else if ((unsigned)to->skinnum < 0x10000)
-			bits |= U_SKIN16;
-		else
-			bits |= (U_SKIN8|U_SKIN16);
-	}
-		
-	if ( to->frame != from->frame )
-	{
-		if (to->frame < 256)
-			bits |= U_FRAME8;
-		else
-			bits |= U_FRAME16;
-	}
-
-	if ( to->effects != from->effects )
-	{
-		if (to->effects < 256)
-			bits |= U_EFFECTS8;
-		else if (to->effects < 0x8000)
-			bits |= U_EFFECTS16;
-		else
-			bits |= U_EFFECTS8|U_EFFECTS16;
-	}
-	
-	if ( to->renderfx != from->renderfx )
-	{
-		if (to->renderfx < 256)
-			bits |= U_RENDERFX8;
-		else if (to->renderfx < 0x8000)
-			bits |= U_RENDERFX16;
-		else
-			bits |= U_RENDERFX8|U_RENDERFX16;
-	}
-	
-	if ( to->solid != from->solid )
-		bits |= U_SOLID;
-
-	// event is not delta compressed, just 0 compressed
-	if ( to->event  )
-		bits |= U_EVENT;
-	
-	if ( to->modelindex != from->modelindex )
-		bits |= U_MODEL;
-	if ( to->modelindex2 != from->modelindex2 )
-		bits |= U_MODEL2;
-	if ( to->modelindex3 != from->modelindex3 )
-		bits |= U_MODEL3;
-	if ( to->modelindex4 != from->modelindex4 )
-		bits |= U_MODEL4;
-
-	if ( to->sound != from->sound )
-		bits |= U_SOUND;
-
-	if (newentity || (to->renderfx & RF_BEAM))
-		bits |= U_OLDORIGIN;
-
-	//
-	// write the message
-	//
-	if (!bits && !force)
-		return;		// nothing to send!
-
-	//----------
-
-	if (bits & 0xff000000)
-		bits |= U_MOREBITS3 | U_MOREBITS2 | U_MOREBITS1;
-	else if (bits & 0x00ff0000)
-		bits |= U_MOREBITS2 | U_MOREBITS1;
-	else if (bits & 0x0000ff00)
-		bits |= U_MOREBITS1;
-
-	MSG_WriteByte (msg,	bits&255 );
-
-	if (bits & 0xff000000)
-	{
-		MSG_WriteByte (msg,	(bits>>8)&255 );
-		MSG_WriteByte (msg,	(bits>>16)&255 );
-		MSG_WriteByte (msg,	(bits>>24)&255 );
-	}
-	else if (bits & 0x00ff0000)
-	{
-		MSG_WriteByte (msg,	(bits>>8)&255 );
-		MSG_WriteByte (msg,	(bits>>16)&255 );
-	}
-	else if (bits & 0x0000ff00)
-	{
-		MSG_WriteByte (msg,	(bits>>8)&255 );
-	}
-
-	//----------
-
-	if (bits & U_NUMBER16)
-		MSG_WriteShort (msg, to->number);
-	else
-		MSG_WriteByte (msg,	to->number);
-
-	if (bits & U_MODEL)
-		MSG_WriteByte (msg,	to->modelindex);
-	if (bits & U_MODEL2)
-		MSG_WriteByte (msg,	to->modelindex2);
-	if (bits & U_MODEL3)
-		MSG_WriteByte (msg,	to->modelindex3);
-	if (bits & U_MODEL4)
-		MSG_WriteByte (msg,	to->modelindex4);
-
-	if (bits & U_FRAME8)
-		MSG_WriteByte (msg, to->frame);
-	if (bits & U_FRAME16)
-		MSG_WriteShort (msg, to->frame);
-
-	if ((bits & U_SKIN8) && (bits & U_SKIN16))		//used for laser colors
-		MSG_WriteLong (msg, to->skinnum);
-	else if (bits & U_SKIN8)
-		MSG_WriteByte (msg, to->skinnum);
-	else if (bits & U_SKIN16)
-		MSG_WriteShort (msg, to->skinnum);
-
-
-	if ( (bits & (U_EFFECTS8|U_EFFECTS16)) == (U_EFFECTS8|U_EFFECTS16) )
-		MSG_WriteLong (msg, to->effects);
-	else if (bits & U_EFFECTS8)
-		MSG_WriteByte (msg, to->effects);
-	else if (bits & U_EFFECTS16)
-		MSG_WriteShort (msg, to->effects);
-
-	if ( (bits & (U_RENDERFX8|U_RENDERFX16)) == (U_RENDERFX8|U_RENDERFX16) )
-		MSG_WriteLong (msg, to->renderfx);
-	else if (bits & U_RENDERFX8)
-		MSG_WriteByte (msg, to->renderfx);
-	else if (bits & U_RENDERFX16)
-		MSG_WriteShort (msg, to->renderfx);
-
-	if (bits & U_ORIGIN1)
-		MSG_WriteCoord (msg, to->origin[0]);		
-	if (bits & U_ORIGIN2)
-		MSG_WriteCoord (msg, to->origin[1]);
-	if (bits & U_ORIGIN3)
-		MSG_WriteCoord (msg, to->origin[2]);
-
-	if (bits & U_ANGLE1)
-		MSG_WriteAngle(msg, to->angles[0]);
-	if (bits & U_ANGLE2)
-		MSG_WriteAngle(msg, to->angles[1]);
-	if (bits & U_ANGLE3)
-		MSG_WriteAngle(msg, to->angles[2]);
-
-	if (bits & U_OLDORIGIN)
-	{
-		MSG_WriteCoord (msg, to->old_origin[0]);
-		MSG_WriteCoord (msg, to->old_origin[1]);
-		MSG_WriteCoord (msg, to->old_origin[2]);
-	}
-
-	if (bits & U_SOUND)
-		MSG_WriteByte (msg, to->sound);
-	if (bits & U_EVENT)
-		MSG_WriteByte (msg, to->event);
-	if (bits & U_SOLID)
-		MSG_WriteShort (msg, to->solid);
-}
-
-
 """
+def MSG_WriteDeltaEntity (from_ent, to, msg, force, newentity): #entity_state_t *, entity_state_t *, sizebuf_t *, qboolean, qboolean
+
+	#int		bits;
+
+	if not to.number:
+		Com_Error (q_shared.ERR_FATAL, "Unset entity number")
+	if to.number >= q_shared.MAX_EDICTS:
+		Com_Error (q_shared.ERR_FATAL, "Entity number >= MAX_EDICTS")
+
+	# send an update
+	bits = 0
+
+	if to.number >= 256:
+		bits |= qcommon.U_NUMBER16		# number8 is implicit otherwise
+
+	if to.origin[0] != from_ent.origin[0]:
+		bits |= qcommon.U_ORIGIN1
+	if to.origin[1] != from_ent.origin[1]:
+		bits |= qcommon.U_ORIGIN2
+	if to.origin[2] != from_ent.origin[2]:
+		bits |= qcommon.U_ORIGIN3
+
+	if to.angles[0] != from_ent.angles[0]:
+		bits |= qcommon.U_ANGLE1		
+	if to.angles[1] != from_ent.angles[1]:
+		bits |= qcommon.U_ANGLE2
+	if to.angles[2] != from_ent.angles[2]:
+		bits |= qcommon.U_ANGLE3
+		
+	if to.skinnum != from_ent.skinnum:
+	
+		if (to.skinnum & 0xffffffff) < 256: # (unsigned)to->skinnum
+			bits |= qcommon.U_SKIN8
+		elif (to.skinnum & 0xffffffff) < 0x10000:
+			bits |= qcommon.U_SKIN16
+		else:
+			bits |= (qcommon.U_SKIN8|qcommon.U_SKIN16)
+	
+	if to.frame != from_ent.frame:
+	
+		if to.frame < 256:
+			bits |= qcommon.U_FRAME8
+		else:
+			bits |= qcommon.U_FRAME16
+	
+	if to.effects != from_ent.effects:
+	
+		if to.effects < 256:
+			bits |= qcommon.U_EFFECTS8
+		elif to.effects < 0x8000:
+			bits |= qcommon.U_EFFECTS16
+		else:
+			bits |= qcommon.U_EFFECTS8|qcommon.U_EFFECTS16
+	
+	if to.renderfx != from_ent.renderfx:
+	
+		if to.renderfx < 256:
+			bits |= qcommon.U_RENDERFX8
+		elif to.renderfx < 0x8000:
+			bits |= qcommon.U_RENDERFX16
+		else:
+			bits |= qcommon.U_RENDERFX8|qcommon.U_RENDERFX16
+	
+	if to.solid != from_ent.solid:
+		bits |= qcommon.U_SOLID
+
+	# event is not delta compressed, just 0 compressed
+	if to.event:
+		bits |= qcommon.U_EVENT
+	
+	if to.modelindex != from_ent.modelindex:
+		bits |= qcommon.U_MODEL
+	if to.modelindex2 != from_ent.modelindex2:
+		bits |= qcommon.U_MODEL2
+	if to.modelindex3 != from_ent.modelindex3:
+		bits |= qcommon.U_MODEL3
+	if to.modelindex4 != from_ent.modelindex4:
+		bits |= qcommon.U_MODEL4
+
+	if to.sound != from_ent.sound:
+		bits |= qcommon.U_SOUND
+
+	if newentity or (to.renderfx & q_shared.RF_BEAM):
+		bits |= qcommon.U_OLDORIGIN
+
+	#
+	# write the message
+	#
+	if not bits and not force:
+		return		# nothing to send!
+
+	#----------
+
+	if bits & 0xff000000:
+		bits |= qcommon.U_MOREBITS3 | qcommon.U_MOREBITS2 | qcommon.U_MOREBITS1
+	elif bits & 0x00ff0000:
+		bits |= qcommon.U_MOREBITS2 | qcommon.U_MOREBITS1
+	elif bits & 0x0000ff00:
+		bits |= qcommon.U_MOREBITS1
+
+	MSG_WriteByte (msg,	bits&255 )
+
+	if bits & 0xff000000:
+	
+		MSG_WriteByte (msg,	(bits>>8)&255 )
+		MSG_WriteByte (msg,	(bits>>16)&255 )
+		MSG_WriteByte (msg,	(bits>>24)&255 )
+	
+	elif bits & 0x00ff0000:
+	
+		MSG_WriteByte (msg,	(bits>>8)&255 )
+		MSG_WriteByte (msg,	(bits>>16)&255 )
+	
+	elif bits & 0x0000ff00:
+	
+		MSG_WriteByte (msg,	(bits>>8)&255 )
+	
+	#----------
+
+	if bits & qcommon.U_NUMBER16:
+		MSG_WriteShort (msg, to.number)
+	else:
+		MSG_WriteByte (msg,	to.number)
+
+	if bits & qcommon.U_MODEL:
+		MSG_WriteByte (msg,	to.modelindex)
+	if bits & qcommon.U_MODEL2:
+		MSG_WriteByte (msg,	to.modelindex2)
+	if bits & qcommon.U_MODEL3:
+		MSG_WriteByte (msg,	to.modelindex3)
+	if bits & qcommon.U_MODEL4:
+		MSG_WriteByte (msg,	to.modelindex4)
+
+	if bits & qcommon.U_FRAME8:
+		MSG_WriteByte (msg, to.frame)
+	if bits & qcommon.U_FRAME16:
+		MSG_WriteShort (msg, to.frame)
+
+	if (bits & qcommon.U_SKIN8) and (bits & qcommon.U_SKIN16):		#used for laser colors
+		MSG_WriteLong (msg, to.skinnum)
+	elif bits & qcommon.U_SKIN8:
+		MSG_WriteByte (msg, to.skinnum)
+	elif bits & qcommon.U_SKIN16:
+		MSG_WriteShort (msg, to.skinnum)
+
+
+	if (bits & (qcommon.U_EFFECTS8|qcommon.U_EFFECTS16)) == (qcommon.U_EFFECTS8|qcommon.U_EFFECTS16):
+		MSG_WriteLong (msg, to.effects)
+	elif bits & qcommon.U_EFFECTS8:
+		MSG_WriteByte (msg, to.effects)
+	elif bits & qcommon.U_EFFECTS16:
+		MSG_WriteShort (msg, to.effects)
+
+	if (bits & (qcommon.U_RENDERFX8|qcommon.U_RENDERFX16)) == (qcommon.U_RENDERFX8|qcommon.U_RENDERFX16):
+		MSG_WriteLong (msg, to.renderfx)
+	elif bits & qcommon.U_RENDERFX8:
+		MSG_WriteByte (msg, to.renderfx)
+	elif bits & qcommon.U_RENDERFX16:
+		MSG_WriteShort (msg, to.renderfx)
+
+	if bits & qcommon.U_ORIGIN1:
+		MSG_WriteCoord (msg, to.origin[0])		
+	if bits & qcommon.U_ORIGIN2:
+		MSG_WriteCoord (msg, to.origin[1])
+	if bits & qcommon.U_ORIGIN3:
+		MSG_WriteCoord (msg, to.origin[2])
+
+	if bits & qcommon.U_ANGLE1:
+		MSG_WriteAngle(msg, to.angles[0])
+	if bits & qcommon.U_ANGLE2:
+		MSG_WriteAngle(msg, to.angles[1])
+	if bits & qcommon.U_ANGLE3:
+		MSG_WriteAngle(msg, to.angles[2])
+
+	if bits & qcommon.U_OLDORIGIN:
+	
+		MSG_WriteCoord (msg, to.old_origin[0])
+		MSG_WriteCoord (msg, to.old_origin[1])
+		MSG_WriteCoord (msg, to.old_origin[2])
+	
+	if bits & qcommon.U_SOUND:
+		MSG_WriteByte (msg, to.sound)
+	if bits & qcommon.U_EVENT:
+		MSG_WriteByte (msg, to.event)
+	if bits & qcommon.U_SOLID:
+		MSG_WriteShort (msg, to.solid)
+
+
 
 #============================================================
 #
@@ -1129,20 +1108,22 @@ def COM_InitArgv ():
 			com_argv[i] = sys.argv[i]
 
 """
-/*
 ================
 COM_AddParm
 
 Adds the given string at the end of the current argument list
 ================
-*/
-void COM_AddParm (char *parm)
-{
-	if (com_argc == MAX_NUM_ARGVS)
-		Com_Error (q_shared.ERR_FATAL, "COM_AddParm: MAX_NUM)ARGS");
-	com_argv[com_argc++] = parm;
-}
+"""
+def COM_AddParm (parm): #char *
 
+	global com_argc
+
+	if com_argc == MAX_NUM_ARGVS:
+		Com_Error (q_shared.ERR_FATAL, "COM_AddParm: MAX_NUM)ARGS")
+	com_argv[com_argc] = parm
+	com_argc += 1
+
+"""
 
 
 
@@ -1169,48 +1150,45 @@ char *CopyString (char *in)
 
 
 
-void Info_Print (char *s)
-{
-	char	key[512];
-	char	value[512];
-	char	*o;
-	int		l;
+"""
+def Info_Print (s): #char *
 
-	if (*s == '\\')
-		s++;
-	while (*s)
-	{
-		o = key;
-		while (*s && *s != '\\')
-			*o++ = *s++;
+	#char	key[512];
+	#char	value[512];
+	#char	*o;
+	#int		l;
 
-		l = o - key;
-		if (l < 20)
-		{
-			memset (o, ' ', 20-l);
-			key[20] = 0;
-		}
-		else
-			*o = 0;
-		Com_Printf ("%s", key);
+	i = 0 # index into s
+	if i < len(s) and s[i] == '\\':
+		i += 1
+	while i < len(s):
+	
+		o = i
+		while i < len(s) and s[i] != '\\':
+			i += 1
+		key = s[o:i]
 
-		if (!*s)
-		{
-			Com_Printf ("MISSING VALUE\n");
-			return;
-		}
+		l = len(key)
+		if l < 20:
+			key = key + ' ' * (20-l)
+		Com_Printf ("{}".format(key))
 
-		o = value;
-		s++;
-		while (*s && *s != '\\')
-			*o++ = *s++;
-		*o = 0;
+		if i >= len(s):
+		
+			Com_Printf ("MISSING VALUE\n")
+			return
+		
+		i += 1
+		o = i
+		while i < len(s) and s[i] != '\\':
+			i += 1
+		value = s[o:i]
 
-		if (*s)
-			s++;
-		Com_Printf ("%s\n", value);
-	}
-}
+		if i < len(s):
+			i += 1
+		Com_Printf ("{}\n".format(value))
+	
+"""
 
 
 /*

@@ -358,120 +358,140 @@ def CL_ParseBaseline ():
 	es = cl_main.cl_entities[newnum].baseline
 	cl_ents.CL_ParseDelta (nullstate, es, newnum, bits)
 
-# =================
-# CL_LoadClientinfo
-#
-# =================
-def CL_LoadClientinfo (ci, s):
+"""
+================
+CL_LoadClientinfo
 
-	if not s:
-		return
+================
+"""
+def CL_LoadClientinfo (ci, s): #clientinfo_t *, char *
 
-	ci.cinfo = s[:q_shared.MAX_QPATH]
-	ci.name = ci.cinfo[:q_shared.MAX_QPATH]
-	playerinfo = s
-	sep = playerinfo.find ("\\")
-	if sep != -1:
-		ci.name = playerinfo[:sep][:q_shared.MAX_QPATH]
-		playerinfo = playerinfo[sep+1:]
+	"""
+	int i;
+	char		*t;
+	char		model_name[MAX_QPATH];
+	char		skin_name[MAX_QPATH];
+	char		model_filename[MAX_QPATH];
+	char		skin_filename[MAX_QPATH];
+	char		weapon_filename[MAX_QPATH];
+	"""
 
-	noskins = bool (cl_main.cl_noskins and getattr (cl_main.cl_noskins, "value", False))
-	for idx in range (len (ci.weaponmodel)):
-		ci.weaponmodel[idx] = None
+	if s is None: # unset configstrings are None rather than ""
+		s = ""
 
-	if noskins or not playerinfo:
+	ci.cinfo = s[:q_shared.MAX_QPATH-1] # strncpy(ci->cinfo, s, sizeof(ci->cinfo)); ci->cinfo[sizeof(ci->cinfo)-1] = 0;
+
+	# isolate the player's name
+	ci.name = s[:q_shared.MAX_QPATH-1]
+	t = s.find ("\\")
+	if t != -1:
+	
+		ci.name = ci.name[:t] # ci->name[t-s] = 0;
+		s = s[t+1:]
+	
+	if cl_main.cl_noskins.value or len(s) == 0:
+	
 		model_filename = "players/male/tris.md2"
 		weapon_filename = "players/male/weapon.md2"
 		skin_filename = "players/male/grunt.pcx"
 		ci.iconname = "/players/male/grunt_i.pcx"
 		ci.model = vid_so.re.RegisterModel (model_filename)
-		if ci.weaponmodel:
-			ci.weaponmodel[0] = vid_so.re.RegisterModel (weapon_filename)
+		for i in range(client.MAX_CLIENTWEAPONMODELS): # memset(ci->weaponmodel, 0, sizeof(ci->weaponmodel));
+			ci.weaponmodel[i] = None
+		ci.weaponmodel[0] = vid_so.re.RegisterModel (weapon_filename)
 		ci.skin = vid_so.re.RegisterSkin (skin_filename)
 		ci.icon = vid_so.re.RegisterPic (ci.iconname)
-
-	model_skin = playerinfo
-	sep_idx = None
-	for sep_char in ["/", "\\"]:
-		idx = model_skin.find (sep_char)
-		if idx >= 0 and (sep_idx is None or idx < sep_idx):
-			sep_idx = idx
-
-	if sep_idx is not None and sep_idx >= 0:
-		model_name = model_skin[:sep_idx]
-		skin_name = model_skin[sep_idx+1:]
+	
 	else:
-		model_name = model_skin
-		skin_name = ""
+	
+		# isolate the model name
+		model_name = s
+		t = model_name.find("/")
+		if t == -1:
+			t = model_name.find("\\")
+		if t == -1:
+			t = 0
+		model_name = model_name[:t] # *t = 0;
 
-	if not model_name:
-		model_name = "male"
-	skin_name = skin_name or "grunt"
+		# isolate the skin name
+		skin_name = s[len(model_name) + 1:]
 
-	model_filename = "players/{}/tris.md2".format (model_name)
-	ci.model = vid_so.re.RegisterModel (model_filename)
-	if not ci.model:
-		model_name = "male"
-		model_filename = "players/male/tris.md2"
+		# model file
+		model_filename = "players/{}/tris.md2".format(model_name)
 		ci.model = vid_so.re.RegisterModel (model_filename)
-
-	skin_filename = "players/{}/{}.pcx".format (model_name, skin_name)
-	ci.skin = vid_so.re.RegisterSkin (skin_filename)
-
-	if not ci.skin and q_shared.Q_stricmp (model_name, "male"):
-		model_name = "male"
-		model_filename = "players/male/tris.md2"
-		ci.model = vid_so.re.RegisterModel (model_filename)
-		skin_filename = "players/{}/{}.pcx".format (model_name, skin_name)
+		if not ci.model:
+		
+			model_name = "male"
+			model_filename = "players/male/tris.md2"
+			ci.model = vid_so.re.RegisterModel (model_filename)
+		
+		# skin file
+		skin_filename = "players/{}/{}.pcx".format(model_name, skin_name)
 		ci.skin = vid_so.re.RegisterSkin (skin_filename)
 
-	if not ci.skin:
-		skin_filename = "players/{}/grunt.pcx".format (model_name)
-		ci.skin = vid_so.re.RegisterSkin (skin_filename)
+		# if we don't have the skin and the model wasn't male,
+		# see if the male has it (this is for CTF's skins)
+		if not ci.skin and q_shared.Q_stricmp(model_name, "male"):
+		
+			# change model to male
+			model_name = "male"
+			model_filename = "players/male/tris.md2"
+			ci.model = vid_so.re.RegisterModel (model_filename)
 
-	weapon_models = getattr (cl_view, "cl_weaponmodels", [])
-	num_weapon_models = getattr (cl_view, "num_cl_weaponmodels", len (weapon_models))
-	for i in range (min (num_weapon_models, len (weapon_models))):
-		weapon_name = weapon_models[i]
-		if not weapon_name:
-			continue
-		weapon_filename = "players/{}/{}".format (model_name, weapon_name)
-		ci.weaponmodel[i] = vid_so.re.RegisterModel (weapon_filename)
-		if not ci.weaponmodel[i] and q_shared.Q_stricmp (model_name, "cyborg") == 0:
-			weapon_filename = "players/male/{}".format (weapon_name)
-			ci.weaponmodel[i] = vid_so.re.RegisterModel (weapon_filename)
-		if cl_main.cl_vwep and not cl_main.cl_vwep.value:
-			break
-
-	ci.iconname = "/players/{}/{}_i.pcx".format (model_name, skin_name)
-	ci.icon = vid_so.re.RegisterPic (ci.iconname)
-
-	if not (ci.skin and ci.icon and ci.model and ci.weaponmodel and ci.weaponmodel[0]):
+			# see if the skin exists for the male model
+			skin_filename = "players/{}/{}.pcx".format(model_name, skin_name)
+			ci.skin = vid_so.re.RegisterSkin (skin_filename)
+		
+		# if we still don't have a skin, it means that the male model didn't have
+		# it, so default to grunt
+		if not ci.skin:
+			# see if the skin exists for the male model
+			skin_filename = "players/{}/grunt.pcx".format(model_name)
+			ci.skin = vid_so.re.RegisterSkin (skin_filename)
+		
+		# weapon file
+		for i in range(cl_view.num_cl_weaponmodels):
+			weapon_filename = "players/{}/{}".format(model_name, cl_view.cl_weaponmodels[i])
+			ci.weaponmodel[i] = vid_so.re.RegisterModel(weapon_filename)
+			if not ci.weaponmodel[i] and model_name == "cyborg":
+				# try male
+				weapon_filename = "players/male/{}".format(cl_view.cl_weaponmodels[i])
+				ci.weaponmodel[i] = vid_so.re.RegisterModel(weapon_filename)
+			
+			if not cl_main.cl_vwep.value:
+				break # only one when vwep is off
+		
+		# icon file
+		ci.iconname = "/players/{}/{}_i.pcx".format(model_name, skin_name)
+		ci.icon = vid_so.re.RegisterPic (ci.iconname)
+	
+	# must have loaded all data types to be valud
+	if not ci.skin or not ci.icon or not ci.model or not ci.weaponmodel[0]:
+	
 		ci.skin = None
 		ci.icon = None
 		ci.model = None
-		if ci.weaponmodel:
-			ci.weaponmodel[0] = None
+		ci.weaponmodel[0] = None
 		return
-# =================
-# CL_ParseClientinfo
-#
-# Load the skin, icon, and model for a client
-# =================
-def CL_ParseClientinfo (player):
+	
 
-	if player < 0 or player >= q_shared.MAX_CLIENTS:
-		return
+"""
+================
+CL_ParseClientinfo
 
-	index = player + q_shared.CS_PLAYERSKINS
-	if index < 0 or index >= len (cl_main.cl.configstrings):
-		return
+Load the skin, icon, and model for a client
+================
+"""
+def CL_ParseClientinfo (player): #int
 
-	info = cl_main.cl.configstrings[index]
-	if not info:
-		return
+	#char			*s;
+	#clientinfo_t	*ci;
 
-	CL_LoadClientinfo (cl_main.cl.clientinfo[player], info)
+	s = cl_main.cl.configstrings[player+q_shared.CS_PLAYERSKINS]
+
+	ci = cl_main.cl.clientinfo[player]
+
+	CL_LoadClientinfo (ci, s)
 
 # =================
 # CL_ParseConfigString

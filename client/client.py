@@ -199,9 +199,7 @@ class client_state_t(object):
 		#
 
 		self.attractloop = False		# qboolean, running the attract loop, any key will menu
-		"""
-		int			servercount;	// server identification for prespawns
-		"""
+		self.servercount = 0 #int, server identification for prespawns
 		self.gamedir = None #char[MAX_QPATH];
 
 		self.playernum = 0 #int FIXME what should the default be?
