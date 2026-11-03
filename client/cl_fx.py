@@ -330,181 +330,178 @@ def CL_ParseMuzzleFlash ():
 
 	i = common.MSG_ReadShort (net_chan.net_message)
 	if i < 1 or i >= q_shared.MAX_EDICTS:
-		Com_Error (q_shared.ERR_DROP, "CL_ParseMuzzleFlash: bad entity")
+		common.Com_Error (q_shared.ERR_DROP, "CL_ParseMuzzleFlash: bad entity")
 
 	weapon = common.MSG_ReadByte (net_chan.net_message)
 	silenced = weapon & q_shared.MZ_SILENCED
 	weapon &= ~q_shared.MZ_SILENCED
 
 	pl = cl_main.cl_entities[i]
-	"""
-	dl = CL_AllocDlight (i);
-	VectorCopy (pl->current.origin,  dl->origin);
-	AngleVectors (pl->current.angles, fv, rv, NULL);
-	VectorMA (dl->origin, 18, fv, dl->origin);
-	VectorMA (dl->origin, 16, rv, dl->origin);
-	if (silenced)
-		dl->radius = 100 + (rand()&31);
-	else
-		dl->radius = 200 + (rand()&31);
-	dl->minlight = 32;
-	dl->die = cl.time; // + 0.1;
 
-	if (silenced)
-		volume = 0.2;
-	else
-		volume = 1;
+	fv = np.zeros((3,), dtype=np.float32)
+	rv = np.zeros((3,), dtype=np.float32)
 
-	switch (weapon)
-	{
-	case MZ_BLASTER:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/blastf1a.wav"), volume, ATTN_NORM, 0);
-		break;
-	case MZ_BLUEHYPERBLASTER:
-		dl->color[0] = 0;dl->color[1] = 0;dl->color[2] = 1;
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/hyprbf1a.wav"), volume, ATTN_NORM, 0);
-		break;
-	case MZ_HYPERBLASTER:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/hyprbf1a.wav"), volume, ATTN_NORM, 0);
-		break;
-	case MZ_MACHINEGUN:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		Com_sprintf(soundname, sizeof(soundname), "weapons/machgf%ib.wav", (rand() % 5) + 1);
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound(soundname), volume, ATTN_NORM, 0);
-		break;
-	case MZ_SHOTGUN:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/shotgf1b.wav"), volume, ATTN_NORM, 0);
-		S_StartSound (NULL, i, CHAN_AUTO,   S_RegisterSound("weapons/shotgr1b.wav"), volume, ATTN_NORM, 0.1);
-		break;
-	case MZ_SSHOTGUN:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/sshotf1b.wav"), volume, ATTN_NORM, 0);
-		break;
-	case MZ_CHAINGUN1:
-		dl->radius = 200 + (rand()&31);
-		dl->color[0] = 1;dl->color[1] = 0.25;dl->color[2] = 0;
-		Com_sprintf(soundname, sizeof(soundname), "weapons/machgf%ib.wav", (rand() % 5) + 1);
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound(soundname), volume, ATTN_NORM, 0);
-		break;
-	case MZ_CHAINGUN2:
-		dl->radius = 225 + (rand()&31);
-		dl->color[0] = 1;dl->color[1] = 0.5;dl->color[2] = 0;
-		dl->die = cl.time  + 0.1;	// long delay
-		Com_sprintf(soundname, sizeof(soundname), "weapons/machgf%ib.wav", (rand() % 5) + 1);
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound(soundname), volume, ATTN_NORM, 0);
-		Com_sprintf(soundname, sizeof(soundname), "weapons/machgf%ib.wav", (rand() % 5) + 1);
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound(soundname), volume, ATTN_NORM, 0.05);
-		break;
-	case MZ_CHAINGUN3:
-		dl->radius = 250 + (rand()&31);
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		dl->die = cl.time  + 0.1;	// long delay
-		Com_sprintf(soundname, sizeof(soundname), "weapons/machgf%ib.wav", (rand() % 5) + 1);
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound(soundname), volume, ATTN_NORM, 0);
-		Com_sprintf(soundname, sizeof(soundname), "weapons/machgf%ib.wav", (rand() % 5) + 1);
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound(soundname), volume, ATTN_NORM, 0.033);
-		Com_sprintf(soundname, sizeof(soundname), "weapons/machgf%ib.wav", (rand() % 5) + 1);
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound(soundname), volume, ATTN_NORM, 0.066);
-		break;
-	case MZ_RAILGUN:
-		dl->color[0] = 0.5;dl->color[1] = 0.5;dl->color[2] = 1.0;
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/railgf1a.wav"), volume, ATTN_NORM, 0);
-		break;
-	case MZ_ROCKET:
-		dl->color[0] = 1;dl->color[1] = 0.5;dl->color[2] = 0.2;
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/rocklf1a.wav"), volume, ATTN_NORM, 0);
-		S_StartSound (NULL, i, CHAN_AUTO,   S_RegisterSound("weapons/rocklr1b.wav"), volume, ATTN_NORM, 0.1);
-		break;
-	case MZ_GRENADE:
-		dl->color[0] = 1;dl->color[1] = 0.5;dl->color[2] = 0;
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/grenlf1a.wav"), volume, ATTN_NORM, 0);
-		S_StartSound (NULL, i, CHAN_AUTO,   S_RegisterSound("weapons/grenlr1b.wav"), volume, ATTN_NORM, 0.1);
-		break;
-	case MZ_BFG:
-		dl->color[0] = 0;dl->color[1] = 1;dl->color[2] = 0;
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/bfg__f1y.wav"), volume, ATTN_NORM, 0);
-		break;
+	dl = CL_AllocDlight (i)
+	q_shared.VectorCopy (pl.current.origin,  dl.origin)
+	q_shared.AngleVectors (pl.current.angles, fv, rv, None)
+	q_shared.VectorMA (dl.origin, 18, fv, dl.origin)
+	q_shared.VectorMA (dl.origin, 16, rv, dl.origin)
+	if silenced:
+		dl.radius = 100 + (random.getrandbits(15)&31)
+	else:
+		dl.radius = 200 + (random.getrandbits(15)&31)
+	dl.minlight = 32
+	dl.die = cl_main.cl.time # + 0.1;
 
-	case MZ_LOGIN:
-		dl->color[0] = 0;dl->color[1] = 1; dl->color[2] = 0;
-		dl->die = cl.time + 1.0;
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/grenlf1a.wav"), 1, ATTN_NORM, 0);
-		CL_LogoutEffect (pl->current.origin, weapon);
-		break;
-	case MZ_LOGOUT:
-		dl->color[0] = 1;dl->color[1] = 0; dl->color[2] = 0;
-		dl->die = cl.time + 1.0;
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/grenlf1a.wav"), 1, ATTN_NORM, 0);
-		CL_LogoutEffect (pl->current.origin, weapon);
-		break;
-	case MZ_RESPAWN:
-		dl->color[0] = 1;dl->color[1] = 1; dl->color[2] = 0;
-		dl->die = cl.time + 1.0;
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/grenlf1a.wav"), 1, ATTN_NORM, 0);
-		CL_LogoutEffect (pl->current.origin, weapon);
-		break;
-	// RAFAEL
-	case MZ_PHALANX:
-		dl->color[0] = 1;dl->color[1] = 0.5; dl->color[2] = 0.5;
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/plasshot.wav"), volume, ATTN_NORM, 0);
-		break;
-	// RAFAEL
-	case MZ_IONRIPPER:	
-		dl->color[0] = 1;dl->color[1] = 0.5; dl->color[2] = 0.5;
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/rippfire.wav"), volume, ATTN_NORM, 0);
-		break;
+	if silenced:
+		volume = 0.2
+	else:
+		volume = 1
 
-// ======================
-// PGM
-	case MZ_ETF_RIFLE:
-		dl->color[0] = 0.9;dl->color[1] = 0.7;dl->color[2] = 0;
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/nail1.wav"), volume, ATTN_NORM, 0);
-		break;
-	case MZ_SHOTGUN2:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/shotg2.wav"), volume, ATTN_NORM, 0);
-		break;
-	case MZ_HEATBEAM:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		dl->die = cl.time + 100;
-//		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/bfg__l1a.wav"), volume, ATTN_NORM, 0);
-		break;
-	case MZ_BLASTER2:
-		dl->color[0] = 0;dl->color[1] = 1;dl->color[2] = 0;
-		// FIXME - different sound for blaster2 ??
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/blastf1a.wav"), volume, ATTN_NORM, 0);
-		break;
-	case MZ_TRACKER:
-		// negative flashes handled the same in gl/soft until CL_AddDLights
-		dl->color[0] = -1;dl->color[1] = -1;dl->color[2] = -1;
-		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/disint2.wav"), volume, ATTN_NORM, 0);
-		break;		
-	case MZ_NUKE1:
-		dl->color[0] = 1;dl->color[1] = 0;dl->color[2] = 0;
-		dl->die = cl.time + 100;
-		break;
-	case MZ_NUKE2:
-		dl->color[0] = 1;dl->color[1] = 1;dl->color[2] = 0;
-		dl->die = cl.time + 100;
-		break;
-	case MZ_NUKE4:
-		dl->color[0] = 0;dl->color[1] = 0;dl->color[2] = 1;
-		dl->die = cl.time + 100;
-		break;
-	case MZ_NUKE8:
-		dl->color[0] = 0;dl->color[1] = 1;dl->color[2] = 1;
-		dl->die = cl.time + 100;
-		break;
-// PGM
-// ======================
-	}
-}
+	if weapon == q_shared.MZ_BLASTER:
+		dl.color[0] = 1;dl.color[1] = 1;dl.color[2] = 0
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/blastf1a.wav"), volume, q_shared.ATTN_NORM, 0)
+
+	elif weapon == q_shared.MZ_BLUEHYPERBLASTER:
+		dl.color[0] = 0;dl.color[1] = 0;dl.color[2] = 1
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/hyprbf1a.wav"), volume, q_shared.ATTN_NORM, 0)
+
+	elif weapon == q_shared.MZ_HYPERBLASTER:
+		dl.color[0] = 1;dl.color[1] = 1;dl.color[2] = 0
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/hyprbf1a.wav"), volume, q_shared.ATTN_NORM, 0)
+
+	elif weapon == q_shared.MZ_MACHINEGUN:
+		dl.color[0] = 1;dl.color[1] = 1;dl.color[2] = 0
+		soundname = "weapons/machgf{}b.wav".format((random.getrandbits(15) % 5) + 1)
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound(soundname), volume, q_shared.ATTN_NORM, 0)
+
+	elif weapon == q_shared.MZ_SHOTGUN:
+		dl.color[0] = 1;dl.color[1] = 1;dl.color[2] = 0
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/shotgf1b.wav"), volume, q_shared.ATTN_NORM, 0)
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_AUTO, snd_dma.S_RegisterSound("weapons/shotgr1b.wav"), volume, q_shared.ATTN_NORM, 0.1)
+
+	elif weapon == q_shared.MZ_SSHOTGUN:
+		dl.color[0] = 1;dl.color[1] = 1;dl.color[2] = 0
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/sshotf1b.wav"), volume, q_shared.ATTN_NORM, 0)
+
+	elif weapon == q_shared.MZ_CHAINGUN1:
+		dl.radius = 200 + (random.getrandbits(15)&31)
+		dl.color[0] = 1;dl.color[1] = 0.25;dl.color[2] = 0
+		soundname = "weapons/machgf{}b.wav".format((random.getrandbits(15) % 5) + 1)
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound(soundname), volume, q_shared.ATTN_NORM, 0)
+
+	elif weapon == q_shared.MZ_CHAINGUN2:
+		dl.radius = 225 + (random.getrandbits(15)&31)
+		dl.color[0] = 1;dl.color[1] = 0.5;dl.color[2] = 0
+		dl.die = cl_main.cl.time  + 0.1	# long delay
+		soundname = "weapons/machgf{}b.wav".format((random.getrandbits(15) % 5) + 1)
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound(soundname), volume, q_shared.ATTN_NORM, 0)
+		soundname = "weapons/machgf{}b.wav".format((random.getrandbits(15) % 5) + 1)
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound(soundname), volume, q_shared.ATTN_NORM, 0.05)
+
+	elif weapon == q_shared.MZ_CHAINGUN3:
+		dl.radius = 250 + (random.getrandbits(15)&31)
+		dl.color[0] = 1;dl.color[1] = 1;dl.color[2] = 0
+		dl.die = cl_main.cl.time  + 0.1	# long delay
+		soundname = "weapons/machgf{}b.wav".format((random.getrandbits(15) % 5) + 1)
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound(soundname), volume, q_shared.ATTN_NORM, 0)
+		soundname = "weapons/machgf{}b.wav".format((random.getrandbits(15) % 5) + 1)
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound(soundname), volume, q_shared.ATTN_NORM, 0.033)
+		soundname = "weapons/machgf{}b.wav".format((random.getrandbits(15) % 5) + 1)
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound(soundname), volume, q_shared.ATTN_NORM, 0.066)
+
+	elif weapon == q_shared.MZ_RAILGUN:
+		dl.color[0] = 0.5;dl.color[1] = 0.5;dl.color[2] = 1.0
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/railgf1a.wav"), volume, q_shared.ATTN_NORM, 0)
+
+	elif weapon == q_shared.MZ_ROCKET:
+		dl.color[0] = 1;dl.color[1] = 0.5;dl.color[2] = 0.2
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/rocklf1a.wav"), volume, q_shared.ATTN_NORM, 0)
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_AUTO, snd_dma.S_RegisterSound("weapons/rocklr1b.wav"), volume, q_shared.ATTN_NORM, 0.1)
+
+	elif weapon == q_shared.MZ_GRENADE:
+		dl.color[0] = 1;dl.color[1] = 0.5;dl.color[2] = 0
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/grenlf1a.wav"), volume, q_shared.ATTN_NORM, 0)
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_AUTO, snd_dma.S_RegisterSound("weapons/grenlr1b.wav"), volume, q_shared.ATTN_NORM, 0.1)
+
+	elif weapon == q_shared.MZ_BFG:
+		dl.color[0] = 0;dl.color[1] = 1;dl.color[2] = 0
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/bfg__f1y.wav"), volume, q_shared.ATTN_NORM, 0)
 
 
-/*
+	elif weapon == q_shared.MZ_LOGIN:
+		dl.color[0] = 0;dl.color[1] = 1; dl.color[2] = 0
+		dl.die = cl_main.cl.time + 1.0
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/grenlf1a.wav"), 1, q_shared.ATTN_NORM, 0)
+		CL_LogoutEffect (pl.current.origin, weapon)
+
+	elif weapon == q_shared.MZ_LOGOUT:
+		dl.color[0] = 1;dl.color[1] = 0; dl.color[2] = 0
+		dl.die = cl_main.cl.time + 1.0
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/grenlf1a.wav"), 1, q_shared.ATTN_NORM, 0)
+		CL_LogoutEffect (pl.current.origin, weapon)
+
+	elif weapon == q_shared.MZ_RESPAWN:
+		dl.color[0] = 1;dl.color[1] = 1; dl.color[2] = 0
+		dl.die = cl_main.cl.time + 1.0
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/grenlf1a.wav"), 1, q_shared.ATTN_NORM, 0)
+		CL_LogoutEffect (pl.current.origin, weapon)
+
+	# RAFAEL
+	elif weapon == q_shared.MZ_PHALANX:
+		dl.color[0] = 1;dl.color[1] = 0.5; dl.color[2] = 0.5
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/plasshot.wav"), volume, q_shared.ATTN_NORM, 0)
+
+	# RAFAEL
+	elif weapon == q_shared.MZ_IONRIPPER:	
+		dl.color[0] = 1;dl.color[1] = 0.5; dl.color[2] = 0.5
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/rippfire.wav"), volume, q_shared.ATTN_NORM, 0)
+
+# ======================
+# PGM
+	elif weapon == q_shared.MZ_ETF_RIFLE:
+		dl.color[0] = 0.9;dl.color[1] = 0.7;dl.color[2] = 0
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/nail1.wav"), volume, q_shared.ATTN_NORM, 0)
+
+	elif weapon == q_shared.MZ_SHOTGUN2:
+		dl.color[0] = 1;dl.color[1] = 1;dl.color[2] = 0
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/shotg2.wav"), volume, q_shared.ATTN_NORM, 0)
+
+	elif weapon == q_shared.MZ_HEATBEAM:
+		dl.color[0] = 1;dl.color[1] = 1;dl.color[2] = 0
+		dl.die = cl_main.cl.time + 100
+#		S_StartSound (NULL, i, CHAN_WEAPON, S_RegisterSound("weapons/bfg__l1a.wav"), volume, ATTN_NORM, 0);
+
+	elif weapon == q_shared.MZ_BLASTER2:
+		dl.color[0] = 0;dl.color[1] = 1;dl.color[2] = 0
+		# FIXME - different sound for blaster2 ??
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/blastf1a.wav"), volume, q_shared.ATTN_NORM, 0)
+
+	elif weapon == q_shared.MZ_TRACKER:
+		# negative flashes handled the same in gl/soft until CL_AddDLights
+		dl.color[0] = -1;dl.color[1] = -1;dl.color[2] = -1
+		snd_dma.S_StartSound (None, i, q_shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/disint2.wav"), volume, q_shared.ATTN_NORM, 0)
+
+	elif weapon == q_shared.MZ_NUKE1:
+		dl.color[0] = 1;dl.color[1] = 0;dl.color[2] = 0
+		dl.die = cl_main.cl.time + 100
+
+	elif weapon == q_shared.MZ_NUKE2:
+		dl.color[0] = 1;dl.color[1] = 1;dl.color[2] = 0
+		dl.die = cl_main.cl.time + 100
+
+	elif weapon == q_shared.MZ_NUKE4:
+		dl.color[0] = 0;dl.color[1] = 0;dl.color[2] = 1
+		dl.die = cl_main.cl.time + 100
+
+	elif weapon == q_shared.MZ_NUKE8:
+		dl.color[0] = 0;dl.color[1] = 1;dl.color[2] = 1
+		dl.die = cl_main.cl.time + 100
+# PGM
+# ======================
+
+
+"""
 ==============
 CL_ParseMuzzleFlash2
 ==============
@@ -1207,6 +1204,47 @@ def CL_BlasterParticles (org, readdir): # vec3_t, vec3_t
 	}
 	}
 """
+
+"""
+===============
+CL_LogoutEffect
+
+===============
+"""
+def CL_LogoutEffect (org, type): #vec3_t, int
+
+	#int			i, j;
+	#cparticle_t	*p;
+
+	for i in range(500):
+	
+		p = _alloc_particle()
+		if p is None:
+			return
+		active_particles.append(p)
+
+		p.time = cl_main.cl.time
+
+		if type == q_shared.MZ_LOGIN:
+			p.color = 0xd0 + (random.getrandbits(15)&7)	# green
+		elif type == q_shared.MZ_LOGOUT:
+			p.color = 0x40 + (random.getrandbits(15)&7)	# red
+		else:
+			p.color = 0xe0 + (random.getrandbits(15)&7)	# yellow
+
+		p.org[0] = org[0] - 16 + common.frand()*32
+		p.org[1] = org[1] - 16 + common.frand()*32
+		p.org[2] = org[2] - 24 + common.frand()*56
+
+		for j in range(3):
+			p.vel[j] = common.crand()*20
+
+		p.accel[0] = p.accel[1] = 0
+		p.accel[2] = -PARTICLE_GRAVITY
+		p.alpha = 1.0
+
+		p.alphavel = -1.0 / (1.0 + common.frand()*0.3)
+	
 
 """
 ===============

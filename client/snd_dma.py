@@ -725,28 +725,26 @@ def S_StartSound(origin, entnum, entchannel, sfx, fvol, attenuation, timeofs): #
 	ps.volume = vol
 	ps.sfx = sfx
 
-	"""
 	# drift s_beginofs
-	start = cl.frame.servertime * 0.001 * dma.speed + s_beginofs;
-	if (start < paintedtime)
-	{
-		start = paintedtime;
-		s_beginofs = start - (cl.frame.servertime * 0.001 * dma.speed);
-	}
-	else if (start > paintedtime + 0.3 * dma.speed)
-	{
-		start = paintedtime + 0.1 * dma.speed;
-		s_beginofs = start - (cl.frame.servertime * 0.001 * dma.speed);
-	}
-	else
-	{
-		s_beginofs-=10;
-	}
-"""
+	start = int(cl_main.cl.frame.servertime * 0.001 * dma.speed + s_beginofs)
+	if start < paintedtime:
+
+		start = paintedtime
+		s_beginofs = int(start - (cl_main.cl.frame.servertime * 0.001 * dma.speed))
+
+	elif start > paintedtime + 0.3 * dma.speed:
+
+		start = int(paintedtime + 0.1 * dma.speed)
+		s_beginofs = int(start - (cl_main.cl.frame.servertime * 0.001 * dma.speed))
+
+	else:
+
+		s_beginofs-=10
+
 	if timeofs == 0.0:
 		ps.begin = paintedtime
 	else:
-		ps.begin = start + timeofs * dma.speed
+		ps.begin = int(start + timeofs * dma.speed)
 
 	# sort into the pending sound list
 	s_pendingplays.append(ps)
