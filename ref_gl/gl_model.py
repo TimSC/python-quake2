@@ -1010,10 +1010,44 @@ def Mod_LoadAliasModel (mod, buff): #model_t *, void *
 			cmd_offset += 12
 			glcmds.extend((s, t, index_xyz))
 
+	# Q2PORT: the glcmds are also unrolled into a triangle list, in the same
+	# order and winding as the strips and fans GL draws from them, so that
+	# GL_DrawAliasFrameLerp can draw a model with one glDrawArrays instead of
+	# one GL call per vertex. Texture coordinates belong to the draw list
+	# entry, not the model vertex, so the same index_xyz can repeat with a
+	# different s and t.
+	drawtris_st = []
+	drawtris_xyz = []
+	o = 0
+	while o < len(glcmds):
+		count = glcmds[o]
+		o += 1
+		if not count:
+			break
+		if count < 0:
+			count = -count
+			fan = True # GL_TRIANGLE_FAN
+		else:
+			fan = False # GL_TRIANGLE_STRIP
+		drawverts = [glcmds[o+k*3:o+k*3+3] for k in range(count)] # s, t, index_xyz
+		o += count*3
+		for k in range(count-2):
+			if fan:
+				tri = (drawverts[0], drawverts[k+1], drawverts[k+2])
+			elif k & 1:
+				tri = (drawverts[k+1], drawverts[k], drawverts[k+2]) # odd strip triangles keep the strip winding
+			else:
+				tri = (drawverts[k], drawverts[k+1], drawverts[k+2])
+			for s, t, index_xyz in tri:
+				drawtris_st.append((s, t))
+				drawtris_xyz.append(index_xyz)
+
 	header.stverts = stverts
 	header.triangles = triangles
 	header.frames = frames
 	header.glcmds = glcmds
+	header.drawtris_st = np.array(drawtris_st, dtype=np.float32).reshape((-1, 2)) # Q2PORT
+	header.drawtris_xyz = np.array(drawtris_xyz, dtype=np.intp) # Q2PORT
 
 	mod.type = gl_model_h.modtype_t.mod_alias
 	mod.numframes = header.num_frames

@@ -162,13 +162,24 @@ def GL_DrawAliasFrameLerp (paliashdr, backlerp): #dmdl_t *, float
 
 	GL_LerpVerts( paliashdr.num_xyz, v, ov, verts, lerp, move, frontv, backv )
 
+	# Q2PORT: the C walks the glcmds and draws each strip and fan with
+	# qglBegin, one call per vertex and qglEnd (see the loops quoted below).
+	# One python GL call per vertex is too slow, so both paths gather the
+	# vertex data into the draw list order of paliashdr.drawtris_xyz (the
+	# glcmds unrolled into triangles by Mod_LoadAliasModel) and draw the
+	# model with one glDrawArrays. The arrays enabled here are disabled
+	# again afterwards, as a later shell model would otherwise draw with a
+	# stale color array.
+	drawtris_xyz = paliashdr.drawtris_xyz
+	lerped = s_lerped[drawtris_xyz]
+
 	if gl_rmain.gl_vertex_arrays.value:
 	
 		#float colorArray[MAX_VERTS*4];
 		colorArray = s_colorArray
 
 		GL.glEnableClientState( GL.GL_VERTEX_ARRAY )
-		GL.glVertexPointer( 3, GL.GL_FLOAT, 0, s_lerped )	# C uses a stride of 16, padded for SIMD
+		GL.glVertexPointer( 3, GL.GL_FLOAT, 0, lerped )	# C points at s_lerped with a stride of 16, padded for SIMD
 
 #		if ( currententity->flags & ( RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE ) )
 		# PMM - added double damage shell
@@ -179,7 +190,6 @@ def GL_DrawAliasFrameLerp (paliashdr, backlerp): #dmdl_t *, float
 		else:
 		
 			GL.glEnableClientState( GL.GL_COLOR_ARRAY )
-			GL.glColorPointer( 3, GL.GL_FLOAT, 0, colorArray )
 
 			#
 			# pre light everything
@@ -187,109 +197,154 @@ def GL_DrawAliasFrameLerp (paliashdr, backlerp): #dmdl_t *, float
 			# for ( i = 0; i < paliashdr->num_xyz; i++ ) colorArray[i*3+n] = shadedots[verts[i].lightnormalindex] * shadelight[n]
 			l = shadedots[verts[:paliashdr.num_xyz, 3]]
 			colorArray[:paliashdr.num_xyz] = l[:, np.newaxis] * shadelight
+
+			colors = colorArray[drawtris_xyz]
+			GL.glColorPointer( 3, GL.GL_FLOAT, 0, colors )	# C points at colorArray
+
+			# texture coordinates come from the draw list
+			GL.glEnableClientState( GL.GL_TEXTURE_COORD_ARRAY )
+			GL.glTexCoordPointer( 2, GL.GL_FLOAT, 0, paliashdr.drawtris_st )
 		
 		if qgl_linux.qglLockArraysEXT:
-			GLcva.glLockArraysEXT( 0, paliashdr.num_xyz )
+			GLcva.glLockArraysEXT( 0, len(drawtris_xyz) )	# C locks paliashdr->num_xyz
 
-		o = 0 # order offset
-		while True:
-		
-			# get the vertex count and primitive type
-			count = order[o]
-			o += 1
-			if not count:
-				break		# done
-			if count < 0:
-			
-				count = -count
-				GL.glBegin (GL.GL_TRIANGLE_FAN)
-			
-			else:
-			
-				GL.glBegin (GL.GL_TRIANGLE_STRIP)
-			
-			# PMM - added double damage shell
-			if currententity.flags & SHELL_FLAGS:
-			
-				for _ in range(count):
-				
-					index_xyz = order[o+2]
-					o += 3
+		"""
+		while (1)
+		{
+			// get the vertex count and primitive type
+			count = *order++;
+			if (!count)
+				break;		// done
+			if (count < 0)
+			{
+				count = -count;
+				qglBegin (GL_TRIANGLE_FAN);
+			}
+			else
+			{
+				qglBegin (GL_TRIANGLE_STRIP);
+			}
 
-					GL.glVertex3fv( s_lerped[index_xyz] )
+			// PMM - added double damage shell
+			if ( currententity->flags & ( RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE | RF_SHELL_DOUBLE | RF_SHELL_HALF_DAM) )
+			{
+				do
+				{
+					index_xyz = order[2];
+					order += 3;
 
-			else:
-			
-				for _ in range(count):
-				
-					# texture coordinates come from the draw list
-					GL.glTexCoord2f (order[o], order[o+1])
-					index_xyz = order[o+2]
+					qglVertex3fv( s_lerped[index_xyz] );
 
-					o += 3
+				} while (--count);
+			}
+			else
+			{
+				do
+				{
+					// texture coordinates come from the draw list
+					qglTexCoord2f (((float *)order)[0], ((float *)order)[1]);
+					index_xyz = order[2];
 
-					# normals and vertexes come from the frame list
-#					l = shadedots[verts[index_xyz].lightnormalindex];
+					order += 3;
+
+					// normals and vertexes come from the frame list
+//					l = shadedots[verts[index_xyz].lightnormalindex];
 					
-#					qglColor4f (l* shadelight[0], l*shadelight[1], l*shadelight[2], alpha);
-					GL.glArrayElement( index_xyz )
+//					qglColor4f (l* shadelight[0], l*shadelight[1], l*shadelight[2], alpha);
+					qglArrayElement( index_xyz );
 
-			GL.glEnd ()
-		
+				} while (--count);
+			}
+			qglEnd ();
+		}
+		"""
+		GL.glDrawArrays( GL.GL_TRIANGLES, 0, len(drawtris_xyz) )
+
 		if qgl_linux.qglUnlockArraysEXT:
 			GLcva.glUnlockArraysEXT()
 
+		GL.glDisableClientState( GL.GL_TEXTURE_COORD_ARRAY )
+		GL.glDisableClientState( GL.GL_COLOR_ARRAY )
+		GL.glDisableClientState( GL.GL_VERTEX_ARRAY )
+
 	else:
 
-		# The C reads these per vertex. Converting to plain lists once per
-		# model avoids slow numpy scalar access in the per vertex GL calls.
-		lerped = s_lerped[:paliashdr.num_xyz].tolist()
-		light = shadedots[verts[:, 3]].tolist() # l = shadedots[verts[index_xyz].lightnormalindex]
-		sl0, sl1, sl2 = float(shadelight[0]), float(shadelight[1]), float(shadelight[2])
+		"""
+		while (1)
+		{
+			// get the vertex count and primitive type
+			count = *order++;
+			if (!count)
+				break;		// done
+			if (count < 0)
+			{
+				count = -count;
+				qglBegin (GL_TRIANGLE_FAN);
+			}
+			else
+			{
+				qglBegin (GL_TRIANGLE_STRIP);
+			}
 
-		o = 0 # order offset
-		while True:
+			if ( currententity->flags & ( RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE ) )
+			{
+				do
+				{
+					index_xyz = order[2];
+					order += 3;
 
-			# get the vertex count and primitive type
-			count = order[o]
-			o += 1
-			if not count:
-				break		# done
-			if count < 0:
+					qglColor4f( shadelight[0], shadelight[1], shadelight[2], alpha);
+					qglVertex3fv (s_lerped[index_xyz]);
 
-				count = -count
-				GL.glBegin (GL.GL_TRIANGLE_FAN)
+				} while (--count);
+			}
+			else
+			{
+				do
+				{
+					// texture coordinates come from the draw list
+					qglTexCoord2f (((float *)order)[0], ((float *)order)[1]);
+					index_xyz = order[2];
+					order += 3;
 
-			else:
+					// normals and vertexes come from the frame list
+					l = shadedots[verts[index_xyz].lightnormalindex];
+					
+					qglColor4f (l* shadelight[0], l*shadelight[1], l*shadelight[2], alpha);
+					qglVertex3fv (s_lerped[index_xyz]);
+				} while (--count);
+			}
 
-				GL.glBegin (GL.GL_TRIANGLE_STRIP)
+			qglEnd ();
+		}
+		"""
+		GL.glEnableClientState( GL.GL_VERTEX_ARRAY )
+		GL.glVertexPointer( 3, GL.GL_FLOAT, 0, lerped )	# qglVertex3fv (s_lerped[index_xyz]);
 
-			if currententity.flags & ( q_shared.RF_SHELL_RED | q_shared.RF_SHELL_GREEN | q_shared.RF_SHELL_BLUE ):
+		if currententity.flags & ( q_shared.RF_SHELL_RED | q_shared.RF_SHELL_GREEN | q_shared.RF_SHELL_BLUE ):
 
-				for _ in range(count):
+			GL.glColor4f( shadelight[0], shadelight[1], shadelight[2], alpha)
 
-					index_xyz = order[o+2]
-					o += 3
+		else:
 
-					GL.glColor4f( sl0, sl1, sl2, alpha)
-					GL.glVertex3f (*lerped[index_xyz])
+			# texture coordinates come from the draw list
+			GL.glEnableClientState( GL.GL_TEXTURE_COORD_ARRAY )
+			GL.glTexCoordPointer( 2, GL.GL_FLOAT, 0, paliashdr.drawtris_st )
 
-			else:
+			# normals and vertexes come from the frame list
+			l = shadedots[verts[drawtris_xyz, 3]]
 
-				for _ in range(count):
+			colors = np.empty((len(drawtris_xyz), 4), dtype=np.float32) # qglColor4f (l* shadelight[0], l*shadelight[1], l*shadelight[2], alpha);
+			colors[:, :3] = l[:, np.newaxis] * shadelight
+			colors[:, 3] = alpha
+			GL.glEnableClientState( GL.GL_COLOR_ARRAY )
+			GL.glColorPointer( 4, GL.GL_FLOAT, 0, colors )
 
-					# texture coordinates come from the draw list
-					GL.glTexCoord2f (order[o], order[o+1])
-					index_xyz = order[o+2]
-					o += 3
+		GL.glDrawArrays( GL.GL_TRIANGLES, 0, len(drawtris_xyz) )
 
-					# normals and vertexes come from the frame list
-					l = light[index_xyz]
-
-					GL.glColor4f (l*sl0, l*sl1, l*sl2, alpha)
-					GL.glVertex3f (*lerped[index_xyz])
-
-			GL.glEnd ()
+		GL.glDisableClientState( GL.GL_TEXTURE_COORD_ARRAY )
+		GL.glDisableClientState( GL.GL_COLOR_ARRAY )
+		GL.glDisableClientState( GL.GL_VERTEX_ARRAY )
 
 #	if ( currententity->flags & ( RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE ) )
 	# PMM - added double damage shell
