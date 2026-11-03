@@ -17,11 +17,37 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
+import numpy as np
+from enum import Enum
+from enum import Enum
 from game import q_shared
 """
 // game.h -- game dll information visible to server
 """
 GAME_API_VERSION	= 3
+
+# edict->svflags
+SVF_NOCLIENT = 0x00000001	# don't send entity to clients, even if it has effects
+SVF_DEADMONSTER = 0x00000002	# treat as CONTENTS_DEADMONSTER for collision
+SVF_MONSTER = 0x00000004	# treat as CONTENTS_MONSTER for collision
+
+class solid_t(Enum):
+	SOLID_NOT = 0		# no interaction with other objects
+	SOLID_TRIGGER = 1	# only touch when inside, after moving
+	SOLID_BBOX = 2	# touch on edge
+	SOLID_BSP = 3	# bsp clip, touch on edge
+
+MAX_ENT_CLUSTERS = 16
+
+
+class link_t(object):
+
+	def __init__(self):
+		self.prev = None #struct link_s *
+		self.next = None #struct link_s *
+		self.owner = None # the object this link is embedded in (stands in for STRUCT_FROM_LINK)
+
+
 """
 // edict->svflags
 
@@ -103,6 +129,21 @@ class edict_t(object):
 		"""
 		self.inuse = False
 		self.linkcount = 0
+		self.area = link_t() # FIXME: move these fields to a server private sv_entity_t
+		self.num_clusters = 0
+		self.clusternums = [0 for _ in range(MAX_ENT_CLUSTERS)]
+		self.headnode = 0
+		self.areanum = 0
+		self.areanum2 = 0
+		self.svflags = 0
+		self.mins = np.zeros((3,), dtype=np.float32)
+		self.maxs = np.zeros((3,), dtype=np.float32)
+		self.absmin = np.zeros((3,), dtype=np.float32)
+		self.absmax = np.zeros((3,), dtype=np.float32)
+		self.size = np.zeros((3,), dtype=np.float32)
+		self.solid = None #solid_t
+		self.clipmask = 0
+		self.owner = None
 """
 #endif		// GAME_INCLUDE
 

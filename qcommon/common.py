@@ -1056,19 +1056,16 @@ Returns the position (1 to argc-1) in the program's argument list
 where the given parameter apears, or 0 if not present
 ================
 */
-int COM_CheckParm (char *parm)
-{
-	int		i;
-	
-	for (i=1 ; i<com_argc ; i++)
-	{
-		if (!strcmp (parm,com_argv[i]))
-			return i;
-	}
-		
-	return 0;
-}
 """
+def COM_CheckParm (parm): #char *
+
+	for i in range(1, com_argc):
+		if com_argv[i] == parm:
+			return i
+
+	return 0
+
+
 def COM_Argc ():
 
 	return com_argc
@@ -1123,32 +1120,23 @@ def COM_AddParm (parm): #char *
 	com_argv[com_argc] = parm
 	com_argc += 1
 
+# just for debugging
+def memsearch (start, count, search): #byte *, int, int (returns int)
+	for i in range(count):
+		if start[i] == search:
+			return i
+	return -1
+
+
+def CopyString (s): #char *
+	# strings are immutable, so no copy is needed in Python
+	return s
+
+
 """
 
 
-
-# just for debugging
-int	memsearch (byte *start, int count, int search)
-{
-	int		i;
-	
-	for (i=0 ; i<count ; i++)
-		if (start[i] == search)
-			return i;
-	return -1;
-}
-
-
-char *CopyString (char *in)
-{
-	char	*out;
-	
-	out = Z_Malloc (strlen(in)+1);
-	strcpy (out, in);
-	return out;
-}
-
-
+"""
 
 """
 def Info_Print (s): #char *
@@ -1190,7 +1178,7 @@ def Info_Print (s): #char *
 	
 """
 
-
+"""
 /*
 ==============================================================================
 
@@ -1308,6 +1296,8 @@ void *Z_Malloc (int size)
 #============================================================================
 
 
+"""
+"""
 /*
 ====================
 COM_BlockSequenceCheckByte
@@ -1319,10 +1309,11 @@ For proxy protecting
 
 ====================
 */
-byte	COM_BlockSequenceCheckByte (byte *base, int length, int sequence, int challenge)
-{
-	Sys_Error("COM_BlockSequenceCheckByte called\n");
-
+"""
+def COM_BlockSequenceCheckByte (base, length, sequence, challenge): #byte *, int, int, int (returns byte)
+	Sys_Error ("COM_BlockSequenceCheckByte called\n")
+	return 0
+"""
 #if 0
 	int		checksum;
 	byte	buf[68];
