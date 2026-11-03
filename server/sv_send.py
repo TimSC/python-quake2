@@ -18,10 +18,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
 import struct
+import numpy as np
 from linux import q_shlinux
 from server import sv_init, sv_main, sv_user
 from qcommon import qcommon, net_chan, cmodel, common
-from game import q_shared
+from game import q_shared, game
 """
 // sv_main.c -- server main program
 
@@ -236,113 +237,97 @@ If origin is NULL, the origin is determined from the entity origin
 or the midpoint of the entity box for bmodels.
 ==================
 */  
-void SV_StartSound (vec3_t origin, edict_t *entity, int channel,
-					int soundindex, float volume,
-					float attenuation, float timeofs)
-{       
-	int			sendchan;
-    int			flags;
-    int			i;
-	int			ent;
-	vec3_t		origin_v;
-	qboolean	use_phs;
-
-	if (volume < 0 || volume > 1.0)
-		Com_Error (ERR_FATAL, "SV_StartSound: volume = %f", volume);
-
-	if (attenuation < 0 || attenuation > 4)
-		Com_Error (ERR_FATAL, "SV_StartSound: attenuation = %f", attenuation);
-
-//	if (channel < 0 || channel > 15)
-//		Com_Error (ERR_FATAL, "SV_StartSound: channel = %i", channel);
-
-	if (timeofs < 0 || timeofs > 0.255)
-		Com_Error (ERR_FATAL, "SV_StartSound: timeofs = %f", timeofs);
-
-	ent = NUM_FOR_EDICT(entity);
-
-	if (channel & 8)	// no PHS flag
-	{
-		use_phs = false;
-		channel &= 7;
-	}
-	else
-		use_phs = true;
-
-	sendchan = (ent<<3) | (channel&7);
-
-	flags = 0;
-	if (volume != DEFAULT_SOUND_PACKET_VOLUME)
-		flags |= SND_VOLUME;
-	if (attenuation != DEFAULT_SOUND_PACKET_ATTENUATION)
-		flags |= SND_ATTENUATION;
-
-	// the client doesn't know that bmodels have weird origins
-	// the origin can also be explicitly set
-	if ( (entity->svflags & SVF_NOCLIENT)
-		|| (entity->solid == SOLID_BSP) 
-		|| origin )
-		flags |= SND_POS;
-
-	// always send the entity number for channel overrides
-	flags |= SND_ENT;
-
-	if (timeofs)
-		flags |= SND_OFFSET;
-
-	// use the entity origin unless it is a bmodel or explicitly specified
-	if (!origin)
-	{
-		origin = origin_v;
-		if (entity->solid == SOLID_BSP)
-		{
-			for (i=0 ; i<3 ; i++)
-				origin_v[i] = entity->s.origin[i]+0.5*(entity->mins[i]+entity->maxs[i]);
-		}
-		else
-		{
-			VectorCopy (entity->s.origin, origin_v);
-		}
-	}
-
-	MSG_WriteByte (&sv_init.sv.multicast, svc_sound);
-	MSG_WriteByte (&sv_init.sv.multicast, flags);
-	MSG_WriteByte (&sv_init.sv.multicast, soundindex);
-
-	if (flags & SND_VOLUME)
-		MSG_WriteByte (&sv_init.sv.multicast, volume*255);
-	if (flags & SND_ATTENUATION)
-		MSG_WriteByte (&sv_init.sv.multicast, attenuation*64);
-	if (flags & SND_OFFSET)
-		MSG_WriteByte (&sv_init.sv.multicast, timeofs*1000);
-
-	if (flags & SND_ENT)
-		MSG_WriteShort (&sv_init.sv.multicast, sendchan);
-
-	if (flags & SND_POS)
-		MSG_WritePos (&sv_init.sv.multicast, origin);
-
-	// if the sound doesn't attenuate,send it to everyone
-	// (global radio chatter, voiceovers, etc)
-	if (attenuation == ATTN_NONE)
-		use_phs = false;
-
-	if (channel & CHAN_RELIABLE)
-	{
-		if (use_phs)
-			SV_Multicast (origin, MULTICAST_PHS_R);
-		else
-			SV_Multicast (origin, MULTICAST_ALL_R);
-	}
-	else
-	{
-		if (use_phs)
-			SV_Multicast (origin, MULTICAST_PHS);
-		else
-			SV_Multicast (origin, MULTICAST_ALL);
-	}
-}           
 """
+def SV_StartSound (origin, entity, channel, soundindex, volume, attenuation, timeofs): #vec3_t, edict_t *, int, int, float, float, float
+
+	#int sendchan, flags, i, ent
+	#qboolean use_phs
+	#vec3_t origin_v
+
+	if volume < 0 or volume > 1.0:
+		common.Com_Error (qcommon.ERR_FATAL, "SV_StartSound: volume = %f", volume)
+
+	if attenuation < 0 or attenuation > 4:
+		common.Com_Error (qcommon.ERR_FATAL, "SV_StartSound: attenuation = %f", attenuation)
+
+	#if channel < 0 or channel > 15
+	#	Com_Error (ERR_FATAL, "SV_StartSound: channel = %i", channel)
+
+	if timeofs < 0 or timeofs > 0.255:
+		common.Com_Error (qcommon.ERR_FATAL, "SV_StartSound: timeofs = %f", timeofs)
+
+	ent = sv_init.NUM_FOR_EDICT(entity)
+
+	if channel & 8:	# no PHS flag
+		use_phs = False
+		channel &= 7
+	else:
+		use_phs = True
+
+	sendchan = (ent<<3) | (channel&7)
+
+	flags = 0
+	if volume != qcommon.DEFAULT_SOUND_PACKET_VOLUME:
+		flags |= qcommon.SND_VOLUME
+	if attenuation != qcommon.DEFAULT_SOUND_PACKET_ATTENUATION:
+		flags |= qcommon.SND_ATTENUATION
+
+	# the client doesn't know that bmodels have weird origins
+	# the origin can also be explicitly set
+	if (entity.svflags & game.SVF_NOCLIENT) \
+		or entity.solid == game.SOLID_BSP \
+		or origin is not None:
+		flags |= qcommon.SND_POS
+
+	# always send the entity number for channel overrides
+	flags |= qcommon.SND_ENT
+
+	if timeofs:
+		flags |= qcommon.SND_OFFSET
+
+	# use the entity origin unless it is a bmodel or explicitly specified
+	origin_v = np.zeros((3,), dtype=np.float32)
+	if origin is None:
+		if entity.solid == game.SOLID_BSP:
+			for i in range(3):
+				origin_v[i] = entity.s.origin[i]+0.5*(entity.mins[i]+entity.maxs[i])
+		else:
+			q_shared.VectorCopy (entity.s.origin, origin_v)
+		origin = origin_v
+
+	common.MSG_WriteByte (sv_init.sv.multicast, qcommon.svc_ops_e.svc_sound.value)
+	common.MSG_WriteByte (sv_init.sv.multicast, flags)
+	common.MSG_WriteByte (sv_init.sv.multicast, soundindex)
+
+	if flags & qcommon.SND_VOLUME:
+		common.MSG_WriteByte (sv_init.sv.multicast, volume*255)
+	if flags & qcommon.SND_ATTENUATION:
+		common.MSG_WriteByte (sv_init.sv.multicast, attenuation*64)
+	if flags & qcommon.SND_OFFSET:
+		common.MSG_WriteByte (sv_init.sv.multicast, timeofs*1000)
+
+	if flags & qcommon.SND_ENT:
+		common.MSG_WriteShort (sv_init.sv.multicast, sendchan)
+
+	if flags & qcommon.SND_POS:
+		common.MSG_WritePos (sv_init.sv.multicast, origin)
+
+	# if the sound doesn't attenuate, send it to everyone
+	# (global radio chatter, voiceovers, etc)
+	if attenuation == q_shared.ATTN_NONE:
+		use_phs = False
+
+	if channel & q_shared.CHAN_RELIABLE:
+		if use_phs:
+			SV_Multicast (origin, q_shared.MULTICAST_PHS_R)
+		else:
+			SV_Multicast (origin, q_shared.MULTICAST_ALL_R)
+	else:
+		if use_phs:
+			SV_Multicast (origin, q_shared.MULTICAST_PHS)
+		else:
+			SV_Multicast (origin, q_shared.MULTICAST_ALL)
+
 """
 /*
 ===============================================================================

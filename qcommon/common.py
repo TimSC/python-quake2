@@ -1215,31 +1215,46 @@ typedef struct zhead_s
 
 zhead_t		z_chain;
 """
-z_count, z_bytes = None, None # int		
+Z_MAGIC = 0x1d1d
+
+z_count, z_bytes = 0, 0 # int
+
+
+class zhead_t(object):
+
+	def __init__(self):
+		self.prev = None
+		self.next = None
+		self.magic = None # short
+		self.tag = 0 # short
+		self.size = 0 # int
+
+
+z_chain = zhead_t()
+z_chain.next = z_chain
+z_chain.prev = z_chain
 """
 /*
 ========================
 Z_Free
 ========================
 */
-void Z_Free (void *ptr)
-{
-	zhead_t	*z;
-
-	z = ((zhead_t *)ptr) - 1;
-
-	if (z->magic != Z_MAGIC)
-		Com_Error (q_shared.ERR_FATAL, "Z_Free: bad magic");
-
-	z->prev->next = z->next;
-	z->next->prev = z->prev;
-
-	z_count--;
-	z_bytes -= z->size;
-	free (z);
-}
-
 """
+def Z_Free (ptr): # void *
+
+	global z_count, z_bytes
+
+	# z = ((zhead_t *)ptr) - 1  ->  ptr IS the zhead
+
+	if ptr.magic != Z_MAGIC:
+		Com_Error (q_shared.ERR_FATAL, "Z_Free: bad magic")
+
+	ptr.prev.next = ptr.next
+	ptr.next.prev = ptr.prev
+
+	z_count -= 1
+	z_bytes -= ptr.size
+	ptr.next = ptr.prev = None
 """
 ========================
 Z_Stats_f
@@ -1255,61 +1270,57 @@ def Z_Stats_f ():
 Z_FreeTags
 ========================
 */
-void Z_FreeTags (int tag)
-{
-	zhead_t	*z, *next;
-
-	for (z=z_chain.next ; z != &z_chain ; z=next)
-	{
-		next = z->next;
-		if (z->tag == tag)
-			Z_Free ((void *)(z+1));
-	}
-}
 """
+def Z_FreeTags (tag): # int
+
+	z = z_chain.next
+	while z is not z_chain:
+		nxt = z.next
+		if z.tag == tag:
+			Z_Free (z)
+		z = nxt
 """
 /*
 ========================
 Z_TagMalloc
 ========================
 */
-void *Z_TagMalloc (int size, int tag)
-{
-	zhead_t	*z;
-	
-	size = size + sizeof(zhead_t);
-	z = malloc(size);
-	if (!z)
-		Com_Error (q_shared.ERR_FATAL, "Z_Malloc: failed on allocation of %i bytes",size);
-	memset (z, 0, size);
-	z_count++;
-	z_bytes += size;
-	z->magic = Z_MAGIC;
-	z->tag = tag;
-	z->size = size;
-
-	z->next = z_chain.next;
-	z->prev = &z_chain;
-	z_chain.next->prev = z;
-	z_chain.next = z;
-
-	return (void *)(z+1);
-}
 """
+def Z_TagMalloc (size, tag): # int, int
+
+	global z_count, z_bytes
+
+	size = size + 8 # size + sizeof(zhead_t)
+	z = zhead_t()
+	#z = malloc(size)
+	#if (!z)
+	#	Com_Error (q_shared.ERR_FATAL, "Z_Malloc: failed on allocation of %i bytes",size)
+	z_count += 1
+	z_bytes += size
+	z.magic = Z_MAGIC
+	z.tag = tag
+	z.size = size
+
+	z.next = z_chain.next
+	z.prev = z_chain
+	z_chain.next.prev = z
+	z_chain.next = z
+
+	return z # (void *)(z+1)
+
 """
 /*
 ========================
 Z_Malloc
 ========================
 */
-void *Z_Malloc (int size)
-{
-	return Z_TagMalloc (size, 0);
-}
+"""
+def Z_Malloc (size): # int
+
+	return Z_TagMalloc (size, 0)
 
 
 #============================================================================
-"""
 """
 /*
 ====================

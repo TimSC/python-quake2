@@ -127,7 +127,7 @@ class client_frame_t(object):
 
 	def __init__(self):
 		self.areabytes = 0 #int
-		self.areabits = [] #byte[MAX_MAP_AREAS/8], portalarea visibility bits
+		self.areabits = bytearray(32) #byte[MAX_MAP_AREAS/8], portalarea visibility bits
 		self.ps = q_shared.player_state_t()
 		self.num_entities = 0 #int
 		self.first_entity = 0 #int, into the circular sv_packet_entities[]
