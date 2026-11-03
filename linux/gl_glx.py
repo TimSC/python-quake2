@@ -491,9 +491,8 @@ def HandleEvents():
 			if b>=0 and in_state is not None and in_state.Key_Event_fp is not None:
 				in_state.Key_Event_fp (keys.K_MOUSE1 + b, False)
 
-		elif event.type == pygame.QUIT: # Q2PORT: the window was closed
-			pygame.quit()
-			exit(0)
+		elif event.type == pygame.QUIT: # Q2PORT: the window was closed, quit as the console command does
+			gl_rmain.ri.Cmd_ExecuteText (2, "quit\n") # EXEC_APPEND
 
 		# CreateNotify and ConfigureNotify only tracked win_x and win_y for the DGA motion
 	

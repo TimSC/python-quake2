@@ -262,10 +262,10 @@ do the apropriate things.
 """
 def Com_Quit ():
 
-	"""
-	SV_Shutdown ("Server quit\n", false);
-	CL_Shutdown ();
+	sv_main.SV_Shutdown ("Server quit\n", False)
+	cl_main.CL_Shutdown ()
 
+	"""
 	if (logfile)
 	{
 		fclose (logfile);
@@ -1772,18 +1772,8 @@ Qcommon_Shutdown
 =================
 """
 def Qcommon_Shutdown ():
-	try:
-		sv_main.SV_Shutdown("Server quit\n", False)
-	except Exception:
-		pass
-	try:
-		cl_main.CL_Shutdown()
-	except Exception:
-		pass
-	try:
-		pygame.quit()
-	except Exception:
-		pass
+
+	pass
 
 
 def COM_Parse(data, cursor):

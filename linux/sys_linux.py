@@ -17,6 +17,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
+import os
 import sys
 import time
 import pygame
@@ -101,9 +102,9 @@ def Sys_Quit ():
 
 	cl_main.CL_Shutdown ()
 	common.Qcommon_Shutdown ()
-    #fcntl (0, F_SETFL, fcntl (0, F_GETFL, 0) & ~FNDELAY);
-	#exit(0)
-	pygame.event.post(pygame.event.Event(pygame.QUIT))
+	#fcntl (0, F_SETFL, fcntl (0, F_GETFL, 0) & ~FNDELAY);
+	sys.stdout.flush() # Q2PORT: _exit does not flush python's buffered stdout
+	os._exit(0)
 
 
 def Sys_Init():
