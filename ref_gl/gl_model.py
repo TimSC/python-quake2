@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 import math
 import struct
 import numpy as np
-from ref_gl import gl_rmain, gl_model_h, gl_image, gl_rsurf
+from ref_gl import gl_rmain, gl_model_h, gl_image, gl_rsurf, gl_warp
 from qcommon import qfiles
 from game import q_shared
 """
@@ -623,7 +623,7 @@ def Mod_LoadFaces(l: qfiles.lump_t):
 				surf.extents[i] = 16384
 				surf.texturemins[i] = -8192
 
-			#GL_SubdivideSurface (out);	// cut up polygon for warps, FIXME not ported yet so warp surfaces have no polys
+			gl_warp.GL_SubdivideSurface (surf)	# cut up polygon for warps
 
 		# create lightmaps and polygons
 		if not (surf.texinfo.flags & (q_shared.SURF_SKY|q_shared.SURF_TRANS33|q_shared.SURF_TRANS66|q_shared.SURF_WARP)):

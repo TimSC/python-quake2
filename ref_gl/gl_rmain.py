@@ -855,7 +855,9 @@ def R_RenderView (fd): #refdef_t *
 
 	R_DrawParticles ();
 
-	R_DrawAlphaSurfaces ();
+	"""
+	gl_rsurf.R_DrawAlphaSurfaces ()
+	"""
 
 	R_Flash();
 

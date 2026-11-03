@@ -21,11 +21,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "gl_local.h"
 """
+import math
+import os
+import re
 import numpy as np
 import OpenGL.GL as GL
 from game import q_shared
 from linux import qgl_linux
-from ref_gl import gl_rmain, gl_image
+from ref_gl import gl_rmain, gl_image, gl_model, gl_model_h
 """
 
 
@@ -37,32 +40,30 @@ skyaxis = np.zeros((3,), dtype=np.float32) # vec3_t
 sky_images = [] #image_t	*[6];
 for i in range(6):
 	sky_images.append(None)
-"""
-msurface_t	*warpface;
+warpface = None #msurface_t *
 
-#define	SUBDIVIDE_SIZE	64
-//#define	SUBDIVIDE_SIZE	1024
+SUBDIVIDE_SIZE = 64
+#SUBDIVIDE_SIZE = 1024
 
-void BoundPoly (int numverts, float *verts, vec3_t mins, vec3_t maxs)
-{
-	int		i, j;
-	float	*v;
+def BoundPoly (numverts, verts, mins, maxs): #int, float * (array [numverts][3]), vec3_t, vec3_t
 
-	mins[0] = mins[1] = mins[2] = 9999;
-	maxs[0] = maxs[1] = maxs[2] = -9999;
-	v = verts;
-	for (i=0 ; i<numverts ; i++)
-		for (j=0 ; j<3 ; j++, v++)
-		{
-			if (*v < mins[j])
-				mins[j] = *v;
-			if (*v > maxs[j])
-				maxs[j] = *v;
-		}
-}
+	#int		i, j;
+	#float	*v;
 
-void SubdividePolygon (int numverts, float *verts)
-{
+	mins[0] = mins[1] = mins[2] = 9999
+	maxs[0] = maxs[1] = maxs[2] = -9999
+	for i in range(numverts):
+		for j in range(3):
+		
+			if verts[i][j] < mins[j]:
+				mins[j] = verts[i][j]
+			if verts[i][j] > maxs[j]:
+				maxs[j] = verts[i][j]
+		
+
+def SubdividePolygon (numverts, verts): #int, float * (array [numverts][3])
+
+	"""
 	int		i, j, k;
 	vec3_t	mins, maxs;
 	float	m;
@@ -75,94 +76,96 @@ void SubdividePolygon (int numverts, float *verts)
 	float	s, t;
 	vec3_t	total;
 	float	total_s, total_t;
+	"""
+	mins = np.zeros((3,), dtype=np.float32)
+	maxs = np.zeros((3,), dtype=np.float32)
 
-	if (numverts > 60)
-		ri.Sys_Error (ERR_DROP, "numverts = %i", numverts);
+	if numverts > 60:
+		gl_rmain.ri.Sys_Error (q_shared.ERR_DROP, "numverts = {}".format(numverts))
 
-	BoundPoly (numverts, verts, mins, maxs);
+	BoundPoly (numverts, verts, mins, maxs)
 
-	for (i=0 ; i<3 ; i++)
-	{
-		m = (mins[i] + maxs[i]) * 0.5;
-		m = SUBDIVIDE_SIZE * floor (m/SUBDIVIDE_SIZE + 0.5);
-		if (maxs[i] - m < 8)
-			continue;
-		if (m - mins[i] < 8)
-			continue;
+	for i in range(3):
+	
+		m = (mins[i] + maxs[i]) * 0.5
+		m = SUBDIVIDE_SIZE * math.floor (m/SUBDIVIDE_SIZE + 0.5)
+		if maxs[i] - m < 8:
+			continue
+		if m - mins[i] < 8:
+			continue
 
-		// cut it
-		v = verts + i;
-		for (j=0 ; j<numverts ; j++, v+= 3)
-			dist[j] = *v - m;
+		# cut it
+		dist = [0.0] * 64
+		for j in range(numverts):
+			dist[j] = verts[j][i] - m
 
-		// wrap cases
-		dist[j] = dist[0];
-		v-=i;
-		VectorCopy (verts, v);
+		# wrap cases
+		dist[numverts] = dist[0]
+		#v-=i; VectorCopy (verts, v); wrap around is done with (j+1) % numverts below
 
-		f = b = 0;
-		v = verts;
-		for (j=0 ; j<numverts ; j++, v+= 3)
-		{
-			if (dist[j] >= 0)
-			{
-				VectorCopy (v, front[f]);
-				f++;
-			}
-			if (dist[j] <= 0)
-			{
-				VectorCopy (v, back[b]);
-				b++;
-			}
-			if (dist[j] == 0 || dist[j+1] == 0)
-				continue;
-			if ( (dist[j] > 0) != (dist[j+1] > 0) )
-			{
-				// clip point
-				frac = dist[j] / (dist[j] - dist[j+1]);
-				for (k=0 ; k<3 ; k++)
-					front[f][k] = back[b][k] = v[k] + frac*(v[3+k] - v[k]);
-				f++;
-				b++;
-			}
-		}
+		front = np.zeros((64, 3), dtype=np.float32)
+		back = np.zeros((64, 3), dtype=np.float32)
+		f = b = 0
+		for j in range(numverts):
+		
+			v = verts[j]
+			vnext = verts[(j+1) % numverts]
+			if dist[j] >= 0:
+			
+				q_shared.VectorCopy (v, front[f])
+				f += 1
+			
+			if dist[j] <= 0:
+			
+				q_shared.VectorCopy (v, back[b])
+				b += 1
+			
+			if dist[j] == 0 or dist[j+1] == 0:
+				continue
+			if (dist[j] > 0) != (dist[j+1] > 0):
+			
+				# clip point
+				frac = dist[j] / (dist[j] - dist[j+1])
+				for k in range(3):
+					front[f][k] = back[b][k] = v[k] + frac*(vnext[k] - v[k])
+				f += 1
+				b += 1
+			
+		SubdividePolygon (f, front)
+		SubdividePolygon (b, back)
+		return
+	
+	# add a point in the center to help keep warp valid
+	poly = gl_model_h.glpoly_t() # Hunk_Alloc (sizeof(glpoly_t) + ((numverts-4)+2) * VERTEXSIZE*sizeof(float))
+	poly.verts = np.zeros((numverts+2, gl_model_h.VERTEXSIZE), dtype=np.float32)
+	poly.next = warpface.polys
+	warpface.polys = poly
+	poly.numverts = numverts+2
+	total = np.zeros((3,), dtype=np.float32) # VectorClear (total);
+	total_s = 0
+	total_t = 0
+	for i in range(numverts):
+	
+		q_shared.VectorCopy (verts[i], poly.verts[i+1][:3])
+		s = q_shared.DotProduct (verts[i], warpface.texinfo.vecs[0])
+		t = q_shared.DotProduct (verts[i], warpface.texinfo.vecs[1])
 
-		SubdividePolygon (f, front[0]);
-		SubdividePolygon (b, back[0]);
-		return;
-	}
+		total_s += s
+		total_t += t
+		q_shared.VectorAdd (total, verts[i], total)
 
-	// add a point in the center to help keep warp valid
-	poly = Hunk_Alloc (sizeof(glpoly_t) + ((numverts-4)+2) * VERTEXSIZE*sizeof(float));
-	poly->next = warpface->polys;
-	warpface->polys = poly;
-	poly->numverts = numverts+2;
-	VectorClear (total);
-	total_s = 0;
-	total_t = 0;
-	for (i=0 ; i<numverts ; i++, verts+= 3)
-	{
-		VectorCopy (verts, poly->verts[i+1]);
-		s = DotProduct (verts, warpface->texinfo->vecs[0]);
-		t = DotProduct (verts, warpface->texinfo->vecs[1]);
+		poly.verts[i+1][3] = s
+		poly.verts[i+1][4] = t
+	
+	q_shared.VectorScale (total, (1.0/numverts), poly.verts[0][:3])
+	poly.verts[0][3] = total_s/numverts
+	poly.verts[0][4] = total_t/numverts
 
-		total_s += s;
-		total_t += t;
-		VectorAdd (total, verts, total);
+	# copy first vertex to last
+	poly.verts[numverts+1] = poly.verts[1] # memcpy (poly->verts[i+1], poly->verts[1], sizeof(poly->verts[0]));
 
-		poly->verts[i+1][3] = s;
-		poly->verts[i+1][4] = t;
-	}
 
-	VectorScale (total, (1.0/numverts), poly->verts[0]);
-	poly->verts[0][3] = total_s/numverts;
-	poly->verts[0][4] = total_t/numverts;
-
-	// copy first vertex to last
-	memcpy (poly->verts[i+1], poly->verts[1], sizeof(poly->verts[0]));
-}
-
-/*
+"""
 ================
 GL_SubdivideSurface
 
@@ -170,102 +173,104 @@ Breaks a polygon up along axial 64 unit
 boundaries so that turbulent and sky warps
 can be done reasonably.
 ================
-*/
-void GL_SubdivideSurface (msurface_t *fa)
-{
+"""
+def GL_SubdivideSurface (fa): #msurface_t *
+
+	global warpface
+
+	"""
 	vec3_t		verts[64];
 	int			numverts;
 	int			i;
 	int			lindex;
 	float		*vec;
+	"""
+	loadmodel = gl_model.loadmodel
+	verts = np.zeros((64, 3), dtype=np.float32)
 
-	warpface = fa;
+	warpface = fa
 
-	//
-	// convert edges back to a normal polygon
-	//
-	numverts = 0;
-	for (i=0 ; i<fa->numedges ; i++)
-	{
-		lindex = loadmodel->surfedges[fa->firstedge + i];
+	#
+	# convert edges back to a normal polygon
+	#
+	numverts = 0
+	for i in range(fa.numedges):
+	
+		lindex = int(loadmodel.surfedges[fa.firstedge + i])
 
-		if (lindex > 0)
-			vec = loadmodel->vertexes[loadmodel->edges[lindex].v[0]].position;
-		else
-			vec = loadmodel->vertexes[loadmodel->edges[-lindex].v[1]].position;
-		VectorCopy (vec, verts[numverts]);
-		numverts++;
-	}
+		if lindex > 0:
+			vec = loadmodel.vertexes[loadmodel.edges[lindex, 0]]
+		else:
+			vec = loadmodel.vertexes[loadmodel.edges[-lindex, 1]]
+		q_shared.VectorCopy (vec, verts[numverts])
+		numverts += 1
+	
+	SubdividePolygon (numverts, verts)
 
-	SubdividePolygon (numverts, verts[0]);
-}
-
-//=========================================================
+#=========================================================
 
 
 
-// speed up sin calculations - Ed
-float	r_turbsin[] =
-{
-	#include "warpsin.h"
-};
-#define TURBSCALE (256.0 / (2 * M_PI))
+def _LoadTurbsin ():
+	# float r_turbsin[] = { #include "warpsin.h" };
+	text = open(os.path.join(os.path.dirname(__file__), "warpsin.h")).read()
+	text = text[text.index("*/")+2:] # skip the licence comment
+	return [float(x) for x in re.findall(r"-?\d+(?:\.\d+)?", text)]
 
-/*
+# speed up sin calculations - Ed
+r_turbsin = _LoadTurbsin() #float[256]
+
+TURBSCALE = (256.0 / (2 * math.pi))
+
+"""
 =============
 EmitWaterPolys
 
 Does a water warp on the pre-fragmented glpoly_t chain
 =============
-*/
-void EmitWaterPolys (msurface_t *fa)
-{
+"""
+def EmitWaterPolys (fa): #msurface_t *
+
+	"""
 	glpoly_t	*p, *bp;
 	float		*v;
 	int			i;
 	float		s, t, os, ot;
 	float		scroll;
-	float		rdt = gl_rmain.r_newrefdef.time;
+	float		rdt = r_newrefdef.time;
+	"""
+	rdt = gl_rmain.r_newrefdef.time
 
-	if (fa->texinfo->flags & SURF_FLOWING)
-		scroll = -64 * ( (gl_rmain.r_newrefdef.time*0.5) - (int)(gl_rmain.r_newrefdef.time*0.5) );
-	else
-		scroll = 0;
-	for (bp=fa->polys ; bp ; bp=bp->next)
-	{
-		p = bp;
+	if fa.texinfo.flags & q_shared.SURF_FLOWING:
+		scroll = -64 * ( (rdt*0.5) - int(rdt*0.5) )
+	else:
+		scroll = 0
+	bp = fa.polys
+	while bp:
+	
+		p = bp
 
-		qglBegin (GL_TRIANGLE_FAN);
-		for (i=0,v=p->verts[0] ; i<p->numverts ; i++, v+=VERTEXSIZE)
-		{
-			os = v[3];
-			ot = v[4];
+		GL.glBegin (GL.GL_TRIANGLE_FAN)
+		for v in p.verts[:p.numverts].tolist():
+		
+			os = v[3]
+			ot = v[4]
 
-#if !id386
-			s = os + r_turbsin[(int)((ot*0.125+gl_rmain.r_newrefdef.time) * TURBSCALE) & 255];
-#else
-			s = os + r_turbsin[Q_ftol( ((ot*0.125+rdt) * TURBSCALE) ) & 255];
-#endif
-			s += scroll;
-			s *= (1.0/64);
+			s = os + r_turbsin[int((ot*0.125+rdt) * TURBSCALE) & 255]
+			s += scroll
+			s *= (1.0/64)
 
-#if !id386
-			t = ot + r_turbsin[(int)((os*0.125+rdt) * TURBSCALE) & 255];
-#else
-			t = ot + r_turbsin[Q_ftol( ((os*0.125+rdt) * TURBSCALE) ) & 255];
-#endif
-			t *= (1.0/64);
+			t = ot + r_turbsin[int((os*0.125+rdt) * TURBSCALE) & 255]
+			t *= (1.0/64)
 
-			qglTexCoord2f (s, t);
-			qglVertex3fv (v);
-		}
-		qglEnd ();
-	}
-}
+			GL.glTexCoord2f (s, t)
+			GL.glVertex3f (v[0], v[1], v[2])
+		
+		GL.glEnd ()
+		bp = bp.next
+	
 
-
-//===================================================================
-"""
+#===================================================================
 
 skyclip = np.array([ # vec3_t[6]
 	[1,1,0],

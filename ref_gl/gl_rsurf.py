@@ -49,7 +49,6 @@ BLOCK_WIDTH = 128
 BLOCK_HEIGHT = 128
 LIGHTMAP_BYTES = 4
 MAX_LIGHTMAPS = 128
-TURB_SCALE = 256.0 / (2 * math.pi)
 BACKFACE_EPSILON = 0.01
 
 r_alpha_surfaces = None
@@ -435,7 +434,6 @@ def R_DrawWorld ():
 
     DrawTextureChains ()
     R_BlendLightmaps ()
-    R_DrawAlphaSurfaces ()
 
     gl_warp.R_DrawSkyBox ()
     R_DrawTriangleOutlines ()
@@ -607,7 +605,7 @@ def R_RenderBrushPoly(surf):
         gl_image.GL_TexEnv(GL.GL_MODULATE)
         intensity = getattr(gl_rmain.gl_state, "inverse_intensity", 1.0) or 1.0
         GL.glColor4f(intensity, intensity, intensity, 1.0)
-        EmitWaterPolys(surf)
+        gl_warp.EmitWaterPolys(surf)
         gl_image.GL_TexEnv(GL.GL_REPLACE)
         return
 
@@ -875,33 +873,6 @@ def DrawGLFlowingPoly(surf):
     GL.glEnd()
 
 
-def EmitWaterPolys(surf):
-    """Warp a water surface for a dynamic water effect."""
-    if not surf or not surf.polys:
-        return
-    time = gl_rmain.r_newrefdef.time
-    flowing = surf.texinfo and (surf.texinfo.flags & q_shared.SURF_FLOWING)
-    scroll = 0.0
-    if flowing:
-        scroll = -64 * ((time * 0.5) - int(time * 0.5))
-    poly = surf.polys
-    while poly:
-        gl_rmain.c_brush_polys += 1
-        GL.glBegin(GL.GL_TRIANGLE_FAN)
-        for i in range(poly.numverts):
-            v = poly.verts[i]
-            os = v[3]
-            ot = v[4]
-            s = os + math.sin((ot * 0.125 + time) * TURB_SCALE)
-            s += scroll
-            s *= 1.0 / 64.0
-            t = ot + math.sin((os * 0.125 + time) * TURB_SCALE)
-            t *= 1.0 / 64.0
-            GL.glTexCoord2f(s, t)
-            GL.glVertex3fv(v[:3])
-        GL.glEnd()
-        poly = poly.chain
-
 def R_BlendLightmaps ():
     """Blends the static and dynamic lightmapped surfaces."""
     world = gl_rmain.r_worldmodel
@@ -910,9 +881,24 @@ def R_BlendLightmaps ():
 
     GL.glDepthMask(GL.GL_FALSE)
 
+    # set the appropriate blending mode unless we're only looking at the
+    # lightmaps.
     if not gl_rmain.gl_lightmap.value:
         GL.glEnable(GL.GL_BLEND)
-        GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE)
+
+        if gl_rmain.gl_saturatelighting.value:
+            GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE)
+        else:
+            if gl_rmain.gl_monolightmap.string[0] != '0':
+                mode = gl_rmain.gl_monolightmap.string[0].upper()
+                if mode == 'I':
+                    GL.glBlendFunc(GL.GL_ZERO, GL.GL_SRC_COLOR)
+                elif mode == 'L':
+                    GL.glBlendFunc(GL.GL_ZERO, GL.GL_SRC_COLOR)
+                else: # 'A' and default
+                    GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+            else:
+                GL.glBlendFunc(GL.GL_ZERO, GL.GL_SRC_COLOR)
 
     tex_base = gl_rmain.gl_state.lightmap_textures or gl_image.TEXNUM_LIGHTMAPS
 
@@ -963,9 +949,10 @@ def R_BlendLightmaps ():
                 toff = (drawsurf.light_t - drawsurf.dlight_t) * (1.0 / 128.0)
                 DrawGLPolyChain(drawsurf.polys, soff, toff)
 
+    # restore state
+    GL.glDisable(GL.GL_BLEND)
+    GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
     GL.glDepthMask(GL.GL_TRUE)
-    if not gl_rmain.gl_lightmap.value:
-        GL.glDisable(GL.GL_BLEND)
 
 
 def R_DrawAlphaSurfaces():
@@ -992,7 +979,7 @@ def R_DrawAlphaSurfaces():
         GL.glColor4f(intensity, intensity, intensity, alpha)
 
         if surf.flags & gl_model_h.SURF_DRAWTURB:
-            EmitWaterPolys(surf)
+            gl_warp.EmitWaterPolys(surf)
         elif flags & q_shared.SURF_FLOWING:
             DrawGLFlowingPoly(surf)
         else:
