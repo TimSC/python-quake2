@@ -1218,9 +1218,8 @@ def R_Init( hinstance, hWnd ): #void *, void *
 		ri.Con_Printf (q_shared.PRINT_ALL, "ref_gl::R_Init() - could not R_SetMode()\n" )
 		return -1
 	
-	"""
-	ri.Vid_MenuInit();
-	"""
+	ri.Vid_MenuInit()
+
 	#
 	# get our various GL strings
 	#

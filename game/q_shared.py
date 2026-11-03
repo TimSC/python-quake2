@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 import struct
 import math
+import re
 from enum import Enum
 import numpy as np
 """
@@ -1582,17 +1583,17 @@ DF_ALLOW_EXIT		= 0x00001000	# 4096
 DF_INFINITE_AMMO	= 0x00002000	# 8192
 DF_QUAD_DROP		= 0x00004000	# 16384
 DF_FIXED_FOV		= 0x00008000	# 32768
+
+# RAFAEL
+DF_QUADFIRE_DROP	= 0x00010000	# 65536
+
+#ROGUE
+DF_NO_MINES			= 0x00020000
+DF_NO_STACK_DOUBLE	= 0x00040000
+DF_NO_NUKES			= 0x00080000
+DF_NO_SPHERES		= 0x00100000
+#ROGUE
 """
-// RAFAEL
-#define	DF_QUADFIRE_DROP	0x00010000	// 65536
-
-//ROGUE
-#define DF_NO_MINES			0x00020000
-#define DF_NO_STACK_DOUBLE	0x00040000
-#define DF_NO_NUKES			0x00080000
-#define DF_NO_SPHERES		0x00100000
-//ROGUE
-
 /*
 ROGUE - VERSIONS
 1234	08/13/1998		Activision
@@ -2955,6 +2956,14 @@ void Com_PageInMemory (byte *buffer, int size)
 def Q_stricmp (s1, s2): #char *, char* (return int)
 
 	return Q_strcasecmp(s1, s2)
+
+
+def atoi (s): #const char * (returns int), C library atoi: leading whitespace, optional sign, digits, else 0
+
+	m = re.match(r"\s*([+-]?\d+)", s)
+	if m is None:
+		return 0
+	return int(m.group(1))
 
 """
 

@@ -151,21 +151,19 @@ class refdef_t(object):
 
 		self.time = None 				# float, time is uesed to auto animate
 		self.rdflags = 0 				# int, RDF_UNDERWATER, etc
-		"""
-		byte		*areabits;			# if not NULL, only areas with set bits will be drawn
 
-		lightstyle_t	*lightstyles;	# [MAX_LIGHTSTYLES]
+		self.areabits = None			# byte *, if not NULL, only areas with set bits will be drawn
 
-		int			num_entities;
-		entity_t	*entities;
+		self.lightstyles = None			# lightstyle_t *, [MAX_LIGHTSTYLES]
 
-		int			num_dlights;
-		dlight_t	*dlights;
+		self.num_entities = 0			# int
+		self.entities = None			# entity_t *
 
-		int			num_particles;
-		particle_t	*particles;
+		self.num_dlights = 0			# int
+		self.dlights = None				# dlight_t *
 
-		"""
+		self.num_particles = 0			# int
+		self.particles = None			# particle_t *
 
 	def copy(self):
 		# struct assignment, arrays are copied but pointers (entities, lightstyles...) stay shared.

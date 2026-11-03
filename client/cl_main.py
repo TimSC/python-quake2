@@ -734,72 +734,74 @@ CL_ParseStatusMessage
 
 Handle a reply from a ping
 =================
-*/
-void CL_ParseStatusMessage (void)
-{
-	char	*s;
+"""
+def CL_ParseStatusMessage ():
 
-	s = MSG_ReadString(&net_message);
+	#char	*s;
 
-	Com_Printf ("%s\n", s);
-	M_AddToServerList (net_chan.net_from, s);
-}
+	s = common.MSG_ReadString(net_chan.net_message)
+
+	common.Com_Printf ("{}\n".format(s))
+	menu.M_AddToServerList (net_chan.net_from, s)
 
 
-/*
+"""
 =================
 CL_PingServers_f
 =================
-*/
-void CL_PingServers_f (void)
-{
+"""
+def CL_PingServers_f ():
+
+	"""
 	int			i;
 	netadr_t	adr;
 	char		name[32];
 	char		*adrstring;
 	cvar_t		*noudp;
 	cvar_t		*noipx;
+	"""
+	adr = qcommon.netadr_t()
 
-	net_udp.NET_Config (true);		// allow remote
+	net_udp.NET_Config (True)		# allow remote
 
-	// send a broadcast packet
-	Com_Printf ("pinging broadcast...\n");
+	# send a broadcast packet
+	common.Com_Printf ("pinging broadcast...\n")
 
-	noudp = Cvar_Get ("noudp", "0", CVAR_NOSET);
-	if (!noudp->value)
-	{
-		adr.type = NA_BROADCAST;
-		adr.port = BigShort(qcommon.PORT_SERVER);
-		Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, adr, va("info %i", qcommon.PROTOCOL_VERSION));
-	}
+	noudp = cvar.Cvar_Get ("noudp", "0", q_shared.CVAR_NOSET)
+	if not noudp.value:
+	
+		adr.type = qcommon.netadrtype_t.NA_BROADCAST
+		adr.port = struct.pack(">H", qcommon.PORT_SERVER) # BigShort(PORT_SERVER)
+		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, adr, "info {}".format(qcommon.PROTOCOL_VERSION).encode("ascii"))
+	
+	noipx = cvar.Cvar_Get ("noipx", "0", q_shared.CVAR_NOSET)
+	if not noipx.value:
+	
+		adr.type = qcommon.netadrtype_t.NA_BROADCAST_IPX
+		adr.port = struct.pack(">H", qcommon.PORT_SERVER)
+		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, adr, "info {}".format(qcommon.PROTOCOL_VERSION).encode("ascii"))
+	
+	# send a packet to each address book entry
+	for i in range(16):
+	
+		name = "adr{}".format(i)
+		adrstring = cvar.Cvar_VariableString (name)
+		if not adrstring:
+			continue
 
-	noipx = Cvar_Get ("noipx", "0", CVAR_NOSET);
-	if (!noipx->value)
-	{
-		adr.type = NA_BROADCAST_IPX;
-		adr.port = BigShort(qcommon.PORT_SERVER);
-		Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, adr, va("info %i", qcommon.PROTOCOL_VERSION));
-	}
+		common.Com_Printf ("pinging {}...\n".format(adrstring))
+		adr = net_udp.NET_StringToAdr (adrstring)
+		if adr is None:
+		
+			common.Com_Printf ("Bad address: {}\n".format(adrstring))
+			continue
+		
+		if not adr.port:
+			adr.port = struct.pack(">H", qcommon.PORT_SERVER)
+		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, adr, "info {}".format(qcommon.PROTOCOL_VERSION).encode("ascii"))
+	
 
-	// send a packet to each address book entry
-	for (i=0 ; i<16 ; i++)
-	{
-		Com_sprintf (name, sizeof(name), "adr%i", i);
-		adrstring = Cvar_VariableString (name);
-		if (!adrstring || !adrstring[0])
-			continue;
-
-		Com_Printf ("pinging %s...\n", adrstring);
-		if (!NET_StringToAdr (adrstring, &adr))
-		{
-			Com_Printf ("Bad address: %s\n", adrstring);
-			continue;
-		}
-		if (!adr.port)
-			adr.port = BigShort(qcommon.PORT_SERVER);
-		Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, adr, va("info %i", qcommon.PROTOCOL_VERSION));
-	}
-}
+"""
 
 
 /*
@@ -1463,8 +1465,8 @@ def CL_InitLocal ():
 	"""
 	cmd.Cmd_AddCommand ("cmd", CL_ForwardToServer_f)
 	cmd.Cmd_AddCommand ("pause", CL_Pause_f)
+	cmd.Cmd_AddCommand ("pingservers", CL_PingServers_f)
 	"""
-	Cmd_AddCommand ("pingservers", CL_PingServers_f);
 	Cmd_AddCommand ("skins", CL_Skins_f);
 	"""
 	cmd.Cmd_AddCommand ("userinfo", CL_Userinfo_f);

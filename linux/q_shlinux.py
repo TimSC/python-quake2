@@ -18,7 +18,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 import os
 import time
-import glob
+import fnmatch
 """
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -198,20 +198,21 @@ def Sys_FindFirst (path, musthave, canhave): #char *, unsigned, unsigned (return
 		findpattern = "*"
 	
 	try:
-		fdir = list(glob.glob(os.path.join(findbase, findpattern)))
-	except Exception as err:
-		print (err)
+		fdir = os.listdir(findbase) # fdir = opendir(findbase), entries are names without the directory
+	except OSError:
+		fdir = None
 		return None
 
 	fdirCursor = 0
 
-	while fdirCursor < len(fdir):
+	while fdirCursor < len(fdir): # while ((d = readdir(fdir)) != NULL)
 		d_name = fdir[fdirCursor]
 		fdirCursor += 1
 
-		if CompareAttributes(findbase, d_name, musthave, canhave):
-			findpath = os.path.join(findbase, d_name)
-			return findpath
+		if not findpattern or fnmatch.fnmatchcase(d_name, findpattern): # glob_match(findpattern, d->d_name)
+			if CompareAttributes(findbase, d_name, musthave, canhave):
+				findpath = "{}/{}".format(findbase, d_name)
+				return findpath
 
 	return None
 
@@ -228,9 +229,10 @@ def Sys_FindNext (musthave, canhave):
 		d_name = fdir[fdirCursor]
 		fdirCursor += 1
 
-		if CompareAttributes(findbase, d_name, musthave, canhave):
-			findpath = os.path.join(findbase, d_name)
-			return findpath
+		if not findpattern or fnmatch.fnmatchcase(d_name, findpattern): # glob_match(findpattern, d->d_name)
+			if CompareAttributes(findbase, d_name, musthave, canhave):
+				findpath = "{}/{}".format(findbase, d_name)
+				return findpath
 	
 	return None
 

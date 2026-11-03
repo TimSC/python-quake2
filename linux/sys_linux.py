@@ -302,13 +302,12 @@ def Sys_SendKeyEvents ():
 
 """
 /*****************************************************************************/
-
-char *Sys_GetClipboardData(void)
-{
-	return NULL;
-}
-
 """
+
+def Sys_GetClipboardData(): #(returns char *)
+
+	return None
+
 
 def main (): #int argc, char **argv
 

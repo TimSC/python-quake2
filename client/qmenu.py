@@ -18,7 +18,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
 from client import menu as menumod
-from linux import vid_so, q_shlinux
+from client import keys
+from linux import vid_so, q_shlinux, sys_linux
 """
 #include <string.h>
 #include <ctype.h>
@@ -76,205 +77,164 @@ def Action_Draw( a ): #menuaction_s *
 	if a.ownerdraw is not None:
 		a.ownerdraw( a )
 
-"""
-qboolean Field_DoEnter( menufield_s *f )
-{
-	if ( f.callback )
-	{
-		f.callback( f );
-		return true;
-	}
-	return false;
-}
+def Field_DoEnter( f ): #menufield_s * (returns qboolean)
 
-void Field_Draw( menufield_s *f )
-{
-	int i;
-	char tempbuffer[128]="";
+	if f.callback is not None:
+	
+		f.callback( f )
+		return True
+	
+	return False
 
-	if ( f.name )
-		Menu_DrawStringR2LDark( f.x + f.parent.x + LCOLUMN_OFFSET, f.y + f.parent.y, f.name );
 
-	strncpy( tempbuffer, f->buffer + f->visible_offset, f->visible_length );
+def Field_Draw( f ): #menufield_s *
 
-	Draw_Char( f.x + f.parent.x + 16, f.y + f.parent.y - 4, 18 );
-	Draw_Char( f.x + f.parent.x + 16, f.y + f.parent.y + 4, 24 );
+	#int i;
+	#char tempbuffer[128]="";
 
-	Draw_Char( f.x + f.parent.x + 24 + f->visible_length * 8, f.y + f.parent.y - 4, 20 );
-	Draw_Char( f.x + f.parent.x + 24 + f->visible_length * 8, f.y + f.parent.y + 4, 26 );
+	if f.name:
+		Menu_DrawStringR2LDark( f.x + f.parent.x + LCOLUMN_OFFSET, f.y + f.parent.y, f.name )
 
-	for ( i = 0; i < f->visible_length; i++ )
-	{
-		Draw_Char( f.x + f.parent.x + 24 + i * 8, f.y + f.parent.y - 4, 19 );
-		Draw_Char( f.x + f.parent.x + 24 + i * 8, f.y + f.parent.y + 4, 25 );
-	}
+	tempbuffer = f.buffer[f.visible_offset:f.visible_offset + f.visible_length] # strncpy( tempbuffer, f->buffer + f->visible_offset, f->visible_length );
 
-	Menu_DrawString( f.x + f.parent.x + 24, f.y + f.parent.y, tempbuffer );
+	Draw_Char( f.x + f.parent.x + 16, f.y + f.parent.y - 4, 18 )
+	Draw_Char( f.x + f.parent.x + 16, f.y + f.parent.y + 4, 24 )
 
-	if ( Menu_ItemAtCursor( f.parent ) == f )
-	{
-		int offset;
+	Draw_Char( f.x + f.parent.x + 24 + f.visible_length * 8, f.y + f.parent.y - 4, 20 )
+	Draw_Char( f.x + f.parent.x + 24 + f.visible_length * 8, f.y + f.parent.y + 4, 26 )
 
-		if ( f->visible_offset )
-			offset = f->visible_length;
-		else
-			offset = f->cursor;
+	for i in range(f.visible_length):
+	
+		Draw_Char( f.x + f.parent.x + 24 + i * 8, f.y + f.parent.y - 4, 19 )
+		Draw_Char( f.x + f.parent.x + 24 + i * 8, f.y + f.parent.y + 4, 25 )
+	
+	Menu_DrawString( f.x + f.parent.x + 24, f.y + f.parent.y, tempbuffer )
 
-		if ( ( ( int ) ( q_shlinux.Sys_Milliseconds() / 250 ) ) & 1 )
-		{
+	if Menu_ItemAtCursor( f.parent ) == f:
+	
+		#int offset;
+
+		if f.visible_offset:
+			offset = f.visible_length
+		else:
+			offset = f.cursor
+
+		if ( int ( q_shlinux.Sys_Milliseconds() / 250 ) ) & 1:
+		
 			Draw_Char( f.x + f.parent.x + ( offset + 2 ) * 8 + 8,
 					   f.y + f.parent.y,
-					   11 );
-		}
-		else
-		{
+					   11 )
+		
+		else:
+		
 			Draw_Char( f.x + f.parent.x + ( offset + 2 ) * 8 + 8,
 					   f.y + f.parent.y,
-					   ' ' );
-		}
-	}
-}
-"""
+					   ord(' ') )
+		
+
 def Field_Key( f,  key ): #menufield_s *, int (returns qboolean)
 
-	return False
-	"""
-	extern int keydown[];
+	#extern int keydown[];
 
-	switch ( key )
-	{
-	case K_KP_SLASH:
-		key = '/';
-		break;
-	case K_KP_MINUS:
-		key = '-';
-		break;
-	case K_KP_PLUS:
-		key = '+';
-		break;
-	case K_KP_HOME:
-		key = '7';
-		break;
-	case K_KP_UPARROW:
-		key = '8';
-		break;
-	case K_KP_PGUP:
-		key = '9';
-		break;
-	case K_KP_LEFTARROW:
-		key = '4';
-		break;
-	case K_KP_5:
-		key = '5';
-		break;
-	case K_KP_RIGHTARROW:
-		key = '6';
-		break;
-	case K_KP_END:
-		key = '1';
-		break;
-	case K_KP_DOWNARROW:
-		key = '2';
-		break;
-	case K_KP_PGDN:
-		key = '3';
-		break;
-	case K_KP_INS:
-		key = '0';
-		break;
-	case K_KP_DEL:
-		key = '.';
-		break;
-	}
-
-	if ( key > 127 )
-	{
-		switch ( key )
-		{
-		case K_DEL:
-		default:
-			return false;
-		}
-	}
-
-	/*
-	** support pasting from the clipboard
-	*/
-	if ( ( toupper( key ) == 'V' && keydown[K_CTRL] ) ||
-		 ( ( ( key == K_INS ) || ( key == K_KP_INS ) ) && keydown[K_SHIFT] ) )
-	{
-		char *cbd;
+	if key == keys.K_KP_SLASH:
+		key = ord('/')
+	elif key == keys.K_KP_MINUS:
+		key = ord('-')
+	elif key == keys.K_KP_PLUS:
+		key = ord('+')
+	elif key == keys.K_KP_HOME:
+		key = ord('7')
+	elif key == keys.K_KP_UPARROW:
+		key = ord('8')
+	elif key == keys.K_KP_PGUP:
+		key = ord('9')
+	elif key == keys.K_KP_LEFTARROW:
+		key = ord('4')
+	elif key == keys.K_KP_5:
+		key = ord('5')
+	elif key == keys.K_KP_RIGHTARROW:
+		key = ord('6')
+	elif key == keys.K_KP_END:
+		key = ord('1')
+	elif key == keys.K_KP_DOWNARROW:
+		key = ord('2')
+	elif key == keys.K_KP_PGDN:
+		key = ord('3')
+	elif key == keys.K_KP_INS:
+		key = ord('0')
+	elif key == keys.K_KP_DEL:
+		key = ord('.')
+	
+	if key > 127:
+	
+		# case K_DEL: default:
+		return False
+	
+	#
+	# support pasting from the clipboard
+	#
+	if ( ( chr( key ).upper() == 'V' and keys.keydown[keys.K_CTRL] ) or
+		 ( ( ( key == keys.K_INS ) or ( key == keys.K_KP_INS ) ) and keys.keydown[keys.K_SHIFT] ) ):
+	
+		#char *cbd;
 		
-		if ( ( cbd = Sys_GetClipboardData() ) != 0 )
-		{
-			strtok( cbd, "\n\r\b" );
+		cbd = sys_linux.Sys_GetClipboardData()
+		if cbd is not None:
+		
+			for ch in "\n\r\b": # strtok( cbd, "\n\r\b" );
+				cbd = cbd.split(ch)[0]
 
-			strncpy( f->buffer, cbd, f->length - 1 );
-			f->cursor = strlen( f->buffer );
-			f->visible_offset = f->cursor - f->visible_length;
-			if ( f->visible_offset < 0 )
-				f->visible_offset = 0;
+			f.buffer = cbd[:f.length - 1]
+			f.cursor = len( f.buffer )
+			f.visible_offset = f.cursor - f.visible_length
+			if f.visible_offset < 0:
+				f.visible_offset = 0
+		
+		return True
+	
+	if key == keys.K_KP_LEFTARROW or key == keys.K_LEFTARROW or key == keys.K_BACKSPACE:
+	
+		if f.cursor > 0:
+		
+			f.buffer = f.buffer[:f.cursor-1] + f.buffer[f.cursor:] # memmove( &f->buffer[f->cursor-1], &f->buffer[f->cursor], strlen( &f->buffer[f->cursor] ) + 1 );
+			f.cursor -= 1
 
-			free( cbd );
-		}
-		return true;
-	}
+			if f.visible_offset:
+			
+				f.visible_offset -= 1
+			
+	elif key == keys.K_KP_DEL or key == keys.K_DEL:
+	
+		f.buffer = f.buffer[:f.cursor] + f.buffer[f.cursor+1:] # memmove( &f->buffer[f->cursor], &f->buffer[f->cursor+1], strlen( &f->buffer[f->cursor+1] ) + 1 );
 
-	switch ( key )
-	{
-	case K_KP_LEFTARROW:
-	case K_LEFTARROW:
-	case K_BACKSPACE:
-		if ( f->cursor > 0 )
-		{
-			memmove( &f->buffer[f->cursor-1], &f->buffer[f->cursor], strlen( &f->buffer[f->cursor] ) + 1 );
-			f->cursor--;
+	elif key == keys.K_KP_ENTER or key == keys.K_ENTER or key == keys.K_ESCAPE or key == keys.K_TAB:
+	
+		return False
 
-			if ( f->visible_offset )
-			{
-				f->visible_offset--;
-			}
-		}
-		break;
+	else: # case K_SPACE: default:
+	
+		if not chr( key ).isdigit() and ( f.flags & menumod.QMF_NUMBERSONLY ):
+			return False
 
-	case K_KP_DEL:
-	case K_DEL:
-		memmove( &f->buffer[f->cursor], &f->buffer[f->cursor+1], strlen( &f->buffer[f->cursor+1] ) + 1 );
-		break;
+		if f.cursor < f.length:
+		
+			f.buffer = f.buffer[:f.cursor] + chr(key) # f->buffer[f->cursor++] = key; f->buffer[f->cursor] = 0;
+			f.cursor += 1
 
-	case K_KP_ENTER:
-	case K_ENTER:
-	case K_ESCAPE:
-	case K_TAB:
-		return false;
+			if f.cursor > f.visible_length:
+			
+				f.visible_offset += 1
+			
+	return True
 
-	case K_SPACE:
-	default:
-		if ( !isdigit( key ) && ( f.flags & QMF_NUMBERSONLY ) )
-			return false;
-
-		if ( f->cursor < f->length )
-		{
-			f->buffer[f->cursor++] = key;
-			f->buffer[f->cursor] = 0;
-
-			if ( f->cursor > f->visible_length )
-			{
-				f->visible_offset++;
-			}
-		}
-	}
-
-	return true;
-}
-"""
 def Menu_AddItem( menu, item ): #menuframework_s *, void *
 
-	if len(menu.items) == 0:
+	if menu.nitems == 0:
 		menu.nslots = 0
 
-	if len(menu.items) < menumod.MAXMENUITEMS:
+	if menu.nitems < menumod.MAXMENUITEMS:
 	
+		del menu.items[menu.nitems:] # the list holds only the first nitems entries of the C array
 		menu.items.append(item)
 		item.parent = menu
 		menu.nitems += 1
@@ -508,19 +468,17 @@ def Menu_TallySlots( menu ): #menuframework_s * (returns int)
 		
 	return total
 
-"""
-void Menulist_DoEnter( menulist_s *l )
-{
-	int start;
+def Menulist_DoEnter( l ): #menulist_s *
 
-	start = l.y / 10 + 1;
+	#int start;
 
-	l->curvalue = l.parent->cursor - start;
+	start = l.y // 10 + 1
 
-	if ( l.callback )
-		l.callback( l );
-}
-"""
+	l.curvalue = l.parent.cursor - start
+
+	if l.callback is not None:
+		l.callback( l )
+
 def MenuList_Draw( l ): #menulist_s *
 	y = 0
 
@@ -583,17 +541,15 @@ def Slider_Draw( s ): #menuslider_s *
 	Draw_Char( RCOLUMN_OFFSET + s.x + i*8 + s.parent.x + 8, s.y + s.parent.y, 130)
 	Draw_Char( int ( 8 + RCOLUMN_OFFSET + s.parent.x + s.x + (SLIDER_RANGE-1)*8 * s.range ), s.y + s.parent.y, 131)
 
-"""
-void SpinControl_DoEnter( menulist_s *s )
-{
-	s->curvalue++;
-	if ( s->itemnames[s->curvalue] == 0 )
-		s->curvalue = 0;
+def SpinControl_DoEnter( s ): #menulist_s *
 
-	if ( s.callback )
-		s.callback( s );
-}
-"""
+	s.curvalue += 1
+	if s.curvalue >= len(s.itemnames) or s.itemnames[s.curvalue] is None:
+		s.curvalue = 0
+
+	if s.callback is not None:
+		s.callback( s )
+
 def SpinControl_DoSlide( s, direc ): #menulist_s *, int
 
 	s.curvalue += direc
@@ -608,7 +564,7 @@ def SpinControl_DoSlide( s, direc ): #menulist_s *, int
 
 def SpinControl_Draw( s ): #menulist_s *
 
-	if len(s.name) > 0:
+	if s.name:
 	
 		Menu_DrawStringR2LDark( s.x + s.parent.x + LCOLUMN_OFFSET, 
 							s.y + s.parent.y, 

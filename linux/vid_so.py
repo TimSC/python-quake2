@@ -305,7 +305,8 @@ def VID_LoadRefresh(name): #char * (returns qboolean)
 	ri.Cvar_Set = cvar.Cvar_Set
 	ri.Cvar_SetValue = cvar.Cvar_SetValue
 	#ri.Vid_GetModeInfo = VID_GetModeInfo
-	#ri.Vid_MenuInit = VID_MenuInit
+	from linux import vid_menu # imported here, vid_menu needs client.menu fully loaded
+	ri.Vid_MenuInit = vid_menu.VID_MenuInit
 	#ri.Vid_NewWindow = VID_NewWindow
 
 
