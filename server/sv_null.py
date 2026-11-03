@@ -25,26 +25,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 def SV_Init ():
 	pass
-	"""
-	void SV_Init (void)
-	{
-	}
-	"""
 
 
 def SV_Shutdown (finalmsg, reconnect): #char *, qboolean
 	pass
-	"""
-	void SV_Shutdown (char *finalmsg, qboolean reconnect)
-	{
-	}
-	"""
 
 
 def SV_Frame (time): #float
 	pass
-	"""
-	void SV_Frame (float time)
-	{
-	}
-	"""

@@ -69,7 +69,7 @@ class server_t(object):
 			self.configstrings.append("")
 		self.baselines = [] # entity_state_t	[MAX_EDICTS];
 		for i in range(q_shared.MAX_EDICTS):
-			self.configstrings.append(None)
+			self.baselines.append(q_shared.entity_state_t())
 
 		# the multicast buffer is used to send a message to a set of clients
 		# it is only used to marshall data until SV_Multicast is called
@@ -114,6 +114,25 @@ typedef struct
 LATENCY_COUNTS	= 16
 RATE_MESSAGES	= 10
 
+#typedef struct
+#{
+#	int				areabytes;
+#	byte			areabits[MAX_MAP_AREAS/8];		// portalarea visibility bits
+#	player_state_t	ps;
+#	int				num_entities;
+#	int				first_entity;		// into the circular sv_packet_entities[]
+#	int				senttime;			// for ping calculations
+#} client_frame_t;
+class client_frame_t(object):
+
+	def __init__(self):
+		self.areabytes = 0 #int
+		self.areabits = [] #byte[MAX_MAP_AREAS/8], portalarea visibility bits
+		self.ps = q_shared.player_state_t()
+		self.num_entities = 0 #int
+		self.first_entity = 0 #int, into the circular sv_packet_entities[]
+		self.senttime = 0 #int, for ping calculations
+
 class client_t(object):
 
 	def __init__(self):
@@ -150,6 +169,7 @@ class client_t(object):
 		self.lastmessage = 0 #int, sv.framenum when packet was last received
 		self.lastconnect = 0 #int
 		self.challenge = 0 #int, challenge of this user, randomly generated
+		self.frames = [client_frame_t() for _ in range(qcommon.UPDATE_BACKUP)] #client_frame_t[UPDATE_BACKUP], updates can be delta'd from here
 
 		self.netchan = qcommon.netchan_t()
 

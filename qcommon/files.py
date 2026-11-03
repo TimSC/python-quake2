@@ -185,8 +185,10 @@ a seperate file.
 ===========
 """
 #int file_from_pak = 0;
+file_from_pak = 0
 #ifndef NO_ADDONS
 def FS_FOpenFile (filename): #char *
+	global file_from_pak
 
 	"""
 	searchpath_t	*search;
