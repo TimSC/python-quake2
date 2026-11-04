@@ -17,6 +17,9 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
+import struct
+import time
+
 from game import g_main, q_shared, game, g_items
 """
 #include "g_local.h"
@@ -238,6 +241,96 @@ def InitGame ():
 	g_main.game.maxclients = int(g_main.maxclients.value)
 	g_main.game.clients = [game.gclient_s() for _ in range(g_main.game.maxclients)]
 	g_main.glob.num_edicts = g_main.game.maxclients + 1
+
+#
+# C-compatible savegame binary layout (32-bit Quake2).
+# The format strings reproduce the exact struct layouts from
+# q_shared.h and g_local.h so .ssv/.sav files match the original.
+#
+_FMT_PMOVE  = "<i3hbbh3h"                    # pmove_state_t        = 20
+_FMT_PLAYER = "<i3hbbh3h" + "3f3f3f3f3f" + "ii" + "4f" + "f" + "i" + "32h"  # player_state_t = 176
+_FMT_CLIENT = _FMT_PLAYER + "i"              # gclient_s            = 180
+_FMT_GAME   = "<512s512sii512s5i"            # game_locals_t        = 1556
+
+def _pack_pmove(pm):
+	return struct.pack(_FMT_PMOVE,
+		pm.pm_type,
+		*pm.origin.tolist(),
+		pm.pm_flags, pm.pm_time, pm.gravity,
+		*pm.delta_angles.tolist())
+
+def _pack_player(ps):
+	data = _pack_pmove(ps.pmove)
+	data += struct.pack("15f",
+		*ps.viewangles.tolist(), *ps.viewoffset.tolist(),
+		*ps.kick_angles.tolist(), *ps.gunangles.tolist(),
+		*ps.gunoffset.tolist())
+	data += struct.pack("ii", int(ps.gunindex or 0), int(ps.gunframe or 0))
+	data += struct.pack("4f", *ps.blend.tolist())
+	data += struct.pack("f", float(ps.fov))
+	data += struct.pack("i", int(ps.rdflags))
+	data += struct.pack("32h", *ps.stats)
+	return data
+
+def _pack_client(cl):
+	return _pack_player(cl.ps) + struct.pack("i", int(cl.ping))
+
+def _pack_game(gm):
+	def s512(x):
+		b = (x or "").encode("latin-1")[:512]
+		return b.ljust(512, b"\0")
+	return struct.pack(_FMT_GAME,
+		s512(gm.helpmessage1), s512(gm.helpmessage2),
+		int(gm.helpchanged),
+		0,  # clients pointer (overwritten on read)
+		s512(gm.spawnpoint),
+		int(gm.maxclients), int(gm.maxentities),
+		int(gm.serverflags), int(gm.num_items),
+		1 if gm.autosaved else 0)
+
+"""
+=========================================================
+WriteGame
+
+This is called when the server writes out the game.ssv
+file.  It stores the persistant cross-level state: the
+whole game_locals_t struct followed by each client's
+gclient_t (player_state_t + ping).
+=========================================================
+"""
+def WriteGame (filename, autosave): #char *, qboolean
+	g_main.gi.dprintf ("Writing %s\n", filename)
+
+	# the date string
+	if autosave:
+		strdata = b"Autosave"
+	else:
+		strdata = time.strftime("%M %h %d %I:%P", time.localtime())[:15]
+
+	g_main.game.autosaved = autosave
+
+	f = open(filename, "wb")
+	f.write(strdata.ljust(16, b"\0"))
+	f.write(_pack_game(g_main.game))
+	for i in range(int(g_main.game.maxclients)):
+		f.write(_pack_client(g_main.game.clients[i]))
+	f.close()
+
+#
+# Save/restore of level state (level.sav) and loadgame are not
+# ported yet -- they need the full edict_t field-table relocation
+# (WriteEdict/ReadEdict + the fields[] tables).  These stubs keep the
+# GetGameApi surface complete so the map-load path (which only calls
+# WriteGame) does not crash.
+#
+def ReadGame (filename): #char *
+	g_main.gi.dprintf ("ReadGame: not yet ported\n")
+
+def WriteLevel (filename): #char *
+	g_main.gi.dprintf ("WriteLevel: not yet ported\n")
+
+def ReadLevel (filename): #char *
+	g_main.gi.dprintf ("ReadLevel: not yet ported\n")
 """
 
 //=========================================================

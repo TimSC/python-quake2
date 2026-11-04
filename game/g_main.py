@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from game import game as _gamemod, g_save, p_client
 from game import g_local
 from game import p_view, p_hud, g_utils, g_ai, g_monster, g_phys, q_shared
+from game import g_spawn, g_cmds, g_svcmds
 from game.q_shared import Q_stricmp, DF_SAME_LEVEL, PRINT_HIGH
 """
 
@@ -135,31 +136,23 @@ def GetGameAPI (gimport): #game_import_t * (returns game_export_t *)
 	gi = gimport
 
 	glob.apiversion = _gamemod.GAME_API_VERSION
-	
+
 	glob.Init = g_save.InitGame
 	glob.Shutdown = ShutdownGame
-	"""
-	glob.SpawnEntities = SpawnEntities
-
-	glob.WriteGame = WriteGame
-	glob.ReadGame = ReadGame
-	glob.WriteLevel = WriteLevel
-	glob.ReadLevel = ReadLevel
-	"""
+	glob.SpawnEntities = g_spawn.SpawnEntities
+	glob.WriteGame = g_save.WriteGame
+	glob.ReadGame = g_save.ReadGame
+	glob.WriteLevel = g_save.WriteLevel
+	glob.ReadLevel = g_save.ReadLevel
 	glob.ClientThink = p_client.ClientThink
 	glob.ClientConnect = p_client.ClientConnect
 	glob.ClientUserinfoChanged = p_client.ClientUserinfoChanged
 	glob.ClientDisconnect = p_client.ClientDisconnect
 	glob.ClientBegin = p_client.ClientBegin
-	"""
-	glob.ClientCommand = ClientCommand
-
-	"""
+	glob.ClientCommand = g_cmds.ClientCommand
 	glob.RunFrame = G_RunFrame
-	"""
+	glob.ServerCommand = g_svcmds.ServerCommand
 
-	glob.ServerCommand = ServerCommand
-	"""
 	#glob.edict_size = sizeof(edict_t)
 
 	return glob
