@@ -17,7 +17,68 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
-from game import q_shared
+import random as _r
+import numpy as np
+from game import q_shared, g_local, g_main, g_utils, g_monster, g_misc, g_ai
+from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
+from game.g_utils import G_FreeEdict
+from game.g_weapon import fire_hit
+from game.g_monster import walkmonster_start
+from game.g_misc import ThrowGib, ThrowHead
+from game.q_shared import CHAN_VOICE, CHAN_WEAPON, ATTN_NORM, ATTN_IDLE, YAW
+from game.g_local import (MELEE_DISTANCE, GIB_ORGANIC, DEAD_DEAD, MOVETYPE_TOSS,
+	MOVETYPE_STEP, AI_STAND_GROUND, damage_t)
+DAMAGE_YES = damage_t.DAMAGE_YES.value
+from game.game import solid_t, SVF_DEADMONSTER
+
+SOLID_BBOX = solid_t.SOLID_BBOX.value
+
+MODEL_SCALE = 1.000000
+
+sound_pain = 0
+sound_die = 0
+sound_idle = 0
+sound_punch = 0
+sound_sight = 0
+sound_search = 0
+
+def _mf(aifunc, dist, thinkfunc):
+	f = g_local.mframe_t()
+	f.aifunc = aifunc
+	f.dist = dist
+	f.thinkfunc = thinkfunc
+	return f
+
+def _mm(first, last, frames, endfunc):
+	m = g_local.mmove_t()
+	m.firstframe = first
+	m.lastframe = last
+	m.frame = frames
+	m.endfunc = endfunc
+	return m
+
+FRAME_stand1     = 0
+FRAME_stand5     = 4
+FRAME_standb1    = 5
+FRAME_standb20   = 24
+FRAME_walkc1     = 25
+FRAME_walkc11    = 35
+FRAME_run1       = 36
+FRAME_run6       = 41
+FRAME_att_c1     = 76
+FRAME_att_c8     = 83
+FRAME_att_c9     = 84
+FRAME_att_c20    = 95
+FRAME_att_c21    = 96
+FRAME_att_c34    = 109
+FRAME_painc1     = 199
+FRAME_painc4     = 202
+FRAME_painb1     = 203
+FRAME_painb20    = 222
+FRAME_death1     = 223
+FRAME_death13    = 235
+FRAME_deathc1    = 236
+FRAME_deathc8    = 243
 """
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
@@ -318,7 +379,7 @@ mmove_t berserk_move_death2 = {FRAME_deathc1, FRAME_deathc8, berserk_frames_deat
 """
 
 def berserk_sight (self, other):
-	pass
+	g_main.gi.sound (self, CHAN_VOICE, sound_sight, 1, ATTN_NORM, 0)
 	"""
 	void berserk_sight (edict_t *self, edict_t *other)
 	{
@@ -327,7 +388,7 @@ def berserk_sight (self, other):
 	"""
 
 def berserk_search (self):
-	pass
+	g_main.gi.sound (self, CHAN_VOICE, sound_search, 1, ATTN_NORM, 0)
 	"""
 	void berserk_search (edict_t *self)
 	{
@@ -336,7 +397,7 @@ def berserk_search (self):
 	"""
 
 def berserk_stand (self):
-	pass
+	self.monsterinfo.currentmove = berserk_move_stand
 	"""
 	void berserk_stand (edict_t *self)
 	{
@@ -345,7 +406,13 @@ def berserk_stand (self):
 	"""
 
 def berserk_fidget (self):
-	pass
+	if self.monsterinfo.aiflags & AI_STAND_GROUND:
+		return
+	if g_local.random() > 0.15:
+		return
+
+	self.monsterinfo.currentmove = berserk_move_stand_fidget
+	g_main.gi.sound (self, CHAN_WEAPON, sound_idle, 1, ATTN_IDLE, 0)
 	"""
 	void berserk_fidget (edict_t *self)
 	{
@@ -360,7 +427,7 @@ def berserk_fidget (self):
 	"""
 
 def berserk_walk (self):
-	pass
+	self.monsterinfo.currentmove = berserk_move_walk
 	"""
 	void berserk_walk (edict_t *self)
 	{
@@ -369,7 +436,10 @@ def berserk_walk (self):
 	"""
 
 def berserk_run (self):
-	pass
+	if self.monsterinfo.aiflags & AI_STAND_GROUND:
+		self.monsterinfo.currentmove = berserk_move_stand
+	else:
+		self.monsterinfo.currentmove = berserk_move_run1
 	"""
 	void berserk_run (edict_t *self)
 	{
@@ -381,7 +451,8 @@ def berserk_run (self):
 	"""
 
 def berserk_attack_spike (self):
-	pass
+	aim = np.array([MELEE_DISTANCE, 0, -24], dtype=np.float32)
+	fire_hit (self, aim, (15 + (_r.randint(0, 2147483647) % 6)), 400)		# Faster attack -- upwards and backwards
 	"""
 	void berserk_attack_spike (edict_t *self)
 	{
@@ -391,7 +462,7 @@ def berserk_attack_spike (self):
 	"""
 
 def berserk_swing (self):
-	pass
+	g_main.gi.sound (self, CHAN_WEAPON, sound_punch, 1, ATTN_NORM, 0)
 	"""
 	void berserk_swing (edict_t *self)
 	{
@@ -400,7 +471,10 @@ def berserk_swing (self):
 	"""
 
 def berserk_attack_club (self):
-	pass
+	aim = np.zeros((3,), dtype=np.float32)
+
+	q_shared.VectorSet (aim, MELEE_DISTANCE, self.mins[0], -4)
+	fire_hit (self, aim, (5 + (_r.randint(0, 2147483647) % 6)), 400)		# Slower attack
 	"""
 	void berserk_attack_club (edict_t *self)
 	{
@@ -412,7 +486,7 @@ def berserk_attack_club (self):
 	"""
 
 def berserk_strike (self):
-	pass
+	pass	#FIXME play impact sound
 	"""
 	void berserk_strike (edict_t *self)
 	{
@@ -421,7 +495,10 @@ def berserk_strike (self):
 	"""
 
 def berserk_melee (self):
-	pass
+	if ((_r.randint(0, 2147483647) % 2) == 0):
+		self.monsterinfo.currentmove = berserk_move_attack_spike
+	else:
+		self.monsterinfo.currentmove = berserk_move_attack_club
 	"""
 	void berserk_melee (edict_t *self)
 	{
@@ -433,7 +510,22 @@ def berserk_melee (self):
 	"""
 
 def berserk_pain (self, other, kick, damage):
-	pass
+	if self.health < (self.max_health / 2):
+		self.s.skinnum = 1
+
+	if g_main.level.time < self.pain_debounce_time:
+		return
+
+	self.pain_debounce_time = g_main.level.time + 3
+	g_main.gi.sound (self, CHAN_VOICE, sound_pain, 1, ATTN_NORM, 0)
+
+	if g_main.skill.value == 3:
+		return		# no pain anims in nightmare
+
+	if ((damage < 20) or (g_local.random() < 0.5)):
+		self.monsterinfo.currentmove = berserk_move_pain1
+	else:
+		self.monsterinfo.currentmove = berserk_move_pain2
 	"""
 	void berserk_pain (edict_t *self, edict_t *other, float kick, int damage)
 	{
@@ -457,7 +549,12 @@ def berserk_pain (self, other, kick, damage):
 	"""
 
 def berserk_dead (self):
-	pass
+	q_shared.VectorSet (self.mins, -16, -16, -24)
+	q_shared.VectorSet (self.maxs, 16, 16, -8)
+	self.movetype = MOVETYPE_TOSS
+	self.svflags |= SVF_DEADMONSTER
+	self.nextthink = 0
+	g_main.gi.linkentity (self)
 	"""
 	void berserk_dead (edict_t *self)
 	{
@@ -471,7 +568,27 @@ def berserk_dead (self):
 	"""
 
 def berserk_die (self, inflictor, attacker, damage, point):
-	pass
+	if self.health <= self.gib_health:
+		g_main.gi.sound (self, CHAN_VOICE, g_main.gi.soundindex ("misc/udeath.wav"), 1, ATTN_NORM, 0)
+		for n in range(2):
+			ThrowGib (self, "models/objects/gibs/bone/tris.md2", damage, GIB_ORGANIC)
+		for n in range(4):
+			ThrowGib (self, "models/objects/gibs/sm_meat/tris.md2", damage, GIB_ORGANIC)
+		ThrowHead (self, "models/objects/gibs/head2/tris.md2", damage, GIB_ORGANIC)
+		self.deadflag = DEAD_DEAD
+		return
+
+	if self.deadflag == DEAD_DEAD:
+		return
+
+	g_main.gi.sound (self, CHAN_VOICE, sound_die, 1, ATTN_NORM, 0)
+	self.deadflag = DEAD_DEAD
+	self.takedamage = DAMAGE_YES
+
+	if damage >= 50:
+		self.monsterinfo.currentmove = berserk_move_death1
+	else:
+		self.monsterinfo.currentmove = berserk_move_death2
 	"""
 	void berserk_die (edict_t *self, edict_t *inflictor, edict_t *attacker, int damage, vec3_t point)
 	{
@@ -504,7 +621,47 @@ def berserk_die (self, inflictor, attacker, damage, point):
 	"""
 
 def SP_monster_berserk (self):
-	pass
+	global sound_pain, sound_die, sound_idle, sound_punch, sound_sight, sound_search
+	if g_main.deathmatch.value:
+		G_FreeEdict (self)
+		return
+
+	# pre-caches
+	sound_pain  = g_main.gi.soundindex ("berserk/berpain2.wav")
+	sound_die   = g_main.gi.soundindex ("berserk/berdeth2.wav")
+	sound_idle  = g_main.gi.soundindex ("berserk/beridle1.wav")
+	sound_punch = g_main.gi.soundindex ("berserk/attack.wav")
+	sound_search = g_main.gi.soundindex ("berserk/bersrch1.wav")
+	sound_sight = g_main.gi.soundindex ("berserk/sight.wav")
+
+	self.s.modelindex = g_main.gi.modelindex("models/monsters/berserk/tris.md2")
+	q_shared.VectorSet (self.mins, -16, -16, -24)
+	q_shared.VectorSet (self.maxs, 16, 16, 32)
+	self.movetype = MOVETYPE_STEP
+	self.solid = SOLID_BBOX
+
+	self.health = 240
+	self.gib_health = -60
+	self.mass = 250
+
+	self.pain = berserk_pain
+	self.die = berserk_die
+
+	self.monsterinfo.stand = berserk_stand
+	self.monsterinfo.walk = berserk_walk
+	self.monsterinfo.run = berserk_run
+	self.monsterinfo.dodge = None
+	self.monsterinfo.attack = None
+	self.monsterinfo.melee = berserk_melee
+	self.monsterinfo.sight = berserk_sight
+	self.monsterinfo.search = berserk_search
+
+	self.monsterinfo.currentmove = berserk_move_stand
+	self.monsterinfo.scale = MODEL_SCALE
+
+	g_main.gi.linkentity (self)
+
+	walkmonster_start (self)
 	"""
 	void SP_monster_berserk (edict_t *self)
 	{
@@ -552,3 +709,59 @@ def SP_monster_berserk (self):
 		walkmonster_start (self);
 	}
 	"""
+
+# ----------------------------------------------------------------------------
+# Animation move tables (defined after the functions they reference)
+# ----------------------------------------------------------------------------
+berserk_frames_stand = [
+	_mf(ai_stand, 0, berserk_fidget), _mf(ai_stand, 0, None), _mf(ai_stand, 0, None),
+	_mf(ai_stand, 0, None), _mf(ai_stand, 0, None)]
+berserk_move_stand = _mm(FRAME_stand1, FRAME_stand5, berserk_frames_stand, None)
+
+berserk_frames_stand_fidget = [_mf(ai_stand, 0, None)] * 20
+berserk_move_stand_fidget = _mm(FRAME_standb1, FRAME_standb20, berserk_frames_stand_fidget, berserk_stand)
+
+berserk_frames_walk = [
+	_mf(ai_walk, 9.1, None), _mf(ai_walk, 6.3, None), _mf(ai_walk, 4.9, None),
+	_mf(ai_walk, 6.7, None), _mf(ai_walk, 6.0, None), _mf(ai_walk, 8.2, None),
+	_mf(ai_walk, 7.2, None), _mf(ai_walk, 6.1, None), _mf(ai_walk, 4.9, None),
+	_mf(ai_walk, 4.7, None), _mf(ai_walk, 4.7, None), _mf(ai_walk, 4.8, None)]
+berserk_move_walk = _mm(FRAME_walkc1, FRAME_walkc11, berserk_frames_walk, None)
+
+berserk_frames_run1 = [
+	_mf(ai_run, 21, None), _mf(ai_run, 11, None), _mf(ai_run, 21, None),
+	_mf(ai_run, 25, None), _mf(ai_run, 18, None), _mf(ai_run, 19, None)]
+berserk_move_run1 = _mm(FRAME_run1, FRAME_run6, berserk_frames_run1, None)
+
+berserk_frames_attack_spike = [
+	_mf(ai_charge, 0, None), _mf(ai_charge, 0, None), _mf(ai_charge, 0, berserk_swing),
+	_mf(ai_charge, 0, berserk_attack_spike), _mf(ai_charge, 0, None), _mf(ai_charge, 0, None),
+	_mf(ai_charge, 0, None), _mf(ai_charge, 0, None)]
+berserk_move_attack_spike = _mm(FRAME_att_c1, FRAME_att_c8, berserk_frames_attack_spike, berserk_run)
+
+berserk_frames_attack_club = [
+	_mf(ai_charge, 0, None), _mf(ai_charge, 0, None), _mf(ai_charge, 0, None),
+	_mf(ai_charge, 0, None), _mf(ai_charge, 0, berserk_swing), _mf(ai_charge, 0, None),
+	_mf(ai_charge, 0, None), _mf(ai_charge, 0, None), _mf(ai_charge, 0, berserk_attack_club),
+	_mf(ai_charge, 0, None), _mf(ai_charge, 0, None), _mf(ai_charge, 0, None)]
+berserk_move_attack_club = _mm(FRAME_att_c9, FRAME_att_c20, berserk_frames_attack_club, berserk_run)
+
+berserk_frames_attack_strike = [
+	_mf(ai_move, 0, None), _mf(ai_move, 0, None), _mf(ai_move, 0, None),
+	_mf(ai_move, 0, berserk_swing), _mf(ai_move, 0, None), _mf(ai_move, 0, None),
+	_mf(ai_move, 0, None), _mf(ai_move, 0, berserk_strike), _mf(ai_move, 0, None),
+	_mf(ai_move, 0, None), _mf(ai_move, 0, None), _mf(ai_move, 0, None),
+	_mf(ai_move, 9.7, None), _mf(ai_move, 13.6, None)]
+berserk_move_attack_strike = _mm(FRAME_att_c21, FRAME_att_c34, berserk_frames_attack_strike, berserk_run)
+
+berserk_frames_pain1 = [_mf(ai_move, 0, None)] * 4
+berserk_move_pain1 = _mm(FRAME_painc1, FRAME_painc4, berserk_frames_pain1, berserk_run)
+
+berserk_frames_pain2 = [_mf(ai_move, 0, None)] * 20
+berserk_move_pain2 = _mm(FRAME_painb1, FRAME_painb20, berserk_frames_pain2, berserk_run)
+
+berserk_frames_death1 = [_mf(ai_move, 0, None)] * 13
+berserk_move_death1 = _mm(FRAME_death1, FRAME_death13, berserk_frames_death1, berserk_dead)
+
+berserk_frames_death2 = [_mf(ai_move, 0, None)] * 8
+berserk_move_death2 = _mm(FRAME_deathc1, FRAME_deathc8, berserk_frames_death2, berserk_dead)

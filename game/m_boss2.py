@@ -17,7 +17,66 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
-from game import q_shared
+import random as _r
+import numpy as np
+from game import q_shared, g_local, g_main, g_utils, g_monster, g_misc, g_ai, m_flash, m_supertank
+from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge, infront, range
+from game.g_utils import G_ProjectSource, G_FreeEdict, vtos, vectoyaw
+from game.g_monster import monster_fire_bullet, monster_fire_rocket, flymonster_start
+from game.q_shared import (CHAN_VOICE, ATTN_NONE, CONTENTS_SOLID, CONTENTS_MONSTER,
+	CONTENTS_SLIME, CONTENTS_LAVA, MZ2_BOSS2_ROCKET_1, MZ2_BOSS2_ROCKET_2,
+	MZ2_BOSS2_ROCKET_3, MZ2_BOSS2_ROCKET_4, MZ2_BOSS2_MACHINEGUN_R1, MZ2_BOSS2_MACHINEGUN_L1)
+from game.g_local import (DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, FRAMETIME,
+	MOVETYPE_STEP, MOVETYPE_TOSS, AI_STAND_GROUND, FL_FLY, FL_IMMUNE_LASER,
+	RANGE_MELEE, RANGE_NEAR, RANGE_MID, RANGE_FAR, AS_MELEE, AS_MISSILE, AS_SLIDING,
+	AS_STRAIGHT, DEAD_DEAD, damage_t)
+DAMAGE_NO = damage_t.DAMAGE_NO.value
+from game.game import solid_t, SVF_DEADMONSTER
+
+SOLID_BBOX = solid_t.SOLID_BBOX.value
+
+MODEL_SCALE = 1.000000
+
+sound_pain1 = 0
+sound_pain2 = 0
+sound_pain3 = 0
+sound_death = 0
+sound_search1 = 0
+
+def _mf(aifunc, dist, thinkfunc):
+	f = g_local.mframe_t()
+	f.aifunc = aifunc
+	f.dist = dist
+	f.thinkfunc = thinkfunc
+	return f
+
+def _mm(first, last, frames, endfunc):
+	m = g_local.mmove_t()
+	m.firstframe = first
+	m.lastframe = last
+	m.frame = frames
+	m.endfunc = endfunc
+	return m
+
+FRAME_stand30      = 0
+FRAME_stand50      = 20
+FRAME_stand1       = 21
+FRAME_walk1        = 50
+FRAME_walk20       = 69
+FRAME_attack1      = 70
+FRAME_attack9      = 78
+FRAME_attack10     = 79
+FRAME_attack15     = 84
+FRAME_attack16     = 85
+FRAME_attack19     = 88
+FRAME_attack20     = 89
+FRAME_attack40     = 109
+FRAME_pain2        = 110
+FRAME_pain19       = 127
+FRAME_pain20       = 128
+FRAME_pain23       = 131
+FRAME_death2       = 132
+FRAME_death50      = 180
 """
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
@@ -351,7 +410,8 @@ mmove_t boss2_move_death = {FRAME_death2, FRAME_death50, boss2_frames_death, bos
 """
 
 def boss2_search (self):
-	pass
+	if g_local.random() < 0.5:
+		g_main.gi.sound (self, CHAN_VOICE, sound_search1, 1, ATTN_NONE, 0)
 	"""
 	void boss2_search (edict_t *self)
 	{
@@ -361,7 +421,46 @@ def boss2_search (self):
 	"""
 
 def Boss2Rocket (self):
-	pass
+	forward = np.zeros((3,), dtype=np.float32)
+	right = np.zeros((3,), dtype=np.float32)
+	up = np.zeros((3,), dtype=np.float32)
+	start = np.zeros((3,), dtype=np.float32)
+	dir = np.zeros((3,), dtype=np.float32)
+	vec = np.zeros((3,), dtype=np.float32)
+
+	q_shared.AngleVectors (self.s.angles, forward, right, up)
+
+	# 1
+	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_BOSS2_ROCKET_1], forward, right, start)
+	q_shared.VectorCopy (self.enemy.s.origin, vec)
+	vec[2] += self.enemy.viewheight
+	q_shared.VectorSubtract (vec, start, dir)
+	q_shared.VectorNormalize (dir)
+	monster_fire_rocket (self, start, dir, 50, 500, MZ2_BOSS2_ROCKET_1)
+
+	# 2
+	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_BOSS2_ROCKET_2], forward, right, start)
+	q_shared.VectorCopy (self.enemy.s.origin, vec)
+	vec[2] += self.enemy.viewheight
+	q_shared.VectorSubtract (vec, start, dir)
+	q_shared.VectorNormalize (dir)
+	monster_fire_rocket (self, start, dir, 50, 500, MZ2_BOSS2_ROCKET_2)
+
+	# 3
+	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_BOSS2_ROCKET_3], forward, right, start)
+	q_shared.VectorCopy (self.enemy.s.origin, vec)
+	vec[2] += self.enemy.viewheight
+	q_shared.VectorSubtract (vec, start, dir)
+	q_shared.VectorNormalize (dir)
+	monster_fire_rocket (self, start, dir, 50, 500, MZ2_BOSS2_ROCKET_3)
+
+	# 4
+	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_BOSS2_ROCKET_4], forward, right, start)
+	q_shared.VectorCopy (self.enemy.s.origin, vec)
+	vec[2] += self.enemy.viewheight
+	q_shared.VectorSubtract (vec, start, dir)
+	q_shared.VectorNormalize (dir)
+	monster_fire_rocket (self, start, dir, 50, 500, MZ2_BOSS2_ROCKET_4)
 	"""
 	void Boss2Rocket (edict_t *self)
 	{
@@ -407,7 +506,21 @@ def Boss2Rocket (self):
 	"""
 
 def boss2_firebullet_right (self):
-	pass
+	forward = np.zeros((3,), dtype=np.float32)
+	right = np.zeros((3,), dtype=np.float32)
+	up = np.zeros((3,), dtype=np.float32)
+	target = np.zeros((3,), dtype=np.float32)
+	start = np.zeros((3,), dtype=np.float32)
+
+	q_shared.AngleVectors (self.s.angles, forward, right, up)
+	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_BOSS2_MACHINEGUN_R1], forward, right, start)
+
+	q_shared.VectorMA (self.enemy.s.origin, -0.2, self.enemy.velocity, target)
+	target[2] += self.enemy.viewheight
+	q_shared.VectorSubtract (target, start, forward)
+	q_shared.VectorNormalize (forward)
+
+	monster_fire_bullet (self, start, forward, 6, 4, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, MZ2_BOSS2_MACHINEGUN_R1)
 	"""
 	void boss2_firebullet_right (edict_t *self)
 	{
@@ -427,7 +540,22 @@ def boss2_firebullet_right (self):
 	"""
 
 def boss2_firebullet_left (self):
-	pass
+	forward = np.zeros((3,), dtype=np.float32)
+	right = np.zeros((3,), dtype=np.float32)
+	up = np.zeros((3,), dtype=np.float32)
+	target = np.zeros((3,), dtype=np.float32)
+	start = np.zeros((3,), dtype=np.float32)
+
+	q_shared.AngleVectors (self.s.angles, forward, right, up)
+	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_BOSS2_MACHINEGUN_L1], forward, right, start)
+
+	q_shared.VectorMA (self.enemy.s.origin, -0.2, self.enemy.velocity, target)
+
+	target[2] += self.enemy.viewheight
+	q_shared.VectorSubtract (target, start, forward)
+	q_shared.VectorNormalize (forward)
+
+	monster_fire_bullet (self, start, forward, 6, 4, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, MZ2_BOSS2_MACHINEGUN_L1)
 	"""
 	void boss2_firebullet_left (edict_t *self)
 	{
@@ -448,7 +576,9 @@ def boss2_firebullet_left (self):
 	"""
 
 def Boss2MachineGun (self):
-	pass
+	# original code fired a single flash-based bullet; the active version calls both guns
+	boss2_firebullet_left(self)
+	boss2_firebullet_right(self)
 	"""
 	void Boss2MachineGun (edict_t *self)
 	{
@@ -475,7 +605,7 @@ def Boss2MachineGun (self):
 	"""
 
 def boss2_stand (self):
-	pass
+	self.monsterinfo.currentmove = boss2_move_stand
 	"""
 	void boss2_stand (edict_t *self)
 	{
@@ -484,7 +614,10 @@ def boss2_stand (self):
 	"""
 
 def boss2_run (self):
-	pass
+	if self.monsterinfo.aiflags & AI_STAND_GROUND:
+		self.monsterinfo.currentmove = boss2_move_stand
+	else:
+		self.monsterinfo.currentmove = boss2_move_run
 	"""
 	void boss2_run (edict_t *self)
 	{
@@ -496,7 +629,7 @@ def boss2_run (self):
 	"""
 
 def boss2_walk (self):
-	pass
+	self.monsterinfo.currentmove = boss2_move_walk
 	"""
 	void boss2_walk (edict_t *self)
 	{
@@ -505,7 +638,19 @@ def boss2_walk (self):
 	"""
 
 def boss2_attack (self):
-	pass
+	vec = np.zeros((3,), dtype=np.float32)
+	range_ = 0.0
+
+	q_shared.VectorSubtract (self.enemy.s.origin, self.s.origin, vec)
+	range_ = q_shared.VectorLength (vec)
+
+	if range_ <= 125:
+		self.monsterinfo.currentmove = boss2_move_attack_pre_mg
+	else:
+		if g_local.random() <= 0.6:
+			self.monsterinfo.currentmove = boss2_move_attack_pre_mg
+		else:
+			self.monsterinfo.currentmove = boss2_move_attack_rocket
 	"""
 	void boss2_attack (edict_t *self)
 	{
@@ -530,7 +675,7 @@ def boss2_attack (self):
 	"""
 
 def boss2_attack_mg (self):
-	pass
+	self.monsterinfo.currentmove = boss2_move_attack_mg
 	"""
 	void boss2_attack_mg (edict_t *self)
 	{
@@ -539,7 +684,13 @@ def boss2_attack_mg (self):
 	"""
 
 def boss2_reattack_mg (self):
-	pass
+	if infront(self, self.enemy):
+		if g_local.random() <= 0.7:
+			self.monsterinfo.currentmove = boss2_move_attack_mg
+		else:
+			self.monsterinfo.currentmove = boss2_move_attack_post_mg
+	else:
+		self.monsterinfo.currentmove = boss2_move_attack_post_mg
 	"""
 	void boss2_reattack_mg (edict_t *self)
 	{
@@ -554,7 +705,23 @@ def boss2_reattack_mg (self):
 	"""
 
 def boss2_pain (self, other, kick, damage):
-	pass
+	if self.health < (self.max_health / 2):
+		self.s.skinnum = 1
+
+	if g_main.level.time < self.pain_debounce_time:
+		return
+
+	self.pain_debounce_time = g_main.level.time + 3
+	# American wanted these at no attenuation
+	if damage < 10:
+		g_main.gi.sound (self, CHAN_VOICE, sound_pain3, 1, ATTN_NONE, 0)
+		self.monsterinfo.currentmove = boss2_move_pain_light
+	elif damage < 30:
+		g_main.gi.sound (self, CHAN_VOICE, sound_pain1, 1, ATTN_NONE, 0)
+		self.monsterinfo.currentmove = boss2_move_pain_light
+	else:
+		g_main.gi.sound (self, CHAN_VOICE, sound_pain2, 1, ATTN_NONE, 0)
+		self.monsterinfo.currentmove = boss2_move_pain_heavy
 	"""
 	void boss2_pain (edict_t *self, edict_t *other, float kick, int damage)
 	{
@@ -585,7 +752,12 @@ def boss2_pain (self, other, kick, damage):
 	"""
 
 def boss2_dead (self):
-	pass
+	q_shared.VectorSet (self.mins, -56, -56, 0)
+	q_shared.VectorSet (self.maxs, 56, 56, 80)
+	self.movetype = MOVETYPE_TOSS
+	self.svflags |= SVF_DEADMONSTER
+	self.nextthink = 0
+	g_main.gi.linkentity (self)
 	"""
 	void boss2_dead (edict_t *self)
 	{
@@ -599,7 +771,11 @@ def boss2_dead (self):
 	"""
 
 def boss2_die (self, inflictor, attacker, damage, point):
-	pass
+	g_main.gi.sound (self, CHAN_VOICE, sound_death, 1, ATTN_NONE, 0)
+	self.deadflag = DEAD_DEAD
+	self.takedamage = DAMAGE_NO
+	self.count = 0
+	self.monsterinfo.currentmove = boss2_move_death
 	"""
 	void boss2_die (edict_t *self, edict_t *inflictor, edict_t *attacker, int damage, vec3_t point)
 	{
@@ -636,7 +812,76 @@ def boss2_die (self, inflictor, attacker, damage, point):
 	"""
 
 def Boss2_CheckAttack (self):
-	pass
+	spot1 = np.zeros((3,), dtype=np.float32)
+	spot2 = np.zeros((3,), dtype=np.float32)
+	temp = np.zeros((3,), dtype=np.float32)
+	chance = 0.0
+	tr = None
+	enemy_infront = False
+	enemy_range = 0
+	enemy_yaw = 0.0
+
+	if self.enemy.health > 0:
+		# see if any entities are in the way of the shot
+		q_shared.VectorCopy (self.s.origin, spot1)
+		spot1[2] += self.viewheight
+		q_shared.VectorCopy (self.enemy.s.origin, spot2)
+		spot2[2] += self.enemy.viewheight
+
+		tr = g_main.gi.trace (spot1, None, None, spot2, self, CONTENTS_SOLID|CONTENTS_MONSTER|CONTENTS_SLIME|CONTENTS_LAVA)
+
+		# do we have a clear shot?
+		if tr.ent != self.enemy:
+			return False
+
+	enemy_infront = infront(self, self.enemy)
+	enemy_range = range(self, self.enemy)
+	q_shared.VectorSubtract (self.enemy.s.origin, self.s.origin, temp)
+	enemy_yaw = vectoyaw(temp)
+
+	self.ideal_yaw = enemy_yaw
+
+	# melee attack
+	if enemy_range == RANGE_MELEE:
+		if self.monsterinfo.melee:
+			self.monsterinfo.attack_state = AS_MELEE
+		else:
+			self.monsterinfo.attack_state = AS_MISSILE
+		return True
+
+	# missile attack
+	if not self.monsterinfo.attack:
+		return False
+
+	if g_main.level.time < self.monsterinfo.attack_finished:
+		return False
+
+	if enemy_range == RANGE_FAR:
+		return False
+
+	if self.monsterinfo.aiflags & AI_STAND_GROUND:
+		chance = 0.4
+	elif enemy_range == RANGE_MELEE:
+		chance = 0.8
+	elif enemy_range == RANGE_NEAR:
+		chance = 0.8
+	elif enemy_range == RANGE_MID:
+		chance = 0.8
+	else:
+		return False
+
+	if g_local.random() < chance:
+		self.monsterinfo.attack_state = AS_MISSILE
+		self.monsterinfo.attack_finished = g_main.level.time + 2*g_local.random()
+		return True
+
+	if self.flags & FL_FLY:
+		if g_local.random() < 0.3:
+			self.monsterinfo.attack_state = AS_SLIDING
+		else:
+			self.monsterinfo.attack_state = AS_STRAIGHT
+
+	return False
 	"""
 	qboolean Boss2_CheckAttack (edict_t *self)
 	{
@@ -732,7 +977,46 @@ def Boss2_CheckAttack (self):
 	"""
 
 def SP_monster_boss2 (self):
-	pass
+	global sound_pain1, sound_pain2, sound_pain3, sound_death, sound_search1
+	if g_main.deathmatch.value:
+		G_FreeEdict (self)
+		return
+
+	sound_pain1 = g_main.gi.soundindex ("bosshovr/bhvpain1.wav")
+	sound_pain2 = g_main.gi.soundindex ("bosshovr/bhvpain2.wav")
+	sound_pain3 = g_main.gi.soundindex ("bosshovr/bhvpain3.wav")
+	sound_death = g_main.gi.soundindex ("bosshovr/bhvdeth1.wav")
+	sound_search1 = g_main.gi.soundindex ("bosshovr/bhvunqv1.wav")
+
+	self.s.sound = g_main.gi.soundindex ("bosshovr/bhvengn1.wav")
+
+	self.movetype = MOVETYPE_STEP
+	self.solid = SOLID_BBOX
+	self.s.modelindex = g_main.gi.modelindex ("models/monsters/boss2/tris.md2")
+	q_shared.VectorSet (self.mins, -56, -56, 0)
+	q_shared.VectorSet (self.maxs, 56, 56, 80)
+
+	self.health = 2000
+	self.gib_health = -200
+	self.mass = 1000
+
+	self.flags |= FL_IMMUNE_LASER
+
+	self.pain = boss2_pain
+	self.die = boss2_die
+
+	self.monsterinfo.stand = boss2_stand
+	self.monsterinfo.walk = boss2_walk
+	self.monsterinfo.run = boss2_run
+	self.monsterinfo.attack = boss2_attack
+	self.monsterinfo.search = boss2_search
+	self.monsterinfo.checkattack = Boss2_CheckAttack
+	g_main.gi.linkentity (self)
+
+	self.monsterinfo.currentmove = boss2_move_stand
+	self.monsterinfo.scale = MODEL_SCALE
+
+	flymonster_start (self)
 	"""
 	void SP_monster_boss2 (edict_t *self)
 	{
@@ -779,3 +1063,39 @@ def SP_monster_boss2 (self):
 		flymonster_start (self);
 	}
 	"""
+
+# ----------------------------------------------------------------------------
+# Animation move tables (defined after the functions they reference)
+# ----------------------------------------------------------------------------
+boss2_frames_stand = [_mf(ai_stand, 0, None)] * 21
+boss2_move_stand = _mm(FRAME_stand30, FRAME_stand50, boss2_frames_stand, None)
+
+boss2_frames_fidget = [_mf(ai_stand, 0, None)] * 30
+boss2_move_fidget = _mm(FRAME_stand1, FRAME_stand30, boss2_frames_fidget, None)
+
+boss2_frames_walk = [_mf(ai_walk, 8, None)] * 20
+boss2_move_walk = _mm(FRAME_walk1, FRAME_walk20, boss2_frames_walk, None)
+
+boss2_frames_run = [_mf(ai_run, 8, None)] * 20
+boss2_move_run = _mm(FRAME_walk1, FRAME_walk20, boss2_frames_run, None)
+
+boss2_frames_attack_pre_mg = [_mf(ai_charge, 1, None)] * 8 + [_mf(ai_charge, 1, boss2_attack_mg)]
+boss2_move_attack_pre_mg = _mm(FRAME_attack1, FRAME_attack9, boss2_frames_attack_pre_mg, None)
+
+boss2_frames_attack_mg = [_mf(ai_charge, 1, Boss2MachineGun)] * 5 + [_mf(ai_charge, 1, boss2_reattack_mg)]
+boss2_move_attack_mg = _mm(FRAME_attack10, FRAME_attack15, boss2_frames_attack_mg, None)
+
+boss2_frames_attack_post_mg = [_mf(ai_charge, 1, None)] * 4
+boss2_move_attack_post_mg = _mm(FRAME_attack16, FRAME_attack19, boss2_frames_attack_post_mg, boss2_run)
+
+boss2_frames_attack_rocket = [_mf(ai_charge, 1, None)] * 12 + [_mf(ai_move, -20, Boss2Rocket)] + [_mf(ai_charge, 1, None)] * 8
+boss2_move_attack_rocket = _mm(FRAME_attack20, FRAME_attack40, boss2_frames_attack_rocket, boss2_run)
+
+boss2_frames_pain_heavy = [_mf(ai_move, 0, None)] * 18
+boss2_move_pain_heavy = _mm(FRAME_pain2, FRAME_pain19, boss2_frames_pain_heavy, boss2_run)
+
+boss2_frames_pain_light = [_mf(ai_move, 0, None)] * 4
+boss2_move_pain_light = _mm(FRAME_pain20, FRAME_pain23, boss2_frames_pain_light, boss2_run)
+
+boss2_frames_death = [_mf(ai_move, 0, None)] * 49 + [_mf(ai_move, 0, m_supertank.BossExplode)]
+boss2_move_death = _mm(FRAME_death2, FRAME_death50, boss2_frames_death, boss2_dead)

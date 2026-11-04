@@ -20,6 +20,67 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #
 # */
+import random as _r
+import numpy as np
+from game import q_shared, g_local, g_main
+from game.g_misc import ThrowGib, ThrowHead
+from game.q_shared import temp_event_t, multicast_t
+TE_EXPLOSION1 = temp_event_t.TE_EXPLOSION1.value
+MULTICAST_PVS = multicast_t.MULTICAST_PVS.value
+from game.g_local import (GIB_ORGANIC, GIB_METALLIC, DEAD_DEAD, svc_temp_entity)
+
+# BossExplode is shared by boss2, boss31 and supertank death sequences.
+def BossExplode (self):
+	org = np.zeros((3,), dtype=np.float32)
+
+	self.think = BossExplode
+	q_shared.VectorCopy (self.s.origin, org)
+	org[2] += 24 + (_r.randint(0, 2147483647) & 15)
+	switch = self.count
+	self.count += 1
+	if switch == 0:
+		org[0] -= 24
+		org[1] -= 24
+	elif switch == 1:
+		org[0] += 24
+		org[1] += 24
+	elif switch == 2:
+		org[0] += 24
+		org[1] -= 24
+	elif switch == 3:
+		org[0] -= 24
+		org[1] += 24
+	elif switch == 4:
+		org[0] -= 48
+		org[1] -= 48
+	elif switch == 5:
+		org[0] += 48
+		org[1] += 48
+	elif switch == 6:
+		org[0] -= 48
+		org[1] += 48
+	elif switch == 7:
+		org[0] += 48
+		org[1] -= 48
+	elif switch == 8:
+		self.s.sound = 0
+		for n in range(4):
+			ThrowGib (self, "models/objects/gibs/sm_meat/tris.md2", 500, GIB_ORGANIC)
+		for n in range(8):
+			ThrowGib (self, "models/objects/gibs/sm_metal/tris.md2", 500, GIB_METALLIC)
+		ThrowGib (self, "models/objects/gibs/chest/tris.md2", 500, GIB_ORGANIC)
+		ThrowHead (self, "models/objects/gibs/gear/tris.md2", 500, GIB_METALLIC)
+		self.deadflag = DEAD_DEAD
+		return
+
+	g_main.gi.WriteByte (svc_temp_entity)
+	g_main.gi.WriteByte (TE_EXPLOSION1)
+	g_main.gi.WritePosition (org)
+	g_main.gi.multicast (self.s.origin, MULTICAST_PVS)
+
+	self.nextthink = g_main.level.time + 0.1
+
+
 # /*
 # ==============================================================================
 #
