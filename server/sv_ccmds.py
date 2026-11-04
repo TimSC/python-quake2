@@ -17,9 +17,13 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
-from qcommon import cmd, common, files
-from server import sv_init, sv_main
-from linux import net_udp
+import os
+import time
+import struct
+from qcommon import cmd, common, files, qcommon, cvar, cmodel, net_chan
+from server import sv_init, sv_main, sv_send, sv_game, sv_user
+from linux import net_udp, q_shlinux
+from game import q_shared
 """
 #include "server.h"
 """
@@ -43,49 +47,39 @@ Specify a list of master servers
 """
 def SV_SetMaster_f ():
 
-	pass
-"""
-	int		i, slot;
+	#int i, slot
 
-	// only dedicated servers send heartbeats
-	if (!dedicated->value)
-	{
-		Com_Printf ("Only dedicated servers use masters.\n");
-		return;
-	}
+	# only dedicated servers send heartbeats
+	if not common.dedicated.value:
+		common.Com_Printf ("Only dedicated servers use masters.\n")
+		return
 
-	// make sure the server is listed public
-	Cvar_Set ("public", "1");
+	# make sure the server is listed public
+	cvar.Cvar_Set ("public", "1")
 
-	for (i=1 ; i<MAX_MASTERS ; i++)
-		memset (&master_adr[i], 0, sizeof(master_adr[i]));
+	for i in range(1, sv_init.MAX_MASTERS):
+		sv_main.master_adr[i] = qcommon.netadr_t()
 
-	slot = 1;		// slot 0 will always contain the id master
-	for (i=1 ; i<Cmd_Argc() ; i++)
-	{
-		if (slot == MAX_MASTERS)
-			break;
+	slot = 1		# slot 0 will always contain the id master
+	for i in range(1, cmd.Cmd_Argc()):
+		if slot == sv_init.MAX_MASTERS:
+			break
 
-		if (!NET_StringToAdr (Cmd_Argv(i), &master_adr[i]))
-		{
-			Com_Printf ("Bad address: %s\n", Cmd_Argv(i));
-			continue;
-		}
-		if (master_adr[slot].port == 0)
-			master_adr[slot].port = BigShort (PORT_MASTER);
+		if not net_udp.NET_StringToAdr (cmd.Cmd_Argv(i), sv_main.master_adr[i]):
+			common.Com_Printf ("Bad address: %s\n", cmd.Cmd_Argv(i))
+			continue
+		if sv_main.master_adr[slot].port == 0:
+			sv_main.master_adr[slot].port = q_shared.BigShort (qcommon.PORT_MASTER)
 
-		Com_Printf ("Master server at %s\n", NET_AdrToString (master_adr[slot]));
+		common.Com_Printf ("Master server at %s\n", net_udp.NET_AdrToString (sv_main.master_adr[slot]))
 
-		Com_Printf ("Sending a ping.\n");
+		common.Com_Printf ("Sending a ping.\n")
 
-		Netchan_OutOfBandPrint (NS_SERVER, master_adr[slot], "ping");
+		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, sv_main.master_adr[slot], "ping")
 
-		slot++;
-	}
+		slot += 1
 
-	svs.last_heartbeat = -9999999;
-}
-"""
+	sv_init.svs.last_heartbeat = -9999999
 """
 /*
 ==================
@@ -94,55 +88,44 @@ SV_SetPlayer
 Sets sv_client and sv_player to the player with idnum Cmd_Argv(1)
 ==================
 */
-qboolean SV_SetPlayer (void)
-{
-	client_t	*cl;
-	int			i;
-	int			idnum;
-	char		*s;
-
-	if (Cmd_Argc() < 2)
-		return false;
-
-	s = Cmd_Argv(1);
-
-	// numeric values are just slot numbers
-	if (s[0] >= '0' && s[0] <= '9')
-	{
-		idnum = atoi(Cmd_Argv(1));
-		if (idnum < 0 || idnum >= maxclients->value)
-		{
-			Com_Printf ("Bad client slot: %i\n", idnum);
-			return false;
-		}
-
-		sv_client = &svs.clients[idnum];
-		sv_player = sv_client->edict;
-		if (!sv_client->state)
-		{
-			Com_Printf ("Client %i is not active\n", idnum);
-			return false;
-		}
-		return true;
-	}
-
-	// check for a name match
-	for (i=0,cl=svs.clients ; i<maxclients->value; i++,cl++)
-	{
-		if (!cl->state)
-			continue;
-		if (!strcmp(cl->name, s))
-		{
-			sv_client = cl;
-			sv_player = sv_client->edict;
-			return true;
-		}
-	}
-
-	Com_Printf ("Userid %s is not on the server\n", s);
-	return false;
-}
 """
+def SV_SetPlayer ():
+
+	#client_t *cl
+	#int i, idnum
+	#char *s
+
+	if cmd.Cmd_Argc() < 2:
+		return False
+
+	s = cmd.Cmd_Argv(1)
+
+	# numeric values are just slot numbers
+	if s[0] >= '0' and s[0] <= '9':
+		idnum = int(s)
+		if idnum < 0 or idnum >= int(sv_main.maxclients.value):
+			common.Com_Printf ("Bad client slot: %i\n", idnum)
+			return False
+
+		sv_main.sv_client = sv_init.svs.clients[idnum]
+		sv_user.sv_player = sv_main.sv_client.edict
+		if sv_main.sv_client.state == sv_init.client_state_t.cs_free:
+			common.Com_Printf ("Client %i is not active\n", idnum)
+			return False
+		return True
+
+	# check for a name match
+	for i in range(int(sv_main.maxclients.value)):
+		cl = sv_init.svs.clients[i]
+		if cl.state == sv_init.client_state_t.cs_free:
+			continue
+		if cl.name == s:
+			sv_main.sv_client = cl
+			sv_user.sv_player = sv_main.sv_client.edict
+			return True
+
+	common.Com_Printf ("Userid %s is not on the server\n", s)
+	return False
 """
 /*
 ===============================================================================
@@ -162,121 +145,99 @@ Delete save/<XXX>/
 """
 def SV_WipeSavegame (savename): #char *
 
-	pass
-"""
-	char	name[MAX_OSPATH];
-	char	*s;
+	#char name[MAX_OSPATH]
+	#char *s
 
-	Com_DPrintf("SV_WipeSaveGame(%s)\n", savename);
+	common.Com_DPrintf("SV_WipeSaveGame({})\n".format(savename))
 
-	Com_sprintf (name, sizeof(name), "%s/save/%s/server.ssv", FS_Gamedir (), savename);
-	remove (name);
-	Com_sprintf (name, sizeof(name), "%s/save/%s/game.ssv", FS_Gamedir (), savename);
-	remove (name);
+	name = "{}/save/{}/server.ssv".format(files.FS_Gamedir(), savename)
+	if os.path.exists(name):
+		os.remove(name)
+	name = "{}/save/{}/game.ssv".format(files.FS_Gamedir(), savename)
+	if os.path.exists(name):
+		os.remove(name)
 
-	Com_sprintf (name, sizeof(name), "%s/save/%s/*.sav", FS_Gamedir (), savename);
-	s = Sys_FindFirst( name, 0, 0 );
-	while (s)
-	{
-		remove (s);
-		s = Sys_FindNext( 0, 0 );
-	}
-	Sys_FindClose ();
-	Com_sprintf (name, sizeof(name), "%s/save/%s/*.sv2", FS_Gamedir (), savename);
-	s = Sys_FindFirst(name, 0, 0 );
-	while (s)
-	{
-		remove (s);
-		s = Sys_FindNext( 0, 0 );
-	}
-	Sys_FindClose ();
-}
-"""
+	name = "{}/save/{}/*.sav".format(files.FS_Gamedir(), savename)
+	s = q_shlinux.Sys_FindFirst(name, 0, 0)
+	while s:
+		os.remove(s)
+		s = q_shlinux.Sys_FindNext(0, 0)
+	q_shlinux.Sys_FindClose()
+	name = "{}/save/{}/*.sv2".format(files.FS_Gamedir(), savename)
+	s = q_shlinux.Sys_FindFirst(name, 0, 0)
+	while s:
+		os.remove(s)
+		s = q_shlinux.Sys_FindNext(0, 0)
+	q_shlinux.Sys_FindClose()
 """
 /*
 ================
 CopyFile
 ================
 */
-void CopyFile (char *src, char *dst)
-{
-	FILE	*f1, *f2;
-	int		l;
-	byte	buffer[65536];
-
-	Com_DPrintf ("CopyFile (%s, %s)\n", src, dst);
-
-	f1 = fopen (src, "rb");
-	if (!f1)
-		return;
-	f2 = fopen (dst, "wb");
-	if (!f2)
-	{
-		fclose (f1);
-		return;
-	}
-
-	while (1)
-	{
-		l = fread (buffer, 1, sizeof(buffer), f1);
-		if (!l)
-			break;
-		fwrite (buffer, 1, l, f2);
-	}
-
-	fclose (f1);
-	fclose (f2);
-}
 """
+def CopyFile (src, dst): #char *, char *
+
+	#FILE *f1, *f2
+	#int l
+
+	common.Com_DPrintf ("CopyFile ({}, {})\n".format(src, dst))
+
+	f1 = open(src, "rb")
+	if not f1:
+		return
+	f2 = open(dst, "wb")
+	if not f2:
+		f1.close()
+		return
+
+	while True:
+		buffer = f1.read(65536)
+		if not buffer:
+			break
+		f2.write(buffer)
+
+	f1.close()
+	f2.close()
 """
 /*
 ================
 SV_CopySaveGame
 ================
 */
-void SV_CopySaveGame (char *src, char *dst)
-{
-	char	name[MAX_OSPATH], name2[MAX_OSPATH];
-	int		l, len;
-	char	*found;
-
-	Com_DPrintf("SV_CopySaveGame(%s, %s)\n", src, dst);
-
-	SV_WipeSavegame (dst);
-
-	// copy the savegame over
-	Com_sprintf (name, sizeof(name), "%s/save/%s/server.ssv", FS_Gamedir(), src);
-	Com_sprintf (name2, sizeof(name2), "%s/save/%s/server.ssv", FS_Gamedir(), dst);
-	FS_CreatePath (name2);
-	CopyFile (name, name2);
-
-	Com_sprintf (name, sizeof(name), "%s/save/%s/game.ssv", FS_Gamedir(), src);
-	Com_sprintf (name2, sizeof(name2), "%s/save/%s/game.ssv", FS_Gamedir(), dst);
-	CopyFile (name, name2);
-
-	Com_sprintf (name, sizeof(name), "%s/save/%s/", FS_Gamedir(), src);
-	len = strlen(name);
-	Com_sprintf (name, sizeof(name), "%s/save/%s/*.sav", FS_Gamedir(), src);
-	found = Sys_FindFirst(name, 0, 0 );
-	while (found)
-	{
-		strcpy (name+len, found+len);
-
-		Com_sprintf (name2, sizeof(name2), "%s/save/%s/%s", FS_Gamedir(), dst, found+len);
-		CopyFile (name, name2);
-
-		// change sav to sv2
-		l = strlen(name);
-		strcpy (name+l-3, "sv2");
-		l = strlen(name2);
-		strcpy (name2+l-3, "sv2");
-		CopyFile (name, name2);
-
-		found = Sys_FindNext( 0, 0 );
-	}
-	Sys_FindClose ();
-}
 """
+def SV_CopySaveGame (src, dst): #char *, char *
+
+	#char name[MAX_OSPATH], name2[MAX_OSPATH]
+	#int l, len
+	#char *found
+
+	common.Com_DPrintf("SV_CopySaveGame({}, {})\n".format(src, dst))
+
+	SV_WipeSavegame (dst)
+
+	# copy the savegame over
+	name = "{}/save/{}/server.ssv".format(files.FS_Gamedir(), src)
+	name2 = "{}/save/{}/server.ssv".format(files.FS_Gamedir(), dst)
+	files.FS_CreatePath (name2)
+	CopyFile (name, name2)
+
+	name = "{}/save/{}/game.ssv".format(files.FS_Gamedir(), src)
+	name2 = "{}/save/{}/game.ssv".format(files.FS_Gamedir(), dst)
+	CopyFile (name, name2)
+
+	# Sys_FindFirst returns the full path
+	name = "{}/save/{}/*.sav".format(files.FS_Gamedir(), src)
+	found = q_shlinux.Sys_FindFirst(name, 0, 0)
+	while found:
+		name2 = found.replace("/save/{}/".format(src), "/save/{}/".format(dst), 1)
+		CopyFile (found, name2)
+
+		# change sav to sv2
+		CopyFile (found[:-3] + "sv2", name2[:-3] + "sv2")
+
+		found = q_shlinux.Sys_FindNext(0, 0)
+	q_shlinux.Sys_FindClose()
 """
 /*
 ==============
@@ -284,28 +245,27 @@ SV_WriteLevelFile
 
 ==============
 */
-void SV_WriteLevelFile (void)
-{
-	char	name[MAX_OSPATH];
-	FILE	*f;
-
-	Com_DPrintf("SV_WriteLevelFile()\n");
-
-	Com_sprintf (name, sizeof(name), "%s/save/current/%s.sv2", FS_Gamedir(), sv.name);
-	f = fopen(name, "wb");
-	if (!f)
-	{
-		Com_Printf ("Failed to open %s\n", name);
-		return;
-	}
-	fwrite (sv.configstrings, sizeof(sv.configstrings), 1, f);
-	CM_WritePortalState (f);
-	fclose (f);
-
-	Com_sprintf (name, sizeof(name), "%s/save/current/%s.sav", FS_Gamedir(), sv.name);
-	ge->WriteLevel (name);
-}
 """
+def SV_WriteLevelFile ():
+
+	#char name[MAX_OSPATH]
+	#FILE *f
+
+	common.Com_DPrintf("SV_WriteLevelFile()\n")
+
+	name = "{}/save/current/{}.sv2".format(files.FS_Gamedir(), sv_init.sv.name)
+	f = open(name, "wb")
+	if not f:
+		common.Com_Printf ("Failed to open %s\n", name)
+		return
+	# fwrite (sv.configstrings, sizeof(sv.configstrings), 1, f);
+	blob = b"".join(c.encode('latin-1').ljust(q_shared.MAX_QPATH, b'\0') for c in sv_init.sv.configstrings)
+	f.write(blob)
+	cmodel.CM_WritePortalState (f)
+	f.close()
+
+	name = "{}/save/current/{}.sav".format(files.FS_Gamedir(), sv_init.sv.name)
+	sv_game.ge.WriteLevel (name)
 """
 /*
 ==============
@@ -313,28 +273,29 @@ SV_ReadLevelFile
 
 ==============
 */
-void SV_ReadLevelFile (void)
-{
-	char	name[MAX_OSPATH];
-	FILE	*f;
-
-	Com_DPrintf("SV_ReadLevelFile()\n");
-
-	Com_sprintf (name, sizeof(name), "%s/save/current/%s.sv2", FS_Gamedir(), sv.name);
-	f = fopen(name, "rb");
-	if (!f)
-	{
-		Com_Printf ("Failed to open %s\n", name);
-		return;
-	}
-	FS_Read (sv.configstrings, sizeof(sv.configstrings), f);
-	CM_ReadPortalState (f);
-	fclose (f);
-
-	Com_sprintf (name, sizeof(name), "%s/save/current/%s.sav", FS_Gamedir(), sv.name);
-	ge->ReadLevel (name);
-}
 """
+def SV_ReadLevelFile ():
+
+	#char name[MAX_OSPATH]
+	#FILE *f
+
+	common.Com_DPrintf("SV_ReadLevelFile()\n")
+
+	name = "{}/save/current/{}.sv2".format(files.FS_Gamedir(), sv_init.sv.name)
+	f = open(name, "rb")
+	if not f:
+		common.Com_Printf ("Failed to open %s\n", name)
+		return
+	# FS_Read (sv.configstrings, sizeof(sv.configstrings), f);
+	data = f.read(len(sv_init.sv.configstrings)*q_shared.MAX_QPATH)
+	for i in range(len(sv_init.sv.configstrings)):
+		chunk = data[i*q_shared.MAX_QPATH:(i+1)*q_shared.MAX_QPATH]
+		sv_init.sv.configstrings[i] = chunk.split(b'\0')[0].decode('latin-1')
+	cmodel.CM_ReadPortalState (f)
+	f.close()
+
+	name = "{}/save/current/{}.sav".format(files.FS_Gamedir(), sv_init.sv.name)
+	sv_game.ge.ReadLevel (name)
 """
 /*
 ==============
@@ -342,73 +303,55 @@ SV_WriteServerFile
 
 ==============
 */
-void SV_WriteServerFile (qboolean autosave)
-{
-	FILE	*f;
-	cvar_t	*var;
-	char	name[MAX_OSPATH], string[128];
-	char	comment[32];
-	time_t	aclock;
-	struct tm	*newtime;
-
-	Com_DPrintf("SV_WriteServerFile(%s)\n", autosave ? "true" : "false");
-
-	Com_sprintf (name, sizeof(name), "%s/save/current/server.ssv", FS_Gamedir());
-	f = fopen (name, "wb");
-	if (!f)
-	{
-		Com_Printf ("Couldn't write %s\n", name);
-		return;
-	}
-	// write the comment field
-	memset (comment, 0, sizeof(comment));
-
-	if (!autosave)
-	{
-		time (&aclock);
-		newtime = localtime (&aclock);
-		Com_sprintf (comment,sizeof(comment), "%2i:%i%i %2i/%2i  ", newtime->tm_hour
-			, newtime->tm_min/10, newtime->tm_min%10,
-			newtime->tm_mon+1, newtime->tm_mday);
-		strncat (comment, sv.configstrings[CS_NAME], sizeof(comment)-1-strlen(comment) );
-	}
-	else
-	{	// autosaved
-		Com_sprintf (comment, sizeof(comment), "ENTERING %s", sv.configstrings[CS_NAME]);
-	}
-
-	fwrite (comment, 1, sizeof(comment), f);
-
-	// write the mapcmd
-	fwrite (svs.mapcmd, 1, sizeof(svs.mapcmd), f);
-
-	// write all CVAR_LATCH cvars
-	// these will be things like coop, skill, deathmatch, etc
-	for (var = cvar_vars ; var ; var=var->next)
-	{
-		if (!(var->flags & CVAR_LATCH))
-			continue;
-		if (strlen(var->name) >= sizeof(name)-1
-			|| strlen(var->string) >= sizeof(string)-1)
-		{
-			Com_Printf ("Cvar too long: %s = %s\n", var->name, var->string);
-			continue;
-		}
-		memset (name, 0, sizeof(name));
-		memset (string, 0, sizeof(string));
-		strcpy (name, var->name);
-		strcpy (string, var->string);
-		fwrite (name, 1, sizeof(name), f);
-		fwrite (string, 1, sizeof(string), f);
-	}
-
-	fclose (f);
-
-	// write game state
-	Com_sprintf (name, sizeof(name), "%s/save/current/game.ssv", FS_Gamedir());
-	ge->WriteGame (name, autosave);
-}
 """
+def SV_WriteServerFile (autosave): #qboolean
+
+	#FILE *f
+	#cvar_t *var
+	#char name[MAX_OSPATH], string[128]
+	#char comment[32]
+	#time_t aclock
+
+	common.Com_DPrintf("SV_WriteServerFile({})\n".format("true" if autosave else "false"))
+
+	name = "{}/save/current/server.ssv".format(files.FS_Gamedir())
+	f = open(name, "wb")
+	if not f:
+		common.Com_Printf ("Couldn't write %s\n", name)
+		return
+	# write the comment field
+	if not autosave:
+		newtime = time.localtime()
+		comment = "{:2d}:{}{} {:2d}/{:2d}  ".format(newtime.tm_hour
+			, newtime.tm_min//10, newtime.tm_min%10,
+			newtime.tm_mon+1, newtime.tm_mday)
+		comment = (comment + sv_init.sv.configstrings[q_shared.CS_NAME])[:31]
+	else:
+		# autosaved
+		comment = ("ENTERING {}".format(sv_init.sv.configstrings[q_shared.CS_NAME]))[:31]
+
+	f.write(comment.encode('latin-1').ljust(32, b'\0'))
+
+	# write the mapcmd
+	mapcmd = (sv_init.svs.mapcmd or "")
+	f.write(mapcmd.encode('latin-1').ljust(q_shared.MAX_TOKEN_CHARS, b'\0'))
+
+	# write all CVAR_LATCH cvars
+	# these will be things like coop, skill, deathmatch, etc
+	for var in cvar.cvar_vars:
+		if not (var.flags & q_shared.CVAR_LATCH):
+			continue
+		if len(var.name) >= q_shared.MAX_OSPATH-1 or len(var.string) >= 127:
+			common.Com_Printf ("Cvar too long: %s = %s\n", var.name, var.string)
+			continue
+		f.write(var.name.encode('latin-1').ljust(q_shared.MAX_OSPATH, b'\0'))
+		f.write(var.string.encode('latin-1').ljust(128, b'\0'))
+
+	f.close()
+
+	# write game state
+	name = "{}/save/current/game.ssv".format(files.FS_Gamedir())
+	sv_game.ge.WriteGame (name, autosave)
 """
 /*
 ==============
@@ -416,55 +359,53 @@ SV_ReadServerFile
 
 ==============
 */
-void SV_ReadServerFile (void)
-{
-	FILE	*f;
-	char	name[MAX_OSPATH], string[128];
-	char	comment[32];
-	char	mapcmd[MAX_TOKEN_CHARS];
+"""
+def SV_ReadServerFile ():
 
-	Com_DPrintf("SV_ReadServerFile()\n");
+	#FILE *f
+	#char name[MAX_OSPATH], string[128]
+	#char comment[32]
+	#char mapcmd[MAX_TOKEN_CHARS]
 
-	Com_sprintf (name, sizeof(name), "%s/save/current/server.ssv", FS_Gamedir());
-	f = fopen (name, "rb");
-	if (!f)
-	{
-		Com_Printf ("Couldn't read %s\n", name);
-		return;
-	}
-	// read the comment field
-	FS_Read (comment, sizeof(comment), f);
+	common.Com_DPrintf("SV_ReadServerFile()\n")
 
-	// read the mapcmd
-	FS_Read (mapcmd, sizeof(mapcmd), f);
+	name = "{}/save/current/server.ssv".format(files.FS_Gamedir())
+	f = open(name, "rb")
+	if not f:
+		common.Com_Printf ("Couldn't read %s\n", name)
+		return
+	# read the comment field
+	f.read(32)
 
-	// read all CVAR_LATCH cvars
-	// these will be things like coop, skill, deathmatch, etc
-	while (1)
-	{
-		if (!fread (name, 1, sizeof(name), f))
-			break;
-		FS_Read (string, sizeof(string), f);
-		Com_DPrintf ("Set %s = %s\n", name, string);
-		Cvar_ForceSet (name, string);
-	}
+	# read the mapcmd
+	mapcmd = f.read(q_shared.MAX_TOKEN_CHARS).split(b'\0')[0].decode('latin-1')
 
-	fclose (f);
+	# read all CVAR_LATCH cvars
+	# these will be things like coop, skill, deathmatch, etc
+	while True:
+		namebuf = f.read(q_shared.MAX_OSPATH)
+		if not namebuf:
+			break
+		stringbuf = f.read(128)
+		cname = namebuf.split(b'\0')[0].decode('latin-1')
+		cstring = stringbuf.split(b'\0')[0].decode('latin-1')
+		common.Com_DPrintf ("Set {} = {}\n".format(cname, cstring))
+		cvar.Cvar_ForceSet (cname, cstring)
 
-	// start a new game fresh with new cvars
-	SV_InitGame ();
+	f.close()
 
-	strcpy (svs.mapcmd, mapcmd);
+	# start a new game fresh with new cvars
+	sv_init.SV_InitGame ()
 
-	// read game state
-	Com_sprintf (name, sizeof(name), "%s/save/current/game.ssv", FS_Gamedir());
-	ge->ReadGame (name);
-}
+	sv_init.svs.mapcmd = mapcmd
+
+	# read game state
+	name = "{}/save/current/game.ssv".format(files.FS_Gamedir())
+	sv_game.ge.ReadGame (name)
 
 
+"""
 //=========================================================
-"""
-"""
 /*
 ==================
 SV_DemoMap_f
@@ -507,52 +448,41 @@ def SV_GameMap_f ():
 		return
 	
 	common.Com_DPrintf("SV_GameMap({})\n".format(cmd.Cmd_Argv(1)))
-	"""
-	FS_CreatePath (va("%s/save/current/", FS_Gamedir()));
+	files.FS_CreatePath("{}/save/current/".format(files.FS_Gamedir()))
 	
-	// check for clearing the current savegame
-	map = Cmd_Argv(1);
-	if (map[0] == '*')
-	{
-		// wipe all the *.sav files
-		SV_WipeSavegame ("current");
-	}
-	else
-	{	// save the map just exited
-		if (sv.state == ss_game)
-		{
-			// clear all the client inuse flags before saving so that
-			// when the level is re-entered, the clients will spawn
-			// at spawn points instead of occupying body shells
-			savedInuse = malloc(maxclients->value * sizeof(qboolean));
-			for (i=0,cl=svs.clients ; i<maxclients->value; i++,cl++)
-			{
-				savedInuse[i] = cl->edict->inuse;
-				cl->edict->inuse = false;
-			}
+	# check for clearing the current savegame
+	map = cmd.Cmd_Argv(1)
+	if map[0] == '*':
+		# wipe all the *.sav files
+		SV_WipeSavegame ("current")
+	else:
+		# save the map just exited
+		if sv_init.sv.state == sv_init.server_state_t.ss_game:
+			# clear all the client inuse flags before saving so that
+			# when the level is re-entered, the clients will spawn
+			# at spawn points instead of occupying body shells
+			savedInuse = []
+			for i in range(int(sv_main.maxclients.value)):
+				cl = sv_init.svs.clients[i]
+				savedInuse.append(cl.edict.inuse)
+				cl.edict.inuse = False
 
-			SV_WriteLevelFile ();
+			SV_WriteLevelFile ()
 
-			// we must restore these for clients to transfer over correctly
-			for (i=0,cl=svs.clients ; i<maxclients->value; i++,cl++)
-				cl->edict->inuse = savedInuse[i];
-			free (savedInuse);
-		}
-	}
-	"""
+			# we must restore these for clients to transfer over correctly
+			for i in range(int(sv_main.maxclients.value)):
+				sv_init.svs.clients[i].edict.inuse = savedInuse[i]
+
 	# start up the next map
-	sv_init.SV_Map (False, cmd.Cmd_Argv(1), False )
-	"""
-	// archive server state
-	strncpy (svs.mapcmd, Cmd_Argv(1), sizeof(svs.mapcmd)-1);
+	sv_init.SV_Map (False, cmd.Cmd_Argv(1), False)
 
-	// copy off the level to the autosave slot
-	if (!dedicated->value)
-	{
-		SV_WriteServerFile (true);
-		SV_CopySaveGame ("current", "save0");
-	}
-	"""
+	# archive server state
+	sv_init.svs.mapcmd = map
+
+	# copy off the level to the autosave slot
+	if not common.dedicated.value:
+		SV_WriteServerFile (True)
+		SV_CopySaveGame ("current", "save0")
 
 """
 ==================
@@ -577,7 +507,7 @@ def SV_Map_f ():
 			common.Com_Printf ("Can't find {}\n".format(expanded))
 			return
 		
-	sv.state = ss_dead;		# don't save current level when changing
+	sv_init.sv.state = sv_init.server_state_t.ss_dead		# don't save current level when changing
 	SV_WipeSavegame("current")
 	SV_GameMap_f ()
 
@@ -590,6 +520,8 @@ def SV_Map_f ():
 */
 
 
+"""
+"""
 /*
 ==============
 SV_Loadgame_f
@@ -597,46 +529,35 @@ SV_Loadgame_f
 ==============
 """
 def SV_Loadgame_f ():
-	pass
-	"""
-	char	name[MAX_OSPATH];
-	FILE	*f;
-	char	*dir;
+	#char name[MAX_OSPATH]
+	#FILE *f
+	#char *dir
 
-	if (Cmd_Argc() != 2)
-	{
-		Com_Printf ("USAGE: loadgame <directory>\n");
-		return;
-	}
+	if cmd.Cmd_Argc() != 2:
+		common.Com_Printf ("USAGE: loadgame <directory>\n")
+		return
 
-	Com_Printf ("Loading game...\n");
+	common.Com_Printf ("Loading game...\n")
 
-	dir = Cmd_Argv(1);
-	if (strstr (dir, "..") || strstr (dir, "/") || strstr (dir, "\\") )
-	{
-		Com_Printf ("Bad savedir.\n");
-	}
+	dir = cmd.Cmd_Argv(1)
+	if (".." in dir) or ("/" in dir) or ("\\" in dir):
+		common.Com_Printf ("Bad savedir.\n")
 
-	// make sure the server.ssv file exists
-	Com_sprintf (name, sizeof(name), "%s/save/%s/server.ssv", FS_Gamedir(), Cmd_Argv(1));
-	f = fopen (name, "rb");
-	if (!f)
-	{
-		Com_Printf ("No such savegame: %s\n", name);
-		return;
-	}
-	fclose (f);
+	# make sure the server.ssv file exists
+	name = "{}/save/{}/server.ssv".format(files.FS_Gamedir(), cmd.Cmd_Argv(1))
+	if not os.path.exists(name):
+		common.Com_Printf ("No such savegame: %s\n", name)
+		return
 
-	SV_CopySaveGame (Cmd_Argv(1), "current");
+	SV_CopySaveGame (cmd.Cmd_Argv(1), "current")
 
-	SV_ReadServerFile ();
+	SV_ReadServerFile ()
 
-	// go to the map
-	sv.state = ss_dead;		// don't save current level when changing
-	sv_init.SV_Map (false, svs.mapcmd, true);
+	# go to the map
+	sv_init.sv.state = sv_init.server_state_t.ss_dead		# don't save current level when changing
+	sv_init.SV_Map (False, sv_init.svs.mapcmd, True)
 
-
-
+"""
 ==============
 SV_Savegame_f
 
@@ -644,62 +565,48 @@ SV_Savegame_f
 """
 def SV_Savegame_f ():
 
-	pass
-	"""
-	char	*dir;
+	#char *dir
 
-	if (sv.state != ss_game)
-	{
-		Com_Printf ("You must be in a game to save.\n");
-		return;
-	}
+	if sv_init.sv.state != sv_init.server_state_t.ss_game:
+		common.Com_Printf ("You must be in a game to save.\n")
+		return
 
-	if (Cmd_Argc() != 2)
-	{
-		Com_Printf ("USAGE: savegame <directory>\n");
-		return;
-	}
+	if cmd.Cmd_Argc() != 2:
+		common.Com_Printf ("USAGE: savegame <directory>\n")
+		return
 
-	if (Cvar_VariableValue("deathmatch"))
-	{
-		Com_Printf ("Can't savegame in a deathmatch\n");
-		return;
-	}
+	if cvar.Cvar_VariableValue("deathmatch"):
+		common.Com_Printf ("Can't savegame in a deathmatch\n")
+		return
 
-	if (!strcmp (Cmd_Argv(1), "current"))
-	{
-		Com_Printf ("Can't save to 'current'\n");
-		return;
-	}
+	if cmd.Cmd_Argv(1) == "current":
+		common.Com_Printf ("Can't save to 'current'\n")
+		return
 
-	if (maxclients->value == 1 && svs.clients[0].edict->client->ps.stats[STAT_HEALTH] <= 0)
-	{
-		Com_Printf ("\nCan't savegame while dead!\n");
-		return;
-	}
+	if int(sv_main.maxclients.value) == 1 and sv_init.svs.clients[0].edict.client.ps.stats[q_shared.STAT_HEALTH] <= 0:
+		common.Com_Printf ("\nCan't savegame while dead!\n")
+		return
 
-	dir = Cmd_Argv(1);
-	if (strstr (dir, "..") || strstr (dir, "/") || strstr (dir, "\\") )
-	{
-		Com_Printf ("Bad savedir.\n");
-	}
+	dir = cmd.Cmd_Argv(1)
+	if (".." in dir) or ("/" in dir) or ("\\" in dir):
+		common.Com_Printf ("Bad savedir.\n")
 
-	Com_Printf ("Saving game...\n");
+	common.Com_Printf ("Saving game...\n")
 
-	// archive current level, including all client edicts.
-	// when the level is reloaded, they will be shells awaiting
-	// a connecting client
-	SV_WriteLevelFile ();
+	# archive current level, including all client edicts.
+	# when the level is reloaded, they will be shells awaiting
+	# a connecting client
+	SV_WriteLevelFile ()
 
-	// save server state
-	SV_WriteServerFile (false);
+	# save server state
+	SV_WriteServerFile (False)
 
-	// copy it off
-	SV_CopySaveGame ("current", dir);
+	# copy it off
+	SV_CopySaveGame ("current", dir)
 
-	Com_Printf ("Done.\n");
-}
+	common.Com_Printf ("Done.\n")
 
+"""
 //===============================================================
 
 /*
@@ -711,87 +618,76 @@ Kick a user off of the server
 """
 def SV_Kick_f ():
 
-	pass
+	if not sv_init.svs.initialized:
+		common.Com_Printf ("No server running.\n")
+		return
 
-	""" if (!svs.initialized)
-	{
-		Com_Printf ("No server running.\n");
-		return;
-	}
+	if cmd.Cmd_Argc() != 2:
+		common.Com_Printf ("Usage: kick <userid>\n")
+		return
 
-	if (Cmd_Argc() != 2)
-	{
-		Com_Printf ("Usage: kick <userid>\n");
-		return;
-	}
+	if not SV_SetPlayer ():
+		return
 
-	if (!SV_SetPlayer ())
-		return;
+	# print directly, because the dropped client won't get the
+	# SV_BroadcastPrintf message
+	sv_send.SV_BroadcastPrintf (q_shared.PRINT_HIGH, "{} was kicked\n".format(sv_main.sv_client.name))
+	sv_send.SV_ClientPrintf (sv_main.sv_client, q_shared.PRINT_HIGH, "You were kicked from the game\n")
+	sv_main.SV_DropClient (sv_main.sv_client)
+	sv_main.sv_client.lastmessage = sv_init.svs.realtime	# min case there is a funny zombie
 
-	SV_BroadcastPrintf (PRINT_HIGH, "%s was kicked\n", sv_client->name);
-	// print directly, because the dropped client won't get the
-	// SV_BroadcastPrintf message
-	SV_ClientPrintf (sv_client, PRINT_HIGH, "You were kicked from the game\n");
-	SV_DropClient (sv_client);
-	sv_client->lastmessage = svs.realtime;	// min case there is a funny zombie
-
+"""
 ================
 SV_Status_f
 ================
 """
 def SV_Status_f ():
 
-	pass
-	"""int			i, j, l;
-	client_t	*cl;
-	char		*s;
-	int			ping;
-	if (!svs.clients)
-	{
-		Com_Printf ("No server running.\n");
-		return;
-	}
-	Com_Printf ("map              : %s\n", sv.name);
+	#int i, j, l
+	#client_t *cl
+	#char *s
+	#int ping
+	if not sv_init.svs.clients:
+		common.Com_Printf ("No server running.\n")
+		return
+	common.Com_Printf ("map              : %s\n", sv_init.sv.name)
 
-	Com_Printf ("num score ping name            lastmsg address               qport \n");
-	Com_Printf ("--- ----- ---- --------------- ------- --------------------- ------\n");
-	for (i=0,cl=svs.clients ; i<maxclients->value; i++,cl++)
-	{
-		if (!cl->state)
-			continue;
-		Com_Printf ("%3i ", i);
-		Com_Printf ("%5i ", cl->edict->client->ps.stats[STAT_FRAGS]);
+	common.Com_Printf ("num score ping name            lastmsg address               qport \n")
+	common.Com_Printf ("--- ----- ---- --------------- ------- --------------------- ------\n")
+	for i in range(int(sv_main.maxclients.value)):
+		cl = sv_init.svs.clients[i]
+		if cl.state == sv_init.client_state_t.cs_free:
+			continue
+		common.Com_Printf ("%3i ", i)
+		common.Com_Printf ("%5i ", cl.edict.client.ps.stats[q_shared.STAT_FRAGS])
 
-		if (cl->state == cs_connected)
-			Com_Printf ("CNCT ");
-		else if (cl->state == cs_zombie)
-			Com_Printf ("ZMBI ");
-		else
-		{
-			ping = cl->ping < 9999 ? cl->ping : 9999;
-			Com_Printf ("%4i ", ping);
-		}
+		if cl.state == sv_init.client_state_t.cs_connected:
+			common.Com_Printf ("CNCT ")
+		elif cl.state == sv_init.client_state_t.cs_zombie:
+			common.Com_Printf ("ZMBI ")
+		else:
+			ping = cl.ping if cl.ping < 9999 else 9999
+			common.Com_Printf ("%4i ", ping)
 
-		Com_Printf ("%s", cl->name);
-		l = 16 - strlen(cl->name);
-		for (j=0 ; j<l ; j++)
-			Com_Printf (" ");
+		common.Com_Printf ("%s", cl.name)
+		l = 16 - len(cl.name)
+		for j in range(l):
+			common.Com_Printf (" ")
 
-		Com_Printf ("%7i ", svs.realtime - cl->lastmessage );
+		common.Com_Printf ("%7i ", sv_init.svs.realtime - cl.lastmessage)
 
-		s = NET_AdrToString ( cl->netchan.remote_address);
-		Com_Printf ("%s", s);
-		l = 22 - strlen(s);
-		for (j=0 ; j<l ; j++)
-			Com_Printf (" ");
+		s = net_udp.NET_AdrToString (cl.netchan.remote_address)
+		common.Com_Printf ("%s", s)
+		l = 22 - len(s)
+		for j in range(l):
+			common.Com_Printf (" ")
 		
-		Com_Printf ("%5i", cl->netchan.qport);
+		common.Com_Printf ("%5i", cl.netchan.qport)
 
-		Com_Printf ("\n");
-	}
-	Com_Printf ("\n");
-}
+		common.Com_Printf ("\n")
+	common.Com_Printf ("\n")
 
+"""
 /*
 ==================
 SV_ConSay_f
@@ -799,36 +695,31 @@ SV_ConSay_f
 """
 def SV_ConSay_f():
 
-	pass
-	"""
-	client_t *client;
-	int		j;
-	char	*p;
-	char	text[1024];
+	#client_t *client
+	#int j
+	#char *p
+	#char text[1024]
 
-	if (Cmd_Argc () < 2)
-		return;
+	if cmd.Cmd_Argc() < 2:
+		return
 
-	strcpy (text, "console: ");
-	p = Cmd_Args();
+	text = "console: "
+	p = cmd.Cmd_Args()
 
-	if (*p == '"')
-	{
-		p++;
-		p[strlen(p)-1] = 0;
-	}
+	if p[0] == '"':
+		p = p[1:]
+		p = p[:-1]
 
-	strcat(text, p);
+	text = text + p
 
-	for (j = 0, client = svs.clients; j < maxclients->value; j++, client++)
-	{
-		if (client->state != cs_spawned)
-			continue;
-		SV_ClientPrintf(client, PRINT_CHAT, "%s\n", text);
-	}
-}
+	for j in range(int(sv_main.maxclients.value)):
+		client = sv_init.svs.clients[j]
+		if client.state != sv_init.client_state_t.cs_spawned:
+			continue
+		sv_send.SV_ClientPrintf (client, q_shared.PRINT_CHAT, "{}\n".format(text))
 
 
+"""
 /*
 ==================
 SV_Heartbeat_f
@@ -836,8 +727,7 @@ SV_Heartbeat_f
 """
 def SV_Heartbeat_f ():
 
-	pass
-	#svs.last_heartbeat = -9999999
+	sv_init.svs.last_heartbeat = -9999999
 
 """
 ===========
@@ -861,21 +751,18 @@ Examine all a users info strings
 """
 def SV_DumpUser_f ():
 
-	pass
-	"""
-	if (Cmd_Argc() != 2)
-	{
-		Com_Printf ("Usage: info <userid>\n");
-		return;
-	}
+	if cmd.Cmd_Argc() != 2:
+		common.Com_Printf ("Usage: info <userid>\n")
+		return
 
-	if (!SV_SetPlayer ())
-		return;
+	if not SV_SetPlayer ():
+		return
 
-	Com_Printf ("userinfo\n");
-	Com_Printf ("--------\n");
-	Info_Print (sv_client->userinfo);
+	common.Com_Printf ("userinfo\n")
+	common.Com_Printf ("--------\n")
+	common.Info_Print (sv_main.sv_client.userinfo)
 
+"""
 /*
 ==============
 SV_ServerRecord_f
@@ -886,85 +773,73 @@ recorded, but no playerinfo will be stored.  Primarily for demo merging.
 """
 def SV_ServerRecord_f ():
 
-	"""
-	char	name[MAX_OSPATH];
-	char	buf_data[32768];
-	sizebuf_t	buf;
-	int		len;
-	int		i;
+	#char name[MAX_OSPATH]
+	#sizebuf_t buf
+	#int len, i
 
-	if (Cmd_Argc() != 2)
-	{
-		Com_Printf ("serverrecord <demoname>\n");
-		return;
-	}
+	if cmd.Cmd_Argc() != 2:
+		common.Com_Printf ("serverrecord <demoname>\n")
+		return
 
-	if (svs.demofile)
-	{
-		Com_Printf ("Already recording.\n");
-		return;
-	}
+	if sv_init.svs.demofile:
+		common.Com_Printf ("Already recording.\n")
+		return
 
-	if (sv.state != ss_game)
-	{
-		Com_Printf ("You must be in a level to record.\n");
-		return;
-	}
+	if sv_init.sv.state != sv_init.server_state_t.ss_game:
+		common.Com_Printf ("You must be in a level to record.\n")
+		return
 
-	//
-	// open the demo file
-	//
-	Com_sprintf (name, sizeof(name), "%s/demos/%s.dm2", FS_Gamedir(), Cmd_Argv(1));
+	#
+	# open the demo file
+	#
+	name = "{}/demos/{}.dm2".format(files.FS_Gamedir(), cmd.Cmd_Argv(1))
 
-	Com_Printf ("recording to %s.\n", name);
-	FS_CreatePath (name);
-	svs.demofile = fopen (name, "wb");
-	if (!svs.demofile)
-	{
-		Com_Printf ("ERROR: couldn't open.\n");
-		return;
-	}
+	common.Com_Printf ("recording to %s.\n", name)
+	files.FS_CreatePath (name)
+	sv_init.svs.demofile = open(name, "wb")
+	if not sv_init.svs.demofile:
+		common.Com_Printf ("ERROR: couldn't open.\n")
+		return
 
-	// setup a buffer to catch all multicasts
-	SZ_Init (&svs.demo_multicast, svs.demo_multicast_buf, sizeof(svs.demo_multicast_buf));
+	# setup a buffer to catch all multicasts
+	common.SZ_Init (sv_init.svs.demo_multicast, 65536)
 
-	//
-	// write a single giant fake message with all the startup info
-	//
-	SZ_Init (&buf, buf_data, sizeof(buf_data));
+	#
+	# write a single giant fake message with all the startup info
+	#
+	buf = qcommon.sizebuf_t()
+	common.SZ_Init (buf, 32768)
 
-	//
-	// serverdata needs to go over for all types of servers
-	// to make sure the protocol is right, and to set the gamedir
-	//
-	// send the serverdata
-	MSG_WriteByte (&buf, svc_serverdata);
-	MSG_WriteLong (&buf, PROTOCOL_VERSION);
-	MSG_WriteLong (&buf, svs.spawncount);
-	// 2 means server demo
-	MSG_WriteByte (&buf, 2);	// demos are always attract loops
-	MSG_WriteString (&buf, Cvar_VariableString ("gamedir"));
-	MSG_WriteShort (&buf, -1);
-	// send full levelname
-	MSG_WriteString (&buf, sv.configstrings[CS_NAME]);
+	#
+	# serverdata needs to go over for all types of servers
+	# to make sure the protocol is right, and to set the gamedir
+	#
+	# send the serverdata
+	common.MSG_WriteByte (buf, qcommon.svc_ops_e.svc_serverdata.value)
+	common.MSG_WriteLong (buf, qcommon.PROTOCOL_VERSION)
+	common.MSG_WriteLong (buf, sv_init.svs.spawncount)
+	# 2 means server demo
+	common.MSG_WriteByte (buf, 2)	# demos are always attract loops
+	common.MSG_WriteString (buf, cvar.Cvar_VariableString ("gamedir"))
+	common.MSG_WriteShort (buf, -1)
+	# send full levelname
+	common.MSG_WriteString (buf, sv_init.sv.configstrings[q_shared.CS_NAME])
 
-	for (i=0 ; i<MAX_CONFIGSTRINGS ; i++)
-		if (sv.configstrings[i][0])
-		{
-			MSG_WriteByte (&buf, svc_configstring);
-			MSG_WriteShort (&buf, i);
-			MSG_WriteString (&buf, sv.configstrings[i]);
-		}
+	for i in range(q_shared.MAX_CONFIGSTRINGS):
+		if sv_init.sv.configstrings[i][0]:
+			common.MSG_WriteByte (buf, qcommon.svc_ops_e.svc_configstring.value)
+			common.MSG_WriteShort (buf, i)
+			common.MSG_WriteString (buf, sv_init.sv.configstrings[i])
 
-	// write it to the demo file
-	Com_DPrintf ("signon message length: %i\n", buf.cursize);
-	len = LittleLong (buf.cursize);
-	fwrite (&len, 4, 1, svs.demofile);
-	fwrite (buf.data, buf.cursize, 1, svs.demofile);
+	# write it to the demo file
+	common.Com_DPrintf ("signon message length: %i\n", buf.cursize)
+	sv_init.svs.demofile.write(struct.pack('<i', buf.cursize))
+	sv_init.svs.demofile.write(bytes(buf.data[:buf.cursize]))
 
-	// the rest of the demo file will be individual frames
+	# the rest of the demo file will be individual frames
 
 
+"""
 /*
 ==============
 SV_ServerStop_f
@@ -974,18 +849,15 @@ Ends server demo recording
 """
 def SV_ServerStop_f ():
 
-	pass
-	"""
-	if (!svs.demofile)
-	{
-		Com_Printf ("Not doing a serverrecord.\n");
-		return;
-	}
-	fclose (svs.demofile);
-	svs.demofile = NULL;
-	Com_Printf ("Recording completed.\n");
+	if not sv_init.svs.demofile:
+		common.Com_Printf ("Not doing a serverrecord.\n")
+		return
+	sv_init.svs.demofile.close()
+	sv_init.svs.demofile = None
+	common.Com_Printf ("Recording completed.\n")
 
 
+"""
 /*
 ===============
 SV_KillServer_f
@@ -1000,8 +872,8 @@ def SV_KillServer_f ():
 		return
 	sv_main.SV_Shutdown ("Server was killed.\n", False)
 	net_udp.NET_Config ( False )	# close network sockets
-	"""
 
+"""
 /*
 ===============
 SV_ServerCommand_f
@@ -1011,16 +883,13 @@ Let the game dll handle a command
 """
 def SV_ServerCommand_f ():
 
-	pass
-	"""
-	if (!ge)
-	{
-		Com_Printf ("No game loaded.\n");
-		return;
-	}
+	if not sv_game.ge:
+		common.Com_Printf ("No game loaded.\n")
+		return
 
-	ge->ServerCommand();
+	sv_game.ge.ServerCommand()
 
+"""
 //===========================================================
 
 /*
