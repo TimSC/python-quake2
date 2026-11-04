@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from game import game, q_shared
 from linux import sys_linux
 from qcommon import cvar, common, cmd, qcommon, cmodel, pmove
-from server import sv_main, sv_send, sv_ents, sv_world
+from server import sv_main, sv_send, sv_ents, sv_world, sv_init
 from client import cl_scrn
 """
 // sv_game.c -- interface to the game dll
@@ -165,7 +165,7 @@ def PF_setmodel (ent, name): #edict_t *, char *
 	if not name:
 		common.Com_Error (qcommon.ERR_DROP, "PF_setmodel: NULL")
 
-	i = sv_ents.SV_ModelIndex (name)
+	i = sv_init.SV_ModelIndex (name)
 
 	#ent->model = name;
 	ent.s.modelindex = i
@@ -341,9 +341,9 @@ def SV_InitGameProgs ():
 	gimport.inPHS = PF_inPHS
 	gimport.Pmove = pmove.Pmove
 
-	gimport.modelindex = sv_ents.SV_ModelIndex
-	gimport.soundindex = sv_ents.SV_SoundIndex
-	gimport.imageindex = sv_ents.SV_ImageIndex
+	gimport.modelindex = sv_init.SV_ModelIndex
+	gimport.soundindex = sv_init.SV_SoundIndex
+	gimport.imageindex = sv_init.SV_ImageIndex
 
 	gimport.configstring = PF_Configstring
 	gimport.sound = PF_StartSound

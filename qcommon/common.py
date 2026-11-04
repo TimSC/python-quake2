@@ -422,13 +422,14 @@ def MSG_WriteFloat (sb, f): #sizebuf_t *, float
 
 def MSG_WriteString (sb: qcommon.sizebuf_t, s): #sizebuf_t
 
-	assert isinstance(s, bytes) or isinstance(s, bytearray) or s is None
 	if not isinstance(sb, qcommon.sizebuf_t):
 		raise RuntimeError("Wrong input type")
 
 	if s is None:
 		SZ_Write (sb, b"\0")
 	else:
+		if isinstance(s, str):
+			s = s.encode('ascii')
 		SZ_Write (sb, s)
 		SZ_Write (sb, b"\0")
 
