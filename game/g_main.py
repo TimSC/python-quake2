@@ -19,6 +19,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from game import game as _gamemod, g_save, p_client
 from game import g_local
+from game import p_view, p_hud, g_utils, g_ai, g_monster, g_phys, q_shared
+from game.q_shared import Q_stricmp, DF_SAME_LEVEL, PRINT_HIGH
 """
 
 #include "g_local.h"
@@ -107,8 +109,9 @@ void G_RunFrame (void);
 
 """
 def ShutdownGame ():
-
-	pass
+	gi.dprintf ("==== ShutdownGame ====\n")
+	gi.FreeTags (g_local.TAG_LEVEL)
+	gi.FreeTags (g_local.TAG_GAME)
 	"""
 	gi.dprintf ("==== ShutdownGame ====\n")
 
@@ -192,7 +195,18 @@ void Com_Printf (char *msg, ...)
 
 //======================================================================
 """
-"""
+def ClientEndServerFrames ():
+	i = 0
+	ent = None
+
+	# calc the player views now that all pushing
+	# and damage has been added
+	for i in range(int(maxclients.value)):
+		ent = g_edicts[1 + i]
+		if not ent.inuse or not ent.client:
+			continue
+		p_view.ClientEndServerFrame (ent)
+	"""
 /*
 =================
 ClientEndServerFrames
@@ -215,7 +229,13 @@ void ClientEndServerFrames (void)
 
 }
 """
-"""
+def CreateTargetChangeLevel (map):
+	ent = g_utils.G_Spawn ()
+	ent.classname = "target_changelevel"
+	level.nextmap = map
+	ent.map = level.nextmap
+	return ent
+	"""
 /*
 =================
 CreateTargetChangeLevel
@@ -234,7 +254,50 @@ edict_t *CreateTargetChangeLevel(char *map)
 	return ent;
 }
 """
-"""
+def EndDMLevel ():
+	ent = None
+	f = None
+	tokens = []
+	i = 0
+
+	# stay on same level flag
+	if int(dmflags.value) & DF_SAME_LEVEL:
+		p_hud.BeginIntermission (CreateTargetChangeLevel (level.mapname))
+		return
+
+	# see if it's in the map list
+	if sv_maplist.string:
+		tokens = sv_maplist.string.replace(',', ' ').split()
+		f = None
+		i = 0
+		while i < len(tokens):
+			t = tokens[i]
+			if Q_stricmp(t, level.mapname) == 0:
+				# it's in the list, go to the next one
+				i += 1
+				if i >= len(tokens):	# end of list, go to first one
+					if f is None:	# there isn't a first one, same level
+						p_hud.BeginIntermission (CreateTargetChangeLevel (level.mapname))
+					else:
+						p_hud.BeginIntermission (CreateTargetChangeLevel (f))
+				else:
+					p_hud.BeginIntermission (CreateTargetChangeLevel (tokens[i]))
+				return
+			if f is None:
+				f = t
+			i += 1
+
+	if level.nextmap:	# go to a specific map
+		p_hud.BeginIntermission (CreateTargetChangeLevel (level.nextmap))
+	else:	# search for a changelevel
+		ent = g_utils.G_Find (None, "classname", "target_changelevel")
+		if not ent:
+			#	# the map designer didn't include a changelevel,
+			#	# so create a fake ent that goes back to the same level
+			p_hud.BeginIntermission (CreateTargetChangeLevel (level.mapname))
+			return
+		p_hud.BeginIntermission (ent)
+	"""
 /*
 =================
 EndDMLevel
@@ -295,7 +358,23 @@ void EndDMLevel (void)
 	}
 }
 """
-"""
+def CheckNeedPass ():
+	need = 0
+
+	# if password or spectator_password has changed, update needpass
+	# as needed
+	if password.modified or spectator_password.modified:
+		password.modified = spectator_password.modified = False
+
+		need = 0
+
+		if password.string and Q_stricmp(password.string, "none") != 0:
+			need |= 1
+		if spectator_password.string and Q_stricmp(spectator_password.string, "none") != 0:
+			need |= 2
+
+		gi.cvar_set("needpass", "%d" % need)
+	"""
 /*
 =================
 CheckNeedPass
@@ -322,7 +401,33 @@ void CheckNeedPass (void)
 	}
 }
 """
-"""
+def CheckDMRules ():
+	i = 0
+	cl = None
+
+	if level.intermissiontime:
+		return
+
+	if not deathmatch.value:
+		return
+
+	if timelimit.value:
+		if level.time >= timelimit.value*60:
+			gi.bprintf (PRINT_HIGH, "Timelimit hit.\n")
+			EndDMLevel ()
+			return
+
+	if fraglimit.value:
+		for i in range(int(maxclients.value)):
+			cl = game.clients[i]
+			if not g_edicts[i+1].inuse:
+				continue
+
+			if cl.resp.score >= fraglimit.value:
+				gi.bprintf (PRINT_HIGH, "Fraglimit hit.\n")
+				EndDMLevel ()
+				return
+	"""
 /*
 =================
 CheckDMRules
@@ -367,7 +472,26 @@ void CheckDMRules (void)
 	}
 }
 """
-"""
+def ExitLevel ():
+	i = 0
+	ent = None
+	command = ""
+
+	command = "gamemap \"%s\"\n" % level.changemap
+	gi.AddCommandString (command)
+	level.changemap = None
+	level.exitintermission = 0
+	level.intermissiontime = 0
+	ClientEndServerFrames ()
+
+	# clear some things before going to next level
+	for i in range(int(maxclients.value)):
+		ent = g_edicts[1 + i]
+		if not ent.inuse:
+			continue
+		if ent.health > ent.client.pers.max_health:
+			ent.health = ent.client.pers.max_health
+	"""
 /*
 =============
 ExitLevel
@@ -407,8 +531,53 @@ Advances the world by 0.1 seconds
 ================
 """
 def G_RunFrame ():
+	i = 0
+	ent = None
 
-	pass
+	level.framenum += 1
+	level.time = level.framenum*g_local.FRAMETIME
+
+	# choose a client for monsters to target this frame
+	g_ai.AI_SetSightClient ()
+
+	# exit intermissions
+	if level.exitintermission:
+		ExitLevel ()
+		return
+
+	#
+	# treat each object in turn
+	# even the world gets a chance to think
+	#
+	for i in range(glob.num_edicts):
+		ent = g_edicts[i]
+		if not ent.inuse:
+			continue
+
+		level.current_entity = ent
+
+		q_shared.VectorCopy (ent.s.origin, ent.s.old_origin)
+
+		# if the ground entity moved, make sure we are still on it
+		if ent.groundentity and ent.groundentity.linkcount != ent.groundentity_linkcount:
+			ent.groundentity = None
+			if not (ent.flags & (g_local.FL_SWIM|g_local.FL_FLY)) and (ent.svflags & _gamemod.SVF_MONSTER):
+				g_monster.M_CheckGround (ent)
+
+		if i > 0 and i <= int(maxclients.value):
+			p_client.ClientBeginServerFrame (ent)
+			continue
+
+		g_phys.G_RunEntity (ent)
+
+	# see if it is time to end a deathmatch
+	CheckDMRules ()
+
+	# see if needpass needs updated
+	CheckNeedPass ()
+
+	# build the playerstate_t structures for all players
+	ClientEndServerFrames ()
 	"""
 	int		i;
 	edict_t	*ent;

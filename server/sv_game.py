@@ -74,7 +74,7 @@ def PF_dprintf (fmt, *args): #char *, ...
 	else:
 		msg = fmt
 
-	common.Com_Printf ("%s", msg)
+	common.Com_Printf (msg)
 """
 /*
 ===============
@@ -103,7 +103,7 @@ def PF_cprintf (ent, level, fmt, *args): #edict_t *, int, char *, ...
 	if ent:
 		sv_send.SV_ClientPrintf (sv_init.svs.clients[n-1], level, msg)
 	else:
-		common.Com_Printf ("%s", msg)
+		common.Com_Printf (msg)
 """
 /*
 ===============
