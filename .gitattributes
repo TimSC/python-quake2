@@ -1,0 +1,7 @@
+# Store text files with LF line endings; check them out with the platform's
+# native ending. Binary files are detected automatically and left alone.
+* text=auto
+
+# Visual Studio 6 project files need CRLF.
+*.dsp text eol=crlf
+*.dsw text eol=crlf

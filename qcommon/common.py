@@ -316,13 +316,10 @@ bytedirs = np.array(json.load(open("client/anorms.json", "rt")), dtype=np.float3
 # writing functions
 #
 """
-def MSG_WriteChar (sb: qcommon.sizebuf_t, c: bytes|bytearray):
+def MSG_WriteChar (sb: qcommon.sizebuf_t, c):
 
-	assert isinstance(c, bytes) or isinstance(c, bytearray)
 	if not isinstance(sb, qcommon.sizebuf_t):
 		raise RuntimeError("Wrong input type")
-	assert len(c) == 1
-
 	"""
 	byte	*buf;
 	
@@ -334,9 +331,14 @@ def MSG_WriteChar (sb: qcommon.sizebuf_t, c: bytes|bytearray):
 	buf = SZ_GetSpace (sb, 1);
 	buf[0] = c;
 	"""
+	if isinstance(c, (bytes, bytearray)):
+		assert len(c) == 1
+		value = c[0]
+	else:
+		value = int(c) & 0xFF
 	offset = SZ_GetSpace(sb, 1)
 
-	struct.pack_into("c", sb.data, offset, c)
+	struct.pack_into("b", sb.data, offset, value)
 
 def MSG_WriteByte (sb: qcommon.sizebuf_t, c): #sizebuf_t *, int
 

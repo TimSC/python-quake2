@@ -17,7 +17,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
-from game import g_main, q_shared, game
+from game import g_main, q_shared, game, g_items
 """
 #include "g_local.h"
 
@@ -177,61 +177,68 @@ def InitGame ():
 	maxspectators = g_main.gi.cvar ("maxspectators", "4", q_shared.CVAR_SERVERINFO);	
 	"""
 	g_main.deathmatch = g_main.gi.cvar ("deathmatch", "0", q_shared.CVAR_LATCH)
-	"""
-	coop = g_main.gi.cvar ("coop", "0", q_shared.CVAR_LATCH);
-	skill = g_main.gi.cvar ("skill", "1", q_shared.CVAR_LATCH);
-	"""
+	g_main.coop = g_main.gi.cvar ("coop", "0", q_shared.CVAR_LATCH)
+	g_main.skill = g_main.gi.cvar ("skill", "1", q_shared.CVAR_LATCH)
+	g_main.maxclients = g_main.gi.cvar ("maxclients", "4", q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH)
+	g_main.maxspectators = g_main.gi.cvar ("maxspectators", "4", q_shared.CVAR_SERVERINFO)
 	g_main.maxentities = g_main.gi.cvar ("maxentities", "1024", q_shared.CVAR_LATCH)
-	"""
 
 	# change anytime vars
-	"""
-	g_main.dmflags = g_main.gi.cvar ("dmflags", "0", q_shared.CVAR_SERVERINFO);
-	"""
-	fraglimit = g_main.gi.cvar ("fraglimit", "0", q_shared.CVAR_SERVERINFO);
-	timelimit = g_main.gi.cvar ("timelimit", "0", q_shared.CVAR_SERVERINFO);
-	password = g_main.gi.cvar ("password", "", CVAR_USERINFO);
-	spectator_password = g_main.gi.cvar ("spectator_password", "", CVAR_USERINFO);
-	needpass = g_main.gi.cvar ("needpass", "0", q_shared.CVAR_SERVERINFO);
-	filterban = g_main.gi.cvar ("filterban", "1", 0);
+	g_main.dmflags = g_main.gi.cvar ("dmflags", "0", q_shared.CVAR_SERVERINFO)
+	g_main.fraglimit = g_main.gi.cvar ("fraglimit", "0", q_shared.CVAR_SERVERINFO)
+	g_main.timelimit = g_main.gi.cvar ("timelimit", "0", q_shared.CVAR_SERVERINFO)
+	g_main.password = g_main.gi.cvar ("password", "", q_shared.CVAR_USERINFO)
+	g_main.spectator_password = g_main.gi.cvar ("spectator_password", "", q_shared.CVAR_USERINFO)
+	g_main.needpass = g_main.gi.cvar ("needpass", "0", q_shared.CVAR_SERVERINFO)
+	g_main.filterban = g_main.gi.cvar ("filterban", "1", 0)
 
-	g_select_empty = g_main.gi.cvar ("g_select_empty", "0", CVAR_ARCHIVE);
+	g_main.g_select_empty = g_main.gi.cvar ("g_select_empty", "0", q_shared.CVAR_ARCHIVE)
 
-	run_pitch = g_main.gi.cvar ("run_pitch", "0.002", 0);
-	run_roll = g_main.gi.cvar ("run_roll", "0.005", 0);
-	bob_up  = g_main.gi.cvar ("bob_up", "0.005", 0);
-	bob_pitch = g_main.gi.cvar ("bob_pitch", "0.002", 0);
-	bob_roll = g_main.gi.cvar ("bob_roll", "0.002", 0);
+	g_main.run_pitch = g_main.gi.cvar ("run_pitch", "0.002", 0)
+	g_main.run_roll = g_main.gi.cvar ("run_roll", "0.005", 0)
+	g_main.bob_up = g_main.gi.cvar ("bob_up", "0.005", 0)
+	g_main.bob_pitch = g_main.gi.cvar ("bob_pitch", "0.002", 0)
+	g_main.bob_roll = g_main.gi.cvar ("bob_roll", "0.002", 0)
 
-	// flood control
-	flood_msgs = g_main.gi.cvar ("flood_msgs", "4", 0);
-	flood_persecond = g_main.gi.cvar ("flood_persecond", "4", 0);
-	flood_waitdelay = g_main.gi.cvar ("flood_waitdelay", "10", 0);
+	# gun position / sv_ movement vars
+	g_main.gun_x = g_main.gi.cvar ("gun_x", "0", 0)
+	g_main.gun_y = g_main.gi.cvar ("gun_y", "0", 0)
+	g_main.gun_z = g_main.gi.cvar ("gun_z", "0", 0)
+	g_main.sv_rollspeed = g_main.gi.cvar ("sv_rollspeed", "200", 0)
+	g_main.sv_rollangle = g_main.gi.cvar ("sv_rollangle", "2", 0)
+	g_main.sv_maxvelocity = g_main.gi.cvar ("sv_maxvelocity", "2000", 0)
+	g_main.sv_gravity = g_main.gi.cvar ("sv_gravity", "800", 0)
+	g_main.dedicated = g_main.gi.cvar ("dedicated", "0", q_shared.CVAR_NOSET)
+	g_main.sv_cheats = g_main.gi.cvar ("cheats", "0", q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH)
 
-	// dm map list
-	sv_maplist = g_main.gi.cvar ("sv_maplist", "", 0);
+	# flood control
+	g_main.flood_msgs = g_main.gi.cvar ("flood_msgs", "4", 0)
+	g_main.flood_persecond = g_main.gi.cvar ("flood_persecond", "4", 0)
+	g_main.flood_waitdelay = g_main.gi.cvar ("flood_waitdelay", "10", 0)
 
-	// items
-	InitItems ();
+	# dm map list
+	g_main.sv_maplist = g_main.gi.cvar ("sv_maplist", "", 0)
 
-	Com_sprintf (game.helpmessage1, sizeof(game.helpmessage1), "");
+	# items
+	g_items.InitItems ()
 
-	Com_sprintf (game.helpmessage2, sizeof(game.helpmessage2), "");
+	g_main.game.helpmessage1 = ""
+	g_main.game.helpmessage2 = ""
 
-	// initialize all entities for this game
-	"""
-	game.maxentities = int(g_main.maxentities.value)
+	# initialize all entities for this game
+	g_main.game.maxentities = int(g_main.maxentities.value)
 	g_main.g_edicts = [] # g_main.gi.TagMalloc (game.maxentities * sizeof(g_edicts[0]), TAG_GAME)
-	for i in range(game.maxentities):
+	for i in range(g_main.game.maxentities):
 		g_main.g_edicts.append(game.edict_t())
+	g_main.g_edicts[0].inuse = True
 	g_main.glob.edicts = g_main.g_edicts
-	g_main.glob.max_edicts = game.maxentities
+	g_main.glob.max_edicts = g_main.game.maxentities
+
+	# initialize all clients for this game
+	g_main.game.maxclients = int(g_main.maxclients.value)
+	g_main.game.clients = [game.gclient_s() for _ in range(g_main.game.maxclients)]
+	g_main.glob.num_edicts = g_main.game.maxclients + 1
 """
-	// initialize all clients for this game
-	game.maxclients = maxclients->value;
-	game.clients = g_main.gi.TagMalloc (game.maxclients * sizeof(game.clients[0]), TAG_GAME);
-	glob.num_edicts = game.maxclients+1;
-}
 
 //=========================================================
 

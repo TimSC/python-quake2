@@ -202,7 +202,7 @@ def PF_Configstring (index, val): #int, char *
 		common.MSG_WriteShort (sv_init.sv.multicast, index)
 		common.MSG_WriteString (sv_init.sv.multicast, val)
 
-		sv_send.SV_Multicast (q_shared.vec3_origin, q_shared.MULTICAST_ALL_R)
+		sv_send.SV_Multicast (q_shared.vec3_origin, q_shared.multicast_t.MULTICAST_ALL_R)
 
 
 def PF_WriteChar (c):
