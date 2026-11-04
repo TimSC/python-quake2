@@ -21,6 +21,7 @@ import numpy as np
 from enum import Enum
 from enum import Enum
 from game import q_shared
+from game import g_local
 """
 // game.h -- game dll information visible to server
 """
@@ -88,8 +89,87 @@ class gclient_s(object):
 
 		self.ps = q_shared.player_state_t()		# communicated by server to clients
 		self.ping: int = 0
-		# the game dll can add anything it wants after
-		# this point in the structure
+
+		#================================
+		# private to game (from g_local.h struct gclient_s)
+		self.pers = g_local.client_persistant_t()
+		self.resp = g_local.client_respawn_t()
+		self.old_pmove = q_shared.pmove_state_t()	# for detecting out-of-pmove changes
+
+		self.showscores = False
+		self.showinventory = False
+		self.showhelp = False
+		self.showhelpicon = False
+
+		self.ammo_index = 0
+
+		self.buttons = 0
+		self.oldbuttons = 0
+		self.latched_buttons = 0
+
+		self.weapon_thunk = False
+
+		self.newweapon = None #gitem_t *
+
+		# sum up damage over an entire frame, so
+		# shotgun blasts give a single big kick
+		self.damage_armor = 0
+		self.damage_parmor = 0
+		self.damage_blood = 0
+		self.damage_knockback = 0
+		self.damage_from = np.zeros((3,), dtype=np.float32)
+
+		self.killer_yaw = 0.0					# when dead, look at killer
+
+		self.weaponstate = g_local.weaponstate_t.WEAPON_READY
+		self.kick_angles = np.zeros((3,), dtype=np.float32)	# weapon kicks
+		self.kick_origin = np.zeros((3,), dtype=np.float32)
+		self.v_dmg_roll = 0.0
+		self.v_dmg_pitch = 0.0
+		self.v_dmg_time = 0.0				# damage kicks
+		self.fall_time = 0.0
+		self.fall_value = 0.0				# for view drop on fall
+		self.damage_alpha = 0.0
+		self.bonus_alpha = 0.0
+		self.damage_blend = np.zeros((3,), dtype=np.float32)
+		self.v_angle = np.zeros((3,), dtype=np.float32)		# aiming direction
+		self.bobtime = 0.0					# so off-ground doesn't change it
+		self.oldviewangles = np.zeros((3,), dtype=np.float32)
+		self.oldvelocity = np.zeros((3,), dtype=np.float32)
+
+		self.next_drown_time = 0.0
+		self.old_waterlevel = 0
+		self.breather_sound = 0
+
+		self.machinegun_shots = 0			# for weapon raising
+
+		# animation vars
+		self.anim_end = 0
+		self.anim_priority = 0
+		self.anim_duck = False
+		self.anim_run = False
+
+		# powerup timers
+		self.quad_framenum = 0.0
+		self.invincible_framenum = 0.0
+		self.breather_framenum = 0.0
+		self.enviro_framenum = 0.0
+
+		self.grenade_blew_up = False
+		self.grenade_time = 0.0
+		self.silencer_shots = 0
+		self.weapon_sound = 0
+
+		self.pickup_msg_time = 0.0
+
+		self.flood_locktill = 0.0			# locked from talking
+		self.flood_when = [0.0 for _ in range(10)]		# when messages were said
+		self.flood_whenhead = 0				# head pointer for when said
+
+		self.respawn_time = 0.0				# can respawn when time > this
+
+		self.chase_target = None			# player we are chasing
+		self.update_chase = False			# need to update chase info?
 
 
 
@@ -144,6 +224,125 @@ class edict_t(object):
 		self.solid = None #solid_t
 		self.clipmask = 0
 		self.owner = None
+
+		#================================
+		# DO NOT MODIFY ANYTHING ABOVE THIS, THE SERVER
+		# EXPECTS THE FIELDS IN THAT ORDER!
+		# (game-local fields from g_local.h struct edict_s)
+		self.movetype = 0
+		self.flags = 0
+
+		self.model = None
+		self.freetime = 0.0				# sv.time when the object was freed
+
+		# only used locally in game, not by server
+		self.message = None
+		self.classname = None
+		self.spawnflags = 0
+
+		self.timestamp = 0.0
+
+		self.angle = 0.0				# set in qe3, -1 = up, -2 = down
+		self.target = None
+		self.targetname = None
+		self.killtarget = None
+		self.team = None
+		self.pathtarget = None
+		self.deathtarget = None
+		self.combattarget = None
+		self.target_ent = None
+
+		self.speed = 0.0
+		self.accel = 0.0
+		self.decel = 0.0
+		self.movedir = np.zeros((3,), dtype=np.float32)
+		self.pos1 = np.zeros((3,), dtype=np.float32)
+		self.pos2 = np.zeros((3,), dtype=np.float32)
+
+		self.velocity = np.zeros((3,), dtype=np.float32)
+		self.avelocity = np.zeros((3,), dtype=np.float32)
+		self.mass = 0
+		self.air_finished = 0.0
+		self.gravity = 1.0				# per entity gravity multiplier (1.0 is normal)
+
+		self.goalentity = None
+		self.movetarget = None
+		self.yaw_speed = 0.0
+		self.ideal_yaw = 0.0
+
+		self.nextthink = 0.0
+		self.prethink = None
+		self.think = None
+		self.blocked = None
+		self.touch = None
+		self.use = None
+		self.pain = None
+		self.die = None
+
+		self.touch_debounce_time = 0.0
+		self.pain_debounce_time = 0.0
+		self.damage_debounce_time = 0.0
+		self.fly_sound_debounce_time = 0.0
+		self.last_move_time = 0.0
+
+		self.health = 0
+		self.max_health = 0
+		self.gib_health = 0
+		self.deadflag = g_local.DEAD_NO
+		self.show_hostile = False
+
+		self.powerarmor_time = 0.0
+
+		self.map = None				# target_changelevel
+
+		self.viewheight = 0				# height above origin where eyesight is determined
+		self.takedamage = 0
+		self.dmg = 0
+		self.radius_dmg = 0
+		self.dmg_radius = 0.0
+		self.sounds = 0
+		self.count = 0
+
+		self.chain = None
+		self.enemy = None
+		self.oldenemy = None
+		self.activator = None
+		self.groundentity = None
+		self.groundentity_linkcount = 0
+		self.teamchain = None
+		self.teammaster = None
+
+		self.mynoise = None			# can go in client only
+		self.mynoise2 = None
+
+		self.noise_index = 0
+		self.noise_index2 = 0
+		self.volume = 0.0
+		self.attenuation = 0.0
+
+		# timing variables
+		self.wait = 0.0
+		self.delay = 0.0				# before firing targets
+		self.random = 0.0
+
+		self.teleport_time = 0.0
+
+		self.watertype = 0
+		self.waterlevel = 0
+
+		self.move_origin = np.zeros((3,), dtype=np.float32)
+		self.move_angles = np.zeros((3,), dtype=np.float32)
+
+		# move this to clientinfo?
+		self.light_level = 0
+
+		self.style = 0				# also used as areaportal number
+
+		self.item = None			# for bonus items
+
+		# common data blocks
+		self.moveinfo = g_local.moveinfo_t()
+		self.monsterinfo = g_local.monsterinfo_t()
 """
 #endif		// GAME_INCLUDE
 

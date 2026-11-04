@@ -17,7 +17,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
-from game import game, g_save, p_client
+from game import game as _gamemod, g_save, p_client
+from game import g_local
 """
 
 #include "g_local.h"
@@ -25,8 +26,8 @@ from game import game, g_save, p_client
 game_locals_t	game;
 level_locals_t	level;
 """
-gi = game.game_import_t()
-glob = game.game_export_t() # Called global in the original C code
+gi = _gamemod.game_import_t()
+glob = _gamemod.game_export_t() # Called global in the original C code
 """
 spawn_temp_t	st;
 
@@ -35,53 +36,57 @@ int	snd_fry;
 int meansOfDeath;
 """
 g_edicts = None #edict_t *
+game = g_local.game_locals_t()
+level = g_local.level_locals_t()
+st = g_local.spawn_temp_t()
+
+sm_meat_index = 0
+snd_fry = 0
+meansOfDeath = 0
 
 
+# cvars (cvar_t *), assigned in g_save.InitGame via gi.cvar(...)
 deathmatch = None #cvar_t	*
-"""
-cvar_t	*coop;
-"""
+coop = None #cvar_t	*
 dmflags = None # cvar_t	*
-"""
-cvar_t	*skill;
-cvar_t	*fraglimit;
-cvar_t	*timelimit;
-cvar_t	*password;
-cvar_t	*spectator_password;
-cvar_t	*needpass;
-cvar_t	*maxclients;
-cvar_t	*maxspectators;
-"""
+skill = None # cvar_t	*
+fraglimit = None # cvar_t	*
+timelimit = None # cvar_t	*
+password = None # cvar_t	*
+spectator_password = None # cvar_t	*
+needpass = None # cvar_t	*
+maxclients = None # cvar_t	*
+maxspectators = None # cvar_t	*
 maxentities = None # cvar_t	*
+g_select_empty = None # cvar_t	*
+dedicated = None # cvar_t	*
+
+filterban = None # cvar_t	*
+
+sv_maxvelocity = None # cvar_t	*
+sv_gravity = None # cvar_t	*
+
+sv_rollspeed = None # cvar_t	*
+sv_rollangle = None # cvar_t	*
+gun_x = None # cvar_t	*
+gun_y = None # cvar_t	*
+gun_z = None # cvar_t	*
+
+run_pitch = None # cvar_t	*
+run_roll = None # cvar_t	*
+bob_up = None # cvar_t	*
+bob_pitch = None # cvar_t	*
+bob_roll = None # cvar_t	*
+
+sv_cheats = None # cvar_t	*
+
+flood_msgs = None # cvar_t	*
+flood_persecond = None # cvar_t	*
+flood_waitdelay = None # cvar_t	*
+
+sv_maplist = None # cvar_t	*
+
 """
-cvar_t	*g_select_empty;
-cvar_t	*dedicated;
-
-cvar_t	*filterban;
-
-cvar_t	*sv_maxvelocity;
-cvar_t	*sv_gravity;
-
-cvar_t	*sv_rollspeed;
-cvar_t	*sv_rollangle;
-cvar_t	*gun_x;
-cvar_t	*gun_y;
-cvar_t	*gun_z;
-
-cvar_t	*run_pitch;
-cvar_t	*run_roll;
-cvar_t	*bob_up;
-cvar_t	*bob_pitch;
-cvar_t	*bob_roll;
-
-cvar_t	*sv_cheats;
-
-cvar_t	*flood_msgs;
-cvar_t	*flood_persecond;
-cvar_t	*flood_waitdelay;
-
-cvar_t	*sv_maplist;
-
 void SpawnEntities (char *mapname, char *entities, char *spawnpoint);
 void ClientThink (edict_t *ent, usercmd_t *cmd);
 qboolean ClientConnect (edict_t *ent, char *userinfo);
@@ -126,7 +131,7 @@ def GetGameAPI (gimport): #game_import_t * (returns game_export_t *)
 
 	gi = gimport
 
-	glob.apiversion = game.GAME_API_VERSION
+	glob.apiversion = _gamemod.GAME_API_VERSION
 	
 	glob.Init = g_save.InitGame
 	glob.Shutdown = ShutdownGame
