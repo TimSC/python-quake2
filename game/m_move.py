@@ -557,3 +557,86 @@
 #
 # 	return SV_movestep(ent, move, true);
 # }
+
+
+#
+# === Python port ===
+#
+from game import q_shared
+from game import g_main
+from game.q_shared import vec3_origin, CONTENTS_SOLID, MASK_MONSTERSOLID
+
+STEPSIZE = 18
+c_yes = 0
+c_no = 0
+
+
+"""
+=============
+M_CheckBottom
+
+Returns false if any part of the bottom of the entity is off an edge that
+is not a staircase.
+=============
+"""
+def M_CheckBottom (ent):
+	global c_yes, c_no
+	#vec3_t mins, maxs, start, stop
+	#int x, y
+	#float mid, bottom
+	mins = [0, 0, 0]
+	maxs = [0, 0, 0]
+	start = [0, 0, 0]
+	stop = [0, 0, 0]
+
+	q_shared.VectorAdd (ent.s.origin, ent.mins, mins)
+	q_shared.VectorAdd (ent.s.origin, ent.maxs, maxs)
+
+	# if all of the points under the corners are solid world, don't bother
+	# with the tougher checks
+	# the corners must be within 16 of the midpoint
+	start[2] = mins[2] - 1
+	x = 0
+	while x <= 1:
+		y = 0
+		while y <= 1:
+			start[0] = maxs[0] if x else mins[0]
+			start[1] = maxs[1] if y else mins[1]
+			if g_main.gi.pointcontents (start) != CONTENTS_SOLID:
+				c_no += 1
+				# realcheck
+				start[2] = mins[2]
+
+				# the midpoint must be within 16 of the bottom
+				start[0] = stop[0] = (mins[0] + maxs[0])*0.5
+				start[1] = stop[1] = (mins[1] + maxs[1])*0.5
+				stop[2] = start[2] - 2*STEPSIZE
+				trace = g_main.gi.trace (start, vec3_origin, vec3_origin, stop, ent, MASK_MONSTERSOLID)
+
+				if trace.fraction == 1.0:
+					return False
+				mid = bottom = trace.endpos[2]
+
+				# the corners must be within 16 of the midpoint
+				x = 0
+				while x <= 1:
+					y = 0
+					while y <= 1:
+						start[0] = stop[0] = maxs[0] if x else mins[0]
+						start[1] = stop[1] = maxs[1] if y else mins[1]
+
+						trace = g_main.gi.trace (start, vec3_origin, vec3_origin, stop, ent, MASK_MONSTERSOLID)
+
+						if trace.fraction != 1.0 and trace.endpos[2] > bottom:
+							bottom = trace.endpos[2]
+						if trace.fraction == 1.0 or mid - trace.endpos[2] > STEPSIZE:
+							return False
+						y += 1
+					x += 1
+				c_yes += 1
+				return True
+			y += 1
+		x += 1
+
+	c_yes += 1
+	return True

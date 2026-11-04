@@ -171,6 +171,11 @@ class gclient_s(object):
 		self.chase_target = None			# player we are chasing
 		self.update_chase = False			# need to update chase info?
 
+		# flood control (PGM addition)
+		self.flood_locktill = 0.0			# locked from talking
+		self.flood_when = [0.0 for _ in range(10)]	# when messages were said
+		self.flood_whenhead = 0			# head pointer for when said
+
 
 
 class edict_t(object):
