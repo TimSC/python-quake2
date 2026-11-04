@@ -126,6 +126,8 @@ FL_POWER_ARMOR   = 0x00001000
 FL_RESPAWN       = 0x80000000
 
 FRAMETIME = 0.1
+DEFAULT_BULLET_HSPREAD = 300
+DEFAULT_BULLET_VSPREAD = 500
 
 # memory tags to allow dynamic memory to be cleaned up
 TAG_GAME  = 765
@@ -815,6 +817,28 @@ FRAME_death201   = 184
 FRAME_death206   = 189
 FRAME_death301   = 190
 FRAME_death308   = 197
+
+# player walk/jump/pain anim frames (from m_player.h) used by p_view
+FRAME_stand01    = 0
+FRAME_stand40    = 39
+FRAME_run1       = 40
+FRAME_run6       = 45
+FRAME_pain101    = 54
+FRAME_pain104    = 57
+FRAME_pain201    = 58
+FRAME_pain204    = 61
+FRAME_pain301    = 62
+FRAME_pain304    = 65
+FRAME_jump1      = 66
+FRAME_jump2      = 67
+FRAME_jump3      = 68
+FRAME_jump6      = 71
+FRAME_crstnd01   = 135
+FRAME_crstnd19   = 153
+FRAME_crwalk1    = 154
+FRAME_crwalk6    = 159
+FRAME_crpain1    = 169
+FRAME_crpain4    = 172
 ANIM_DEATH   = 5
 ANIM_REVERSE = 6
 

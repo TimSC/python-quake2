@@ -155,6 +155,10 @@ class gclient_s(object):
 		self.breather_framenum = 0.0
 		self.enviro_framenum = 0.0
 
+		# power armor
+		self.powerarmor_type = 0 #int, 0 = none, 1 = screen, 2 = shield
+		self.powerarmor_time = 0.0 #float
+
 		self.grenade_blew_up = False
 		self.grenade_time = 0.0
 		self.silencer_shots = 0
@@ -453,6 +457,7 @@ class game_export_t(object):
 		"""
 		self.Init = None # void (*) (void)
 		self.Shutdown = None # void (*) (void)
+		self.helpchanged = 0 #int
 		"""
 
 		// each new level entered will cause a call to SpawnEntities

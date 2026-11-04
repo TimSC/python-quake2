@@ -17,10 +17,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
-from game import q_shared
-"""
-#include "g_local.h"
-"""
+from game import q_shared, g_main, g_utils, g_ai
 
 TRAIL_LENGTH = 8
 
@@ -28,9 +25,25 @@ trail = []
 trail_head = 0
 trail_active = False
 
+def _next (n):
+	return ((n + 1) & (TRAIL_LENGTH - 1))
+
+def _prev (n):
+	return ((n - 1) & (TRAIL_LENGTH - 1))
+
 
 def PlayerTrail_Init ():
-	pass
+	global trail_head, trail_active
+
+	if int(g_main.deathmatch.value):
+		return
+
+	for n in range(TRAIL_LENGTH):
+		trail[n] = g_utils.G_Spawn()
+		trail[n].classname = "player_trail"
+
+	trail_head = 0
+	trail_active = True
 	"""
 	int		n;
 
@@ -49,7 +62,19 @@ def PlayerTrail_Init ():
 
 
 def PlayerTrail_Add (spot): #vec3_t
-	pass
+	global trail_head
+
+	if not trail_active:
+		return
+
+	q_shared.VectorCopy (spot, trail[trail_head].s.origin)
+
+	trail[trail_head].timestamp = g_main.level.time
+
+	temp = spot - trail[_prev(trail_head)].s.origin
+	trail[trail_head].s.angles[1] = g_utils.vectoyaw (temp)
+
+	trail_head = _next(trail_head)
 	"""
 	vec3_t	temp;
 
@@ -68,7 +93,11 @@ def PlayerTrail_Add (spot): #vec3_t
 
 
 def PlayerTrail_New (spot): #vec3_t
-	pass
+	if not trail_active:
+		return
+
+	PlayerTrail_Init ()
+	PlayerTrail_Add (spot)
 	"""
 	if (!trail_active)
 		return;
@@ -79,7 +108,25 @@ def PlayerTrail_New (spot): #vec3_t
 
 
 def PlayerTrail_PickFirst (self): #edict_t *
-	pass
+	if not trail_active:
+		return None
+
+	marker = trail_head
+	n = TRAIL_LENGTH
+	while n:
+		if trail[marker].timestamp <= self.monsterinfo.trail_time:
+			marker = _next(marker)
+		else:
+			break
+		n -= 1
+
+	if g_ai.visible(self, trail[marker]):
+		return trail[marker]
+
+	if g_ai.visible(self, trail[_prev(marker)]):
+		return trail[_prev(marker)]
+
+	return trail[marker]
 	"""
 	int		marker;
 	int		n;
@@ -110,7 +157,19 @@ def PlayerTrail_PickFirst (self): #edict_t *
 
 
 def PlayerTrail_PickNext (self): #edict_t *
-	pass
+	if not trail_active:
+		return None
+
+	marker = trail_head
+	n = TRAIL_LENGTH
+	while n:
+		if trail[marker].timestamp <= self.monsterinfo.trail_time:
+			marker = _next(marker)
+		else:
+			break
+		n -= 1
+
+	return trail[marker]
 	"""
 	int		marker;
 	int		n;
@@ -131,7 +190,7 @@ def PlayerTrail_PickNext (self): #edict_t *
 
 
 def PlayerTrail_LastSpot ():
-	pass
+	return trail[_prev(trail_head)]
 	"""
 	return trail[PREV(trail_head)];
 	"""
