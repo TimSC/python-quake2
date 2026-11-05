@@ -1805,33 +1805,22 @@ def soldier_die (self, inflictor, attacker, damage, point):
 	else:
 		self.monsterinfo.currentmove = soldier_move_death6
 
-def SP_monster_soldier_x (self):
-	#edict_t *self
-	global sound_idle, sound_sight1, sound_sight2
-	global sound_pain_light, sound_pain, sound_pain_ss
-	global sound_death_light, sound_death, sound_death_ss, sound_cock
+def SP_monster_soldier_x (self): #edict_t *
 
-	sound_idle = g_main.gi.soundindex ("soldier/ldlidle.wav")
-	sound_sight1 = g_main.gi.soundindex ("soldier/ldsgrt1.wav")
-	sound_sight2 = g_main.gi.soundindex ("soldier/ldsgrt2.wav")
+	global sound_idle, sound_sight1, sound_sight2, sound_cock
 
-	sound_pain_light = g_main.gi.soundindex ("soldier/ldlpain1.wav")
-	sound_pain = g_main.gi.soundindex ("soldier/ldpain1.wav")
-	sound_pain_ss = g_main.gi.soundindex ("soldier/ldspain1.wav")
-
-	sound_death_light = g_main.gi.soundindex ("soldier/ldldeth1.wav")
-	sound_death = g_main.gi.soundindex ("soldier/lddeth1.wav")
-	sound_death_ss = g_main.gi.soundindex ("soldier/ldsdeath.wav")
-
-	sound_cock = g_main.gi.soundindex ("weapons/chainsawn.wav")
-
-	self.solid = SOLID_BBOX
-	self.s.modelindex = g_main.gi.modelindex("models/monsters/soldier/tris.md2")
+	self.s.modelindex = g_main.gi.modelindex ("models/monsters/soldier/tris.md2")
+	self.monsterinfo.scale = MODEL_SCALE
 	q_shared.VectorSet (self.mins, -16, -16, -24)
 	q_shared.VectorSet (self.maxs, 16, 16, 32)
+	self.movetype = MOVETYPE_STEP
+	self.solid = SOLID_BBOX
 
-	self.health = 20
-	self.gib_health = -40
+	sound_idle =	g_main.gi.soundindex ("soldier/solidle1.wav")
+	sound_sight1 =	g_main.gi.soundindex ("soldier/solsght1.wav")
+	sound_sight2 =	g_main.gi.soundindex ("soldier/solsrch1.wav")
+	sound_cock =	g_main.gi.soundindex ("infantry/infatck3.wav")
+
 	self.mass = 100
 
 	self.pain = soldier_pain
@@ -1844,43 +1833,83 @@ def SP_monster_soldier_x (self):
 	self.monsterinfo.attack = soldier_attack
 	self.monsterinfo.melee = None
 	self.monsterinfo.sight = soldier_sight
-	self.monsterinfo.idle = soldier_idle
 
 	g_main.gi.linkentity (self)
 
-	self.monsterinfo.currentmove = soldier_move_stand1
-	self.monsterinfo.scale = MODEL_SCALE
+	self.monsterinfo.stand (self)
 
 	walkmonster_start (self)
 
-def SP_monster_soldier_light (self):
-	#edict_t *self
+
+"""QUAKED monster_soldier_light (1 .5 0) (-16 -16 -24) (16 16 32) Ambush Trigger_Spawn Sight
+"""
+def SP_monster_soldier_light (self): #edict_t *
+
+	global sound_pain_light, sound_death_light
+
+	if g_main.deathmatch.value:
+	
+		G_FreeEdict (self)
+		return
+	
+
 	SP_monster_soldier_x (self)
 
+	sound_pain_light = g_main.gi.soundindex ("soldier/solpain2.wav")
+	sound_death_light =	g_main.gi.soundindex ("soldier/soldeth2.wav")
+	g_main.gi.modelindex ("models/objects/laser/tris.md2")
+	g_main.gi.soundindex ("misc/lasfly.wav")
+	g_main.gi.soundindex ("soldier/solatck2.wav")
+
+	self.s.skinnum = 0
 	self.health = 20
 	self.gib_health = -30
-	self.s.skinnum = 0
 
-def SP_monster_soldier (self):
-	#edict_t *self
+
+"""QUAKED monster_soldier (1 .5 0) (-16 -16 -24) (16 16 32) Ambush Trigger_Spawn Sight
+"""
+def SP_monster_soldier (self): #edict_t *
+
+	global sound_pain, sound_death
+
+	if g_main.deathmatch.value:
+	
+		G_FreeEdict (self)
+		return
+	
+
 	SP_monster_soldier_x (self)
 
-	self.health = 40
+	sound_pain = g_main.gi.soundindex ("soldier/solpain1.wav")
+	sound_death = g_main.gi.soundindex ("soldier/soldeth1.wav")
+	g_main.gi.soundindex ("soldier/solatck1.wav")
+
 	self.s.skinnum = 2
+	self.health = 30
+	self.gib_health = -30
 
-def SP_monster_soldier_ss (self):
-	#edict_t *self
+
+"""QUAKED monster_soldier_ss (1 .5 0) (-16 -16 -24) (16 16 32) Ambush Trigger_Spawn Sight
+"""
+def SP_monster_soldier_ss (self): #edict_t *
+
+	global sound_pain_ss, sound_death_ss
+
+	if g_main.deathmatch.value:
+	
+		G_FreeEdict (self)
+		return
+	
+
 	SP_monster_soldier_x (self)
+
+	sound_pain_ss = g_main.gi.soundindex ("soldier/solpain3.wav")
+	sound_death_ss = g_main.gi.soundindex ("soldier/soldeth3.wav")
+	g_main.gi.soundindex ("soldier/solatck3.wav")
 
 	self.s.skinnum = 4
-	self.s.modelindex = g_main.gi.modelindex("models/monsters/soldier_ss/tris.md2")
 	self.health = 40
-
-	sound_sight1 = g_main.gi.soundindex ("soldier/ldsgrt1.wav")
-	sound_sight2 = g_main.gi.soundindex ("soldier/ldsgrt2.wav")
-
-	sound_pain = g_main.gi.soundindex ("soldier/ldsmpain1.wav")
-	sound_death = g_main.gi.soundindex ("soldier/ldsmdeth1.wav")
+	self.gib_health = -30
 
 
 #=================

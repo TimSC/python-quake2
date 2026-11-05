@@ -2598,8 +2598,8 @@ def SP_func_water (self):
 		self.moveinfo.sound_start = g_main.gi.soundindex  ("world/mov_watr.wav")
 		self.moveinfo.sound_end = g_main.gi.soundindex  ("world/stp_watr.wav")
 	elif self.sounds == 2: # lava
-		self.moveinfo.sound_start = g_main.gi.soundindex  ("world/mov_lava.wav")
-		self.moveinfo.sound_end = g_main.gi.soundindex  ("world/stp_lava.wav")
+		self.moveinfo.sound_start = g_main.gi.soundindex  ("world/mov_watr.wav")
+		self.moveinfo.sound_end = g_main.gi.soundindex  ("world/stp_watr.wav")
 
 	# calculate second position
 	q_shared.VectorCopy (self.s.origin, self.pos1)
