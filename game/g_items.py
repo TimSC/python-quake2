@@ -216,7 +216,7 @@ def Pickup_Powerup (ent, other):
 	if g_main.deathmatch.value:
 		if not (ent.spawnflags & DROPPED_ITEM):
 			SetRespawn (ent, ent.item.quantity)
-		if (int(g_main.dmflags.value) & g_local.DF_INSTANT_ITEMS) or ((ent.item.use == Use_Quad) and (ent.spawnflags & DROPPED_PLAYER_ITEM)):
+		if (int(g_main.dmflags.value) & q_shared.DF_INSTANT_ITEMS) or ((ent.item.use == Use_Quad) and (ent.spawnflags & DROPPED_PLAYER_ITEM)):
 			if (ent.item.use == Use_Quad) and (ent.spawnflags & DROPPED_PLAYER_ITEM):
 				global quad_drop_timeout_hack
 				quad_drop_timeout_hack = (ent.nextthink - g_main.level.time) / FRAMETIME
@@ -515,7 +515,7 @@ def Pickup_Ammo (ent, other):
 	#int oldcount, count
 	#qboolean weapon
 	weapon = (ent.item.flags & IT_WEAPON)
-	if weapon and (int(g_main.dmflags.value) & g_local.DF_INFINITE_AMMO):
+	if weapon and (int(g_main.dmflags.value) & q_shared.DF_INFINITE_AMMO):
 		count = 1000
 	elif ent.count:
 		count = ent.count
@@ -998,19 +998,19 @@ def SpawnItem (ent, item):
 
 	# some items will be prevented in deathmatch
 	if g_main.deathmatch.value:
-		if int(g_main.dmflags.value) & g_local.DF_NO_ARMOR:
+		if int(g_main.dmflags.value) & q_shared.DF_NO_ARMOR:
 			if item.pickup == Pickup_Armor or item.pickup == Pickup_PowerArmor:
 				g_utils.G_FreeEdict (ent)
 				return
-		if int(g_main.dmflags.value) & g_local.DF_NO_ITEMS:
+		if int(g_main.dmflags.value) & q_shared.DF_NO_ITEMS:
 			if item.pickup == Pickup_Powerup:
 				g_utils.G_FreeEdict (ent)
 				return
-		if int(g_main.dmflags.value) & g_local.DF_NO_HEALTH:
+		if int(g_main.dmflags.value) & q_shared.DF_NO_HEALTH:
 			if item.pickup == Pickup_Health or item.pickup == Pickup_Adrenaline or item.pickup == Pickup_AncientHead:
 				g_utils.G_FreeEdict (ent)
 				return
-		if int(g_main.dmflags.value) & g_local.DF_INFINITE_AMMO:
+		if int(g_main.dmflags.value) & q_shared.DF_INFINITE_AMMO:
 			if (item.flags == IT_AMMO) or (ent.classname == "weapon_bfg"):
 				g_utils.G_FreeEdict (ent)
 				return
@@ -1317,7 +1317,7 @@ itemlist = [
 */
 """
 def SP_item_health (self):
-	if g_main.deathmatch.value and (int(g_main.dmflags.value) & g_local.DF_NO_HEALTH):
+	if g_main.deathmatch.value and (int(g_main.dmflags.value) & q_shared.DF_NO_HEALTH):
 		g_utils.G_FreeEdict (self)
 		return
 
@@ -1332,7 +1332,7 @@ def SP_item_health (self):
 */
 """
 def SP_item_health_small (self):
-	if g_main.deathmatch.value and (int(g_main.dmflags.value) & g_local.DF_NO_HEALTH):
+	if g_main.deathmatch.value and (int(g_main.dmflags.value) & q_shared.DF_NO_HEALTH):
 		g_utils.G_FreeEdict (self)
 		return
 
@@ -1348,7 +1348,7 @@ def SP_item_health_small (self):
 */
 """
 def SP_item_health_large (self):
-	if g_main.deathmatch.value and (int(g_main.dmflags.value) & g_local.DF_NO_HEALTH):
+	if g_main.deathmatch.value and (int(g_main.dmflags.value) & q_shared.DF_NO_HEALTH):
 		g_utils.G_FreeEdict (self)
 		return
 
@@ -1363,7 +1363,7 @@ def SP_item_health_large (self):
 */
 """
 def SP_item_health_mega (self):
-	if g_main.deathmatch.value and (int(g_main.dmflags.value) & g_local.DF_NO_HEALTH):
+	if g_main.deathmatch.value and (int(g_main.dmflags.value) & q_shared.DF_NO_HEALTH):
 		g_utils.G_FreeEdict (self)
 		return
 

@@ -23,7 +23,7 @@ from game import q_shared
 from game import g_local
 from game import g_main
 from game import g_combat
-from game.game import edict_t, SOLID_NOT
+from game.game import edict_t, SOLID_NOT, SVF_MONSTER
 from game.q_shared import CHAN_AUTO, ATTN_NORM, CHAN_BODY, CHAN_VOICE
 from game.q_shared import AREA_TRIGGERS, AREA_SOLID, MASK_PLAYERSOLID
 from game.g_local import DAMAGE_NO_PROTECTION, MOD_TELEFRAG
@@ -206,7 +206,7 @@ def G_UseTargets (ent, activator):
 		return
 
 	# print the message
-	if (ent.message) and not (activator.svflags & q_shared.SVF_MONSTER):
+	if (ent.message) and not (activator.svflags & SVF_MONSTER):
 		g_main.gi.centerprintf (activator, ent.message)
 		if ent.noise_index:
 			g_main.gi.sound (activator, CHAN_AUTO, ent.noise_index, 1, ATTN_NORM, 0)
@@ -417,7 +417,7 @@ def G_TouchTriggers (ent):
 	#int i, num
 
 	# dead things don't activate triggers!
-	if ((ent.client or (ent.svflags & q_shared.SVF_MONSTER)) and (ent.health <= 0)):
+	if ((ent.client or (ent.svflags & SVF_MONSTER)) and (ent.health <= 0)):
 		return
 
 	touch = [None] * q_shared.MAX_EDICTS

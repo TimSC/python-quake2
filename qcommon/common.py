@@ -125,18 +125,18 @@ Both client and server can use this, and it will output
 to the apropriate place.
 =============
 """
-def Com_Printf (msg): #char *
+def Com_Printf (fmt, *args): #char *, ...
 
 	global rd_buffer
 
-	"""
-	va_list		argptr;
-	char		msg[MAXPRINTMSG];
+	#va_list		argptr;
+	#char		msg[MAXPRINTMSG];
 
-	va_start (argptr,fmt);
-	vsprintf (msg,fmt,argptr);
-	va_end (argptr);
-	"""
+	# va_start (argptr,fmt); vsprintf (msg,fmt,argptr); va_end (argptr);
+	if args:
+		msg = fmt % args
+	else:
+		msg = fmt
 
 	if rd_target:
 	
@@ -213,7 +213,7 @@ do the apropriate things.
 com_error_msg = "" #static char [MAXPRINTMSG], in Com_Error
 com_error_recursive = False #static qboolean, in Com_Error
 
-def Com_Error (code, msg): #int, char *
+def Com_Error (code, fmt, *args): #int, char *, ...
 
 	global com_error_msg, com_error_recursive
 
@@ -227,7 +227,12 @@ def Com_Error (code, msg): #int, char *
 		sys_linux.Sys_Error ("recursive error after: {}".format(com_error_msg))
 	com_error_recursive = True
 
-	com_error_msg = msg # va_start (argptr,fmt); vsprintf (msg,fmt,argptr); va_end (argptr);
+	# va_start (argptr,fmt); vsprintf (msg,fmt,argptr); va_end (argptr);
+	if args:
+		msg = fmt % args
+	else:
+		msg = fmt
+	com_error_msg = msg
 	
 	if code == q_shared.ERR_DISCONNECT:
 	
@@ -1159,7 +1164,6 @@ def CopyString (s): #char *
 
 """
 
-"""
 def Info_Print (s): #char *
 
 	#char	key[512];
@@ -1197,7 +1201,6 @@ def Info_Print (s): #char *
 			i += 1
 		Com_Printf ("{}\n".format(value))
 	
-"""
 
 """
 /*

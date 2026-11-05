@@ -70,10 +70,13 @@ SV_ClientPrintf
 Sends text across to be displayed if the level passes
 =================
 """
-def SV_ClientPrintf (cl, level, msg): #client_t *, int, char *
+def SV_ClientPrintf (cl, level, fmt, *args): #client_t *, int, char *, ...
 
 	if level < cl.messagelevel:
 		return
+
+	# va_start (argptr,fmt); vsprintf (string, fmt,argptr); va_end (argptr);
+	msg = fmt % args if args else fmt
 
 	common.MSG_WriteByte (cl.netchan.message, qcommon.svc_ops_e.svc_print.value)
 	common.MSG_WriteByte (cl.netchan.message, level)
@@ -86,7 +89,10 @@ SV_BroadcastPrintf
 Sends text to all active clients
 =================
 """
-def SV_BroadcastPrintf (level, msg): #int, char *
+def SV_BroadcastPrintf (level, fmt, *args): #int, char *, ...
+
+	# va_start (argptr,fmt); vsprintf (string, fmt,argptr); va_end (argptr);
+	msg = fmt % args if args else fmt
 
 	# echo to console
 	if common.dedicated.value:

@@ -522,7 +522,7 @@ def SV_InitGame ():
 	if svs.initialized:
 	
 		# cause any connected clients to reconnect
-		sv_main.SV_Shutdown ("Server restarted\n", true);
+		sv_main.SV_Shutdown ("Server restarted\n", True)
 	
 	else:
 	

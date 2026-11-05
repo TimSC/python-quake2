@@ -202,7 +202,7 @@ class edict_t(object):
 		entity_state_t	s;
 		"""
 		self.s = q_shared.entity_state_t()
-		self.client = gclient_s() # struct gclient_s *
+		self.client = None # struct gclient_s *, NULL until a client slot is assigned
 		"""
 		qboolean	inuse;
 		int			linkcount;

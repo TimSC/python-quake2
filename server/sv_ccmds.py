@@ -739,7 +739,7 @@ SV_Serverinfo_f
 def SV_Serverinfo_f ():
 
 	common.Com_Printf ("Server info settings:\n");
-	#Info_Print (Cvar_Serverinfo());
+	common.Info_Print (cvar.Cvar_Serverinfo())
 
 """
 /*

@@ -250,7 +250,7 @@ def Pickup_Weapon (ent, other):
 	"""
 	index = g_items.ITEM_INDEX (ent.item)
 
-	if ( ( ((int)(g_main.dmflags.value) & g_local.DF_WEAPONS_STAY) or g_main.coop.value)
+	if ( ( ((int)(g_main.dmflags.value) & q_shared.DF_WEAPONS_STAY) or g_main.coop.value)
 		and other.client.pers.inventory[index]):
 		if not (ent.spawnflags & (g_local.DROPPED_ITEM | g_local.DROPPED_PLAYER_ITEM) ):
 			return False
@@ -259,14 +259,14 @@ def Pickup_Weapon (ent, other):
 
 	if not (ent.spawnflags & g_local.DROPPED_ITEM) :
 		ammo = g_items.FindItem (ent.item.ammo)
-		if (int(g_main.dmflags.value) & g_local.DF_INFINITE_AMMO ):
+		if (int(g_main.dmflags.value) & q_shared.DF_INFINITE_AMMO ):
 			g_items.Add_Ammo (other, ammo, 1000)
 		else:
 			g_items.Add_Ammo (other, ammo, ammo.quantity)
 
 		if not (ent.spawnflags & g_local.DROPPED_PLAYER_ITEM) :
 			if g_main.deathmatch.value:
-				if (int(g_main.dmflags.value) & g_local.DF_WEAPONS_STAY):
+				if (int(g_main.dmflags.value) & q_shared.DF_WEAPONS_STAY):
 					ent.flags |= g_local.FL_RESPAWN
 				else:
 					g_items.SetRespawn (ent, 30)
@@ -562,7 +562,7 @@ def Drop_Weapon (ent, item):
 		ent->client->pers.inventory[index]--;
 	}
 	"""
-	if (int(g_main.dmflags.value) & g_local.DF_WEAPONS_STAY):
+	if (int(g_main.dmflags.value) & q_shared.DF_WEAPONS_STAY):
 		return
 
 	index = g_items.ITEM_INDEX(item)
@@ -902,7 +902,7 @@ def weapon_grenade_fire (ent, held):
 	speed = GRENADE_MINSPEED + (GRENADE_TIMER - timer) * ((GRENADE_MAXSPEED - GRENADE_MINSPEED) / GRENADE_TIMER)
 	g_weapon.fire_grenade2 (ent, start, forward, damage, speed, timer, radius, held)
 
-	if not ((int)(g_main.dmflags.value) & g_local.DF_INFINITE_AMMO):
+	if not ((int)(g_main.dmflags.value) & q_shared.DF_INFINITE_AMMO):
 		ent.client.pers.inventory[ent.client.ammo_index] -= 1
 
 	ent.client.grenade_time = g_main.level.time + 1.0
@@ -1166,7 +1166,7 @@ def weapon_grenadelauncher_fire (ent):
 
 	PlayerNoise(ent, start, g_local.PNOISE_WEAPON)
 
-	if not ((int)(g_main.dmflags.value) & g_local.DF_INFINITE_AMMO):
+	if not ((int)(g_main.dmflags.value) & q_shared.DF_INFINITE_AMMO):
 		ent.client.pers.inventory[ent.client.ammo_index] -= 1
 
 
@@ -1259,7 +1259,7 @@ def Weapon_RocketLauncher_Fire (ent):
 
 	PlayerNoise(ent, start, g_local.PNOISE_WEAPON)
 
-	if not ((int)(g_main.dmflags.value) & g_local.DF_INFINITE_AMMO):
+	if not ((int)(g_main.dmflags.value) & q_shared.DF_INFINITE_AMMO):
 		ent.client.pers.inventory[ent.client.ammo_index] -= 1
 
 
@@ -1476,7 +1476,7 @@ def Weapon_HyperBlaster_Fire (ent):
 			else:
 				damage = 20
 			Blaster_Fire (ent, offset, damage, True, effect)
-			if not ((int)(g_main.dmflags.value) & g_local.DF_INFINITE_AMMO):
+			if not ((int)(g_main.dmflags.value) & q_shared.DF_INFINITE_AMMO):
 				ent.client.pers.inventory[ent.client.ammo_index] -= 1
 
 			ent.client.anim_priority = g_local.ANIM_ATTACK
@@ -1655,7 +1655,7 @@ def Machinegun_Fire (ent):
 
 	PlayerNoise(ent, start, g_local.PNOISE_WEAPON)
 
-	if not ((int)(g_main.dmflags.value) & g_local.DF_INFINITE_AMMO):
+	if not ((int)(g_main.dmflags.value) & q_shared.DF_INFINITE_AMMO):
 		ent.client.pers.inventory[ent.client.ammo_index] -= 1
 
 	ent.client.anim_priority = g_local.ANIM_ATTACK
@@ -1888,7 +1888,7 @@ def Chaingun_Fire (ent):
 
 	PlayerNoise(ent, start, g_local.PNOISE_WEAPON)
 
-	if not ((int)(g_main.dmflags.value) & g_local.DF_INFINITE_AMMO):
+	if not ((int)(g_main.dmflags.value) & q_shared.DF_INFINITE_AMMO):
 		ent.client.pers.inventory[ent.client.ammo_index] -= shots
 
 
@@ -1993,7 +1993,7 @@ def weapon_shotgun_fire (ent):
 	ent.client.ps.gunframe += 1
 	PlayerNoise(ent, start, g_local.PNOISE_WEAPON)
 
-	if not ((int)(g_main.dmflags.value) & g_local.DF_INFINITE_AMMO):
+	if not ((int)(g_main.dmflags.value) & q_shared.DF_INFINITE_AMMO):
 		ent.client.pers.inventory[ent.client.ammo_index] -= 1
 
 
@@ -2098,7 +2098,7 @@ def weapon_supershotgun_fire (ent):
 	ent.client.ps.gunframe += 1
 	PlayerNoise(ent, start, g_local.PNOISE_WEAPON)
 
-	if not ((int)(g_main.dmflags.value) & g_local.DF_INFINITE_AMMO):
+	if not ((int)(g_main.dmflags.value) & q_shared.DF_INFINITE_AMMO):
 		ent.client.pers.inventory[ent.client.ammo_index] -= 2
 
 
@@ -2201,7 +2201,7 @@ def weapon_railgun_fire (ent):
 	ent.client.ps.gunframe += 1
 	PlayerNoise(ent, start, g_local.PNOISE_WEAPON)
 
-	if not ((int)(g_main.dmflags.value) & g_local.DF_INFINITE_AMMO):
+	if not ((int)(g_main.dmflags.value) & q_shared.DF_INFINITE_AMMO):
 		ent.client.pers.inventory[ent.client.ammo_index] -= 1
 
 
@@ -2330,7 +2330,7 @@ def weapon_bfg_fire (ent):
 
 	PlayerNoise(ent, start, g_local.PNOISE_WEAPON)
 
-	if not ((int)(g_main.dmflags.value) & g_local.DF_INFINITE_AMMO):
+	if not ((int)(g_main.dmflags.value) & q_shared.DF_INFINITE_AMMO):
 		ent.client.pers.inventory[ent.client.ammo_index] -= 50
 
 

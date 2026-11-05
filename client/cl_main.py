@@ -1023,7 +1023,7 @@ def CL_FixUpGender():
 def CL_Userinfo_f ():
 
 	common.Com_Printf ("User info settings:\n")
-	Info_Print (Cvar_Userinfo())
+	common.Info_Print (cvar.Cvar_Userinfo())
 
 
 """

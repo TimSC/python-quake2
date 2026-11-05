@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 import os
 import sys
+import select
 import time
 import pygame
 from qcommon import common, cvar
@@ -172,41 +173,39 @@ void floating_point_exception_handler(int whatever)
 }
 """
 
-def Sys_ConsoleInput():
+def Sys_ConsoleInput(): # (returns char *)
 
-	return None
+	global stdin_active
+	#static char text[256];
+	#int     len;
+	#fd_set	fdset;
+	#struct timeval timeout;
 
-	"""
-    static char text[256];
-    int     len;
-	fd_set	fdset;
-    struct timeval timeout;
+	# Q2PORT: env Q2STDIN=1 also reads terminal commands in the GUI build (default off)
+	if (common.dedicated is None or not common.dedicated.value) and os.environ.get("Q2STDIN") != "1":
+		return None
 
-	if (!dedicated || !dedicated->value)
-		return NULL;
+	if not stdin_active:
+		return None
 
-	if (!stdin_active)
-		return NULL;
+	# FD_ZERO / FD_SET(0) / zero timeout select on stdin
+	try:
+		readable, _, _ = select.select ([0], [], [], 0)
+	except (OSError, ValueError):
+		return None
+	if 0 not in readable:
+		return None
 
-	FD_ZERO(&fdset);
-	FD_SET(0, &fdset); // stdin
-	timeout.tv_sec = 0;
-	timeout.tv_usec = 0;
-	if (select (1, &fdset, NULL, NULL, &timeout) == -1 || !FD_ISSET(0, &fdset))
-		return NULL;
+	text = os.read (0, 256)
+	if len(text) == 0: # eof!
+		stdin_active = False
+		return None
 
-	len = read (0, text, sizeof(text));
-	if (len == 0) { // eof!
-		stdin_active = false;
-		return NULL;
-	}
+	if len(text) < 1:
+		return None
+	text = text[:-1].decode("latin-1")    # rip off the /n and terminate
 
-	if (len < 1)
-		return NULL;
-	text[len-1] = 0;    // rip off the /n and terminate
-
-	return text;
-"""
+	return text
 
 """
 
