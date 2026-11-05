@@ -214,7 +214,7 @@ def _LoadTurbsin ():
 	# float r_turbsin[] = { #include "warpsin.h" };
 	text = open(os.path.join(os.path.dirname(__file__), "warpsin.h")).read()
 	text = text[text.index("*/")+2:] # skip the licence comment
-	return [float(x) for x in re.findall(r"-?\d+(?:\.\d+)?", text)]
+	return [float(x) for x in re.findall(r"-?\d+(?:\.\d+)?(?:e[+-]?\d+)?", text)]
 
 # speed up sin calculations - Ed
 r_turbsin = _LoadTurbsin() #float[256]
