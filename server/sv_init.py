@@ -642,8 +642,8 @@ def SV_Map ( attractloop, levelstring, loadgame): #qboolean, char *, qboolean
 	ch = level.find("+")
 	if ch != -1:
 	
-		level = level[:ch]
 		cvar.Cvar_Set ("nextserver", "gamemap \"{}\"".format(level[ch+1:]))
+		level = level[:ch]
 	
 	else:
 		cvar.Cvar_Set ("nextserver", "");
@@ -663,7 +663,7 @@ def SV_Map ( attractloop, levelstring, loadgame): #qboolean, char *, qboolean
 		spawnpoint = ""
 
 	# skip the end-of-unit flag if necessary
-	if level[0] == '*':
+	if len(level) > 0 and level[0] == '*':
 		level = level[1:]
 
 	l = len(level)
