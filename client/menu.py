@@ -1145,8 +1145,8 @@ def ClampCvar( minIn, maxIn, value ): #float, float, float (returns float)
 def ControlsSetMenuItemValues( ):
 
 	s_options_sfxvolume_slider.curvalue		= int(cvar.Cvar_VariableValue( "s_volume" ) * 10)
-	s_options_cdvolume_box.curvalue 		= cvar.Cvar_VariableValue("cd_nocd") != 0.0
-	s_options_quality_list.curvalue			= cvar.Cvar_VariableValue( "s_loadas8bit" ) != 0.0
+	s_options_cdvolume_box.curvalue 		= int(not cvar.Cvar_VariableValue("cd_nocd"))
+	s_options_quality_list.curvalue			= int(not cvar.Cvar_VariableValue( "s_loadas8bit" ))
 	s_options_sensitivity_slider.curvalue	= int (( cl_main.sensitivity.value ) * 2)
 
 	cvar.Cvar_SetValue( "cl_run", ClampCvar( 0, 1, cl_main.cl_run.value ) )
@@ -1299,14 +1299,15 @@ def Options_MenuInit( ):
 	s_options_cdvolume_box.name	= "CD music"
 	s_options_cdvolume_box.callback	= UpdateCDVolumeFunc
 	s_options_cdvolume_box.itemnames		= cd_music_items
-	s_options_cdvolume_box.curvalue 		= cvar.Cvar_VariableValue("cd_nocd") != 0
+	s_options_cdvolume_box.curvalue 		= int(not cvar.Cvar_VariableValue("cd_nocd"))
+	s_options_cdvolume_box.flags		|= QMF_GRAYED	# Q2PORT: CD audio is not ported
 
 	s_options_quality_list.x		= 0
 	s_options_quality_list.y		= 20
 	s_options_quality_list.name		= "sound quality"
 	s_options_quality_list.callback = UpdateSoundQualityFunc
 	s_options_quality_list.itemnames		= quality_items
-	s_options_quality_list.curvalue			= cvar.Cvar_VariableValue( "s_loadas8bit" ) != 0
+	s_options_quality_list.curvalue			= int(not cvar.Cvar_VariableValue( "s_loadas8bit" ))
 
 	s_options_compatibility_list.x		= 0
 	s_options_compatibility_list.y		= 30
@@ -1314,6 +1315,7 @@ def Options_MenuInit( ):
 	s_options_compatibility_list.callback = UpdateSoundQualityFunc
 	s_options_compatibility_list.itemnames		= compatibility_items
 	s_options_compatibility_list.curvalue		= int(cvar.Cvar_VariableValue( "s_primary" ))
+	s_options_compatibility_list.flags	|= QMF_GRAYED	# Q2PORT: s_primary is only used by the win32 DirectSound driver
 
 	s_options_sensitivity_slider.x		= 0
 	s_options_sensitivity_slider.y		= 50

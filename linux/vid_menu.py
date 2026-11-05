@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from qcommon import cvar
 from client import menu, qmenu, keys, cl_scrn
-from linux import vid_so
+from linux import vid_so, qgl_linux
 from game import q_shared
 """
 #include "../client/client.h"
@@ -138,7 +138,10 @@ def ApplyChanges( unused ): #void *
 
 	cvar.Cvar_SetValue( "vid_gamma", gamma )
 	cvar.Cvar_SetValue( "sw_stipplealpha", s_stipple_box.curvalue )
+	old_picmip = gl_picmip.value
 	cvar.Cvar_SetValue( "gl_picmip", 3 - s_tq_slider.curvalue )
+	if gl_picmip.value != old_picmip:
+		vid_so.vid_ref.modified = True	# Q2PORT: restart the renderer so the new texture quality applies now
 	cvar.Cvar_SetValue( "vid_fullscreen", s_fs_box[s_current_menu_index].curvalue )
 	cvar.Cvar_SetValue( "gl_ext_palettedtexture", s_paletted_texture_box.curvalue )
 	cvar.Cvar_SetValue( "sw_mode", s_mode_list[SOFTWARE_MENU].curvalue )
@@ -327,6 +330,8 @@ def VID_MenuInit():
 	s_paletted_texture_box.name	= "8-bit textures"
 	s_paletted_texture_box.itemnames = yesno_names
 	s_paletted_texture_box.curvalue = int(gl_ext_palettedtexture.value)
+	if not qgl_linux.qglColorTableEXT:
+		s_paletted_texture_box.flags |= menu.QMF_GRAYED	# Q2PORT: the driver has no paletted texture extension
 
 	qmenu.Menu_AddItem( s_software_menu, s_ref_list[SOFTWARE_MENU] )
 	qmenu.Menu_AddItem( s_software_menu, s_mode_list[SOFTWARE_MENU] )

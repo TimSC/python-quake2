@@ -53,7 +53,16 @@ def SNDDMA_Init(): #(returns qboolean)
 
 	global dma_channel
 
-	pygame.mixer.init(44100//2)
+	# Q2PORT: the Linux C took the rate from the sndspeed cvar and ignored s_khz. The
+	# pygame backend uses s_khz like the win32 driver, so the "sound quality" option works.
+	if snd_dma.s_khz.value == 44:
+		speed = 44100
+	elif snd_dma.s_khz.value == 22:
+		speed = 22050
+	else:
+		speed = 11025
+	pygame.mixer.quit()	# pygame.init() in Qcommon_Init has already opened the mixer at its default rate
+	pygame.mixer.init(speed)
 
 	pygame.mixer.set_reserved(1)
 	dma_channel = pygame.mixer.find_channel(True)

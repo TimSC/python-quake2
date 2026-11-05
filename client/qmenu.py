@@ -498,6 +498,8 @@ def Separator_Draw( s ): #menuseparator_s *
 
 
 def Slider_DoSlide( s, direc ): # menuslider_s *, int
+	if s.flags & menumod.QMF_GRAYED:
+		return	# Q2PORT: greyed controls can't be changed
 
 	s.curvalue += direc
 
@@ -533,6 +535,8 @@ def Slider_Draw( s ): #menuslider_s *
 	Draw_Char( int ( 8 + RCOLUMN_OFFSET + s.parent.x + s.x + (SLIDER_RANGE-1)*8 * s.range ), s.y + s.parent.y, 131)
 
 def SpinControl_DoEnter( s ): #menulist_s *
+	if s.flags & menumod.QMF_GRAYED:
+		return	# Q2PORT: greyed controls can't be changed
 
 	s.curvalue += 1
 	if s.curvalue >= len(s.itemnames) or s.itemnames[s.curvalue] is None:
@@ -542,6 +546,8 @@ def SpinControl_DoEnter( s ): #menulist_s *
 		s.callback( s )
 
 def SpinControl_DoSlide( s, direc ): #menulist_s *, int
+	if s.flags & menumod.QMF_GRAYED:
+		return	# Q2PORT: greyed controls can't be changed
 
 	s.curvalue += direc
 
@@ -554,6 +560,8 @@ def SpinControl_DoSlide( s, direc ): #menulist_s *, int
 		s.callback( s )
 
 def SpinControl_Draw( s ): #menulist_s *
+	# Q2PORT: greyed controls show their value dark too
+	DrawValue = Menu_DrawStringDark if s.flags & menumod.QMF_GRAYED else Menu_DrawString
 
 	if s.name:
 	
@@ -566,9 +574,9 @@ def SpinControl_Draw( s ): #menulist_s *
 
 	lineSplit = s.itemnames[s.curvalue].split('\n')
 	if len(lineSplit) == 1:
-		Menu_DrawString( RCOLUMN_OFFSET + s.x + s.parent.x, s.y + s.parent.y, lineSplit[0] )
+		DrawValue( RCOLUMN_OFFSET + s.x + s.parent.x, s.y + s.parent.y, lineSplit[0] )
 	
 	else:
-		Menu_DrawString( RCOLUMN_OFFSET + s.x + s.parent.x, s.y + s.parent.y, lineSplit[0] )
-		Menu_DrawString( RCOLUMN_OFFSET + s.x + s.parent.x, s.y + s.parent.y + 10, lineSplit[1] )
+		DrawValue( RCOLUMN_OFFSET + s.x + s.parent.x, s.y + s.parent.y, lineSplit[0] )
+		DrawValue( RCOLUMN_OFFSET + s.x + s.parent.x, s.y + s.parent.y + 10, lineSplit[1] )
 	
