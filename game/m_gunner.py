@@ -325,7 +325,7 @@ def gunner_runandshoot (self): #edict_t *
 
 def gunner_pain (self, other, kick, damage): #edict_t *, edict_t *, float, int
 
-	if self.health < (self.max_health / 2):
+	if self.health < (self.max_health // 2):	# int division
 		self.s.skinnum = 1
 
 	if g_main.level.time < self.pain_debounce_time:

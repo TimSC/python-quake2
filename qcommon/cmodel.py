@@ -584,7 +584,7 @@ def CMod_LoadAreaPortals (l): #lump_t *
 		common.Com_Error (q_shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
 	count = l.filelen // qfiles.dareaportal_t.packed_size()
 
-	if count > qfiles.dareaportal_t.packed_size():
+	if count > qfiles.MAX_MAP_AREAS:
 		common.Com_Error (q_shared.ERR_DROP, "Map has too many areas")
 
 	numareaportals = count

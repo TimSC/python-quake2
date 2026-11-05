@@ -510,7 +510,7 @@ def berserk_melee (self):
 	"""
 
 def berserk_pain (self, other, kick, damage):
-	if self.health < (self.max_health / 2):
+	if self.health < (self.max_health // 2):	# int division
 		self.s.skinnum = 1
 
 	if g_main.level.time < self.pain_debounce_time:

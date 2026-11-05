@@ -592,7 +592,7 @@ def jorg_attack1 (self):
 	"""
 
 def jorg_pain (self, other, kick, damage):
-	if self.health < (self.max_health / 2):
+	if self.health < (self.max_health // 2):	# int division
 		self.s.skinnum = 1
 
 	self.s.sound = 0

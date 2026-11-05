@@ -498,9 +498,9 @@ def SV_SendClientMessages ():
 		# drop the client
 		if c.netchan.message.overflowed:
 		
-			c.netchan.message.data = None
-			c.datagram = None
-			SV_BroadcastPrintf (q_shared.PRINT_HIGH, "{} overflowed\n".format(c.name))
+			common.SZ_Clear (c.netchan.message)
+			common.SZ_Clear (c.datagram)
+			SV_BroadcastPrintf (q_shared.PRINT_HIGH, "%s overflowed\n", c.name)
 			sv_main.SV_DropClient (c)
 		
 		if (sv_init.sv.state == sv_init.server_state_t.ss_cinematic 
