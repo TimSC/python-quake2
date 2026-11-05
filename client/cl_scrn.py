@@ -112,8 +112,6 @@ scr_old_dirty = [dirty_t(), dirty_t()]
 char		crosshair_pic[MAX_QPATH];
 int			crosshair_width, crosshair_height;
 
-void SCR_TimeRefresh_f (void);
-void SCR_Loading_f (void);
 """
 """
 /*

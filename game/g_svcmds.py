@@ -74,7 +74,6 @@ If 1 (the default), then ip addresses matching the current list will be prohibit
 
 If 0, then only addresses matching the list will be allowed.  This lets you easily set up a private game, or a game that only allows players from your local network.
 
-
 ==============================================================================
 */
 
@@ -87,7 +86,6 @@ typedef struct
 #define	MAX_IPFILTERS	1024
 
 ipfilter_t	ipfilters[MAX_IPFILTERS];
-int			numipfilters;
 """
 """
 /*
@@ -156,12 +154,6 @@ numipfilters = 0
 
 def Svcmd_Test_f ():
 	g_main.gi.cprintf (None, PRINT_HIGH, "Svcmd_Test_f()\n")
-	"""
-	void	Svcmd_Test_f (void)
-	{
-		gi.cprintf (NULL, PRINT_HIGH, "Svcmd_Test_f()\n");
-	}
-	"""
 
 def StringToFilter (s, f):
 	b = bytearray(4)
@@ -188,49 +180,6 @@ def StringToFilter (s, f):
 	f.mask = int.from_bytes(m, 'little')
 	f.compare = int.from_bytes(b, 'little')
 	return True
-	"""
-	static qboolean StringToFilter (char *s, ipfilter_t *f)
-	{
-		char	num[128];
-		int		i, j;
-		byte	b[4];
-		byte	m[4];
-		
-		for (i=0 ; i<4 ; i++)
-		{
-			b[i] = 0;
-			m[i] = 0;
-		}
-		
-		for (i=0 ; i<4 ; i++)
-		{
-			if (*s < '0' || *s > '9')
-			{
-				gi.cprintf(NULL, PRINT_HIGH, "Bad filter address: %s\n", s);
-				return false;
-			}
-			
-			j = 0;
-			while (*s >= '0' && *s <= '9')
-			{
-				num[j++] = *s++;
-			}
-			num[j] = 0;
-			b[i] = atoi(num);
-			if (b[i] != 0)
-				m[i] = 255;
-	
-			if (!*s)
-				break;
-			s++;
-		}
-		
-		f->mask = *(unsigned *)m;
-		f->compare = *(unsigned *)b;
-		
-		return true;
-	}
-	"""
 
 def SV_FilterPacket (from_):
 	i = 0
@@ -256,36 +205,6 @@ def SV_FilterPacket (from_):
 		i += 1
 
 	return int(not g_main.filterban.value)
-	"""
-	qboolean SV_FilterPacket (char *from)
-	{
-		int		i;
-		unsigned	in;
-		byte m[4];
-		char *p;
-	
-		i = 0;
-		p = from;
-		while (*p && i < 4) {
-			m[i] = 0;
-			while (*p >= '0' && *p <= '9') {
-				m[i] = m[i]*10 + (*p - '0');
-				p++;
-			}
-			if (!*p || *p == ':')
-				break;
-			i++, p++;
-		}
-		
-		in = *(unsigned *)m;
-	
-		for (i=0 ; i<numipfilters ; i++)
-			if ( (in & ipfilters[i].mask) == ipfilters[i].compare)
-				return (int)filterban->value;
-	
-		return (int)!filterban->value;
-	}
-	"""
 
 def SVCmd_AddIP_f ():
 	global numipfilters
@@ -307,33 +226,6 @@ def SVCmd_AddIP_f ():
 
 	if not StringToFilter (g_main.gi.argv(2), ipfilters[i]):
 		ipfilters[i].compare = 0xffffffff
-	"""
-	void SVCmd_AddIP_f (void)
-	{
-		int		i;
-		
-		if (gi.argc() < 3) {
-			gi.cprintf(NULL, PRINT_HIGH, "Usage:  addip <ip-mask>\n");
-			return;
-		}
-	
-		for (i=0 ; i<numipfilters ; i++)
-			if (ipfilters[i].compare == 0xffffffff)
-				break;		// free spot
-		if (i == numipfilters)
-		{
-			if (numipfilters == MAX_IPFILTERS)
-			{
-				gi.cprintf (NULL, PRINT_HIGH, "IP filter list is full\n");
-				return;
-			}
-			numipfilters++;
-		}
-		
-		if (!StringToFilter (gi.argv(2), &ipfilters[i]))
-			ipfilters[i].compare = 0xffffffff;
-	}
-	"""
 
 def SVCmd_RemoveIP_f ():
 	global numipfilters
@@ -358,33 +250,6 @@ def SVCmd_RemoveIP_f ():
 			return
 		i += 1
 	g_main.gi.cprintf (None, PRINT_HIGH, "Didn't find %s.\n" % g_main.gi.argv(2))
-	"""
-	void SVCmd_RemoveIP_f (void)
-	{
-		ipfilter_t	f;
-		int			i, j;
-	
-		if (gi.argc() < 3) {
-			gi.cprintf(NULL, PRINT_HIGH, "Usage:  sv removeip <ip-mask>\n");
-			return;
-		}
-	
-		if (!StringToFilter (gi.argv(2), &f))
-			return;
-	
-		for (i=0 ; i<numipfilters ; i++)
-			if (ipfilters[i].mask == f.mask
-			&& ipfilters[i].compare == f.compare)
-			{
-				for (j=i+1 ; j<numipfilters ; j++)
-					ipfilters[j-1] = ipfilters[j];
-				numipfilters--;
-				gi.cprintf (NULL, PRINT_HIGH, "Removed.\n");
-				return;
-			}
-		gi.cprintf (NULL, PRINT_HIGH, "Didn't find %s.\n", gi.argv(2));
-	}
-	"""
 
 def SVCmd_ListIP_f ():
 	i = 0
@@ -394,20 +259,6 @@ def SVCmd_ListIP_f ():
 		b = ipfilters[i].compare.to_bytes(4, 'little')
 		g_main.gi.cprintf (None, PRINT_HIGH, "%3i.%3i.%3i.%3i\n" % (b[0], b[1], b[2], b[3]))
 		i += 1
-	"""
-	void SVCmd_ListIP_f (void)
-	{
-		int		i;
-		byte	b[4];
-	
-		gi.cprintf (NULL, PRINT_HIGH, "Filter list:\n");
-		for (i=0 ; i<numipfilters ; i++)
-		{
-			*(unsigned *)b = ipfilters[i].compare;
-			gi.cprintf (NULL, PRINT_HIGH, "%3i.%3i.%3i.%3i\n", b[0], b[1], b[2], b[3]);
-		}
-	}
-	"""
 
 def SVCmd_WriteIP_f ():
 	game = g_main.gi.cvar("game", "", 0)
@@ -434,42 +285,6 @@ def SVCmd_WriteIP_f ():
 		i += 1
 
 	f.close()
-	"""
-	void SVCmd_WriteIP_f (void)
-	{
-		FILE	*f;
-		char	name[MAX_OSPATH];
-		byte	b[4];
-		int		i;
-		cvar_t	*game;
-	
-		game = gi.cvar("game", "", 0);
-	
-		if (!*game->string)
-			sprintf (name, "%s/listip.cfg", GAMEVERSION);
-		else
-			sprintf (name, "%s/listip.cfg", game->string);
-	
-		gi.cprintf (NULL, PRINT_HIGH, "Writing %s.\n", name);
-	
-		f = fopen (name, "wb");
-		if (!f)
-		{
-			gi.cprintf (NULL, PRINT_HIGH, "Couldn't open %s\n", name);
-			return;
-		}
-		
-		fprintf(f, "set filterban %d\n", (int)filterban->value);
-	
-		for (i=0 ; i<numipfilters ; i++)
-		{
-			*(unsigned *)b = ipfilters[i].compare;
-			fprintf (f, "sv addip %i.%i.%i.%i\n", b[0], b[1], b[2], b[3]);
-		}
-		
-		fclose (f);
-	}
-	"""
 
 def ServerCommand ():
 	cmd = g_main.gi.argv(1)
@@ -485,23 +300,3 @@ def ServerCommand ():
 		SVCmd_WriteIP_f ()
 	else:
 		g_main.gi.cprintf (None, PRINT_HIGH, "Unknown server command \"%s\"\n" % cmd)
-	"""
-	void	ServerCommand (void)
-	{
-		char	*cmd;
-	
-		cmd = gi.argv(1);
-		if (Q_stricmp (cmd, "test") == 0)
-			Svcmd_Test_f ();
-		else if (Q_stricmp (cmd, "addip") == 0)
-			SVCmd_AddIP_f ();
-		else if (Q_stricmp (cmd, "removeip") == 0)
-			SVCmd_RemoveIP_f ();
-		else if (Q_stricmp (cmd, "listip") == 0)
-			SVCmd_ListIP_f ();
-		else if (Q_stricmp (cmd, "writeip") == 0)
-			SVCmd_WriteIP_f ();
-		else
-			gi.cprintf (NULL, PRINT_HIGH, "Unknown server command \"%s\"\n", cmd);
-	}
-	"""

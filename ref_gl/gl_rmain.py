@@ -157,9 +157,6 @@ c_alias_polys = 0 # int
 """
 cplane_t	frustum[4];
 
-int			r_visframecount;	// bumped when going to a new PVS
-int			r_framecount;		// used for dlight push checking
-
 int			c_brush_polys, c_alias_polys;
 
 void GL_Strings_f( void );
@@ -1734,14 +1731,11 @@ def R_DrawBeam( e ): #entity_t *
 
 //===================================================================
 
-
 void	R_BeginRegistration (char *map);
 struct model_s	*R_RegisterModel (char *name);
 struct image_s	*R_RegisterSkin (char *name);
 void R_SetSky (char *name, float rotate, vec3_t axis);
 void	R_EndRegistration (void);
-
-void	R_RenderFrame (refdef_t *fd);
 
 struct image_s	*Draw_FindPic (char *name);
 

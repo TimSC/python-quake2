@@ -32,12 +32,6 @@ import pygame
 #include "client.h"
 #include "snd_loc.h"
 
-void S_Play(void);
-void S_SoundList(void);
-void S_Update_();
-void S_StopAllSounds(void);
-
-
 // =======================================================================
 // Internal sound data & structures
 // =======================================================================

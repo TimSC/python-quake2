@@ -42,7 +42,6 @@ from game.g_local import (FL_NOTARGET, MELEE_DISTANCE, RANGE_MELEE, RANGE_NEAR,
 
 #include "g_local.h"
 
-qboolean FindTarget (edict_t *self);
 """
 
 enemy_vis = False

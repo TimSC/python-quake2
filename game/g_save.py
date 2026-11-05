@@ -733,6 +733,12 @@ def ReadLevelLocals (f):
 #=================
 # WriteLevel
 #=================
+"""
+=================
+WriteLevel
+
+=================
+"""
 def WriteLevel (filename): #char *
 	g_main.gi.dprintf ("Writing level %s\n", filename)
 
@@ -767,6 +773,22 @@ def WriteLevel (filename): #char *
 # cleared all of the world links before calling ReadLevel.  No
 # clients are connected yet.
 #=================
+"""
+=================
+ReadLevel
+
+SpawnEntities will allready have been called on the
+level the same way it was when the level was saved.
+
+That is necessary to get the baselines
+set up identically.
+
+The server will have cleared all of the world links before
+calling ReadLevel.
+
+No clients are connected yet.
+=================
+"""
 def ReadLevel (filename): #char *
 	g_main.gi.dprintf ("Reading level %s\n", filename)
 
@@ -829,174 +851,6 @@ def ReadLevel (filename): #char *
 
 //=========================================================
 
-void WriteField1 (FILE *f, field_t *field, byte *base)
-{
-	void		*p;
-	int			len;
-	int			index;
-
-	if (field->flags & FFL_SPAWNTEMP)
-		return;
-
-	p = (void *)(base + field->ofs);
-	switch (field->type)
-	{
-	case F_INT:
-	case F_FLOAT:
-	case F_ANGLEHACK:
-	case F_VECTOR:
-	case F_IGNORE:
-		break;
-
-	case F_LSTRING:
-	case F_GSTRING:
-		if ( *(char **)p )
-			len = strlen(*(char **)p) + 1;
-		else
-			len = 0;
-		*(int *)p = len;
-		break;
-	case F_EDICT:
-		if ( *(edict_t **)p == NULL)
-			index = -1;
-		else
-			index = *(edict_t **)p - g_edicts;
-		*(int *)p = index;
-		break;
-	case F_CLIENT:
-		if ( *(gclient_t **)p == NULL)
-			index = -1;
-		else
-			index = *(gclient_t **)p - game.clients;
-		*(int *)p = index;
-		break;
-	case F_ITEM:
-		if ( *(edict_t **)p == NULL)
-			index = -1;
-		else
-			index = *(gitem_t **)p - itemlist;
-		*(int *)p = index;
-		break;
-
-	//relative to code segment
-	case F_FUNCTION:
-		if (*(byte **)p == NULL)
-			index = 0;
-		else
-			index = *(byte **)p - ((byte *)InitGame);
-		*(int *)p = index;
-		break;
-
-	//relative to data segment
-	case F_MMOVE:
-		if (*(byte **)p == NULL)
-			index = 0;
-		else
-			index = *(byte **)p - (byte *)&mmove_reloc;
-		*(int *)p = index;
-		break;
-
-	default:
-		g_main.gi.error ("WriteEdict: unknown field type");
-	}
-}
-
-
-void WriteField2 (FILE *f, field_t *field, byte *base)
-{
-	int			len;
-	void		*p;
-
-	if (field->flags & FFL_SPAWNTEMP)
-		return;
-
-	p = (void *)(base + field->ofs);
-	switch (field->type)
-	{
-	case F_LSTRING:
-		if ( *(char **)p )
-		{
-			len = strlen(*(char **)p) + 1;
-			fwrite (*(char **)p, len, 1, f);
-		}
-		break;
-	}
-}
-
-void ReadField (FILE *f, field_t *field, byte *base)
-{
-	void		*p;
-	int			len;
-	int			index;
-
-	if (field->flags & FFL_SPAWNTEMP)
-		return;
-
-	p = (void *)(base + field->ofs);
-	switch (field->type)
-	{
-	case F_INT:
-	case F_FLOAT:
-	case F_ANGLEHACK:
-	case F_VECTOR:
-	case F_IGNORE:
-		break;
-
-	case F_LSTRING:
-		len = *(int *)p;
-		if (!len)
-			*(char **)p = NULL;
-		else
-		{
-			*(char **)p = g_main.gi.TagMalloc (len, TAG_LEVEL);
-			fread (*(char **)p, len, 1, f);
-		}
-		break;
-	case F_EDICT:
-		index = *(int *)p;
-		if ( index == -1 )
-			*(edict_t **)p = NULL;
-		else
-			*(edict_t **)p = &g_edicts[index];
-		break;
-	case F_CLIENT:
-		index = *(int *)p;
-		if ( index == -1 )
-			*(gclient_t **)p = NULL;
-		else
-			*(gclient_t **)p = &game.clients[index];
-		break;
-	case F_ITEM:
-		index = *(int *)p;
-		if ( index == -1 )
-			*(gitem_t **)p = NULL;
-		else
-			*(gitem_t **)p = &itemlist[index];
-		break;
-
-	//relative to code segment
-	case F_FUNCTION:
-		index = *(int *)p;
-		if ( index == 0 )
-			*(byte **)p = NULL;
-		else
-			*(byte **)p = ((byte *)InitGame) + index;
-		break;
-
-	//relative to data segment
-	case F_MMOVE:
-		index = *(int *)p;
-		if (index == 0)
-			*(byte **)p = NULL;
-		else
-			*(byte **)p = (byte *)&mmove_reloc + index;
-		break;
-
-	default:
-		g_main.gi.error ("ReadEdict: unknown field type");
-	}
-}
-
 //=========================================================
 """
 """
@@ -1052,76 +906,6 @@ void ReadClient (FILE *f, gclient_t *client)
 }
 """
 """
-/*
-============
-WriteGame
-
-This will be called whenever the game goes to a new level,
-and when the user explicitly saves the game.
-
-Game information include cross level data, like multi level
-triggers, help computer info, and all client states.
-
-A single player death will automatically restore from the
-last save position.
-============
-*/
-void WriteGame (char *filename, qboolean autosave)
-{
-	FILE	*f;
-	int		i;
-	char	str[16];
-
-	if (!autosave)
-		SaveClientData ();
-
-	f = fopen (filename, "wb");
-	if (!f)
-		g_main.gi.error ("Couldn't open %s", filename);
-
-	memset (str, 0, sizeof(str));
-	strcpy (str, __DATE__);
-	fwrite (str, sizeof(str), 1, f);
-
-	game.autosaved = autosave;
-	fwrite (&game, sizeof(game), 1, f);
-	game.autosaved = false;
-
-	for (i=0 ; i<game.maxclients ; i++)
-		WriteClient (f, &game.clients[i]);
-
-	fclose (f);
-}
-
-void ReadGame (char *filename)
-{
-	FILE	*f;
-	int		i;
-	char	str[16];
-
-	g_main.gi.FreeTags (TAG_GAME);
-
-	f = fopen (filename, "rb");
-	if (!f)
-		g_main.gi.error ("Couldn't open %s", filename);
-
-	fread (str, sizeof(str), 1, f);
-	if (strcmp (str, __DATE__))
-	{
-		fclose (f);
-		g_main.gi.error ("Savegame from an older version.\n");
-	}
-
-	g_edicts =  g_main.gi.TagMalloc (game.maxentities * sizeof(g_edicts[0]), TAG_GAME);
-	globals.edicts = g_edicts;
-
-	fread (&game, sizeof(game), 1, f);
-	game.clients = g_main.gi.TagMalloc (game.maxclients * sizeof(game.clients[0]), TAG_GAME);
-	for (i=0 ; i<game.maxclients ; i++)
-		ReadClient (f, &game.clients[i]);
-
-	fclose (f);
-}
 
 //==========================================================
 """
@@ -1227,156 +1011,6 @@ void ReadLevelLocals (FILE *f)
 	for (field=levelfields ; field->name ; field++)
 	{
 		ReadField (f, field, (byte *)&level);
-	}
-}
-"""
-"""
-/*
-=================
-WriteLevel
-
-=================
-*/
-void WriteLevel (char *filename)
-{
-	int		i;
-	edict_t	*ent;
-	FILE	*f;
-	void	*base;
-
-	f = fopen (filename, "wb");
-	if (!f)
-		g_main.gi.error ("Couldn't open %s", filename);
-
-	// write out edict size for checking
-	i = sizeof(edict_t);
-	fwrite (&i, sizeof(i), 1, f);
-
-	// write out a function pointer for checking
-	base = (void *)InitGame;
-	fwrite (&base, sizeof(base), 1, f);
-
-	// write out level_locals_t
-	WriteLevelLocals (f);
-
-	// write out all the entities
-	for (i=0 ; i<globals.num_edicts ; i++)
-	{
-		ent = &g_edicts[i];
-		if (!ent->inuse)
-			continue;
-		fwrite (&i, sizeof(i), 1, f);
-		WriteEdict (f, ent);
-	}
-	i = -1;
-	fwrite (&i, sizeof(i), 1, f);
-
-	fclose (f);
-}
-"""
-"""
-/*
-=================
-ReadLevel
-
-SpawnEntities will allready have been called on the
-level the same way it was when the level was saved.
-
-That is necessary to get the baselines
-set up identically.
-
-The server will have cleared all of the world links before
-calling ReadLevel.
-
-No clients are connected yet.
-=================
-*/
-void ReadLevel (char *filename)
-{
-	int		entnum;
-	FILE	*f;
-	int		i;
-	void	*base;
-	edict_t	*ent;
-
-	f = fopen (filename, "rb");
-	if (!f)
-		g_main.gi.error ("Couldn't open %s", filename);
-
-	// free any dynamic memory allocated by loading the level
-	// base state
-	g_main.gi.FreeTags (TAG_LEVEL);
-
-	// wipe all the entities
-	memset (g_edicts, 0, game.maxentities*sizeof(g_edicts[0]));
-	globals.num_edicts = maxclients->value+1;
-
-	// check edict size
-	fread (&i, sizeof(i), 1, f);
-	if (i != sizeof(edict_t))
-	{
-		fclose (f);
-		g_main.gi.error ("ReadLevel: mismatched edict size");
-	}
-
-	// check function pointer base address
-	fread (&base, sizeof(base), 1, f);
-#ifdef _WIN32
-	if (base != (void *)InitGame)
-	{
-		fclose (f);
-		g_main.gi.error ("ReadLevel: function pointers have moved");
-	}
-#else
-	g_main.gi.dprintf("Function offsets %d\n", ((byte *)base) - ((byte *)InitGame));
-#endif
-
-	// load the level locals
-	ReadLevelLocals (f);
-
-	// load all the entities
-	while (1)
-	{
-		if (fread (&entnum, sizeof(entnum), 1, f) != 1)
-		{
-			fclose (f);
-			g_main.gi.error ("ReadLevel: failed to read entnum");
-		}
-		if (entnum == -1)
-			break;
-		if (entnum >= globals.num_edicts)
-			globals.num_edicts = entnum+1;
-
-		ent = &g_edicts[entnum];
-		ReadEdict (f, ent);
-
-		// let the server rebuild world links for this ent
-		memset (&ent->area, 0, sizeof(ent->area));
-		g_main.gi.linkentity (ent);
-	}
-
-	fclose (f);
-
-	// mark all clients as unconnected
-	for (i=0 ; i<maxclients->value ; i++)
-	{
-		ent = &g_edicts[i+1];
-		ent->client = game.clients + i;
-		ent->client->pers.connected = false;
-	}
-
-	// do any load time things at this point
-	for (i=0 ; i<globals.num_edicts ; i++)
-	{
-		ent = &g_edicts[i];
-
-		if (!ent->inuse)
-			continue;
-
-		// fire any cross-level triggers
-		if (ent->classname)
-			if (strcmp(ent->classname, "target_crosslevel_target") == 0)
-				ent->nextthink = level.time + ent->delay;
 	}
 }
 """

@@ -1552,7 +1552,6 @@ cheatvar_t	cheatvars[] = {
 	{NULL, NULL}
 };
 
-int		numcheatvars;
 """
 cheatvars = [
 	{"name": "timescale", "value": "1", "var": None},

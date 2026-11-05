@@ -76,16 +76,6 @@ def Use_Boss3 (ent, other, activator):
 	g_main.gi.WritePosition (ent.s.origin)
 	g_main.gi.multicast (ent.s.origin, MULTICAST_PVS)
 	G_FreeEdict (ent)
-	"""
-	void Use_Boss3 (edict_t *ent, edict_t *other, edict_t *activator)
-	{
-		gi.WriteByte (svc_temp_entity);
-		gi.WriteByte (TE_BOSSTPORT);
-		gi.WritePosition (ent->s.origin);
-		gi.multicast (ent->s.origin, MULTICAST_PVS);
-		G_FreeEdict (ent);
-	}
-	"""
 
 def Think_Boss3Stand (ent):
 	if ent.s.frame == FRAME_stand260:
@@ -93,16 +83,6 @@ def Think_Boss3Stand (ent):
 	else:
 		ent.s.frame += 1
 	ent.nextthink = g_main.level.time + FRAMETIME
-	"""
-	void Think_Boss3Stand (edict_t *ent)
-	{
-		if (ent->s.frame == FRAME_stand260)
-			ent->s.frame = FRAME_stand201;
-		else
-			ent->s.frame++;
-		ent->nextthink = level.time + FRAMETIME;
-	}
-	"""
 
 def SP_monster_boss3_stand (self):
 	if g_main.deathmatch.value:
@@ -124,29 +104,3 @@ def SP_monster_boss3_stand (self):
 	self.think = Think_Boss3Stand
 	self.nextthink = g_main.level.time + FRAMETIME
 	g_main.gi.linkentity (self)
-	"""
-	void SP_monster_boss3_stand (edict_t *self)
-	{
-		if (deathmatch->value)
-		{
-			G_FreeEdict (self);
-			return;
-		}
-	
-		self->movetype = MOVETYPE_STEP;
-		self->solid = SOLID_BBOX;
-		self->model = "models/monsters/boss3/rider/tris.md2";
-		self->s.modelindex = gi.modelindex (self->model);
-		self->s.frame = FRAME_stand201;
-	
-		gi.soundindex ("misc/bigtele.wav");
-	
-		VectorSet (self->mins, -32, -32, 0);
-		VectorSet (self->maxs, 32, 32, 90);
-	
-		self->use = Use_Boss3;
-		self->think = Think_Boss3Stand;
-		self->nextthink = level.time + FRAMETIME;
-		gi.linkentity (self);
-	}
-	"""

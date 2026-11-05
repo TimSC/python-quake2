@@ -78,8 +78,6 @@ SVF_DEADMONSTER = game.SVF_DEADMONSTER
 #include "g_local.h"
 #include "m_player.h"
 
-void ClientUserinfoChanged (edict_t *ent, char *userinfo);
-
 void SP_misc_teleporter_dest (edict_t *ent);
 """
 

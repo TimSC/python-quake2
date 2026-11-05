@@ -77,9 +77,7 @@ sv_numareanodes = 0 #int
 float	*area_mins, *area_maxs;
 edict_t	**area_list;
 int		area_count, area_maxcount;
-int		area_type;
 
-int SV_HullForEntity (edict_t *ent);
 """
 area_mins = None #float *
 area_maxs = None #float *

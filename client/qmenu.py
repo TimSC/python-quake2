@@ -29,17 +29,6 @@ from linux import vid_so, q_shlinux, sys_linux
 #include "client.h"
 #include "qmenu.h"
 
-static void	 Action_DoEnter( menuaction_s *a );
-static void	 Action_Draw( menuaction_s *a );
-static void  Menu_DrawStatusBar( const char *string );
-static void	 Menulist_DoEnter( menulist_s *l );
-static void	 MenuList_Draw( menulist_s *l );
-static void	 Separator_Draw( menuseparator_s *s );
-static void	 Slider_DoSlide( menuslider_s *s, int dir );
-static void	 Slider_Draw( menuslider_s *s );
-static void	 SpinControl_DoEnter( menulist_s *s );
-static void	 SpinControl_Draw( menulist_s *s );
-static void	 SpinControl_DoSlide( menulist_s *s, int dir );
 """
 RCOLUMN_OFFSET  = 16
 LCOLUMN_OFFSET  = -16

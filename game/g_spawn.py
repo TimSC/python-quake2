@@ -55,7 +55,6 @@ typedef struct
 	void	(*spawn)(edict_t *ent);
 } spawn_t;
 
-
 void SP_item_health (edict_t *self);
 void SP_item_health_small (edict_t *self);
 void SP_item_health_large (edict_t *self);
@@ -114,7 +113,6 @@ void SP_target_earthquake (edict_t *ent);
 void SP_target_character (edict_t *ent);
 void SP_target_string (edict_t *ent);
 
-void SP_worldspawn (edict_t *ent);
 void SP_viewthing (edict_t *ent);
 
 void SP_light (edict_t *self);
@@ -172,7 +170,6 @@ void SP_monster_commander_body (edict_t *self);
 void SP_turret_breach (edict_t *self);
 void SP_turret_base (edict_t *self);
 void SP_turret_driver (edict_t *self);
-
 
 spawn_t	spawns[] = {
 	{"item_health", SP_item_health},
@@ -595,72 +592,6 @@ def ED_CallSpawn (ent):
 		fn (ent)
 		return
 	g_main.gi.dprintf ("%s doesn't have a spawn function\n", ent.classname)
-	"""
-	void ED_CallSpawn (edict_t *ent)
-	{
-		spawn_t	*s;
-		gitem_t	*item;
-		int		i;
-	
-		if (!ent->classname)
-		{
-			gi.dprintf ("ED_CallSpawn: NULL classname\n");
-			return;
-		}
-	
-		// check item spawn functions
-		for (i=0,item=itemlist ; i<game.num_items ; i++,item++)
-		{
-			if (!item->classname)
-				continue;
-			if (!strcmp(item->classname, ent->classname))
-			{	// found it
-				SpawnItem (ent, item);
-				return;
-			}
-		}
-	
-		// check normal spawn functions
-		for (s=spawns ; s->name ; s++)
-		{
-			if (!strcmp(s->name, ent->classname))
-			{	// found it
-				s->spawn (ent);
-				return;
-			}
-		}
-		gi.dprintf ("%s doesn't have a spawn function\n", ent->classname);
-	}
-	"""
-"""
-char *ED_NewString (char *string)
-{
-	char	*newb, *new_p;
-	int		i,l;
-	
-	l = strlen(string) + 1;
-
-	newb = gi.TagMalloc (l, TAG_LEVEL);
-
-	new_p = newb;
-
-	for (i=0 ; i< l ; i++)
-	{
-		if (string[i] == '\\' && i < l-1)
-		{
-			i++;
-			if (string[i] == 'n')
-				*new_p++ = '\n';
-			else
-				*new_p++ = '\\';
-		}
-		else
-			*new_p++ = string[i];
-	}
-	
-	return newb;
-}
-"""
 
 def ED_NewString (string):
 	#char	*newb, *new_p;
@@ -721,83 +652,8 @@ def ED_ParseField (key, value, ent):
 				setattr (ent, name, v)
 			return
 	g_main.gi.dprintf ("%s is not a field\n", key)
-	"""
-	void ED_ParseField (char *key, char *value, edict_t *ent)
-	{
-		field_t	*f;
-		byte	*b;
-		float	v;
-		vec3_t	vec;
-	
-		for (f=fields ; f->name ; f++)
-		{
-			if (!(f->flags & FFL_NOSPAWN) && !Q_stricmp(f->name, key))
-			{	// found it
-				if (f->flags & FFL_SPAWNTEMP)
-					b = (byte *)&st;
-				else
-					b = (byte *)ent;
-	
-				switch (f->type)
-				{
-				case F_LSTRING:
-					*(char **)(b+f->ofs) = ED_NewString (value);
-					break;
-				case F_VECTOR:
-					sscanf (value, "%f %f %f", &vec[0], &vec[1], &vec[2]);
-					((float *)(b+f->ofs))[0] = vec[0];
-					((float *)(b+f->ofs))[1] = vec[1];
-					((float *)(b+f->ofs))[2] = vec[2];
-					break;
-				case F_INT:
-					*(int *)(b+f->ofs) = atoi(value);
-					break;
-				case F_FLOAT:
-					*(float *)(b+f->ofs) = atof(value);
-					break;
-				case F_ANGLEHACK:
-					v = atof(value);
-					((float *)(b+f->ofs))[0] = 0;
-					((float *)(b+f->ofs))[1] = v;
-					((float *)(b+f->ofs))[2] = 0;
-					break;
-				case F_IGNORE:
-					break;
-				}
-				return;
-			}
-		}
-		gi.dprintf ("%s is not a field\n", key);
-	}
-	"""
 """
-char *ED_ParseEdict (char *data, edict_t *ent)
-{
-	qboolean	init;
-	char		keyname[256];
-	char		*com_token;
-
-	init = false;
-	memset (&st, 0, sizeof(st));
-
-// go through all the dictionary pairs
-	while (1)
-	{	
-	// parse key
-		com_token = COM_Parse (&data);
-		if (com_token[0] == '}')
-			break;
-		if (!data)
-			gi.error ("ED_ParseEntity: EOF without closing brace");
-
-		strncpy (keyname, com_token, sizeof(keyname)-1);
-		
-	// parse value	
-		com_token = COM_Parse (&data);
-		if (!data)
-			gi.error ("ED_ParseEntity: EOF without closing brace");
-
-		if (com_token[0] == '}')
+')
 """
 
 def ED_ParseEdict (data, ent, cursor):
@@ -871,49 +727,6 @@ def G_FindTeams ():
 				e2.flags |= g_local.FL_TEAMSLAVE
 
 	g_main.gi.dprintf ("%i teams with %i entities\n", c, c2)
-	"""
-	void G_FindTeams (void)
-	{
-		edict_t	*e, *e2, *chain;
-		int		i, j;
-		int		c, c2;
-	
-		c = 0;
-		c2 = 0;
-		for (i=1, e=g_edicts+i ; i < globals.num_edicts ; i++,e++)
-		{
-			if (!e->inuse)
-				continue;
-			if (!e->team)
-				continue;
-			if (e->flags & FL_TEAMSLAVE)
-				continue;
-			chain = e;
-			e->teammaster = e;
-			c++;
-			c2++;
-			for (j=i+1, e2=e+1 ; j < globals.num_edicts ; j++,e2++)
-			{
-				if (!e2->inuse)
-					continue;
-				if (!e2->team)
-					continue;
-				if (e2->flags & FL_TEAMSLAVE)
-					continue;
-				if (!strcmp(e->team, e2->team))
-				{
-					c2++;
-					chain->teamchain = e2;
-					e2->teammaster = e;
-					chain = e2;
-					e2->flags |= FL_TEAMSLAVE;
-				}
-			}
-		}
-	
-		gi.dprintf ("%i teams with %i entities\n", c, c2);
-	}
-	"""
 
 def SpawnEntities (mapname, entities, spawnpoint):
 	from game import p_client, p_trail

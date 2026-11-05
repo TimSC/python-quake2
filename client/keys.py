@@ -163,13 +163,6 @@ extern char chat_buffer[];
 extern	int chat_bufferlen;
 extern	qboolean	chat_team;
 
-void Key_Event (int key, qboolean down, unsigned time);
-void Key_Init (void);
-void Key_WriteBindings (FILE *f);
-void Key_SetBinding (int keynum, char *binding);
-void Key_ClearStates (void);
-int Key_GetKey (void);
-
 #include "client.h"
 """
 
@@ -505,7 +498,6 @@ def Key_Console (key): #int
 """
 #============================================================================
 
-qboolean	chat_team;
 char		chat_buffer[MAXCMDLINE];
 int			chat_bufferlen = 0;
 """

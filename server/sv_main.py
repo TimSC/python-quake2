@@ -69,10 +69,8 @@ public_server = None # cvar_t	*, should heartbeats be sent
 
 sv_reconnect_limit = None # cvar_t	* minimum seconds between connect messages
 """
-void Master_Shutdown (void);
 
 //============================================================================
-
 
 /*
 =====================

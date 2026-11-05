@@ -34,9 +34,6 @@ from game import q_shared
 loadmodel = None #model_t	*
 modfilelen = None #int
 """
-void Mod_LoadSpriteModel (model_t *mod, void *buffer);
-void Mod_LoadBrushModel (model_t *mod, void *buffer);
-void Mod_LoadAliasModel (model_t *mod, void *buffer);
 model_t *Mod_LoadModel (model_t *mod, qboolean crash);
 """
 mod_novis = None# byte[MAX_MAP_LEAFS/8];

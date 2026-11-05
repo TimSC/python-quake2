@@ -85,11 +85,6 @@ cvar_t		*intensity;
 d_8to24table = [] #unsigned [256];
 for i in range(256):
 	d_8to24table.append(None)
-"""
-qboolean GL_Upload8 (byte *data, int width, int height,  qboolean mipmap, qboolean is_sky );
-qboolean GL_Upload32 (unsigned *data, int width, int height,  qboolean mipmap);
-
-"""
 FLOODFILL_FIFO_SIZE = 0x1000
 FLOODFILL_FIFO_MASK = FLOODFILL_FIFO_SIZE - 1
 
@@ -268,23 +263,6 @@ def GL_MBind( target, texnum ): #GLenum, int
 	gl_rmain.gl_state.currenttextures[tmu] = texnum
 	GL.glBindTexture (GL.GL_TEXTURE_2D, texnum)
 
-"""
-void GL_MBind( GLenum target, int texnum )
-{
-	GL_SelectTexture( target );
-	if ( target == GL_TEXTURE0 )
-	{
-		if ( gl_rmain.gl_state.currenttextures[0] == texnum )
-			return;
-	}
-	else
-	{
-		if ( gl_rmain.gl_state.currenttextures[1] == texnum )
-			return;
-	}
-	GL_Bind( texnum );
-}
-"""
 
 class glmode_t(object):
 	def __init__(self, nameIn=None, minimizeIn=None, maximizeIn=None):

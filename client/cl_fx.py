@@ -31,9 +31,6 @@ from game import m_flash
 
 #include "client.h"
 
-void CL_LogoutEffect (vec3_t org, int type);
-void CL_ItemRespawnParticles (vec3_t org);
-
 static vec3_t avelocities [NUMVERTEXNORMALS];
 
 extern	struct model_s	*cl_mod_smoke;
@@ -78,30 +75,6 @@ def CL_ClearLightStyles ():
 CL_RunLightStyles
 ================
 */
-void CL_RunLightStyles (void)
-{
-	int		ofs;
-	int		i;
-	clightstyle_t	*ls;
-
-	ofs = cl.time / 100;
-	if (ofs == lastofs)
-		return;
-	lastofs = ofs;
-
-	for (i=0,ls=cl_lightstyle ; i<MAX_LIGHTSTYLES ; i++, ls++)
-	{
-		if (!ls->length)
-		{
-			ls->value[0] = ls->value[1] = ls->value[2] = 1.0;
-			continue;
-		}
-		if (ls->length == 1)
-			ls->value[0] = ls->value[1] = ls->value[2] = ls->map[0];
-		else
-			ls->value[0] = ls->value[1] = ls->value[2] = ls->map[ofs%ls->length];
-	}
-}
 
 """
 def CL_RunLightStyles ():
@@ -181,90 +154,7 @@ CL_AllocDlight
 
 ===============
 */
-cdlight_t *CL_AllocDlight (int key)
-{
-	int		i;
-	cdlight_t	*dl;
 
-// first look for an exact key match
-	if (key)
-	{
-		dl = cl_dlights;
-		for (i=0 ; i<MAX_DLIGHTS ; i++, dl++)
-		{
-			if (dl->key == key)
-			{
-				memset (dl, 0, sizeof(*dl));
-				dl->key = key;
-				return dl;
-			}
-		}
-	}
-
-// then look for anything else
-	dl = cl_dlights;
-	for (i=0 ; i<MAX_DLIGHTS ; i++, dl++)
-	{
-		if (dl->die < cl.time)
-		{
-			memset (dl, 0, sizeof(*dl));
-			dl->key = key;
-			return dl;
-		}
-	}
-
-	dl = &cl_dlights[0];
-	memset (dl, 0, sizeof(*dl));
-	dl->key = key;
-	return dl;
-}
-"""
-"""
-/*
-===============
-CL_NewDlight
-===============
-*/
-void CL_NewDlight (int key, float x, float y, float z, float radius, float time)
-{
-	cdlight_t	*dl;
-
-	dl = CL_AllocDlight (key);
-	dl->origin[0] = x;
-	dl->origin[1] = y;
-	dl->origin[2] = z;
-	dl->radius = radius;
-	dl->die = cl.time + time;
-}
-"""
-"""
-/*
-===============
-CL_RunDLights
-
-===============
-*/
-void CL_RunDLights (void)
-{
-	int			i;
-	cdlight_t	*dl;
-
-	dl = cl_dlights;
-	for (i=0 ; i<MAX_DLIGHTS ; i++, dl++)
-	{
-		if (!dl->radius)
-			continue;
-		
-		if (dl->die < cl.time)
-		{
-			dl->radius = 0;
-			return;
-		}
-		dl->radius -= cls.frametime*dl->decay;
-		if (dl->radius < 0)
-			dl->radius = 0;
-	}
-}
 """
 """
 /*
@@ -294,6 +184,11 @@ def CL_AllocDlight (key):
 	return dl
 
 
+"""
+===============
+CL_NewDlight
+===============
+"""
 def CL_NewDlight (key, x, y, z, radius, time):
 	dl = CL_AllocDlight(key)
 	dl.origin[0] = x
@@ -303,6 +198,12 @@ def CL_NewDlight (key, x, y, z, radius, time):
 	dl.die = cl_main.cl.time + time
 
 
+"""
+===============
+CL_RunDLights
+
+===============
+"""
 def CL_RunDLights ():
 	for dl in cl_dlights:
 		if not dl.radius:
@@ -315,6 +216,12 @@ def CL_RunDLights ():
 			dl.radius = 0.0
 
 
+"""
+===============
+CL_AddDLights
+
+===============
+"""
 def CL_AddDLights ():
 	for dl in cl_dlights:
 		if not dl.radius:
@@ -684,55 +591,6 @@ def CL_ParseMuzzleFlash2 ():
 # --- Xian's shit ends ---
 
 
-"""
-/*
-===============
-CL_AddDLights
-
-===============
-*/
-void CL_AddDLights (void)
-{
-	int			i;
-	cdlight_t	*dl;
-
-	dl = cl_dlights;
-
-//=====
-//PGM
-	if(vidref_val == VIDREF_GL)
-	{
-		for (i=0 ; i<MAX_DLIGHTS ; i++, dl++)
-		{
-			if (!dl->radius)
-				continue;
-			V_AddLight (dl->origin, dl->radius,
-				dl->color[0], dl->color[1], dl->color[2]);
-		}
-	}
-	else
-	{
-		for (i=0 ; i<MAX_DLIGHTS ; i++, dl++)
-		{
-			if (!dl->radius)
-				continue;
-
-			// negative light in software. only black allowed
-			if ((dl->color[0] < 0) || (dl->color[1] < 0) || (dl->color[2] < 0))
-			{
-				dl->radius = -(dl->radius);
-				dl->color[0] = 1;
-				dl->color[1] = 1;
-				dl->color[2] = 1;
-			}
-			V_AddLight (dl->origin, dl->radius,
-				dl->color[0], dl->color[1], dl->color[2]);
-		}
-	}
-//PGM
-//=====
-}
-"""
 """
 /*
 ==============================================================
@@ -2047,34 +1905,6 @@ the female events are there for backwards compatability
 ==============
 */
 extern struct sfx_s	*cl_sfx_footsteps[4];
-
-void CL_EntityEvent (entity_state_t *ent)
-{
-	switch (ent->event)
-	{
-	case EV_ITEM_RESPAWN:
-		S_StartSound (NULL, ent->number, CHAN_WEAPON, S_RegisterSound("items/respawn1.wav"), 1, ATTN_IDLE, 0);
-		CL_ItemRespawnParticles (ent->origin);
-		break;
-	case EV_PLAYER_TELEPORT:
-		S_StartSound (NULL, ent->number, CHAN_WEAPON, S_RegisterSound("misc/tele1.wav"), 1, ATTN_IDLE, 0);
-		CL_TeleportParticles (ent->origin);
-		break;
-	case EV_FOOTSTEP:
-		if (cl_footsteps->value)
-			S_StartSound (NULL, ent->number, CHAN_BODY, cl_sfx_footsteps[rand()&3], 1, ATTN_NORM, 0);
-		break;
-	case EV_FALLSHORT:
-		S_StartSound (NULL, ent->number, CHAN_AUTO, S_RegisterSound ("player/land1.wav"), 1, ATTN_NORM, 0);
-		break;
-	case EV_FALL:
-		S_StartSound (NULL, ent->number, CHAN_AUTO, S_RegisterSound ("*fall2.wav"), 1, ATTN_NORM, 0);
-		break;
-	case EV_FALLFAR:
-		S_StartSound (NULL, ent->number, CHAN_AUTO, S_RegisterSound ("*fall1.wav"), 1, ATTN_NORM, 0);
-		break;
-	}
-}
 
 """
 def CL_EntityEvent(ent):

@@ -36,9 +36,6 @@ glob = _gamemod.game_export_t() # Called global in the original C code
 """
 spawn_temp_t	st;
 
-int	sm_meat_index;
-int	snd_fry;
-int meansOfDeath;
 """
 g_edicts = None #edict_t *
 game = g_local.game_locals_t()
@@ -105,8 +102,6 @@ void ReadGame (char *filename);
 void WriteLevel (char *filename);
 void ReadLevel (char *filename);
 void InitGame (void);
-void G_RunFrame (void);
-
 
 //===================================================================
 
@@ -201,28 +196,12 @@ def ClientEndServerFrames ():
 		if not ent.inuse or not ent.client:
 			continue
 		p_view.ClientEndServerFrame (ent)
-	"""
-/*
+"""
 =================
-ClientEndServerFrames
+CreateTargetChangeLevel
+
+Returns the created target changelevel
 =================
-*/
-void ClientEndServerFrames (void)
-{
-	int		i;
-	edict_t	*ent;
-
-	// calc the player views now that all pushing
-	// and damage has been added
-	for (i=0 ; i<maxclients->value ; i++)
-	{
-		ent = g_edicts + 1 + i;
-		if (!ent->inuse || !ent->client)
-			continue;
-		ClientEndServerFrame (ent);
-	}
-
-}
 """
 def CreateTargetChangeLevel (map):
 	ent = g_utils.G_Spawn ()
@@ -230,24 +209,12 @@ def CreateTargetChangeLevel (map):
 	level.nextmap = map
 	ent.map = level.nextmap
 	return ent
-	"""
-/*
+"""
 =================
-CreateTargetChangeLevel
+EndDMLevel
 
-Returns the created target changelevel
+The timelimit or fraglimit has been exceeded
 =================
-*/
-edict_t *CreateTargetChangeLevel(char *map)
-{
-	edict_t *ent;
-
-	ent = G_Spawn ();
-	ent->classname = "target_changelevel";
-	Com_sprintf(level.nextmap, sizeof(level.nextmap), "%s", map);
-	ent->map = level.nextmap;
-	return ent;
-}
 """
 def EndDMLevel ():
 	ent = None
@@ -292,66 +259,10 @@ def EndDMLevel ():
 			p_hud.BeginIntermission (CreateTargetChangeLevel (level.mapname))
 			return
 		p_hud.BeginIntermission (ent)
-	"""
-/*
+"""
 =================
-EndDMLevel
-
-The timelimit or fraglimit has been exceeded
+CheckNeedPass
 =================
-*/
-void EndDMLevel (void)
-{
-	edict_t		*ent;
-	char *s, *t, *f;
-	static const char *seps = " ,\n\r";
-
-	// stay on same level flag
-	if ((int)dmflags->value & DF_SAME_LEVEL)
-	{
-		BeginIntermission (CreateTargetChangeLevel (level.mapname) );
-		return;
-	}
-
-	// see if it's in the map list
-	if (*sv_maplist->string) {
-		s = strdup(sv_maplist->string);
-		f = NULL;
-		t = strtok(s, seps);
-		while (t != NULL) {
-			if (Q_stricmp(t, level.mapname) == 0) {
-				// it's in the list, go to the next one
-				t = strtok(NULL, seps);
-				if (t == NULL) { // end of list, go to first one
-					if (f == NULL) // there isn't a first one, same level
-						BeginIntermission (CreateTargetChangeLevel (level.mapname) );
-					else
-						BeginIntermission (CreateTargetChangeLevel (f) );
-				} else
-					BeginIntermission (CreateTargetChangeLevel (t) );
-				free(s);
-				return;
-			}
-			if (!f)
-				f = t;
-			t = strtok(NULL, seps);
-		}
-		free(s);
-	}
-
-	if (level.nextmap[0]) // go to a specific map
-		BeginIntermission (CreateTargetChangeLevel (level.nextmap) );
-	else {	// search for a changelevel
-		ent = G_Find (NULL, FOFS(classname), "target_changelevel");
-		if (!ent)
-		{	// the map designer didn't include a changelevel,
-			// so create a fake ent that goes back to the same level
-			BeginIntermission (CreateTargetChangeLevel (level.mapname) );
-			return;
-		}
-		BeginIntermission (ent);
-	}
-}
 """
 def CheckNeedPass ():
 	need = 0
@@ -369,32 +280,10 @@ def CheckNeedPass ():
 			need |= 2
 
 		gi.cvar_set("needpass", "%d" % need)
-	"""
-/*
+"""
 =================
-CheckNeedPass
+CheckDMRules
 =================
-*/
-void CheckNeedPass (void)
-{
-	int need;
-
-	// if password or spectator_password has changed, update needpass
-	// as needed
-	if (password->modified || spectator_password->modified) 
-	{
-		password->modified = spectator_password->modified = false;
-
-		need = 0;
-
-		if (*password->string && Q_stricmp(password->string, "none"))
-			need |= 1;
-		if (*spectator_password->string && Q_stricmp(spectator_password->string, "none"))
-			need |= 2;
-
-		gi.cvar_set("needpass", va("%d", need));
-	}
-}
 """
 def CheckDMRules ():
 	i = 0
@@ -422,50 +311,10 @@ def CheckDMRules ():
 				gi.bprintf (PRINT_HIGH, "Fraglimit hit.\n")
 				EndDMLevel ()
 				return
-	"""
-/*
-=================
-CheckDMRules
-=================
-*/
-void CheckDMRules (void)
-{
-	int			i;
-	gclient_t	*cl;
-
-	if (level.intermissiontime)
-		return;
-
-	if (!deathmatch->value)
-		return;
-
-	if (timelimit->value)
-	{
-		if (level.time >= timelimit->value*60)
-		{
-			gi.bprintf (PRINT_HIGH, "Timelimit hit.\n");
-			EndDMLevel ();
-			return;
-		}
-	}
-
-	if (fraglimit->value)
-	{
-		for (i=0 ; i<maxclients->value ; i++)
-		{
-			cl = game.clients + i;
-			if (!g_edicts[i+1].inuse)
-				continue;
-
-			if (cl->resp.score >= fraglimit->value)
-			{
-				gi.bprintf (PRINT_HIGH, "Fraglimit hit.\n");
-				EndDMLevel ();
-				return;
-			}
-		}
-	}
-}
+"""
+=============
+ExitLevel
+=============
 """
 def ExitLevel ():
 	i = 0
@@ -486,37 +335,6 @@ def ExitLevel ():
 			continue
 		if ent.health > ent.client.pers.max_health:
 			ent.health = ent.client.pers.max_health
-	"""
-/*
-=============
-ExitLevel
-=============
-*/
-void ExitLevel (void)
-{
-	int		i;
-	edict_t	*ent;
-	char	command [256];
-
-	Com_sprintf (command, sizeof(command), "gamemap \"%s\"\n", level.changemap);
-	gi.AddCommandString (command);
-	level.changemap = NULL;
-	level.exitintermission = 0;
-	level.intermissiontime = 0;
-	ClientEndServerFrames ();
-
-	// clear some things before going to next level
-	for (i=0 ; i<maxclients->value ; i++)
-	{
-		ent = g_edicts + 1 + i;
-		if (!ent->inuse)
-			continue;
-		if (ent->health > ent->client->pers.max_health)
-			ent->health = ent->client->pers.max_health;
-	}
-
-}
-"""
 """
 /*
 ================

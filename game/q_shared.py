@@ -230,6 +230,9 @@ def ProjectPointOnPlane(dst, p, normal):
 	dst[2] = p[2] - d * normal[2] * inv_denom
 
 
+"""
+** assumes "src" is normalized
+"""
 def PerpendicularVector(dst, src):
 	minelem = 1.0
 	pos = 0
@@ -282,6 +285,12 @@ def VectorSet(v, x, y, z):
 	v[1] = y
 	v[2] = z
 
+"""
+===============
+LerpAngle
+
+===============
+"""
 def LerpAngle(a2, a1, frac):
 	if a1 - a2 > 180:
 		a1 -= 360
@@ -366,8 +375,6 @@ def BoxOnPlaneSide(emins, emaxs, plane):
 #define VectorNegate(a,b)		(b[0]=-a[0],b[1]=-a[1],b[2]=-a[2])
 #define VectorSet(v, x, y, z)	(v[0]=(x), v[1]=(y), v[2]=(z))
 
-void VectorMA (vec3_t veca, float scale, vec3_t vecb, vec3_t vecc);
-
 // just in case you do't want to use the macros
 vec_t _DotProduct (vec3_t v1, vec3_t v2);
 void _VectorSubtract (vec3_t veca, vec3_t vecb, vec3_t out);
@@ -376,22 +383,13 @@ void _VectorCopy (vec3_t in, vec3_t out);
 
 void ClearBounds (vec3_t mins, vec3_t maxs);
 void AddPointToBounds (vec3_t v, vec3_t mins, vec3_t maxs);
-int VectorCompare (vec3_t v1, vec3_t v2);
 vec_t VectorLength (vec3_t v);
-void CrossProduct (vec3_t v1, vec3_t v2, vec3_t cross);
 vec_t VectorNormalize (vec3_t v);		// returns vector length
 vec_t VectorNormalize2 (vec3_t v, vec3_t out);
-void VectorInverse (vec3_t v);
-void VectorScale (vec3_t in, vec_t scale, vec3_t out);
 int Q_log2(int val);
 
 void R_ConcatRotations (float in1[3][3], float in2[3][3], float out[3][3]);
 void R_ConcatTransforms (float in1[3][4], float in2[3][4], float out[3][4]);
-
-void AngleVectors (vec3_t angles, vec3_t forward, vec3_t right, vec3_t up);
-int BoxOnPlaneSide (vec3_t emins, vec3_t emaxs, struct cplane_s *plane);
-float	anglemod(float a);
-float LerpAngle (float a1, float a2, float frac);
 
 #define BOX_ON_PLANE_SIDE(emins, emaxs, p)	\
 	(((p)->type < 3)?						\
@@ -409,20 +407,13 @@ float LerpAngle (float a1, float a2, float frac);
 	:										\
 		BoxOnPlaneSide( (emins), (emaxs), (p)))
 
-void ProjectPointOnPlane( vec3_t dst, const vec3_t p, const vec3_t normal );
-void PerpendicularVector( vec3_t dst, const vec3_t src );
-void RotatePointAroundVector( vec3_t dst, const vec3_t dir, const vec3_t point, float degrees );
-
-
 //=============================================
 
 char *COM_SkipPath (char *pathname);
-void COM_StripExtension (char *in, char *out);
 void COM_FileBase (char *in, char *out);
 void COM_FilePath (char *in, char *out);
 void COM_DefaultExtension (char *path, char *extension);
 
-char *COM_Parse (char **data_p);
 // data is an in/out parm, returns a parsed out token
 
 void Com_sprintf (char *dest, int size, char *fmt, ...);
@@ -432,18 +423,12 @@ void Com_PageInMemory (byte *buffer, int size);
 //=============================================
 
 // portable case insensitive compare
-int Q_stricmp (char *s1, char *s2);
-int Q_strcasecmp (char *s1, char *s2);
 int Q_strncasecmp (char *s1, char *s2, int n);
 
 //=============================================
 
 short	BigShort(short l);
 short	LittleShort(short l);
-int		BigLong (int l);
-int		LittleLong (int l);
-float	BigFloat (float l);
-float	LittleFloat (float l);
 
 void	Swap_Init (void);
 char	*va(char *format, ...);
@@ -457,9 +442,6 @@ MAX_INFO_KEY		= 64
 MAX_INFO_VALUE		= 64
 MAX_INFO_STRING		= 512
 """
-char *Info_ValueForKey (char *s, char *key);
-void Info_RemoveKey (char *s, char *key);
-void Info_SetValueForKey (char *s, char *key, char *value);
 qboolean Info_Validate (char *s);
 
 /*
@@ -1818,157 +1800,10 @@ vec3_t vec3_origin = {0,0,0};
 #pragma optimize( "", off )
 #endif
 
-void RotatePointAroundVector( vec3_t dst, const vec3_t dir, const vec3_t point, float degrees )
-{
-	float	m[3][3];
-	float	im[3][3];
-	float	zrot[3][3];
-	float	tmpmat[3][3];
-	float	rot[3][3];
-	int	i;
-	vec3_t vr, vup, vf;
-
-	vf[0] = dir[0];
-	vf[1] = dir[1];
-	vf[2] = dir[2];
-
-	PerpendicularVector( vr, dir );
-	CrossProduct( vr, vf, vup );
-
-	m[0][0] = vr[0];
-	m[1][0] = vr[1];
-	m[2][0] = vr[2];
-
-	m[0][1] = vup[0];
-	m[1][1] = vup[1];
-	m[2][1] = vup[2];
-
-	m[0][2] = vf[0];
-	m[1][2] = vf[1];
-	m[2][2] = vf[2];
-
-	memcpy( im, m, sizeof( im ) );
-
-	im[0][1] = m[1][0];
-	im[0][2] = m[2][0];
-	im[1][0] = m[0][1];
-	im[1][2] = m[2][1];
-	im[2][0] = m[0][2];
-	im[2][1] = m[1][2];
-
-	memset( zrot, 0, sizeof( zrot ) );
-	zrot[0][0] = zrot[1][1] = zrot[2][2] = 1.0F;
-
-	zrot[0][0] = cos( DEG2RAD( degrees ) );
-	zrot[0][1] = sin( DEG2RAD( degrees ) );
-	zrot[1][0] = -sin( DEG2RAD( degrees ) );
-	zrot[1][1] = cos( DEG2RAD( degrees ) );
-
-	R_ConcatRotations( m, zrot, tmpmat );
-	R_ConcatRotations( tmpmat, im, rot );
-
-	for ( i = 0; i < 3; i++ )
-	{
-		dst[i] = rot[i][0] * point[0] + rot[i][1] * point[1] + rot[i][2] * point[2];
-	}
-}
-
 #ifdef _WIN32
 #pragma optimize( "", on )
 #endif
 
-
-
-void AngleVectors (vec3_t angles, vec3_t forward, vec3_t right, vec3_t up)
-{
-	float		angle;
-	static float		sr, sp, sy, cr, cp, cy;
-	// static to help MS compiler fp bugs
-
-	angle = angles[YAW] * (M_PI*2 / 360);
-	sy = sin(angle);
-	cy = cos(angle);
-	angle = angles[PITCH] * (M_PI*2 / 360);
-	sp = sin(angle);
-	cp = cos(angle);
-	angle = angles[ROLL] * (M_PI*2 / 360);
-	sr = sin(angle);
-	cr = cos(angle);
-
-	if (forward)
-	{
-		forward[0] = cp*cy;
-		forward[1] = cp*sy;
-		forward[2] = -sp;
-	}
-	if (right)
-	{
-		right[0] = (-1*sr*sp*cy+-1*cr*-sy);
-		right[1] = (-1*sr*sp*sy+-1*cr*cy);
-		right[2] = -1*sr*cp;
-	}
-	if (up)
-	{
-		up[0] = (cr*sp*cy+-sr*-sy);
-		up[1] = (cr*sp*sy+-sr*cy);
-		up[2] = cr*cp;
-	}
-}
-
-
-void ProjectPointOnPlane( vec3_t dst, const vec3_t p, const vec3_t normal )
-{
-	float d;
-	vec3_t n;
-	float inv_denom;
-
-	inv_denom = 1.0F / DotProduct( normal, normal );
-
-	d = DotProduct( normal, p ) * inv_denom;
-
-	n[0] = normal[0] * inv_denom;
-	n[1] = normal[1] * inv_denom;
-	n[2] = normal[2] * inv_denom;
-
-	dst[0] = p[0] - d * n[0];
-	dst[1] = p[1] - d * n[1];
-	dst[2] = p[2] - d * n[2];
-}
-
-/*
-** assumes "src" is normalized
-*/
-void PerpendicularVector( vec3_t dst, const vec3_t src )
-{
-	int	pos;
-	int i;
-	float minelem = 1.0F;
-	vec3_t tempvec;
-
-	/*
-	** find the smallest magnitude axially aligned vector
-	*/
-	for ( pos = 0, i = 0; i < 3; i++ )
-	{
-		if ( fabs( src[i] ) < minelem )
-		{
-			pos = i;
-			minelem = fabs( src[i] );
-		}
-	}
-	tempvec[0] = tempvec[1] = tempvec[2] = 0.0F;
-	tempvec[pos] = 1.0F;
-
-	/*
-	** project the point onto the plane defined by src
-	*/
-	ProjectPointOnPlane( dst, tempvec, src );
-
-	/*
-	** normalize the result
-	*/
-	VectorNormalize( dst );
-}
 """
 """
 /*
@@ -2063,69 +1898,12 @@ __declspec( naked ) long Q_ftol( float f )
 #endif
 """
 """
-/*
-===============
-LerpAngle
-
-===============
-*/
-float LerpAngle (float a2, float a1, float frac)
-{
-	if (a1 - a2 > 180)
-		a1 -= 360;
-	if (a1 - a2 < -180)
-		a1 += 360;
-	return a2 + frac * (a1 - a2);
-}
-
-
-float	anglemod(float a)
-{
-#if 0
-	if (a >= 0)
-		a -= 360*(int)(a/360);
-	else
-		a += 360*( 1 + (int)(-a/360) );
-#endif
-	a = (360.0/65536) * ((int)(a*(65536/360.0)) & 65535);
-	return a;
-}
 
 	int		i;
 	vec3_t	corners[2];
-
 
 // this is the slow, general version
-int BoxOnPlaneSide2 (vec3_t emins, vec3_t emaxs, struct cplane_s *p)
-{
-	int		i;
-	float	dist1, dist2;
-	int		sides;
-	vec3_t	corners[2];
 
-	for (i=0 ; i<3 ; i++)
-	{
-		if (p->normal[i] < 0)
-		{
-			corners[0][i] = emins[i];
-			corners[1][i] = emaxs[i];
-		}
-		else
-		{
-			corners[1][i] = emins[i];
-			corners[0][i] = emaxs[i];
-		}
-	}
-	dist1 = DotProduct (p->normal, corners[0]) - p->dist;
-	dist2 = DotProduct (p->normal, corners[1]) - p->dist;
-	sides = 0;
-	if (dist1 >= 0)
-		sides = 1;
-	if (dist2 < 0)
-		sides |= 2;
-
-	return sides;
-}
 """
 """
 /*
@@ -2458,62 +2236,6 @@ void AddPointToBounds (vec3_t v, vec3_t mins, vec3_t maxs)
 	}
 }
 
-
-int VectorCompare (vec3_t v1, vec3_t v2)
-{
-	if (v1[0] != v2[0] || v1[1] != v2[1] || v1[2] != v2[2])
-			return 0;
-			
-	return 1;
-}
-
-
-vec_t VectorNormalize (vec3_t v)
-{
-	float	length, ilength;
-
-	length = v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
-	length = sqrt (length);		// FIXME
-
-	if (length)
-	{
-		ilength = 1/length;
-		v[0] *= ilength;
-		v[1] *= ilength;
-		v[2] *= ilength;
-	}
-		
-	return length;
-
-}
-
-vec_t VectorNormalize2 (vec3_t v, vec3_t out)
-{
-	float	length, ilength;
-
-	length = v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
-	length = sqrt (length);		// FIXME
-
-	if (length)
-	{
-		ilength = 1/length;
-		out[0] = v[0]*ilength;
-		out[1] = v[1]*ilength;
-		out[2] = v[2]*ilength;
-	}
-		
-	return length;
-
-}
-
-void VectorMA (vec3_t veca, float scale, vec3_t vecb, vec3_t vecc)
-{
-	vecc[0] = veca[0] + scale*vecb[0];
-	vecc[1] = veca[1] + scale*vecb[1];
-	vecc[2] = veca[2] + scale*vecb[2];
-}
-
-
 vec_t _DotProduct (vec3_t v1, vec3_t v2)
 {
 	return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
@@ -2540,42 +2262,7 @@ void _VectorCopy (vec3_t in, vec3_t out)
 	out[2] = in[2];
 }
 
-void CrossProduct (vec3_t v1, vec3_t v2, vec3_t cross)
-{
-	cross[0] = v1[1]*v2[2] - v1[2]*v2[1];
-	cross[1] = v1[2]*v2[0] - v1[0]*v2[2];
-	cross[2] = v1[0]*v2[1] - v1[1]*v2[0];
-}
-
 double sqrt(double x);
-
-vec_t VectorLength(vec3_t v)
-{
-	int		i;
-	float	length;
-	
-	length = 0;
-	for (i=0 ; i< 3 ; i++)
-		length += v[i]*v[i];
-	length = sqrt (length);		// FIXME
-
-	return length;
-}
-
-void VectorInverse (vec3_t v)
-{
-	v[0] = -v[0];
-	v[1] = -v[1];
-	v[2] = -v[2];
-}
-
-void VectorScale (vec3_t in, vec_t scale, vec3_t out)
-{
-	out[0] = in[0]*scale;
-	out[1] = in[1]*scale;
-	out[2] = in[2]*scale;
-}
-
 
 int Q_log2(int val)
 {
@@ -2584,8 +2271,6 @@ int Q_log2(int val)
 		answer++;
 	return answer;
 }
-
-
 
 //====================================================================================
 """

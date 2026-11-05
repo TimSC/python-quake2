@@ -145,8 +145,6 @@ for i in range(qfiles.MAX_MAP_AREAPORTALS):
 
 map_noareas = None # cvar_t	*
 
-#void	CM_InitBoxHull (void)
-#void	FloodAreaConnections (void)
 
 c_pointcontents: int = 0
 c_traces: int = 0

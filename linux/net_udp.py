@@ -72,8 +72,6 @@ ipx_sockets = [None, None] #int [2]
 errno = 0 # the errno of the last failed socket call, read by NET_ErrorString
 
 """
-int NET_Socket (char *net_interface, int port);
-char *NET_ErrorString (void);
 
 //=============================================================================
 """

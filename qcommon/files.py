@@ -261,60 +261,7 @@ def FS_FOpenFile (filename): #char *
 
 // this is just for demos to prevent add on hacking
 
-int FS_FOpenFile (char *filename, FILE **file)
-{
-	searchpath_t	*search;
-	char			netpath[MAX_OSPATH];
-	pack_t			*pak;
-	int				i;
-
-	file_from_pak = 0;
-
-	// get config from directory, everything else from pak
-	if (!strcmp(filename, "config.cfg") || !strncmp(filename, "players/", 8))
-	{
-		Com_sprintf (netpath, sizeof(netpath), "%s/%s",FS_Gamedir(), filename);
-		
-		*file = fopen (netpath, "rb");
-		if (!*file)
-			return -1;
-		
-		Com_DPrintf ("FindFile: %s\n",netpath);
-
-		return FS_filelength (*file);
-	}
-
-	for (search = fs_searchpaths ; search ; search = search->next)
-		if (search->pack)
-			break;
-	if (!search)
-	{
-		*file = NULL;
-		return -1;
-	}
-
-	pak = search->pack;
-	for (i=0 ; i<pak->numfiles ; i++)
-		if (!Q_strcasecmp (pak->files[i].name, filename))
-		{	// found it!
-			file_from_pak = 1;
-			Com_DPrintf ("PackFile: %s : %s\n",pak->filename, filename);
-		// open a new file on the pakfile
-			*file = fopen (pak->filename, "rb");
-			if (!*file)
-				Com_Error (ERR_FATAL, "Couldn't reopen %s", pak->filename);	
-			fseek (*file, pak->files[i].filepos, SEEK_SET);
-			return pak->files[i].filelen;
-		}
-	
-	Com_DPrintf ("FindFile: can't find %s\n", filename);
-	
-	*file = NULL;
-	return -1;
-}
-
 #endif
-
 
 /*
 =================

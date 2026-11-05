@@ -54,7 +54,6 @@ state bit 0 is the current state of the key
 state bit 1 is edge triggered on the up to down transition
 state bit 2 is edge triggered on the down to up transition
 
-
 Key_Event (int key, qboolean down, unsigned time);
 
   +mlook src time
@@ -68,7 +67,6 @@ class kbutton_t(object):
 		self.state = 0
 		self.downtime = 0
 		self.msec = 0
-
 
 in_klook = kbutton_t()
 in_left = kbutton_t()
@@ -95,7 +93,6 @@ cl_yawspeed = None
 cl_pitchspeed = None
 cl_run = None
 cl_anglespeedkey = None
-
 
 def KeyDown(b):
 	c = cmd.Cmd_Argv(1)
@@ -124,7 +121,6 @@ def KeyDown(b):
 		b.downtime = sys_linux.sys_frame_time - 100
 
 	b.state |= 1 + 2
-
 
 def KeyUp(b):
 	c = cmd.Cmd_Argv(1)
@@ -158,7 +154,6 @@ def KeyUp(b):
 	b.state &= ~1
 	b.state |= 4
 
-
 def IN_KLookDown(): KeyDown(in_klook)
 def IN_KLookUp(): KeyUp(in_klook)
 def IN_UpDown(): KeyDown(in_up)
@@ -190,12 +185,10 @@ def IN_AttackUp(): KeyUp(in_attack)
 def IN_UseDown(): KeyDown(in_use)
 def IN_UseUp(): KeyUp(in_use)
 
-
 def IN_Impulse():
 	global in_impulse
 	c = cmd.Cmd_Argv(1)
 	in_impulse = int(c) if c else 0
-
 
 def CL_KeyState(key):
 	global frame_msec
@@ -217,7 +210,6 @@ def CL_KeyState(key):
 
 	return val
 
-
 def CL_AdjustAngles():
 	if in_speed.state & 1:
 		speed = cl_main.cls.frametime * cl_anglespeedkey.value
@@ -237,92 +229,11 @@ def CL_AdjustAngles():
 	cl_main.cl.viewangles[q_shared.PITCH] -= speed * cl_pitchspeed.value * up
 	cl_main.cl.viewangles[q_shared.PITCH] += speed * cl_pitchspeed.value * down
 
-
-
 kbutton_t	in_klook;
 kbutton_t	in_left, in_right, in_forward, in_back;
 kbutton_t	in_lookup, in_lookdown, in_moveleft, in_moveright;
 kbutton_t	in_strafe, in_speed, in_use, in_attack;
 kbutton_t	in_up, in_down;
-
-int			in_impulse;
-
-
-void KeyDown (kbutton_t *b)
-{
-	int		k;
-	char	*c;
-	
-	c = Cmd_Argv(1);
-	if (c[0])
-		k = atoi(c);
-	else
-		k = -1;		// typed manually at the console for continuous down
-
-	if (k == b->down[0] || k == b->down[1])
-		return;		// repeating key
-	
-	if (!b->down[0])
-		b->down[0] = k;
-	else if (!b->down[1])
-		b->down[1] = k;
-	else
-	{
-		Com_Printf ("Three keys down for a button!\n");
-		return;
-	}
-	
-	if (b->state & 1)
-		return;		// still down
-
-	// save timestamp
-	c = Cmd_Argv(2);
-	b->downtime = atoi(c);
-	if (!b->downtime)
-		b->downtime = sys_frame_time - 100;
-
-	b->state |= 1 + 2;	// down + impulse down
-}
-
-void KeyUp (kbutton_t *b)
-{
-	int		k;
-	char	*c;
-	unsigned	uptime;
-
-	c = Cmd_Argv(1);
-	if (c[0])
-		k = atoi(c);
-	else
-	{ // typed manually at the console, assume for unsticking, so clear all
-		b->down[0] = b->down[1] = 0;
-		b->state = 4;	// impulse up
-		return;
-	}
-
-	if (b->down[0] == k)
-		b->down[0] = 0;
-	else if (b->down[1] == k)
-		b->down[1] = 0;
-	else
-		return;		// key up without coresponding down (menu pass through)
-	if (b->down[0] || b->down[1])
-		return;		// some other key is still holding it down
-
-	if (!(b->state & 1))
-		return;		// still up (this should not happen)
-
-	// save timestamp
-	c = Cmd_Argv(2);
-	uptime = atoi(c);
-	if (uptime)
-		b->msec += uptime - b->downtime;
-	else
-		b->msec += 10;
-
-	b->state &= ~1;		// now up
-	b->state |= 4; 		// impulse up
-}
 
 void IN_KLookDown (void) {KeyDown(&in_klook);}
 void IN_KLookUp (void) {KeyUp(&in_klook);}
@@ -361,47 +272,6 @@ void IN_UseUp (void) {KeyUp(&in_use);}
 void IN_Impulse (void) {in_impulse=atoi(Cmd_Argv(1));}
 """
 """
-/*
-===============
-CL_KeyState
-
-Returns the fraction of the frame that the key was down
-===============
-*/
-float CL_KeyState (kbutton_t *key)
-{
-	float		val;
-	int			msec;
-
-	key->state &= 1;		// clear impulses
-
-	msec = key->msec;
-	key->msec = 0;
-
-	if (key->state)
-	{	// still down
-		msec += sys_frame_time - key->downtime;
-		key->downtime = sys_frame_time;
-	}
-
-#if 0
-	if (msec)
-	{
-		Com_Printf ("%i ", msec);
-	}
-#endif
-
-	val = (float)msec / frame_msec;
-	if (val < 0)
-		val = 0;
-	if (val > 1)
-		val = 1;
-
-	return val;
-}
-
-
-
 
 //==========================================================================
 
@@ -415,42 +285,6 @@ cvar_t	*cl_pitchspeed;
 cvar_t	*cl_run;
 
 cvar_t	*cl_anglespeedkey;
-"""
-"""
-/*
-================
-CL_AdjustAngles
-
-Moves the local angle positions
-================
-*/
-void CL_AdjustAngles (void)
-{
-	float	speed;
-	float	up, down;
-	
-	if (in_speed.state & 1)
-		speed = cl_main.cls.frametime * cl_anglespeedkey->value;
-	else
-		speed = cl_main.cls.frametime;
-
-	if (!(in_strafe.state & 1))
-	{
-		cl_main.cl.viewangles[YAW] -= speed*cl_yawspeed->value*CL_KeyState (&in_right);
-		cl_main.cl.viewangles[YAW] += speed*cl_yawspeed->value*CL_KeyState (&in_left);
-	}
-	if (in_klook.state & 1)
-	{
-		cl_main.cl.viewangles[PITCH] -= speed*cl_pitchspeed->value * CL_KeyState (&in_forward);
-		cl_main.cl.viewangles[PITCH] += speed*cl_pitchspeed->value * CL_KeyState (&in_back);
-	}
-	
-	up = CL_KeyState (&in_lookup);
-	down = CL_KeyState(&in_lookdown);
-	
-	cl_main.cl.viewangles[PITCH] -= speed*cl_pitchspeed->value * up;
-	cl_main.cl.viewangles[PITCH] += speed*cl_pitchspeed->value * down;
-}
 """
 """
 /*
@@ -596,6 +430,13 @@ def IN_Impulse():
 	in_impulse = int(c) if c else 0
 
 
+"""
+===============
+CL_KeyState
+
+Returns the fraction of the frame that the key was down
+===============
+"""
 def CL_KeyState(key):
 	global frame_msec
 
@@ -617,6 +458,13 @@ def CL_KeyState(key):
 	return val
 
 
+"""
+================
+CL_AdjustAngles
+
+Moves the local angle positions
+================
+"""
 def CL_AdjustAngles():
 	if in_speed.state & 1:
 		speed = cl_main.cls.frametime * cl_anglespeedkey.value

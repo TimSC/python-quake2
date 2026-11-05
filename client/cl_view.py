@@ -74,7 +74,6 @@ for i in range(ref.MAX_LIGHTSTYLES):
 
 """
 char cl_weaponmodels[MAX_CLIENTWEAPONMODELS][MAX_QPATH];
-int num_cl_weaponmodels;
 
 /*
 ====================
