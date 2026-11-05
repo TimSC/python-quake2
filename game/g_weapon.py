@@ -309,7 +309,11 @@ def blaster_touch (self, other, plane, surf):
 			mod = MOD_HYPERBLASTER
 		else:
 			mod = MOD_BLASTER
-		g_combat.T_Damage (other, self, self.owner, self.velocity, self.s.origin, plane.normal, self.dmg, 1, DAMAGE_ENERGY, mod)
+		# NOTE: latent C bug - fire_blaster() calls touch() with (NULL, NULL),
+		# so plane is NULL here when the initial gi.trace hit a takedamage entity.
+		# C does plane->normal (NULL deref, only avoided because that case is rare);
+		# we guard with vec3_origin to match the !plane handling in the else branch.
+		g_combat.T_Damage (other, self, self.owner, self.velocity, self.s.origin, (plane.normal if plane else vec3_origin), self.dmg, 1, DAMAGE_ENERGY, mod)
 	else:
 		g_main.gi.WriteByte (svc_temp_entity)
 		g_main.gi.WriteByte (q_shared.temp_event_t.TE_BLASTER.value)
