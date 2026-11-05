@@ -508,7 +508,8 @@ def V_RenderView( stereo_separation: float ):
 		cl_main.cl.refdef.rdflags = cl_main.cl.frame.playerstate.rdflags
 
 		# sort entities for better cache locality
-		cl_main.cl.refdef.entities.sort(key=functools.cmp_to_key(cl_scrn.entitycmpfnc))
+		# qsort( cl.refdef.entities, cl.refdef.num_entities, ... ): only the first num_entities are live
+		cl_main.cl.refdef.entities[:r_numentities] = sorted(cl_main.cl.refdef.entities[:r_numentities], key=functools.cmp_to_key(cl_scrn.entitycmpfnc))
 	
 	vid_so.re.RenderFrame (cl_main.cl.refdef)
 	if cl_stats.value:
