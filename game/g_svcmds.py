@@ -20,9 +20,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import struct
-from game import q_shared, g_main
+from game import g_main
 from game.g_local import GAMEVERSION
-from game.q_shared import PRINT_HIGH, Q_stricmp
+from common.header.shared import PRINT_HIGH
+from common.shared.shared import Q_stricmp
 """
 /*
 Copyright (C) 1997-2001 Id Software, Inc.

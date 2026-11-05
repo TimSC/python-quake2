@@ -32,9 +32,12 @@ from __future__ import annotations
 import math
 import random
 import numpy as np
-from game import q_shared
-from qcommon import common
+pass
+pass
 from client import cl_main, cl_fx, cl_ents
+from common.header import shared
+from common.shared import shared as shared_c
+from common import frame
 
 
 """
@@ -73,9 +76,9 @@ def vectoangles2 (value1, angles): #vec3_t, vec3_t
 		if pitch < 0:
 			pitch += 360
 	
-	angles[q_shared.PITCH] = -pitch
-	angles[q_shared.YAW] = yaw
-	angles[q_shared.ROLL] = 0
+	angles[shared.PITCH] = -pitch
+	angles[shared.YAW] = yaw
+	angles[shared.ROLL] = 0
 
 #=============
 #=============
@@ -84,7 +87,7 @@ def CL_Flashlight (ent, pos): #int, vec3_t
 	#cdlight_t	*dl;
 
 	dl = cl_fx.CL_AllocDlight (ent)
-	q_shared.VectorCopy (pos,  dl.origin)
+	shared.VectorCopy (pos,  dl.origin)
 	dl.radius = 400
 	dl.minlight = 250
 	dl.die = cl_main.cl.time + 100
@@ -101,7 +104,7 @@ def CL_ColorFlash (pos, ent, intensity, r, g, b): #vec3_t, int, int, float, floa
 
 	#cdlight_t	*dl;
 
-	if (cl_ents.vidref_val == q_shared.VIDREF_SOFT) and ((r < 0) or (g<0) or (b<0)):
+	if (cl_ents.vidref_val == shared.VIDREF_SOFT) and ((r < 0) or (g<0) or (b<0)):
 	
 		intensity = -intensity
 		r = -r
@@ -109,7 +112,7 @@ def CL_ColorFlash (pos, ent, intensity, r, g, b): #vec3_t, int, int, float, floa
 		b = -b
 	
 	dl = cl_fx.CL_AllocDlight (ent)
-	q_shared.VectorCopy (pos,  dl.origin)
+	shared.VectorCopy (pos,  dl.origin)
 	dl.radius = intensity
 	dl.minlight = 250
 	dl.die = cl_main.cl.time + 100
@@ -142,9 +145,9 @@ def CL_DebugTrail (start, end): #vec3_t, vec3_t
 	right = np.zeros((3,), dtype=np.float32)
 	up = np.zeros((3,), dtype=np.float32)
 
-	q_shared.VectorCopy (start, move)
-	q_shared.VectorSubtract (end, start, vec)
-	length = q_shared.VectorNormalize (vec)
+	shared.VectorCopy (start, move)
+	shared.VectorSubtract (end, start, vec)
+	length = shared_c.VectorNormalize (vec)
 
 	cl_fx.MakeNormalVectors (vec, right, up)
 
@@ -153,8 +156,8 @@ def CL_DebugTrail (start, end): #vec3_t, vec3_t
 #	dec = 1.0;
 #	dec = 0.75;
 	dec = 3
-	q_shared.VectorScale (vec, dec, vec)
-	q_shared.VectorCopy (start, move)
+	shared_c.VectorScale (vec, dec, vec)
+	shared.VectorCopy (start, move)
 
 	while length > 0:
 	
@@ -166,13 +169,13 @@ def CL_DebugTrail (start, end): #vec3_t, vec3_t
 		cl_fx.active_particles.append(p)
 
 		p.time = cl_main.cl.time
-		q_shared.VectorClear (p.accel)
-		q_shared.VectorClear (p.vel)
+		shared.VectorClear (p.accel)
+		shared.VectorClear (p.vel)
 		p.alpha = 1.0
 		p.alphavel = -0.1
 #		p->alphavel = 0;
 		p.color = 0x74 + (random.getrandbits(15)&7)
-		q_shared.VectorCopy (move, p.org)
+		shared.VectorCopy (move, p.org)
 		"""
 		for (j=0 ; j<3 ; j++)
 		{
@@ -181,7 +184,7 @@ def CL_DebugTrail (start, end): #vec3_t, vec3_t
 			p->accel[j] = 0;
 		}
 		"""
-		q_shared.VectorAdd (move, vec, move)
+		shared.VectorAdd (move, vec, move)
 	
 
 """
@@ -201,11 +204,11 @@ def CL_SmokeTrail (start, end, colorStart, colorRun, spacing): #vec3_t, vec3_t, 
 	move = np.zeros((3,), dtype=np.float32)
 	vec = np.zeros((3,), dtype=np.float32)
 
-	q_shared.VectorCopy (start, move)
-	q_shared.VectorSubtract (end, start, vec)
-	length = q_shared.VectorNormalize (vec)
+	shared.VectorCopy (start, move)
+	shared.VectorSubtract (end, start, vec)
+	length = shared_c.VectorNormalize (vec)
 
-	q_shared.VectorScale (vec, spacing, vec)
+	shared_c.VectorScale (vec, spacing, vec)
 
 	# FIXME: this is a really silly way to have a loop
 	while length > 0:
@@ -216,21 +219,21 @@ def CL_SmokeTrail (start, end, colorStart, colorRun, spacing): #vec3_t, vec3_t, 
 		if p is None:
 			return
 		cl_fx.active_particles.append(p)
-		q_shared.VectorClear (p.accel)
+		shared.VectorClear (p.accel)
 		
 		p.time = cl_main.cl.time
 
 		p.alpha = 1.0
-		p.alphavel = -1.0 / (1+common.frand()*0.5)
+		p.alphavel = -1.0 / (1+frame.frand()*0.5)
 		p.color = colorStart + (random.getrandbits(15) % colorRun)
 		for j in range(3):
 		
-			p.org[j] = move[j] + common.crand()*3
+			p.org[j] = move[j] + frame.crand()*3
 			p.accel[j] = 0
 		
-		p.vel[2] = 20 + common.crand()*5
+		p.vel[2] = 20 + frame.crand()*5
 
-		q_shared.VectorAdd (move, vec, move)
+		shared.VectorAdd (move, vec, move)
 	
 
 def CL_ForceWall (start, end, color): #vec3_t, vec3_t, int
@@ -245,11 +248,11 @@ def CL_ForceWall (start, end, color): #vec3_t, vec3_t, int
 	move = np.zeros((3,), dtype=np.float32)
 	vec = np.zeros((3,), dtype=np.float32)
 
-	q_shared.VectorCopy (start, move)
-	q_shared.VectorSubtract (end, start, vec)
-	length = q_shared.VectorNormalize (vec)
+	shared.VectorCopy (start, move)
+	shared.VectorSubtract (end, start, vec)
+	length = shared_c.VectorNormalize (vec)
 
-	q_shared.VectorScale (vec, 4, vec)
+	shared_c.VectorScale (vec, 4, vec)
 
 	# FIXME: this is a really silly way to have a loop
 	while length > 0:
@@ -259,29 +262,29 @@ def CL_ForceWall (start, end, color): #vec3_t, vec3_t, int
 		if not cl_fx.free_particles:
 			return
 		
-		if common.frand() > 0.3:
+		if frame.frand() > 0.3:
 		
 			p = cl_fx._alloc_particle()
 			if p is None:
 				return
 			cl_fx.active_particles.append(p)
-			q_shared.VectorClear (p.accel)
+			shared.VectorClear (p.accel)
 			
 			p.time = cl_main.cl.time
 
 			p.alpha = 1.0
-			p.alphavel =  -1.0 / (3.0+common.frand()*0.5)
+			p.alphavel =  -1.0 / (3.0+frame.frand()*0.5)
 			p.color = color
 			for j in range(3):
 			
-				p.org[j] = move[j] + common.crand()*3
+				p.org[j] = move[j] + frame.crand()*3
 				p.accel[j] = 0
 			
 			p.vel[0] = 0
 			p.vel[1] = 0
-			p.vel[2] = -40 - (common.crand()*10)
+			p.vel[2] = -40 - (frame.crand()*10)
 		
-		q_shared.VectorAdd (move, vec, move)
+		shared.VectorAdd (move, vec, move)
 	
 
 def CL_FlameEffects (ent, origin): #centity_t *, vec3_t
@@ -299,18 +302,18 @@ def CL_FlameEffects (ent, origin): #centity_t *, vec3_t
 			return
 		cl_fx.active_particles.append(p)
 		
-		q_shared.VectorClear (p.accel)
+		shared.VectorClear (p.accel)
 		p.time = cl_main.cl.time
 
 		p.alpha = 1.0
-		p.alphavel = -1.0 / (1+common.frand()*0.2)
+		p.alphavel = -1.0 / (1+frame.frand()*0.2)
 		p.color = 226 + (random.getrandbits(15) % 4)
 		for j in range(3):
 		
-			p.org[j] = origin[j] + common.crand()*5
-			p.vel[j] = common.crand()*5
+			p.org[j] = origin[j] + frame.crand()*5
+			p.vel[j] = frame.crand()*5
 		
-		p.vel[2] = common.crand() * -10
+		p.vel[2] = frame.crand() * -10
 		p.accel[2] = -cl_fx.PARTICLE_GRAVITY
 	
 	count = random.getrandbits(15) & 0x7
@@ -321,18 +324,18 @@ def CL_FlameEffects (ent, origin): #centity_t *, vec3_t
 		if p is None:
 			return
 		cl_fx.active_particles.append(p)
-		q_shared.VectorClear (p.accel)
+		shared.VectorClear (p.accel)
 		
 		p.time = cl_main.cl.time
 
 		p.alpha = 1.0
-		p.alphavel = -1.0 / (1+common.frand()*0.5)
+		p.alphavel = -1.0 / (1+frame.frand()*0.5)
 		p.color = 0 + (random.getrandbits(15) % 4)
 		for j in range(3):
 		
-			p.org[j] = origin[j] + common.crand()*3
+			p.org[j] = origin[j] + frame.crand()*3
 		
-		p.vel[2] = 20 + common.crand()*5
+		p.vel[2] = 20 + frame.crand()*5
 	
 
 
@@ -364,14 +367,14 @@ def CL_GenericParticleEffect (org, dir, color, count, numcolors, dirspread, alph
 		for j in range(3):
 		
 			p.org[j] = org[j] + ((random.getrandbits(15)&7)-4) + d*dir[j]
-			p.vel[j] = common.crand()*20
+			p.vel[j] = frame.crand()*20
 		
 		p.accel[0] = p.accel[1] = 0
 		p.accel[2] = -cl_fx.PARTICLE_GRAVITY
 #		VectorCopy (accel, p->accel);
 		p.alpha = 1.0
 
-		p.alphavel = -1.0 / (0.5 + common.frand()*alphavel)
+		p.alphavel = -1.0 / (0.5 + frame.frand()*alphavel)
 #		p->alphavel = alphavel;
 	
 
@@ -394,12 +397,12 @@ def CL_BubbleTrail2 (start, end, dist): #vec3_t, vec3_t, int
 	move = np.zeros((3,), dtype=np.float32)
 	vec = np.zeros((3,), dtype=np.float32)
 
-	q_shared.VectorCopy (start, move)
-	q_shared.VectorSubtract (end, start, vec)
-	length = q_shared.VectorNormalize (vec)
+	shared.VectorCopy (start, move)
+	shared.VectorSubtract (end, start, vec)
+	length = shared_c.VectorNormalize (vec)
 
 	dec = dist
-	q_shared.VectorScale (vec, dec, vec)
+	shared_c.VectorScale (vec, dec, vec)
 
 	i = 0
 	while i < length:
@@ -409,22 +412,22 @@ def CL_BubbleTrail2 (start, end, dist): #vec3_t, vec3_t, int
 			return
 		cl_fx.active_particles.append(p)
 
-		q_shared.VectorClear (p.accel)
+		shared.VectorClear (p.accel)
 		p.time = cl_main.cl.time
 
 		p.alpha = 1.0
-		p.alphavel = -1.0 / (1+common.frand()*0.1)
+		p.alphavel = -1.0 / (1+frame.frand()*0.1)
 		p.color = 4 + (random.getrandbits(15)&7)
 		for j in range(3):
 		
-			p.org[j] = move[j] + common.crand()*2
-			p.vel[j] = common.crand()*10
+			p.org[j] = move[j] + frame.crand()*2
+			p.vel[j] = frame.crand()*10
 		
 		p.org[2] -= 4
 #		p->vel[2] += 6;
 		p.vel[2] += 20
 
-		q_shared.VectorAdd (move, vec, move)
+		shared.VectorAdd (move, vec, move)
 		i += dec
 	
 
@@ -549,28 +552,28 @@ def CL_Heatbeam (start, forward): #vec3_t, vec3_t
 	end = np.zeros((3,), dtype=np.float32)
 	step = 32.0
 
-	q_shared.VectorMA (start, 4096, forward, end)
+	shared_c.VectorMA (start, 4096, forward, end)
 
-	q_shared.VectorCopy (start, move)
-	q_shared.VectorSubtract (end, start, vec)
-	length = q_shared.VectorNormalize (vec)
+	shared.VectorCopy (start, move)
+	shared.VectorSubtract (end, start, vec)
+	length = shared_c.VectorNormalize (vec)
 
 	# FIXME - pmm - these might end up using old values?
 #	MakeNormalVectors (vec, right, up);
-	q_shared.VectorCopy (cl_main.cl.v_right, right)
-	q_shared.VectorCopy (cl_main.cl.v_up, up)
-	if cl_ents.vidref_val == q_shared.VIDREF_GL:
+	shared.VectorCopy (cl_main.cl.v_right, right)
+	shared.VectorCopy (cl_main.cl.v_up, up)
+	if cl_ents.vidref_val == shared.VIDREF_GL:
 		# GL mode
-		q_shared.VectorMA (move, -0.5, right, move)
-		q_shared.VectorMA (move, -0.5, up, move)
+		shared_c.VectorMA (move, -0.5, right, move)
+		shared_c.VectorMA (move, -0.5, up, move)
 	
 	# otherwise assume SOFT
 
 	ltime = float(cl_main.cl.time)/1000.0
 	start_pt = math.fmod(ltime*96.0,step)
-	q_shared.VectorMA (move, start_pt, vec, move)
+	shared_c.VectorMA (move, start_pt, vec, move)
 
-	q_shared.VectorScale (vec, step, vec)
+	shared_c.VectorScale (vec, step, vec)
 
 #	Com_Printf ("%f\n", ltime);
 	rstep = math.pi/10.0
@@ -589,7 +592,7 @@ def CL_Heatbeam (start, forward): #vec3_t, vec3_t
 			cl_fx.active_particles.append(p)
 			
 			p.time = cl_main.cl.time
-			q_shared.VectorClear (p.accel)
+			shared.VectorClear (p.accel)
 #			rot+= fmod(ltime, 12.0)*M_PI;
 #			c = cos(rot)/2.0;
 #			s = sin(rot)/2.0;
@@ -601,13 +604,13 @@ def CL_Heatbeam (start, forward): #vec3_t, vec3_t
 			# trim it so it looks like it's starting at the origin
 			if i < 10:
 			
-				q_shared.VectorScale (right, c*(i/10.0), dir)
-				q_shared.VectorMA (dir, s*(i/10.0), up, dir)
+				shared_c.VectorScale (right, c*(i/10.0), dir)
+				shared_c.VectorMA (dir, s*(i/10.0), up, dir)
 			
 			else:
 			
-				q_shared.VectorScale (right, c, dir)
-				q_shared.VectorMA (dir, s, up, dir)
+				shared_c.VectorScale (right, c, dir)
+				shared_c.VectorMA (dir, s, up, dir)
 			
 			p.alpha = 0.5
 	#		p->alphavel = -1.0 / (1+frand()*0.2);
@@ -622,7 +625,7 @@ def CL_Heatbeam (start, forward): #vec3_t, vec3_t
 			
 			rot += rstep
 		
-		q_shared.VectorAdd (move, vec, move)
+		shared.VectorAdd (move, vec, move)
 		i = int(i + step)
 	
 #endif
@@ -783,20 +786,20 @@ def CL_ParticleSteamEffect (org, dir, color, count, magnitude): #vec3_t, vec3_t,
 
 		for j in range(3):
 		
-			p.org[j] = org[j] + magnitude*0.1*common.crand()
+			p.org[j] = org[j] + magnitude*0.1*frame.crand()
 #			p->vel[j] = dir[j]*magnitude;
 		
-		q_shared.VectorScale (dir, magnitude, p.vel)
-		d = common.crand()*magnitude/3
-		q_shared.VectorMA (p.vel, d, r, p.vel)
-		d = common.crand()*magnitude/3
-		q_shared.VectorMA (p.vel, d, u, p.vel)
+		shared_c.VectorScale (dir, magnitude, p.vel)
+		d = frame.crand()*magnitude/3
+		shared_c.VectorMA (p.vel, d, r, p.vel)
+		d = frame.crand()*magnitude/3
+		shared_c.VectorMA (p.vel, d, u, p.vel)
 
 		p.accel[0] = p.accel[1] = 0
 		p.accel[2] = -cl_fx.PARTICLE_GRAVITY/2
 		p.alpha = 1.0
 
-		p.alphavel = -1.0 / (0.5 + common.frand()*0.3)
+		p.alphavel = -1.0 / (0.5 + frame.frand()*0.3)
 	
 
 def CL_ParticleSteamEffect2 (self): #cl_sustain_t *
@@ -816,7 +819,7 @@ def CL_ParticleSteamEffect2 (self): #cl_sustain_t *
 #	vectoangles2 (dir, angle_dir);
 #	AngleVectors (angle_dir, f, r, u);
 
-	q_shared.VectorCopy (self.dir, dir)
+	shared.VectorCopy (self.dir, dir)
 	cl_fx.MakeNormalVectors (dir, r, u)
 
 	for i in range(self.count):
@@ -831,20 +834,20 @@ def CL_ParticleSteamEffect2 (self): #cl_sustain_t *
 
 		for j in range(3):
 		
-			p.org[j] = self.org[j] + self.magnitude*0.1*common.crand()
+			p.org[j] = self.org[j] + self.magnitude*0.1*frame.crand()
 #			p->vel[j] = dir[j]*magnitude;
 		
-		q_shared.VectorScale (dir, self.magnitude, p.vel)
-		d = common.crand()*self.magnitude/3
-		q_shared.VectorMA (p.vel, d, r, p.vel)
-		d = common.crand()*self.magnitude/3
-		q_shared.VectorMA (p.vel, d, u, p.vel)
+		shared_c.VectorScale (dir, self.magnitude, p.vel)
+		d = frame.crand()*self.magnitude/3
+		shared_c.VectorMA (p.vel, d, r, p.vel)
+		d = frame.crand()*self.magnitude/3
+		shared_c.VectorMA (p.vel, d, u, p.vel)
 
 		p.accel[0] = p.accel[1] = 0
 		p.accel[2] = -cl_fx.PARTICLE_GRAVITY/2
 		p.alpha = 1.0
 
-		p.alphavel = -1.0 / (0.5 + common.frand()*0.3)
+		p.alphavel = -1.0 / (0.5 + frame.frand()*0.3)
 	
 	self.nextthink += self.thinkinterval
 
@@ -872,16 +875,16 @@ def CL_TrackerTrail (start, end, particleColor): #vec3_t, vec3_t, int
 	up = np.zeros((3,), dtype=np.float32)
 	angle_dir = np.zeros((3,), dtype=np.float32)
 
-	q_shared.VectorCopy (start, move)
-	q_shared.VectorSubtract (end, start, vec)
-	length = q_shared.VectorNormalize (vec)
+	shared.VectorCopy (start, move)
+	shared.VectorSubtract (end, start, vec)
+	length = shared_c.VectorNormalize (vec)
 
-	q_shared.VectorCopy(vec, forward)
+	shared.VectorCopy(vec, forward)
 	vectoangles2 (forward, angle_dir)
-	q_shared.AngleVectors (angle_dir, forward, right, up)
+	shared_c.AngleVectors (angle_dir, forward, right, up)
 
 	dec = 3
-	q_shared.VectorScale (vec, 3, vec)
+	shared_c.VectorScale (vec, 3, vec)
 
 	# FIXME: this is a really silly way to have a loop
 	while length > 0:
@@ -892,15 +895,15 @@ def CL_TrackerTrail (start, end, particleColor): #vec3_t, vec3_t, int
 		if p is None:
 			return
 		cl_fx.active_particles.append(p)
-		q_shared.VectorClear (p.accel)
+		shared.VectorClear (p.accel)
 		
 		p.time = cl_main.cl.time
 
 		p.alpha = 1.0
 		p.alphavel = -2.0
 		p.color = particleColor
-		dist = q_shared.DotProduct(move, forward)
-		q_shared.VectorMA(move, 8 * math.cos(dist), up, p.org)
+		dist = shared.DotProduct(move, forward)
+		shared_c.VectorMA(move, 8 * math.cos(dist), up, p.org)
 		for j in range(3):
 		
 #			p->org[j] = move[j] + crand();
@@ -909,7 +912,7 @@ def CL_TrackerTrail (start, end, particleColor): #vec3_t, vec3_t, int
 		
 		p.vel[2] = 5
 
-		q_shared.VectorAdd (move, vec, move)
+		shared.VectorAdd (move, vec, move)
 	
 
 def CL_Tracker_Shell(origin): #vec3_t
@@ -925,7 +928,7 @@ def CL_Tracker_Shell(origin): #vec3_t
 		if p is None:
 			return
 		cl_fx.active_particles.append(p)
-		q_shared.VectorClear (p.accel)
+		shared.VectorClear (p.accel)
 		
 		p.time = cl_main.cl.time
 
@@ -933,12 +936,12 @@ def CL_Tracker_Shell(origin): #vec3_t
 		p.alphavel = cl_fx.INSTANT_PARTICLE
 		p.color = 0
 
-		dir[0] = common.crand()
-		dir[1] = common.crand()
-		dir[2] = common.crand()
-		q_shared.VectorNormalize(dir)
+		dir[0] = frame.crand()
+		dir[1] = frame.crand()
+		dir[2] = frame.crand()
+		shared_c.VectorNormalize(dir)
 	
-		q_shared.VectorMA(origin, 40, dir, p.org)
+		shared_c.VectorMA(origin, 40, dir, p.org)
 	
 
 def CL_MonsterPlasma_Shell(origin): #vec3_t
@@ -954,7 +957,7 @@ def CL_MonsterPlasma_Shell(origin): #vec3_t
 		if p is None:
 			return
 		cl_fx.active_particles.append(p)
-		q_shared.VectorClear (p.accel)
+		shared.VectorClear (p.accel)
 		
 		p.time = cl_main.cl.time
 
@@ -962,12 +965,12 @@ def CL_MonsterPlasma_Shell(origin): #vec3_t
 		p.alphavel = cl_fx.INSTANT_PARTICLE
 		p.color = 0xe0
 
-		dir[0] = common.crand()
-		dir[1] = common.crand()
-		dir[2] = common.crand()
-		q_shared.VectorNormalize(dir)
+		dir[0] = frame.crand()
+		dir[1] = frame.crand()
+		dir[2] = frame.crand()
+		shared_c.VectorNormalize(dir)
 	
-		q_shared.VectorMA(origin, 10, dir, p.org)
+		shared_c.VectorMA(origin, 10, dir, p.org)
 #		VectorMA(origin, 10*(((rand () & 0x7fff) / ((float)0x7fff))), dir, p->org);
 	
 
@@ -989,7 +992,7 @@ def CL_Widowbeamout (self): #cl_sustain_t *
 		if p is None:
 			return
 		cl_fx.active_particles.append(p)
-		q_shared.VectorClear (p.accel)
+		shared.VectorClear (p.accel)
 		
 		p.time = cl_main.cl.time
 
@@ -997,12 +1000,12 @@ def CL_Widowbeamout (self): #cl_sustain_t *
 		p.alphavel = cl_fx.INSTANT_PARTICLE
 		p.color = widowbeamout_colortable[random.getrandbits(15)&3]
 
-		dir[0] = common.crand()
-		dir[1] = common.crand()
-		dir[2] = common.crand()
-		q_shared.VectorNormalize(dir)
+		dir[0] = frame.crand()
+		dir[1] = frame.crand()
+		dir[2] = frame.crand()
+		shared_c.VectorNormalize(dir)
 	
-		q_shared.VectorMA(self.org, (45.0 * ratio), dir, p.org)
+		shared_c.VectorMA(self.org, (45.0 * ratio), dir, p.org)
 #		VectorMA(origin, 10*(((rand () & 0x7fff) / ((float)0x7fff))), dir, p->org);
 	
 
@@ -1024,7 +1027,7 @@ def CL_Nukeblast (self): #cl_sustain_t *
 		if p is None:
 			return
 		cl_fx.active_particles.append(p)
-		q_shared.VectorClear (p.accel)
+		shared.VectorClear (p.accel)
 		
 		p.time = cl_main.cl.time
 
@@ -1032,12 +1035,12 @@ def CL_Nukeblast (self): #cl_sustain_t *
 		p.alphavel = cl_fx.INSTANT_PARTICLE
 		p.color = nukeblast_colortable[random.getrandbits(15)&3]
 
-		dir[0] = common.crand()
-		dir[1] = common.crand()
-		dir[2] = common.crand()
-		q_shared.VectorNormalize(dir)
+		dir[0] = frame.crand()
+		dir[1] = frame.crand()
+		dir[2] = frame.crand()
+		shared_c.VectorNormalize(dir)
 	
-		q_shared.VectorMA(self.org, (200.0 * ratio), dir, p.org)
+		shared_c.VectorMA(self.org, (200.0 * ratio), dir, p.org)
 #		VectorMA(origin, 10*(((rand () & 0x7fff) / ((float)0x7fff))), dir, p->org);
 	
 
@@ -1060,17 +1063,17 @@ def CL_WidowSplash (org): #vec3_t
 		p.time = cl_main.cl.time
 		p.color = widowsplash_colortable[random.getrandbits(15)&3]
 
-		dir[0] = common.crand()
-		dir[1] = common.crand()
-		dir[2] = common.crand()
-		q_shared.VectorNormalize(dir)
-		q_shared.VectorMA(org, 45.0, dir, p.org)
-		q_shared.VectorMA(q_shared.vec3_origin, 40.0, dir, p.vel)
+		dir[0] = frame.crand()
+		dir[1] = frame.crand()
+		dir[2] = frame.crand()
+		shared_c.VectorNormalize(dir)
+		shared_c.VectorMA(org, 45.0, dir, p.org)
+		shared_c.VectorMA(shared_c.vec3_origin, 40.0, dir, p.vel)
 
 		p.accel[0] = p.accel[1] = 0
 		p.alpha = 1.0
 
-		p.alphavel = -0.8 / (0.5 + common.frand()*0.3)
+		p.alphavel = -0.8 / (0.5 + frame.frand()*0.3)
 	
 
 
@@ -1088,7 +1091,7 @@ def CL_Tracker_Explode(origin): #vec3_t
 		if p is None:
 			return
 		cl_fx.active_particles.append(p)
-		q_shared.VectorClear (p.accel)
+		shared.VectorClear (p.accel)
 		
 		p.time = cl_main.cl.time
 
@@ -1096,14 +1099,14 @@ def CL_Tracker_Explode(origin): #vec3_t
 		p.alphavel = -1.0
 		p.color = 0
 
-		dir[0] = common.crand()
-		dir[1] = common.crand()
-		dir[2] = common.crand()
-		q_shared.VectorNormalize(dir)
-		q_shared.VectorScale(dir, -1, backdir)
+		dir[0] = frame.crand()
+		dir[1] = frame.crand()
+		dir[2] = frame.crand()
+		shared_c.VectorNormalize(dir)
+		shared_c.VectorScale(dir, -1, backdir)
 	
-		q_shared.VectorMA(origin, 64, dir, p.org)
-		q_shared.VectorScale(backdir, 64, p.vel)
+		shared_c.VectorMA(origin, 64, dir, p.org)
+		shared_c.VectorScale(backdir, 64, p.vel)
 	
 
 """
@@ -1125,12 +1128,12 @@ def CL_TagTrail (start, end, color): #vec3_t, vec3_t, float
 	move = np.zeros((3,), dtype=np.float32)
 	vec = np.zeros((3,), dtype=np.float32)
 
-	q_shared.VectorCopy (start, move)
-	q_shared.VectorSubtract (end, start, vec)
-	length = q_shared.VectorNormalize (vec)
+	shared.VectorCopy (start, move)
+	shared.VectorSubtract (end, start, vec)
+	length = shared_c.VectorNormalize (vec)
 
 	dec = 5
-	q_shared.VectorScale (vec, 5, vec)
+	shared_c.VectorScale (vec, 5, vec)
 
 	while length >= 0:
 	
@@ -1140,20 +1143,20 @@ def CL_TagTrail (start, end, color): #vec3_t, vec3_t, float
 		if p is None:
 			return
 		cl_fx.active_particles.append(p)
-		q_shared.VectorClear (p.accel)
+		shared.VectorClear (p.accel)
 		
 		p.time = cl_main.cl.time
 
 		p.alpha = 1.0
-		p.alphavel = -1.0 / (0.8+common.frand()*0.2)
+		p.alphavel = -1.0 / (0.8+frame.frand()*0.2)
 		p.color = color
 		for j in range(3):
 		
-			p.org[j] = move[j] + common.crand()*16
-			p.vel[j] = common.crand()*5
+			p.org[j] = move[j] + frame.crand()*16
+			p.vel[j] = frame.crand()*5
 			p.accel[j] = 0
 		
-		q_shared.VectorAdd (move, vec, move)
+		shared.VectorAdd (move, vec, move)
 	
 
 """
@@ -1185,7 +1188,7 @@ def CL_ColorExplosionParticles (org, color, run): #vec3_t, int, int
 		p.accel[2] = -cl_fx.PARTICLE_GRAVITY
 		p.alpha = 1.0
 
-		p.alphavel = -0.4 / (0.6 + common.frand()*0.2)
+		p.alphavel = -0.4 / (0.6 + frame.frand()*0.2)
 	
 
 """
@@ -1218,19 +1221,19 @@ def CL_ParticleSmokeEffect (org, dir, color, count, magnitude): #vec3_t, vec3_t,
 
 		for j in range(3):
 		
-			p.org[j] = org[j] + magnitude*0.1*common.crand()
+			p.org[j] = org[j] + magnitude*0.1*frame.crand()
 #			p->vel[j] = dir[j]*magnitude;
 		
-		q_shared.VectorScale (dir, magnitude, p.vel)
-		d = common.crand()*magnitude/3
-		q_shared.VectorMA (p.vel, d, r, p.vel)
-		d = common.crand()*magnitude/3
-		q_shared.VectorMA (p.vel, d, u, p.vel)
+		shared_c.VectorScale (dir, magnitude, p.vel)
+		d = frame.crand()*magnitude/3
+		shared_c.VectorMA (p.vel, d, r, p.vel)
+		d = frame.crand()*magnitude/3
+		shared_c.VectorMA (p.vel, d, u, p.vel)
 
 		p.accel[0] = p.accel[1] = p.accel[2] = 0
 		p.alpha = 1.0
 
-		p.alphavel = -1.0 / (0.5 + common.frand()*0.3)
+		p.alphavel = -1.0 / (0.5 + frame.frand()*0.3)
 	
 
 """
@@ -1262,13 +1265,13 @@ def CL_BlasterParticles2 (org, dir, color): #vec3_t, vec3_t, unsigned int
 		for j in range(3):
 		
 			p.org[j] = org[j] + ((random.getrandbits(15)&7)-4) + d*dir[j]
-			p.vel[j] = dir[j] * 30 + common.crand()*40
+			p.vel[j] = dir[j] * 30 + frame.crand()*40
 		
 		p.accel[0] = p.accel[1] = 0
 		p.accel[2] = -cl_fx.PARTICLE_GRAVITY
 		p.alpha = 1.0
 
-		p.alphavel = -1.0 / (0.5 + common.frand()*0.3)
+		p.alphavel = -1.0 / (0.5 + frame.frand()*0.3)
 	
 
 """
@@ -1291,12 +1294,12 @@ def CL_BlasterTrail2 (start, end): #vec3_t, vec3_t
 	move = np.zeros((3,), dtype=np.float32)
 	vec = np.zeros((3,), dtype=np.float32)
 
-	q_shared.VectorCopy (start, move)
-	q_shared.VectorSubtract (end, start, vec)
-	length = q_shared.VectorNormalize (vec)
+	shared.VectorCopy (start, move)
+	shared.VectorSubtract (end, start, vec)
+	length = shared_c.VectorNormalize (vec)
 
 	dec = 5
-	q_shared.VectorScale (vec, 5, vec)
+	shared_c.VectorScale (vec, 5, vec)
 
 	# FIXME: this is a really silly way to have a loop
 	while length > 0:
@@ -1307,18 +1310,18 @@ def CL_BlasterTrail2 (start, end): #vec3_t, vec3_t
 		if p is None:
 			return
 		cl_fx.active_particles.append(p)
-		q_shared.VectorClear (p.accel)
+		shared.VectorClear (p.accel)
 		
 		p.time = cl_main.cl.time
 
 		p.alpha = 1.0
-		p.alphavel = -1.0 / (0.3+common.frand()*0.2)
+		p.alphavel = -1.0 / (0.3+frame.frand()*0.2)
 		p.color = 0xd0
 		for j in range(3):
 		
-			p.org[j] = move[j] + common.crand()
-			p.vel[j] = common.crand()*5
+			p.org[j] = move[j] + frame.crand()
+			p.vel[j] = frame.crand()*5
 			p.accel[j] = 0
 		
-		q_shared.VectorAdd (move, vec, move)
+		shared.VectorAdd (move, vec, move)
 	

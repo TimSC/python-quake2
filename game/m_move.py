@@ -25,16 +25,17 @@ from __future__ import annotations
 
 import math
 import random as _r
-from game import q_shared
+pass
 from game import g_main
 from game import g_utils
 from game import g_local
-from game.q_shared import (vec3_origin, CONTENTS_SOLID, MASK_MONSTERSOLID,
-	MASK_WATER, anglemod, YAW)
+from common.shared.shared import vec3_origin, anglemod
+from common.header.shared import CONTENTS_SOLID, MASK_MONSTERSOLID, MASK_WATER, YAW
 from game.g_local import FL_PARTIALGROUND
 
 DI_NODIR = -1
 from game.g_local import FL_FLY, FL_SWIM, AI_NOSTEP
+from common.header import shared
 
 STEPSIZE = 18
 c_yes = 0
@@ -59,8 +60,8 @@ def M_CheckBottom (ent):
 	start = [0, 0, 0]
 	stop = [0, 0, 0]
 
-	q_shared.VectorAdd (ent.s.origin, ent.mins, mins)
-	q_shared.VectorAdd (ent.s.origin, ent.maxs, maxs)
+	shared.VectorAdd (ent.s.origin, ent.mins, mins)
+	shared.VectorAdd (ent.s.origin, ent.maxs, maxs)
 
 	# if all of the points under the corners are solid world, don't bother
 	# with the tougher checks
@@ -135,15 +136,15 @@ def SV_movestep (ent, move, relink):
 	contents = 0
 
 	# try the move
-	q_shared.VectorCopy (ent.s.origin, oldorg)
-	q_shared.VectorAdd (ent.s.origin, move, neworg)
+	shared.VectorCopy (ent.s.origin, oldorg)
+	shared.VectorAdd (ent.s.origin, move, neworg)
 
 	# flying monsters don't step up
 	if ent.flags & (FL_SWIM | FL_FLY):
 		# try one move with vertical motion, then one without
 		i = 0
 		while i < 2:
-			q_shared.VectorAdd (ent.s.origin, move, neworg)
+			shared.VectorAdd (ent.s.origin, move, neworg)
 			if i == 0 and ent.enemy:
 				if not ent.goalentity:
 					ent.goalentity = ent.enemy
@@ -186,7 +187,7 @@ def SV_movestep (ent, move, relink):
 						return False
 
 			if trace.fraction == 1:
-				q_shared.VectorCopy (trace.endpos, ent.s.origin)
+				shared.VectorCopy (trace.endpos, ent.s.origin)
 				if relink:
 					g_main.gi.linkentity (ent)
 					g_utils.G_TouchTriggers (ent)
@@ -205,7 +206,7 @@ def SV_movestep (ent, move, relink):
 		stepsize = 1
 
 	neworg[2] += stepsize
-	q_shared.VectorCopy (neworg, end)
+	shared.VectorCopy (neworg, end)
 	end[2] -= stepsize * 2
 
 	trace = g_main.gi.trace (neworg, ent.mins, ent.maxs, end, ent, MASK_MONSTERSOLID)
@@ -232,7 +233,7 @@ def SV_movestep (ent, move, relink):
 	if trace.fraction == 1:
 		# if monster had the ground pulled out, go ahead and fall
 		if ent.flags & g_local.FL_PARTIALGROUND:
-			q_shared.VectorAdd (ent.s.origin, move, ent.s.origin)
+			shared.VectorAdd (ent.s.origin, move, ent.s.origin)
 			if relink:
 				g_main.gi.linkentity (ent)
 				g_utils.G_TouchTriggers (ent)
@@ -242,7 +243,7 @@ def SV_movestep (ent, move, relink):
 		return False  # walked off an edge
 
 	# check point traces down for dangling corners
-	q_shared.VectorCopy (trace.endpos, ent.s.origin)
+	shared.VectorCopy (trace.endpos, ent.s.origin)
 
 	if not M_CheckBottom (ent):
 		if ent.flags & g_local.FL_PARTIALGROUND:
@@ -252,7 +253,7 @@ def SV_movestep (ent, move, relink):
 				g_main.gi.linkentity (ent)
 				g_utils.G_TouchTriggers (ent)
 			return True
-		q_shared.VectorCopy (oldorg, ent.s.origin)
+		shared.VectorCopy (oldorg, ent.s.origin)
 		return False
 
 	if ent.flags & g_local.FL_PARTIALGROUND:
@@ -351,12 +352,12 @@ def SV_StepDirection (ent, yaw, dist):
 	move[1] = math.sin (yaw) * dist
 	move[2] = 0
 
-	q_shared.VectorCopy (ent.s.origin, oldorigin)
+	shared.VectorCopy (ent.s.origin, oldorigin)
 	if SV_movestep (ent, move, False):
 		delta = ent.s.angles[YAW] - ent.ideal_yaw
 		if delta > 45 and delta < 315:
 			# not turned far enough, so don't take the step
-			q_shared.VectorCopy (oldorigin, ent.s.origin)
+			shared.VectorCopy (oldorigin, ent.s.origin)
 		g_main.gi.linkentity (ent)
 		g_utils.G_TouchTriggers (ent)
 		return True

@@ -21,19 +21,20 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import q_shared, g_local, g_main, g_utils, g_monster, g_misc, g_ai, m_flash, m_supertank
+from game import g_local, g_main, g_utils, g_monster, g_misc, g_ai, m_supertank
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge, infront, range
 from game.g_utils import G_ProjectSource, G_FreeEdict, vtos, vectoyaw
 from game.g_monster import monster_fire_bullet, monster_fire_rocket, flymonster_start
-from game.q_shared import (CHAN_VOICE, ATTN_NONE, CONTENTS_SOLID, CONTENTS_MONSTER,
-	CONTENTS_SLIME, CONTENTS_LAVA, MZ2_BOSS2_ROCKET_1, MZ2_BOSS2_ROCKET_2,
-	MZ2_BOSS2_ROCKET_3, MZ2_BOSS2_ROCKET_4, MZ2_BOSS2_MACHINEGUN_R1, MZ2_BOSS2_MACHINEGUN_L1)
+from common.header.shared import CHAN_VOICE, ATTN_NONE, CONTENTS_SOLID, CONTENTS_MONSTER, CONTENTS_SLIME, CONTENTS_LAVA, MZ2_BOSS2_ROCKET_1, MZ2_BOSS2_ROCKET_2, MZ2_BOSS2_ROCKET_3, MZ2_BOSS2_ROCKET_4, MZ2_BOSS2_MACHINEGUN_R1, MZ2_BOSS2_MACHINEGUN_L1
 from game.g_local import (DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, FRAMETIME,
 	MOVETYPE_STEP, MOVETYPE_TOSS, AI_STAND_GROUND, FL_FLY, FL_IMMUNE_LASER,
 	RANGE_MELEE, RANGE_NEAR, RANGE_MID, RANGE_FAR, AS_MELEE, AS_MISSILE, AS_SLIDING,
 	AS_STRAIGHT, DEAD_DEAD, damage_t)
 DAMAGE_NO = damage_t.DAMAGE_NO.value
 from game.game import solid_t, SVF_DEADMONSTER
+from common.header import shared
+from common.shared import flash
+from common.shared import shared as shared_c
 
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 
@@ -132,38 +133,38 @@ def Boss2Rocket (self):
 	dir = np.zeros((3,), dtype=np.float32)
 	vec = np.zeros((3,), dtype=np.float32)
 
-	q_shared.AngleVectors (self.s.angles, forward, right, up)
+	shared_c.AngleVectors (self.s.angles, forward, right, up)
 
 	# 1
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_BOSS2_ROCKET_1], forward, right, start)
-	q_shared.VectorCopy (self.enemy.s.origin, vec)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[MZ2_BOSS2_ROCKET_1], forward, right, start)
+	shared.VectorCopy (self.enemy.s.origin, vec)
 	vec[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (vec, start, dir)
-	q_shared.VectorNormalize (dir)
+	shared.VectorSubtract (vec, start, dir)
+	shared_c.VectorNormalize (dir)
 	monster_fire_rocket (self, start, dir, 50, 500, MZ2_BOSS2_ROCKET_1)
 
 	# 2
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_BOSS2_ROCKET_2], forward, right, start)
-	q_shared.VectorCopy (self.enemy.s.origin, vec)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[MZ2_BOSS2_ROCKET_2], forward, right, start)
+	shared.VectorCopy (self.enemy.s.origin, vec)
 	vec[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (vec, start, dir)
-	q_shared.VectorNormalize (dir)
+	shared.VectorSubtract (vec, start, dir)
+	shared_c.VectorNormalize (dir)
 	monster_fire_rocket (self, start, dir, 50, 500, MZ2_BOSS2_ROCKET_2)
 
 	# 3
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_BOSS2_ROCKET_3], forward, right, start)
-	q_shared.VectorCopy (self.enemy.s.origin, vec)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[MZ2_BOSS2_ROCKET_3], forward, right, start)
+	shared.VectorCopy (self.enemy.s.origin, vec)
 	vec[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (vec, start, dir)
-	q_shared.VectorNormalize (dir)
+	shared.VectorSubtract (vec, start, dir)
+	shared_c.VectorNormalize (dir)
 	monster_fire_rocket (self, start, dir, 50, 500, MZ2_BOSS2_ROCKET_3)
 
 	# 4
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_BOSS2_ROCKET_4], forward, right, start)
-	q_shared.VectorCopy (self.enemy.s.origin, vec)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[MZ2_BOSS2_ROCKET_4], forward, right, start)
+	shared.VectorCopy (self.enemy.s.origin, vec)
 	vec[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (vec, start, dir)
-	q_shared.VectorNormalize (dir)
+	shared.VectorSubtract (vec, start, dir)
+	shared_c.VectorNormalize (dir)
 	monster_fire_rocket (self, start, dir, 50, 500, MZ2_BOSS2_ROCKET_4)
 
 def boss2_firebullet_right (self):
@@ -173,13 +174,13 @@ def boss2_firebullet_right (self):
 	target = np.zeros((3,), dtype=np.float32)
 	start = np.zeros((3,), dtype=np.float32)
 
-	q_shared.AngleVectors (self.s.angles, forward, right, up)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_BOSS2_MACHINEGUN_R1], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, up)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[MZ2_BOSS2_MACHINEGUN_R1], forward, right, start)
 
-	q_shared.VectorMA (self.enemy.s.origin, -0.2, self.enemy.velocity, target)
+	shared_c.VectorMA (self.enemy.s.origin, -0.2, self.enemy.velocity, target)
 	target[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (target, start, forward)
-	q_shared.VectorNormalize (forward)
+	shared.VectorSubtract (target, start, forward)
+	shared_c.VectorNormalize (forward)
 
 	monster_fire_bullet (self, start, forward, 6, 4, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, MZ2_BOSS2_MACHINEGUN_R1)
 
@@ -190,14 +191,14 @@ def boss2_firebullet_left (self):
 	target = np.zeros((3,), dtype=np.float32)
 	start = np.zeros((3,), dtype=np.float32)
 
-	q_shared.AngleVectors (self.s.angles, forward, right, up)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_BOSS2_MACHINEGUN_L1], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, up)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[MZ2_BOSS2_MACHINEGUN_L1], forward, right, start)
 
-	q_shared.VectorMA (self.enemy.s.origin, -0.2, self.enemy.velocity, target)
+	shared_c.VectorMA (self.enemy.s.origin, -0.2, self.enemy.velocity, target)
 
 	target[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (target, start, forward)
-	q_shared.VectorNormalize (forward)
+	shared.VectorSubtract (target, start, forward)
+	shared_c.VectorNormalize (forward)
 
 	monster_fire_bullet (self, start, forward, 6, 4, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, MZ2_BOSS2_MACHINEGUN_L1)
 
@@ -222,8 +223,8 @@ def boss2_attack (self):
 	vec = np.zeros((3,), dtype=np.float32)
 	range_ = 0.0
 
-	q_shared.VectorSubtract (self.enemy.s.origin, self.s.origin, vec)
-	range_ = q_shared.VectorLength (vec)
+	shared.VectorSubtract (self.enemy.s.origin, self.s.origin, vec)
+	range_ = shared_c.VectorLength (vec)
 
 	if range_ <= 125:
 		self.monsterinfo.currentmove = boss2_move_attack_pre_mg
@@ -265,8 +266,8 @@ def boss2_pain (self, other, kick, damage):
 		self.monsterinfo.currentmove = boss2_move_pain_heavy
 
 def boss2_dead (self):
-	q_shared.VectorSet (self.mins, -56, -56, 0)
-	q_shared.VectorSet (self.maxs, 56, 56, 80)
+	shared.VectorSet (self.mins, -56, -56, 0)
+	shared.VectorSet (self.maxs, 56, 56, 80)
 	self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	self.nextthink = 0
@@ -325,9 +326,9 @@ def Boss2_CheckAttack (self):
 
 	if self.enemy.health > 0:
 		# see if any entities are in the way of the shot
-		q_shared.VectorCopy (self.s.origin, spot1)
+		shared.VectorCopy (self.s.origin, spot1)
 		spot1[2] += self.viewheight
-		q_shared.VectorCopy (self.enemy.s.origin, spot2)
+		shared.VectorCopy (self.enemy.s.origin, spot2)
 		spot2[2] += self.enemy.viewheight
 
 		tr = g_main.gi.trace (spot1, None, None, spot2, self, CONTENTS_SOLID|CONTENTS_MONSTER|CONTENTS_SLIME|CONTENTS_LAVA)
@@ -338,7 +339,7 @@ def Boss2_CheckAttack (self):
 
 	enemy_infront = infront(self, self.enemy)
 	enemy_range = range(self, self.enemy)
-	q_shared.VectorSubtract (self.enemy.s.origin, self.s.origin, temp)
+	shared.VectorSubtract (self.enemy.s.origin, self.s.origin, temp)
 	enemy_yaw = vectoyaw(temp)
 
 	self.ideal_yaw = enemy_yaw
@@ -402,8 +403,8 @@ def SP_monster_boss2 (self):
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 	self.s.modelindex = g_main.gi.modelindex ("models/monsters/boss2/tris.md2")
-	q_shared.VectorSet (self.mins, -56, -56, 0)
-	q_shared.VectorSet (self.maxs, 56, 56, 80)
+	shared.VectorSet (self.mins, -56, -56, 0)
+	shared.VectorSet (self.maxs, 56, 56, 80)
 
 	self.health = 2000
 	self.gib_health = -200

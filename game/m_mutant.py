@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, q_shared, m_flash, g_ai
+from game import g_main, g_local, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_combat import (T_Damage)
 from game.g_local import (AI_DUCKED, AI_STAND_GROUND, AS_MELEE, AS_MISSILE, DEAD_DEAD, GIB_ORGANIC, MELEE_DISTANCE, MOD_UNKNOWN, MOVETYPE_STEP, MOVETYPE_TOSS, RANGE_MELEE, damage_t)
@@ -30,7 +30,9 @@ from game.g_utils import (G_FreeEdict)
 from game.g_weapon import (fire_hit)
 from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
 from game.m_move import (M_CheckBottom)
-from game.q_shared import (ATTN_IDLE, ATTN_NORM, CHAN_VOICE, CHAN_WEAPON)
+from common.header.shared import ATTN_IDLE, ATTN_NORM, CHAN_VOICE, CHAN_WEAPON
+from common.header import shared
+from common.shared import shared as shared_c
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 
 # m_mutant.h
@@ -289,7 +291,7 @@ def mutant_hit_left (self): #edict_t *
 
 	aim = np.zeros((3,), dtype=np.float32) #vec3_t
 
-	q_shared.VectorSet (aim, MELEE_DISTANCE, self.mins[0], 8)
+	shared.VectorSet (aim, MELEE_DISTANCE, self.mins[0], 8)
 	if fire_hit (self, aim, (10 + (_r.randint(0, 2147483647) %5)), 100):
 		g_main.gi.sound (self, CHAN_WEAPON, sound_hit, 1, ATTN_NORM, 0)
 	else:
@@ -300,7 +302,7 @@ def mutant_hit_right (self): #edict_t *
 
 	aim = np.zeros((3,), dtype=np.float32) #vec3_t
 
-	q_shared.VectorSet (aim, MELEE_DISTANCE, self.maxs[0], 8)
+	shared.VectorSet (aim, MELEE_DISTANCE, self.maxs[0], 8)
 	if fire_hit (self, aim, (10 + (_r.randint(0, 2147483647) %5)), 100):
 		g_main.gi.sound (self, CHAN_WEAPON, sound_hit2, 1, ATTN_NORM, 0)
 	else:
@@ -328,14 +330,14 @@ def mutant_jump_touch (self, other, plane, surf): #edict_t *, edict_t *, cplane_
 		return
 
 	if other.takedamage:
-		if q_shared.VectorLength(self.velocity) > 400:
+		if shared_c.VectorLength(self.velocity) > 400:
 			point = np.zeros((3,), dtype=np.float32) #vec3_t
 			normal = np.zeros((3,), dtype=np.float32) #vec3_t
 			#int	damage;
 
-			q_shared.VectorCopy (self.velocity, normal)
-			q_shared.VectorNormalize(normal)
-			q_shared.VectorMA (self.s.origin, self.maxs[0], normal, point)
+			shared.VectorCopy (self.velocity, normal)
+			shared_c.VectorNormalize(normal)
+			shared_c.VectorMA (self.s.origin, self.maxs[0], normal, point)
 			damage = 40 + 10 * g_local.random()
 			T_Damage (other, self, self, self.velocity, point, normal, damage, damage, 0, MOD_UNKNOWN)
 
@@ -353,9 +355,9 @@ def mutant_jump_takeoff (self): #edict_t *
 	forward = np.zeros((3,), dtype=np.float32) #vec3_t
 
 	g_main.gi.sound (self, CHAN_VOICE, sound_sight, 1, ATTN_NORM, 0)
-	q_shared.AngleVectors (self.s.angles, forward, None, None)
+	shared_c.AngleVectors (self.s.angles, forward, None, None)
 	self.s.origin[2] += 1
-	q_shared.VectorScale (forward, 600, self.velocity)
+	shared_c.VectorScale (forward, 600, self.velocity)
 	self.velocity[2] = 250
 	self.groundentity = None
 	self.monsterinfo.aiflags |= AI_DUCKED
@@ -403,7 +405,7 @@ def mutant_check_jump (self): #edict_t *
 	v[0] = self.s.origin[0] - self.enemy.s.origin[0]
 	v[1] = self.s.origin[1] - self.enemy.s.origin[1]
 	v[2] = 0
-	distance = q_shared.VectorLength(v)
+	distance = shared_c.VectorLength(v)
 
 	if distance < 100:
 		return False
@@ -460,8 +462,8 @@ def mutant_pain (self, other, kick, damage): #edict_t *, edict_t *, float, int
 
 def mutant_dead (self): #edict_t *
 
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, -8)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, -8)
 	self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	g_main.gi.linkentity (self)
@@ -523,8 +525,8 @@ def SP_monster_mutant (self): #edict_t *
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 	self.s.modelindex = g_main.gi.modelindex ("models/monsters/mutant/tris.md2")
-	q_shared.VectorSet (self.mins, -32, -32, -24)
-	q_shared.VectorSet (self.maxs, 32, 32, 48)
+	shared.VectorSet (self.mins, -32, -32, -24)
+	shared.VectorSet (self.maxs, 32, 32, 48)
 
 	self.health = 300
 	self.gib_health = -120

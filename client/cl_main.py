@@ -21,11 +21,23 @@ from __future__ import annotations
 
 import os
 import struct
-from qcommon import cvar, common, cmd, files, net_chan, qcommon, cmodel, qfiles
-from game import q_shared
+from qcommon import net_chan, cmodel
+pass
 from client import console, snd_dma, cl_scrn, client, cl_view, menu, cl_input, keys, cl_cin, cl_parse, cl_fx, cl_tent, cl_pred
 from linux import q_shlinux, vid_so, net_udp, cd_linux, sys_linux
 from server import sv_main
+from common.header import common as common_h
+from common.header import files as files_h
+from common.header import shared
+from common.shared import shared as shared_c
+from common import argproc
+from common import clientserver
+from common import cmdparser
+from common import cvar
+from common import filesystem
+from common import frame
+from common import movemsg
+from common import szone
 
 """
 // cl_main.c  -- client main loop
@@ -53,13 +65,13 @@ cl = client.client_state_t()
 
 
 cl_entities = []
-for i in range(q_shared.MAX_EDICTS):
+for i in range(shared.MAX_EDICTS):
 	cl_entities.append(client.centity_t())
 
 
 cl_parse_entities = [] 
 for i in range(client.MAX_PARSE_ENTITIES):
-	cl_parse_entities.append(q_shared.entity_state_t())
+	cl_parse_entities.append(shared.entity_state_t())
 """
 extern	cvar_t *allow_download;
 extern	cvar_t *allow_download_players;
@@ -101,7 +113,7 @@ def CL_Stop_f ():
 
 	if not cls.demorecording:
 	
-		common.Com_Printf ("Not recording a demo.\n")
+		clientserver.Com_Printf ("Not recording a demo.\n")
 		return
 	
 	# finish up
@@ -110,7 +122,7 @@ def CL_Stop_f ():
 	cls.demofile.close ()
 	cls.demofile = None
 	cls.demorecording = False
-	common.Com_Printf ("Stopped demo.\n")
+	clientserver.Com_Printf ("Stopped demo.\n")
 
 """
 ====================
@@ -132,37 +144,37 @@ def CL_Record_f ():
 	entity_state_t	*ent;
 	entity_state_t	nullstate;
 	"""
-	buf = qcommon.sizebuf_t()
+	buf = common_h.sizebuf_t()
 
-	if cmd.Cmd_Argc() != 2:
+	if cmdparser.Cmd_Argc() != 2:
 	
-		common.Com_Printf ("record <demoname>\n")
+		clientserver.Com_Printf ("record <demoname>\n")
 		return
 	
 	if cls.demorecording:
 	
-		common.Com_Printf ("Already recording.\n")
+		clientserver.Com_Printf ("Already recording.\n")
 		return
 	
 	if cls.state != client.connstate_t.ca_active:
 	
-		common.Com_Printf ("You must be in a level to record.\n")
+		clientserver.Com_Printf ("You must be in a level to record.\n")
 		return
 	
 	#
 	# open the demo file
 	#
-	name = "{}/demos/{}.dm2".format(files.FS_Gamedir(), cmd.Cmd_Argv(1))
+	name = "{}/demos/{}.dm2".format(filesystem.FS_Gamedir(), cmdparser.Cmd_Argv(1))
 
-	common.Com_Printf ("recording to {}.\n".format(name))
-	files.FS_CreatePath (name)
+	clientserver.Com_Printf ("recording to {}.\n".format(name))
+	filesystem.FS_CreatePath (name)
 	try:
 		cls.demofile = open (name, "wb")
 	except OSError:
 		cls.demofile = None
 	if cls.demofile is None:
 	
-		common.Com_Printf ("ERROR: couldn't open.\n")
+		clientserver.Com_Printf ("ERROR: couldn't open.\n")
 		return
 	
 	cls.demorecording = True
@@ -173,20 +185,20 @@ def CL_Record_f ():
 	#
 	# write out messages to hold the startup information
 	#
-	common.SZ_Init (buf, qcommon.MAX_MSGLEN)
+	szone.SZ_Init (buf, common_h.MAX_MSGLEN)
 
 	# send the serverdata
-	common.MSG_WriteByte (buf, qcommon.svc_ops_e.svc_serverdata.value)
-	common.MSG_WriteLong (buf, qcommon.PROTOCOL_VERSION)
-	common.MSG_WriteLong (buf, 0x10000 + cl.servercount)
-	common.MSG_WriteByte (buf, 1)	# demos are always attract loops
-	common.MSG_WriteString (buf, cl.gamedir.encode('ascii'))
-	common.MSG_WriteShort (buf, cl.playernum)
+	movemsg.MSG_WriteByte (buf, common_h.svc_ops_e.svc_serverdata.value)
+	movemsg.MSG_WriteLong (buf, common_h.PROTOCOL_VERSION)
+	movemsg.MSG_WriteLong (buf, 0x10000 + cl.servercount)
+	movemsg.MSG_WriteByte (buf, 1)	# demos are always attract loops
+	movemsg.MSG_WriteString (buf, cl.gamedir.encode('ascii'))
+	movemsg.MSG_WriteShort (buf, cl.playernum)
 
-	common.MSG_WriteString (buf, cl.configstrings[q_shared.CS_NAME].encode('ascii'))
+	movemsg.MSG_WriteString (buf, cl.configstrings[shared.CS_NAME].encode('ascii'))
 
 	# configstrings
-	for i in range(q_shared.MAX_CONFIGSTRINGS):
+	for i in range(shared.MAX_CONFIGSTRINGS):
 	
 		if cl.configstrings[i]:
 		
@@ -196,13 +208,13 @@ def CL_Record_f ():
 				cls.demofile.write (buf.data[:buf.cursize])
 				buf.cursize = 0
 			
-			common.MSG_WriteByte (buf, qcommon.svc_ops_e.svc_configstring.value)
-			common.MSG_WriteShort (buf, i)
-			common.MSG_WriteString (buf, cl.configstrings[i].encode('ascii'))
+			movemsg.MSG_WriteByte (buf, common_h.svc_ops_e.svc_configstring.value)
+			movemsg.MSG_WriteShort (buf, i)
+			movemsg.MSG_WriteString (buf, cl.configstrings[i].encode('ascii'))
 		
 	# baselines
-	nullstate = q_shared.entity_state_t() # memset (&nullstate, 0, sizeof(nullstate));
-	for i in range(q_shared.MAX_EDICTS):
+	nullstate = shared.entity_state_t() # memset (&nullstate, 0, sizeof(nullstate));
+	for i in range(shared.MAX_EDICTS):
 	
 		ent = cl_entities[i].baseline
 		if not ent.modelindex:
@@ -214,11 +226,11 @@ def CL_Record_f ():
 			cls.demofile.write (buf.data[:buf.cursize])
 			buf.cursize = 0
 		
-		common.MSG_WriteByte (buf, qcommon.svc_ops_e.svc_spawnbaseline.value)		
-		common.MSG_WriteDeltaEntity (nullstate, cl_entities[i].baseline, buf, True, True)
+		movemsg.MSG_WriteByte (buf, common_h.svc_ops_e.svc_spawnbaseline.value)		
+		movemsg.MSG_WriteDeltaEntity (nullstate, cl_entities[i].baseline, buf, True, True)
 	
-	common.MSG_WriteByte (buf, qcommon.svc_ops_e.svc_stufftext.value)
-	common.MSG_WriteString (buf, b"precache\n")
+	movemsg.MSG_WriteByte (buf, common_h.svc_ops_e.svc_stufftext.value)
+	movemsg.MSG_WriteString (buf, b"precache\n")
 
 	# write it to the demo file
 
@@ -245,50 +257,50 @@ def Cmd_ForwardToServer ():
 
 	#char	*cmd;
 
-	cmd_name = cmd.Cmd_Argv(0)
+	cmd_name = cmdparser.Cmd_Argv(0)
 	if cls.state.value <= client.connstate_t.ca_connected.value or cmd_name[:1] == '-' or cmd_name[:1] == '+':
 	
-		common.Com_Printf ("Unknown command \"{}\"\n".format(cmd_name))
+		clientserver.Com_Printf ("Unknown command \"{}\"\n".format(cmd_name))
 		return
 	
-	common.MSG_WriteByte (cls.netchan.message, qcommon.clc_ops_e.clc_stringcmd.value)
-	common.SZ_Print (cls.netchan.message, cmd_name)
-	if cmd.Cmd_Argc() > 1:
+	movemsg.MSG_WriteByte (cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value)
+	szone.SZ_Print (cls.netchan.message, cmd_name)
+	if cmdparser.Cmd_Argc() > 1:
 	
-		common.SZ_Print (cls.netchan.message, " ")
-		common.SZ_Print (cls.netchan.message, cmd.Cmd_Args())
+		szone.SZ_Print (cls.netchan.message, " ")
+		szone.SZ_Print (cls.netchan.message, cmdparser.Cmd_Args())
 	
 
 def CL_Setenv_f():
 
-	argc = cmd.Cmd_Argc()
+	argc = cmdparser.Cmd_Argc()
 
 	if argc > 2:
 	
 		#char buffer[1000];
 		#int i;
 
-		name = cmd.Cmd_Argv(1)
+		name = cmdparser.Cmd_Argv(1)
 		buffer = ""
 
 		for i in range(2, argc):
 		
-			buffer += cmd.Cmd_Argv( i )
+			buffer += cmdparser.Cmd_Argv( i )
 			buffer += " "
 		
 		os.environ[name] = buffer # strcpy( buffer, Cmd_Argv(1) ); strcat( buffer, "=" ); ... putenv( buffer );
 	
 	elif argc == 2:
 	
-		env = os.environ.get( cmd.Cmd_Argv(1) ) # getenv returns NULL when unset
+		env = os.environ.get( cmdparser.Cmd_Argv(1) ) # getenv returns NULL when unset
 
 		if env is not None:
 		
-			common.Com_Printf( "{}={}\n".format(cmd.Cmd_Argv(1), env) )
+			clientserver.Com_Printf( "{}={}\n".format(cmdparser.Cmd_Argv(1), env) )
 		
 		else:
 		
-			common.Com_Printf( "{} undefined\n".format(cmd.Cmd_Argv(1)) )
+			clientserver.Com_Printf( "{} undefined\n".format(cmdparser.Cmd_Argv(1)) )
 		
 
 """
@@ -300,14 +312,14 @@ def CL_ForwardToServer_f ():
 
 	if cls.state != client.connstate_t.ca_connected and cls.state != client.connstate_t.ca_active:
 	
-		common.Com_Printf ("Can't \"{}\", not connected\n".format(cmd.Cmd_Argv(0)))
+		clientserver.Com_Printf ("Can't \"{}\", not connected\n".format(cmdparser.Cmd_Argv(0)))
 		return
 	
 	# don't forward the first argument
-	if cmd.Cmd_Argc() > 1:
+	if cmdparser.Cmd_Argc() > 1:
 	
-		common.MSG_WriteByte (cls.netchan.message, qcommon.clc_ops_e.clc_stringcmd.value)
-		common.SZ_Print (cls.netchan.message, cmd.Cmd_Args())
+		movemsg.MSG_WriteByte (cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value)
+		szone.SZ_Print (cls.netchan.message, cmdparser.Cmd_Args())
 	
 
 
@@ -320,7 +332,7 @@ CL_Pause_f
 def CL_Pause_f ():
 
 	# never pause in multiplayer
-	if cvar.Cvar_VariableValue ("maxclients") > 1 or not common.Com_ServerState ():
+	if cvar.Cvar_VariableValue ("maxclients") > 1 or not clientserver.Com_ServerState ():
 	
 		cvar.Cvar_SetValue ("paused", 0)
 		return
@@ -336,7 +348,7 @@ CL_Quit_f
 def CL_Quit_f ():
 
 	CL_Disconnect ()
-	common.Com_Quit ()
+	clientserver.Com_Quit ()
 
 
 """
@@ -373,18 +385,18 @@ def CL_SendConnectPacket ():
 	adr = net_udp.NET_StringToAdr (cls.servername)
 	if adr is None:
 	
-		common.Com_Printf ("Bad server address\n")
+		clientserver.Com_Printf ("Bad server address\n")
 		cls.connect_time = 0
 		return
 	
 	if not adr.port:
-		adr.port = q_shared.BigShort (struct.pack("=H", qcommon.PORT_SERVER)) # BigShort (PORT_SERVER)
+		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
 
 	port = int(cvar.Cvar_VariableValue ("qport"))
 	cvar.userinfo_modified = False
 
-	net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, adr, "connect {:d} {:d} {:d} \"{}\"\n".format(
-		qcommon.PROTOCOL_VERSION, port, cls.challenge, cvar.Cvar_Userinfo()).encode('ascii') )
+	net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "connect {:d} {:d} {:d} \"{}\"\n".format(
+		common_h.PROTOCOL_VERSION, port, cls.challenge, cvar.Cvar_Userinfo()).encode('ascii') )
 
 
 """
@@ -400,7 +412,7 @@ def CL_CheckForResend ():
 
 	# if the local server is running and we aren't
 	# then connect
-	if cls.state == client.connstate_t.ca_disconnected and common.Com_ServerState():
+	if cls.state == client.connstate_t.ca_disconnected and clientserver.Com_ServerState():
 	
 		cls.state = client.connstate_t.ca_connecting
 		cls.servername = "localhost"
@@ -418,18 +430,18 @@ def CL_CheckForResend ():
 
 	adr = net_udp.NET_StringToAdr(cls.servername)
 	if adr is None:
-		common.Com_Printf("Bad server address\n")
+		clientserver.Com_Printf("Bad server address\n")
 		cls.state = client.connstate_t.ca_disconnected
 		return
 
 	if not adr.port:
-		adr.port = q_shared.BigShort (struct.pack("=H", qcommon.PORT_SERVER)) # BigShort (PORT_SERVER)
+		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
 
 	cls.connect_time = cls.realtime
 
-	common.Com_Printf("Connecting to {}...\n".format(cls.servername))
+	clientserver.Com_Printf("Connecting to {}...\n".format(cls.servername))
 
-	net_chan.Netchan_OutOfBandPrint(qcommon.netsrc_t.NS_CLIENT, adr, b"getchallenge\n")
+	net_chan.Netchan_OutOfBandPrint(common_h.netsrc_t.NS_CLIENT, adr, b"getchallenge\n")
 
 
 
@@ -443,12 +455,12 @@ def CL_Connect_f ():
 
 	#char	*server;
 
-	if cmd.Cmd_Argc() != 2:
+	if cmdparser.Cmd_Argc() != 2:
 	
-		common.Com_Printf ("usage: connect <server>\n")
+		clientserver.Com_Printf ("usage: connect <server>\n")
 		return	
 	
-	if common.Com_ServerState ():
+	if clientserver.Com_ServerState ():
 		# if running a local server, kill it and reissue
 		sv_main.SV_Shutdown ("Server quit\n", False)
 	
@@ -456,14 +468,14 @@ def CL_Connect_f ():
 	
 		CL_Disconnect ()
 	
-	server = cmd.Cmd_Argv (1)
+	server = cmdparser.Cmd_Argv (1)
 
 	net_udp.NET_Config (True)		# allow remote
 
 	CL_Disconnect ()
 
 	cls.state = client.connstate_t.ca_connecting
-	cls.servername = server[:q_shared.MAX_OSPATH-1] # strncpy (cls.servername, server, sizeof(cls.servername)-1);
+	cls.servername = server[:shared.MAX_OSPATH-1] # strncpy (cls.servername, server, sizeof(cls.servername)-1);
 	cls.connect_time = -99999	# CL_CheckForResend() will fire immediately
 
 
@@ -483,7 +495,7 @@ def CL_Rcon_f ():
 
 	if rcon_client_password.string is None:
 	
-		common.Com_Printf ("You must set 'rcon_password' before\n"
+		clientserver.Com_Printf ("You must set 'rcon_password' before\n"
 					"issuing an rcon command.\n")
 		return
 	
@@ -496,9 +508,9 @@ def CL_Rcon_f ():
 	message += rcon_client_password.string.encode('ascii')
 	message += b" "
 
-	for i in range(1, cmd.Cmd_Argc()):
+	for i in range(1, cmdparser.Cmd_Argc()):
 	
-		message += cmd.Cmd_Argv(i).encode('ascii')
+		message += cmdparser.Cmd_Argv(i).encode('ascii')
 		message += b" "
 	
 	if cls.state.value >= client.connstate_t.ca_connected.value:
@@ -507,7 +519,7 @@ def CL_Rcon_f ():
 	
 		if not len(rcon_address.string):
 		
-			common.Com_Printf ("You must either be connected,\n"
+			clientserver.Com_Printf ("You must either be connected,\n"
 						"or set the 'rcon_address' cvar\n"
 						"to issue rcon commands\n")
 
@@ -515,12 +527,12 @@ def CL_Rcon_f ():
 		
 		to = net_udp.NET_StringToAdr (rcon_address.string)
 		if to is None: # C ignores the failure and sends to an empty address
-			to = qcommon.netadr_t()
+			to = common_h.netadr_t()
 		if to.port == 0:
-			to.port = q_shared.BigShort (struct.pack("=H", qcommon.PORT_SERVER)) # BigShort (PORT_SERVER)
+			to.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
 	
 	message += b"\0"
-	net_udp.NET_SendPacket (qcommon.netsrc_t.NS_CLIENT, bytes(message), to) # strlen(message)+1
+	net_udp.NET_SendPacket (common_h.netsrc_t.NS_CLIENT, bytes(message), to) # strlen(message)+1
 
 
 
@@ -539,7 +551,7 @@ def CL_ClearState ():
 	for ent in cl_entities:
 		ent.clear()
 
-	common.SZ_Clear (cls.netchan.message)
+	szone.SZ_Clear (cls.netchan.message)
 
 
 
@@ -568,10 +580,10 @@ def CL_Disconnect ():
 		
 		time = q_shlinux.Sys_Milliseconds () - cl.timedemo_start
 		if time > 0:
-			common.Com_Printf ("{} frames, {:3.1f} seconds: {:3.1f} fps\n".format(cl.timedemo_frames,
+			clientserver.Com_Printf ("{} frames, {:3.1f} seconds: {:3.1f} fps\n".format(cl.timedemo_frames,
 			time/1000.0, cl.timedemo_frames*1000.0 / time))
 	
-	q_shared.VectorClear (cl.refdef.blend)
+	shared.VectorClear (cl.refdef.blend)
 	vid_so.re.CinematicSetPalette(None)
 
 	menu.M_ForceMenuOff ()
@@ -585,7 +597,7 @@ def CL_Disconnect ():
 
 	# send a disconnect message to the server
 	final = bytearray()
-	final += struct.pack("B", qcommon.clc_ops_e.clc_stringcmd.value)
+	final += struct.pack("B", common_h.clc_ops_e.clc_stringcmd.value)
 	final += b"disconnect"
 	net_chan.Netchan_Transmit (cls.netchan, final)
 	net_chan.Netchan_Transmit (cls.netchan, final)
@@ -603,7 +615,7 @@ def CL_Disconnect ():
 
 def CL_Disconnect_f ():
 
-	common.Com_Error (q_shared.ERR_DROP, "Disconnected from server");
+	clientserver.Com_Error (shared.ERR_DROP, "Disconnected from server");
 
 
 
@@ -623,23 +635,23 @@ def CL_Packet_f ():
 	#char	*in, *out;
 	#netadr_t	adr;
 
-	if cmd.Cmd_Argc() != 3:
+	if cmdparser.Cmd_Argc() != 3:
 	
-		common.Com_Printf ("packet <destination> <contents>\n")
+		clientserver.Com_Printf ("packet <destination> <contents>\n")
 		return
 	
 	net_udp.NET_Config (True)		# allow remote
 
-	adr = net_udp.NET_StringToAdr (cmd.Cmd_Argv(1))
+	adr = net_udp.NET_StringToAdr (cmdparser.Cmd_Argv(1))
 	if adr is None:
 	
-		common.Com_Printf ("Bad address\n")
+		clientserver.Com_Printf ("Bad address\n")
 		return
 	
 	if not adr.port:
-		adr.port = q_shared.BigShort (struct.pack("=H", qcommon.PORT_SERVER)) # BigShort (PORT_SERVER)
+		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
 
-	in_str = cmd.Cmd_Argv(2)
+	in_str = cmdparser.Cmd_Argv(2)
 	send = bytearray(b"\xff\xff\xff\xff") # send[0] = send[1] = send[2] = send[3] = (char)0xff;
 
 	l = len (in_str)
@@ -657,7 +669,7 @@ def CL_Packet_f ():
 	
 	# *out = 0;
 
-	net_udp.NET_SendPacket (qcommon.netsrc_t.NS_CLIENT, bytes(send), adr) # out-send, excludes the terminator
+	net_udp.NET_SendPacket (common_h.netsrc_t.NS_CLIENT, bytes(send), adr) # out-send, excludes the terminator
 
 
 
@@ -679,7 +691,7 @@ def CL_Changing_f ():
 
 	cl_scrn.SCR_BeginLoadingPlaque ()
 	cls.state = client.connstate_t.ca_connected # not active anymore, but not disconnected
-	common.Com_Printf ("\nChanging map...\n")
+	clientserver.Com_Printf ("\nChanging map...\n")
 
 """
 =================
@@ -697,10 +709,10 @@ def CL_Reconnect_f ():
 
 	snd_dma.S_StopAllSounds ()
 	if cls.state == client.connstate_t.ca_connected:
-		common.Com_Printf ("reconnecting...\n")
+		clientserver.Com_Printf ("reconnecting...\n")
 		cls.state = client.connstate_t.ca_connected
-		common.MSG_WriteChar (cls.netchan.message, struct.pack("B", qcommon.clc_ops_e.clc_stringcmd.value))
-		common.MSG_WriteString (cls.netchan.message, b"new")
+		movemsg.MSG_WriteChar (cls.netchan.message, struct.pack("B", common_h.clc_ops_e.clc_stringcmd.value))
+		movemsg.MSG_WriteString (cls.netchan.message, b"new")
 		return
 
 	if cls.servername:
@@ -711,7 +723,7 @@ def CL_Reconnect_f ():
 			cls.connect_time = -99999 # fire immediately
 
 		cls.state = client.connstate_t.ca_connecting
-		common.Com_Printf ("reconnecting...\n")
+		clientserver.Com_Printf ("reconnecting...\n")
 
 
 """
@@ -725,9 +737,9 @@ def CL_ParseStatusMessage ():
 
 	#char	*s;
 
-	s = common.MSG_ReadString(net_chan.net_message)
+	s = movemsg.MSG_ReadString(net_chan.net_message)
 
-	common.Com_Printf ("{}\n".format(s))
+	clientserver.Com_Printf ("{}\n".format(s))
 	menu.M_AddToServerList (net_chan.net_from, s)
 
 
@@ -746,26 +758,26 @@ def CL_PingServers_f ():
 	cvar_t		*noudp;
 	cvar_t		*noipx;
 	"""
-	adr = qcommon.netadr_t()
+	adr = common_h.netadr_t()
 
 	net_udp.NET_Config (True)		# allow remote
 
 	# send a broadcast packet
-	common.Com_Printf ("pinging broadcast...\n")
+	clientserver.Com_Printf ("pinging broadcast...\n")
 
-	noudp = cvar.Cvar_Get ("noudp", "0", q_shared.CVAR_NOSET)
+	noudp = cvar.Cvar_Get ("noudp", "0", shared.CVAR_NOSET)
 	if not noudp.value:
 	
-		adr.type = qcommon.netadrtype_t.NA_BROADCAST
-		adr.port = q_shared.BigShort (struct.pack("=H", qcommon.PORT_SERVER)) # BigShort (PORT_SERVER)
-		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, adr, "info {}".format(qcommon.PROTOCOL_VERSION).encode("ascii"))
+		adr.type = common_h.netadrtype_t.NA_BROADCAST
+		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
+		net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
 	
-	noipx = cvar.Cvar_Get ("noipx", "0", q_shared.CVAR_NOSET)
+	noipx = cvar.Cvar_Get ("noipx", "0", shared.CVAR_NOSET)
 	if not noipx.value:
 	
-		adr.type = qcommon.netadrtype_t.NA_BROADCAST_IPX
-		adr.port = q_shared.BigShort (struct.pack("=H", qcommon.PORT_SERVER)) # BigShort (PORT_SERVER)
-		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, adr, "info {}".format(qcommon.PROTOCOL_VERSION).encode("ascii"))
+		adr.type = common_h.netadrtype_t.NA_BROADCAST_IPX
+		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
+		net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
 	
 	# send a packet to each address book entry
 	for i in range(16):
@@ -775,16 +787,16 @@ def CL_PingServers_f ():
 		if not adrstring:
 			continue
 
-		common.Com_Printf ("pinging {}...\n".format(adrstring))
+		clientserver.Com_Printf ("pinging {}...\n".format(adrstring))
 		adr = net_udp.NET_StringToAdr (adrstring)
 		if adr is None:
 		
-			common.Com_Printf ("Bad address: {}\n".format(adrstring))
+			clientserver.Com_Printf ("Bad address: {}\n".format(adrstring))
 			continue
 		
 		if not adr.port:
-			adr.port = q_shared.BigShort (struct.pack("=H", qcommon.PORT_SERVER)) # BigShort (PORT_SERVER)
-		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, adr, "info {}".format(qcommon.PROTOCOL_VERSION).encode("ascii"))
+			adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
+		net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
 	
 
 """
@@ -801,11 +813,11 @@ def CL_Skins_f ():
 
 	#int		i;
 
-	for i in range(q_shared.MAX_CLIENTS):
+	for i in range(shared.MAX_CLIENTS):
 	
-		if not cl.configstrings[q_shared.CS_PLAYERSKINS+i]:
+		if not cl.configstrings[shared.CS_PLAYERSKINS+i]:
 			continue
-		common.Com_Printf ("client {}: {}\n".format(i, cl.configstrings[q_shared.CS_PLAYERSKINS+i])) 
+		clientserver.Com_Printf ("client {}: {}\n".format(i, cl.configstrings[shared.CS_PLAYERSKINS+i])) 
 		cl_scrn.SCR_UpdateScreen ()
 		sys_linux.Sys_SendKeyEvents ()	# pump message loop
 		cl_parse.CL_ParseClientinfo (i)
@@ -825,28 +837,28 @@ def CL_ConnectionlessPacket ():
 	#char	*s;
 	#char	*c;
 	
-	common.MSG_BeginReading (net_chan.net_message)
-	common.MSG_ReadLong (net_chan.net_message)	# skip the -1
+	movemsg.MSG_BeginReading (net_chan.net_message)
+	movemsg.MSG_ReadLong (net_chan.net_message)	# skip the -1
 
-	s = common.MSG_ReadStringLine (net_chan.net_message)
+	s = movemsg.MSG_ReadStringLine (net_chan.net_message)
 
-	cmd.Cmd_TokenizeString (s, False)
+	cmdparser.Cmd_TokenizeString (s, False)
 
-	c = cmd.Cmd_Argv(0)
+	c = cmdparser.Cmd_Argv(0)
 
-	common.Com_Printf ("{}: {}\n".format(net_udp.NET_AdrToString (net_chan.net_from), c))
+	clientserver.Com_Printf ("{}: {}\n".format(net_udp.NET_AdrToString (net_chan.net_from), c))
 
 	# server connection
 	if c == "client_connect":
 	
 		if cls.state == client.connstate_t.ca_connected:
 		
-			common.Com_Printf ("Dup connect received.  Ignored.\n")
+			clientserver.Com_Printf ("Dup connect received.  Ignored.\n")
 			return
 		
-		net_chan.Netchan_Setup (qcommon.netsrc_t.NS_CLIENT, cls.netchan, net_chan.net_from, cls.quakePort)
-		common.MSG_WriteChar (cls.netchan.message, struct.pack("B", qcommon.clc_ops_e.clc_stringcmd.value))
-		common.MSG_WriteString (cls.netchan.message, b"new")	
+		net_chan.Netchan_Setup (common_h.netsrc_t.NS_CLIENT, cls.netchan, net_chan.net_from, cls.quakePort)
+		movemsg.MSG_WriteChar (cls.netchan.message, struct.pack("B", common_h.clc_ops_e.clc_stringcmd.value))
+		movemsg.MSG_WriteString (cls.netchan.message, b"new")	
 		cls.state = client.connstate_t.ca_connected
 		return
 	
@@ -861,42 +873,42 @@ def CL_ConnectionlessPacket ():
 	
 		if not net_udp.NET_IsLocalAddress(net_chan.net_from):
 		
-			common.Com_Printf ("Command packet from remote host.  Ignored.\n")
+			clientserver.Com_Printf ("Command packet from remote host.  Ignored.\n")
 			return
 		
 		sys_linux.Sys_AppActivate ()
-		s = common.MSG_ReadString (net_chan.net_message)
-		cmd.Cbuf_AddText (s)
-		cmd.Cbuf_AddText ("\n")
+		s = movemsg.MSG_ReadString (net_chan.net_message)
+		cmdparser.Cbuf_AddText (s)
+		cmdparser.Cbuf_AddText ("\n")
 		return
 	
 	# print command from somewhere
 	if c == "print":
 	
-		s = common.MSG_ReadString (net_chan.net_message)
-		common.Com_Printf ("{}".format(s))
+		s = movemsg.MSG_ReadString (net_chan.net_message)
+		clientserver.Com_Printf ("{}".format(s))
 		return
 	
 	# ping from somewhere
 	if c == "ping":
 	
-		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, net_chan.net_from, b"ack")
+		net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, net_chan.net_from, b"ack")
 		return
 	
 	# challenge from the server we are connecting to
 	if c == "challenge":
 	
-		cls.challenge = q_shared.atoi(cmd.Cmd_Argv(1))
+		cls.challenge = shared_c.atoi(cmdparser.Cmd_Argv(1))
 		CL_SendConnectPacket ()
 		return
 	
 	# echo request from server
 	if c == "echo":
 	
-		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_CLIENT, net_chan.net_from, "{}".format(cmd.Cmd_Argv(1)).encode('ascii') )
+		net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, net_chan.net_from, "{}".format(cmdparser.Cmd_Argv(1)).encode('ascii') )
 		return
 	
-	common.Com_Printf ("Unknown command.\n")
+	clientserver.Com_Printf ("Unknown command.\n")
 
 
 """
@@ -911,11 +923,11 @@ when they overflow
 def CL_DumpPackets ():
 
 	while True:
-		rx, net_chan.net_from = net_udp.NET_GetPacket (qcommon.netsrc_t.NS_CLIENT, net_chan.net_from, net_chan.net_message)
+		rx, net_chan.net_from = net_udp.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, net_chan.net_from, net_chan.net_message)
 		if not rx:
 			break
 	
-		common.Com_Printf ("dumnping a packet\n")
+		clientserver.Com_Printf ("dumnping a packet\n")
 	
 
 """
@@ -925,7 +937,7 @@ CL_ReadPackets
 """
 def CL_ReadPackets ():
 
-	rx, net_chan.net_from = net_udp.NET_GetPacket (qcommon.netsrc_t.NS_CLIENT, net_chan.net_from, net_chan.net_message)
+	rx, net_chan.net_from = net_udp.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, net_chan.net_from, net_chan.net_message)
 
 	while rx:
 		try:
@@ -945,7 +957,7 @@ def CL_ReadPackets ():
 
 			if net_chan.net_message.cursize < 8:
 			
-				common.Com_Printf ("{}: Runt packet\n".format(net_udp.NET_AdrToString(net_chan.net_from)))
+				clientserver.Com_Printf ("{}: Runt packet\n".format(net_udp.NET_AdrToString(net_chan.net_from)))
 				continue
 			
 
@@ -954,7 +966,7 @@ def CL_ReadPackets ():
 			#
 			if not net_udp.NET_CompareAdr (net_chan.net_from, cls.netchan.remote_address):
 			
-				common.Com_DPrintf ("{}:sequenced packet without connection\n".format(
+				clientserver.Com_DPrintf ("{}:sequenced packet without connection\n".format(
 					net_udp.NET_AdrToString(net_chan.net_from)))
 				continue
 			
@@ -963,7 +975,7 @@ def CL_ReadPackets ():
 			cl_parse.CL_ParseServerMessage ()
 
 		finally:
-			rx, net_chan.net_from = net_udp.NET_GetPacket (qcommon.netsrc_t.NS_CLIENT, net_chan.net_from, net_chan.net_message)
+			rx, net_chan.net_from = net_udp.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, net_chan.net_from, net_chan.net_message)
 
 	#
 	# check timeout
@@ -974,7 +986,7 @@ def CL_ReadPackets ():
 		cl.timeoutcount += 1
 		if cl.timeoutcount > 5:	# timeoutcount saves debugger
 		
-			common.Com_Printf ("\nServer connection timed out.\n")
+			clientserver.Com_Printf ("\nServer connection timed out.\n")
 			CL_Disconnect ()
 			return
 		
@@ -1010,9 +1022,9 @@ def CL_FixUpGender():
 	else:
 		skin_dir = skin_name
 
-	if q_shared.Q_stricmp(skin_dir, "male") == 0 or q_shared.Q_stricmp(skin_dir, "cyborg") == 0:
+	if shared_c.Q_stricmp(skin_dir, "male") == 0 or shared_c.Q_stricmp(skin_dir, "cyborg") == 0:
 		cvar.Cvar_Set("gender", "male")
-	elif q_shared.Q_stricmp(skin_dir, "female") == 0 or q_shared.Q_stricmp(skin_dir, "crackhor") == 0:
+	elif shared_c.Q_stricmp(skin_dir, "female") == 0 or shared_c.Q_stricmp(skin_dir, "crackhor") == 0:
 		cvar.Cvar_Set("gender", "female")
 	else:
 		cvar.Cvar_Set("gender", "none")
@@ -1024,8 +1036,8 @@ def CL_FixUpGender():
 # ==============
 def CL_Userinfo_f ():
 
-	common.Com_Printf ("User info settings:\n")
-	common.Info_Print (cvar.Cvar_Userinfo())
+	clientserver.Com_Printf ("User info settings:\n")
+	argproc.Info_Print (cvar.Cvar_Userinfo())
 
 
 """
@@ -1052,7 +1064,7 @@ precache_model = None #byte *, used for skin checking in alias models
 PLAYER_MULT = 5
 
 # ENV_CNT is map load, ENV_CNT+1 is first env map
-ENV_CNT = (q_shared.CS_PLAYERSKINS + q_shared.MAX_CLIENTS * PLAYER_MULT)
+ENV_CNT = (shared.CS_PLAYERSKINS + shared.MAX_CLIENTS * PLAYER_MULT)
 TEXTURE_CNT = (ENV_CNT+13)
 
 env_suf = ["rt", "bk", "lf", "ft", "up", "dn"] #static const char *[6]
@@ -1072,15 +1084,15 @@ def CL_RequestNextDownload ():
 		precache_check = ENV_CNT
 
 #ZOID
-	if precache_check == q_shared.CS_MODELS: # confirm map
-		precache_check = q_shared.CS_MODELS+2 # 0 isn't used
+	if precache_check == shared.CS_MODELS: # confirm map
+		precache_check = shared.CS_MODELS+2 # 0 isn't used
 		if sv_main.allow_download_maps.value:
-			if not cl_parse.CL_CheckOrDownloadFile(cl.configstrings[q_shared.CS_MODELS+1]):
+			if not cl_parse.CL_CheckOrDownloadFile(cl.configstrings[shared.CS_MODELS+1]):
 				return # started a download
 	
-	if precache_check >= q_shared.CS_MODELS and precache_check < q_shared.CS_MODELS+q_shared.MAX_MODELS:
+	if precache_check >= shared.CS_MODELS and precache_check < shared.CS_MODELS+shared.MAX_MODELS:
 		if sv_main.allow_download_models.value:
-			while (precache_check < q_shared.CS_MODELS+q_shared.MAX_MODELS and
+			while (precache_check < shared.CS_MODELS+shared.MAX_MODELS and
 				cl.configstrings[precache_check]):
 				if (cl.configstrings[precache_check][0] == '*' or
 					cl.configstrings[precache_check][0] == '#'):
@@ -1097,33 +1109,33 @@ def CL_RequestNextDownload ():
 				# checking for skins in the model
 				if precache_model is None:
 
-					length, precache_model = files.FS_LoadFile (cl.configstrings[precache_check])
+					length, precache_model = filesystem.FS_LoadFile (cl.configstrings[precache_check])
 					if precache_model is None:
 						precache_model_skin = 0
 						precache_check += 1
 						continue # couldn't load it
 					
-					if q_shared.LittleLong(precache_model[:4]) != qfiles.IDALIASHEADER:
+					if shared_c.LittleLong(precache_model[:4]) != files_h.IDALIASHEADER:
 						# not an alias model
-						files.FS_FreeFile(precache_model)
+						filesystem.FS_FreeFile(precache_model)
 						precache_model = None
 						precache_model_skin = 0
 						precache_check += 1
 						continue
 					
-					pheader = qfiles.dmdl_t() # (dmdl_t *)precache_model
+					pheader = files_h.dmdl_t() # (dmdl_t *)precache_model
 					pheader.load(precache_model)
-					if pheader.version != qfiles.ALIAS_VERSION: # LittleLong (pheader->version)
+					if pheader.version != files_h.ALIAS_VERSION: # LittleLong (pheader->version)
 						precache_check += 1
 						precache_model_skin = 0
 						continue # couldn't load it
 					
-				pheader = qfiles.dmdl_t() # (dmdl_t *)precache_model
+				pheader = files_h.dmdl_t() # (dmdl_t *)precache_model
 				pheader.load(precache_model)
 
 				while precache_model_skin - 1 < pheader.num_skins: # LittleLong(pheader->num_skins)
-					skin_ofs = pheader.ofs_skins + (precache_model_skin - 1)*qfiles.MAX_SKINNAME # (char *)precache_model + LittleLong(pheader->ofs_skins) + (precache_model_skin - 1)*MAX_SKINNAME
-					skinname = bytes(precache_model[skin_ofs:skin_ofs+qfiles.MAX_SKINNAME]).split(b"\0")[0].decode('latin-1')
+					skin_ofs = pheader.ofs_skins + (precache_model_skin - 1)*files_h.MAX_SKINNAME # (char *)precache_model + LittleLong(pheader->ofs_skins) + (precache_model_skin - 1)*MAX_SKINNAME
+					skinname = bytes(precache_model[skin_ofs:skin_ofs+files_h.MAX_SKINNAME]).split(b"\0")[0].decode('latin-1')
 					if not cl_parse.CL_CheckOrDownloadFile(skinname):
 						precache_model_skin += 1
 						return # started a download
@@ -1131,19 +1143,19 @@ def CL_RequestNextDownload ():
 					precache_model_skin += 1
 				
 				if precache_model is not None: 
-					files.FS_FreeFile(precache_model)
+					filesystem.FS_FreeFile(precache_model)
 					precache_model = None
 				
 				precache_model_skin = 0
 				precache_check += 1
 			
-		precache_check = q_shared.CS_SOUNDS
+		precache_check = shared.CS_SOUNDS
 	
-	if precache_check >= q_shared.CS_SOUNDS and precache_check < q_shared.CS_SOUNDS+q_shared.MAX_SOUNDS: 
+	if precache_check >= shared.CS_SOUNDS and precache_check < shared.CS_SOUNDS+shared.MAX_SOUNDS: 
 		if sv_main.allow_download_sounds.value:
-			if precache_check == q_shared.CS_SOUNDS:
+			if precache_check == shared.CS_SOUNDS:
 				precache_check += 1 # zero is blank
-			while (precache_check < q_shared.CS_SOUNDS+q_shared.MAX_SOUNDS and
+			while (precache_check < shared.CS_SOUNDS+shared.MAX_SOUNDS and
 				cl.configstrings[precache_check]):
 				if cl.configstrings[precache_check][0] == '*':
 					precache_check += 1
@@ -1154,42 +1166,42 @@ def CL_RequestNextDownload ():
 				if not cl_parse.CL_CheckOrDownloadFile(fn):
 					return # started a download
 			
-		precache_check = q_shared.CS_IMAGES
+		precache_check = shared.CS_IMAGES
 	
-	if precache_check >= q_shared.CS_IMAGES and precache_check < q_shared.CS_IMAGES+q_shared.MAX_IMAGES:
-		if precache_check == q_shared.CS_IMAGES:
+	if precache_check >= shared.CS_IMAGES and precache_check < shared.CS_IMAGES+shared.MAX_IMAGES:
+		if precache_check == shared.CS_IMAGES:
 			precache_check += 1 # zero is blank
-		while (precache_check < q_shared.CS_IMAGES+q_shared.MAX_IMAGES and
+		while (precache_check < shared.CS_IMAGES+shared.MAX_IMAGES and
 			cl.configstrings[precache_check]):
 			fn = "pics/{}.pcx".format(cl.configstrings[precache_check])
 			precache_check += 1
 			if not cl_parse.CL_CheckOrDownloadFile(fn):
 				return # started a download
 		
-		precache_check = q_shared.CS_PLAYERSKINS
+		precache_check = shared.CS_PLAYERSKINS
 	
 	# skins are special, since a player has three things to download:
 	# model, weapon model and skin
 	# so precache_check is now *3
-	if precache_check >= q_shared.CS_PLAYERSKINS and precache_check < q_shared.CS_PLAYERSKINS + q_shared.MAX_CLIENTS * PLAYER_MULT:
+	if precache_check >= shared.CS_PLAYERSKINS and precache_check < shared.CS_PLAYERSKINS + shared.MAX_CLIENTS * PLAYER_MULT:
 		if sv_main.allow_download_players.value:
-			while precache_check < q_shared.CS_PLAYERSKINS + q_shared.MAX_CLIENTS * PLAYER_MULT:
+			while precache_check < shared.CS_PLAYERSKINS + shared.MAX_CLIENTS * PLAYER_MULT:
 				#int i, n;
 				#char model[MAX_QPATH], skin[MAX_QPATH], *p;
 
-				i = (precache_check - q_shared.CS_PLAYERSKINS)//PLAYER_MULT
-				n = (precache_check - q_shared.CS_PLAYERSKINS)%PLAYER_MULT
+				i = (precache_check - shared.CS_PLAYERSKINS)//PLAYER_MULT
+				n = (precache_check - shared.CS_PLAYERSKINS)%PLAYER_MULT
 
-				if not cl.configstrings[q_shared.CS_PLAYERSKINS+i]:
-					precache_check = q_shared.CS_PLAYERSKINS + (i + 1) * PLAYER_MULT
+				if not cl.configstrings[shared.CS_PLAYERSKINS+i]:
+					precache_check = shared.CS_PLAYERSKINS + (i + 1) * PLAYER_MULT
 					continue
 				
-				p = cl.configstrings[q_shared.CS_PLAYERSKINS+i].find('\\')
+				p = cl.configstrings[shared.CS_PLAYERSKINS+i].find('\\')
 				if p != -1:
 					p += 1
 				else:
 					p = 0
-				model = cl.configstrings[q_shared.CS_PLAYERSKINS+i][p:]
+				model = cl.configstrings[shared.CS_PLAYERSKINS+i][p:]
 				p = model.find('/')
 				if p == -1:
 					p = model.find('\\')
@@ -1203,7 +1215,7 @@ def CL_RequestNextDownload ():
 				if n == 0: # model
 					fn = "players/{}/tris.md2".format(model)
 					if not cl_parse.CL_CheckOrDownloadFile(fn):
-						precache_check = q_shared.CS_PLAYERSKINS + i * PLAYER_MULT + 1
+						precache_check = shared.CS_PLAYERSKINS + i * PLAYER_MULT + 1
 						return # started a download
 					
 					n += 1
@@ -1212,7 +1224,7 @@ def CL_RequestNextDownload ():
 				if n == 1: # weapon model
 					fn = "players/{}/weapon.md2".format(model)
 					if not cl_parse.CL_CheckOrDownloadFile(fn):
-						precache_check = q_shared.CS_PLAYERSKINS + i * PLAYER_MULT + 2
+						precache_check = shared.CS_PLAYERSKINS + i * PLAYER_MULT + 2
 						return # started a download
 					
 					n += 1
@@ -1221,7 +1233,7 @@ def CL_RequestNextDownload ():
 				if n == 2: # weapon skin
 					fn = "players/{}/weapon.pcx".format(model)
 					if not cl_parse.CL_CheckOrDownloadFile(fn):
-						precache_check = q_shared.CS_PLAYERSKINS + i * PLAYER_MULT + 3
+						precache_check = shared.CS_PLAYERSKINS + i * PLAYER_MULT + 3
 						return # started a download
 					
 					n += 1
@@ -1230,7 +1242,7 @@ def CL_RequestNextDownload ():
 				if n == 3: # skin
 					fn = "players/{}/{}.pcx".format(model, skin)
 					if not cl_parse.CL_CheckOrDownloadFile(fn):
-						precache_check = q_shared.CS_PLAYERSKINS + i * PLAYER_MULT + 4
+						precache_check = shared.CS_PLAYERSKINS + i * PLAYER_MULT + 4
 						return # started a download
 					
 					n += 1
@@ -1239,11 +1251,11 @@ def CL_RequestNextDownload ():
 				if n == 4: # skin_i
 					fn = "players/{}/{}_i.pcx".format(model, skin)
 					if not cl_parse.CL_CheckOrDownloadFile(fn):
-						precache_check = q_shared.CS_PLAYERSKINS + i * PLAYER_MULT + 5
+						precache_check = shared.CS_PLAYERSKINS + i * PLAYER_MULT + 5
 						return # started a download
 					
 					# move on to next model
-					precache_check = q_shared.CS_PLAYERSKINS + (i + 1) * PLAYER_MULT
+					precache_check = shared.CS_PLAYERSKINS + (i + 1) * PLAYER_MULT
 				
 		# precache phase completed
 		precache_check = ENV_CNT
@@ -1251,11 +1263,11 @@ def CL_RequestNextDownload ():
 	if precache_check == ENV_CNT:
 		precache_check = ENV_CNT + 1
 
-		_, map_checksum = cmodel.CM_LoadMap (cl.configstrings[q_shared.CS_MODELS+1], True)
+		_, map_checksum = cmodel.CM_LoadMap (cl.configstrings[shared.CS_MODELS+1], True)
 
-		if map_checksum != (q_shared.atoi(cl.configstrings[q_shared.CS_MAPCHECKSUM]) & 0xffffffff): # atoi's int is converted to unsigned for the compare
-			common.Com_Error (q_shared.ERR_DROP, "Local map version differs from server: {} != '{}'\n".format(
-				map_checksum, cl.configstrings[q_shared.CS_MAPCHECKSUM]))
+		if map_checksum != (shared_c.atoi(cl.configstrings[shared.CS_MAPCHECKSUM]) & 0xffffffff): # atoi's int is converted to unsigned for the compare
+			clientserver.Com_Error (shared.ERR_DROP, "Local map version differs from server: {} != '{}'\n".format(
+				map_checksum, cl.configstrings[shared.CS_MAPCHECKSUM]))
 			return
 		
 	if precache_check > ENV_CNT and precache_check < TEXTURE_CNT:
@@ -1266,10 +1278,10 @@ def CL_RequestNextDownload ():
 
 				if n & 1:
 					fn = "env/{}{}.pcx".format( 
-						cl.configstrings[q_shared.CS_SKY], env_suf[n//2])
+						cl.configstrings[shared.CS_SKY], env_suf[n//2])
 				else:
 					fn = "env/{}{}.tga".format( 
-						cl.configstrings[q_shared.CS_SKY], env_suf[n//2])
+						cl.configstrings[shared.CS_SKY], env_suf[n//2])
 				if not cl_parse.CL_CheckOrDownloadFile(fn):
 					return # started a download
 			
@@ -1300,8 +1312,8 @@ def CL_RequestNextDownload ():
 	cl_parse.CL_RegisterSounds ()
 	cl_view.CL_PrepRefresh ()
 
-	common.MSG_WriteByte (cls.netchan.message, qcommon.clc_ops_e.clc_stringcmd.value)
-	common.MSG_WriteString (cls.netchan.message, "begin {}\n".format(precache_spawncount).encode('ascii') )
+	movemsg.MSG_WriteByte (cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value)
+	movemsg.MSG_WriteString (cls.netchan.message, "begin {}\n".format(precache_spawncount).encode('ascii') )
 
 """
 
@@ -1319,17 +1331,17 @@ def CL_Precache_f ():
 	
 	# Yet another hack to let old demos work
 	# the old precache sequence
-	if cmd.Cmd_Argc() < 2:
+	if cmdparser.Cmd_Argc() < 2:
 		#unsigned	map_checksum;		// for detecting cheater maps
 
-		map_checksum = cmodel.CM_LoadMap (cl.configstrings[q_shared.CS_MODELS+1], True)
+		map_checksum = cmodel.CM_LoadMap (cl.configstrings[shared.CS_MODELS+1], True)
 		cl_parse.CL_RegisterSounds ()
 		cl_view.CL_PrepRefresh ()
 		return
 	
 
-	precache_check = q_shared.CS_MODELS
-	precache_spawncount = int(cmd.Cmd_Argv(1))
+	precache_check = shared.CS_MODELS
+	precache_spawncount = int(cmdparser.Cmd_Argv(1))
 	precache_model = None
 	precache_model_skin = 0
 
@@ -1360,20 +1372,20 @@ def CL_InitLocal ():
 
 	cl_input.CL_InitInput ()
 
-	adr0 = cvar.Cvar_Get( "adr0", "", q_shared.CVAR_ARCHIVE )
-	adr1 = cvar.Cvar_Get( "adr1", "", q_shared.CVAR_ARCHIVE )
-	adr2 = cvar.Cvar_Get( "adr2", "", q_shared.CVAR_ARCHIVE )
-	adr3 = cvar.Cvar_Get( "adr3", "", q_shared.CVAR_ARCHIVE )
-	adr4 = cvar.Cvar_Get( "adr4", "", q_shared.CVAR_ARCHIVE )
-	adr5 = cvar.Cvar_Get( "adr5", "", q_shared.CVAR_ARCHIVE )
-	adr6 = cvar.Cvar_Get( "adr6", "", q_shared.CVAR_ARCHIVE )
-	adr7 = cvar.Cvar_Get( "adr7", "", q_shared.CVAR_ARCHIVE )
-	adr8 = cvar.Cvar_Get( "adr8", "", q_shared.CVAR_ARCHIVE )
+	adr0 = cvar.Cvar_Get( "adr0", "", shared.CVAR_ARCHIVE )
+	adr1 = cvar.Cvar_Get( "adr1", "", shared.CVAR_ARCHIVE )
+	adr2 = cvar.Cvar_Get( "adr2", "", shared.CVAR_ARCHIVE )
+	adr3 = cvar.Cvar_Get( "adr3", "", shared.CVAR_ARCHIVE )
+	adr4 = cvar.Cvar_Get( "adr4", "", shared.CVAR_ARCHIVE )
+	adr5 = cvar.Cvar_Get( "adr5", "", shared.CVAR_ARCHIVE )
+	adr6 = cvar.Cvar_Get( "adr6", "", shared.CVAR_ARCHIVE )
+	adr7 = cvar.Cvar_Get( "adr7", "", shared.CVAR_ARCHIVE )
+	adr8 = cvar.Cvar_Get( "adr8", "", shared.CVAR_ARCHIVE )
 
 	#
 	# register our variables
 	#
-	cl_stereo_separation = cvar.Cvar_Get( "cl_stereo_separation", "0.4", q_shared.CVAR_ARCHIVE )
+	cl_stereo_separation = cvar.Cvar_Get( "cl_stereo_separation", "0.4", shared.CVAR_ARCHIVE )
 	cl_stereo = cvar.Cvar_Get( "cl_stereo", "0", 0 )
 
 	cl_add_blend = cvar.Cvar_Get ("cl_blend", "1", 0)
@@ -1395,13 +1407,13 @@ def CL_InitLocal ():
 	cl_pitchspeed = cvar.Cvar_Get ("cl_pitchspeed", "150", 0)
 	cl_anglespeedkey = cvar.Cvar_Get ("cl_anglespeedkey", "1.5", 0)
 
-	cl_run = cvar.Cvar_Get ("cl_run", "0", q_shared.CVAR_ARCHIVE)
-	freelook = cvar.Cvar_Get( "freelook", "0", q_shared.CVAR_ARCHIVE )
-	lookspring = cvar.Cvar_Get ("lookspring", "0", q_shared.CVAR_ARCHIVE)
-	lookstrafe = cvar.Cvar_Get ("lookstrafe", "0", q_shared.CVAR_ARCHIVE)
-	sensitivity = cvar.Cvar_Get ("sensitivity", "3", q_shared.CVAR_ARCHIVE)
+	cl_run = cvar.Cvar_Get ("cl_run", "0", shared.CVAR_ARCHIVE)
+	freelook = cvar.Cvar_Get( "freelook", "0", shared.CVAR_ARCHIVE )
+	lookspring = cvar.Cvar_Get ("lookspring", "0", shared.CVAR_ARCHIVE)
+	lookstrafe = cvar.Cvar_Get ("lookstrafe", "0", shared.CVAR_ARCHIVE)
+	sensitivity = cvar.Cvar_Get ("sensitivity", "3", shared.CVAR_ARCHIVE)
 	
-	m_pitch = cvar.Cvar_Get ("m_pitch", "0.022", q_shared.CVAR_ARCHIVE)
+	m_pitch = cvar.Cvar_Get ("m_pitch", "0.022", shared.CVAR_ARCHIVE)
 	m_yaw = cvar.Cvar_Get ("m_yaw", "0.022", 0)
 	m_forward = cvar.Cvar_Get ("m_forward", "1", 0)
 	m_side = cvar.Cvar_Get ("m_side", "1", 0)
@@ -1421,75 +1433,75 @@ def CL_InitLocal ():
 	#
 	# userinfo
 	#
-	info_password = cvar.Cvar_Get ("password", "", q_shared.CVAR_USERINFO)
-	info_spectator = cvar.Cvar_Get ("spectator", "0", q_shared.CVAR_USERINFO)
-	name = cvar.Cvar_Get ("name", "unnamed", q_shared.CVAR_USERINFO | q_shared.CVAR_ARCHIVE)
-	skin = cvar.Cvar_Get ("skin", "male/grunt", q_shared.CVAR_USERINFO | q_shared.CVAR_ARCHIVE)
-	rate = cvar.Cvar_Get ("rate", "25000", q_shared.CVAR_USERINFO | q_shared.CVAR_ARCHIVE);	# FIXME
-	msg = cvar.Cvar_Get ("msg", "1", q_shared.CVAR_USERINFO | q_shared.CVAR_ARCHIVE)
-	hand = cvar.Cvar_Get ("hand", "0", q_shared.CVAR_USERINFO | q_shared.CVAR_ARCHIVE)
-	fov = cvar.Cvar_Get ("fov", "90", q_shared.CVAR_USERINFO | q_shared.CVAR_ARCHIVE)
-	gender = cvar.Cvar_Get ("gender", "male", q_shared.CVAR_USERINFO | q_shared.CVAR_ARCHIVE)
-	gender_auto = cvar.Cvar_Get ("gender_auto", "1", q_shared.CVAR_ARCHIVE)
+	info_password = cvar.Cvar_Get ("password", "", shared.CVAR_USERINFO)
+	info_spectator = cvar.Cvar_Get ("spectator", "0", shared.CVAR_USERINFO)
+	name = cvar.Cvar_Get ("name", "unnamed", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
+	skin = cvar.Cvar_Get ("skin", "male/grunt", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
+	rate = cvar.Cvar_Get ("rate", "25000", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE);	# FIXME
+	msg = cvar.Cvar_Get ("msg", "1", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
+	hand = cvar.Cvar_Get ("hand", "0", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
+	fov = cvar.Cvar_Get ("fov", "90", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
+	gender = cvar.Cvar_Get ("gender", "male", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
+	gender_auto = cvar.Cvar_Get ("gender_auto", "1", shared.CVAR_ARCHIVE)
 	gender.modified = False # clear this so we know when user sets it manually
 
-	cl_vwep = cvar.Cvar_Get ("cl_vwep", "1", q_shared.CVAR_ARCHIVE)
+	cl_vwep = cvar.Cvar_Get ("cl_vwep", "1", shared.CVAR_ARCHIVE)
 
 	"""
 	//
 	// register our commands
 	//
 	"""
-	cmd.Cmd_AddCommand ("cmd", CL_ForwardToServer_f)
-	cmd.Cmd_AddCommand ("pause", CL_Pause_f)
-	cmd.Cmd_AddCommand ("pingservers", CL_PingServers_f)
-	cmd.Cmd_AddCommand ("skins", CL_Skins_f)
-	cmd.Cmd_AddCommand ("userinfo", CL_Userinfo_f);
-	cmd.Cmd_AddCommand ("snd_restart", CL_Snd_Restart_f);
+	cmdparser.Cmd_AddCommand ("cmd", CL_ForwardToServer_f)
+	cmdparser.Cmd_AddCommand ("pause", CL_Pause_f)
+	cmdparser.Cmd_AddCommand ("pingservers", CL_PingServers_f)
+	cmdparser.Cmd_AddCommand ("skins", CL_Skins_f)
+	cmdparser.Cmd_AddCommand ("userinfo", CL_Userinfo_f);
+	cmdparser.Cmd_AddCommand ("snd_restart", CL_Snd_Restart_f);
 
-	cmd.Cmd_AddCommand ("changing", CL_Changing_f)
-	cmd.Cmd_AddCommand ("disconnect", CL_Disconnect_f)
-	cmd.Cmd_AddCommand ("record", CL_Record_f)
-	cmd.Cmd_AddCommand ("stop", CL_Stop_f)
-	cmd.Cmd_AddCommand ("quit", CL_Quit_f)
+	cmdparser.Cmd_AddCommand ("changing", CL_Changing_f)
+	cmdparser.Cmd_AddCommand ("disconnect", CL_Disconnect_f)
+	cmdparser.Cmd_AddCommand ("record", CL_Record_f)
+	cmdparser.Cmd_AddCommand ("stop", CL_Stop_f)
+	cmdparser.Cmd_AddCommand ("quit", CL_Quit_f)
 	
-	cmd.Cmd_AddCommand ("connect", CL_Connect_f)
-	cmd.Cmd_AddCommand ("reconnect", CL_Reconnect_f)
+	cmdparser.Cmd_AddCommand ("connect", CL_Connect_f)
+	cmdparser.Cmd_AddCommand ("reconnect", CL_Reconnect_f)
 
-	cmd.Cmd_AddCommand ("rcon", CL_Rcon_f)
+	cmdparser.Cmd_AddCommand ("rcon", CL_Rcon_f)
 
  	## Cmd_AddCommand ("packet", CL_Packet_f); # this is dangerous to leave in
 
-	cmd.Cmd_AddCommand ("setenv", CL_Setenv_f )
+	cmdparser.Cmd_AddCommand ("setenv", CL_Setenv_f )
 
-	cmd.Cmd_AddCommand ("precache", CL_Precache_f)
+	cmdparser.Cmd_AddCommand ("precache", CL_Precache_f)
 
-	cmd.Cmd_AddCommand ("download", cl_parse.CL_Download_f)
+	cmdparser.Cmd_AddCommand ("download", cl_parse.CL_Download_f)
 	#
 	# forward to server commands
 	#
 	# the only thing this does is allow command completion
 	# to work -- all unknown commands are automatically
 	# forwarded to the server
-	cmd.Cmd_AddCommand ("wave", None)
-	cmd.Cmd_AddCommand ("inven", None)
-	cmd.Cmd_AddCommand ("kill", None)
-	cmd.Cmd_AddCommand ("use", None)
-	cmd.Cmd_AddCommand ("drop", None)
-	cmd.Cmd_AddCommand ("say", None)
-	cmd.Cmd_AddCommand ("say_team", None)
-	cmd.Cmd_AddCommand ("info", None)
-	cmd.Cmd_AddCommand ("prog", None)
-	cmd.Cmd_AddCommand ("give", None)
-	cmd.Cmd_AddCommand ("god", None)
-	cmd.Cmd_AddCommand ("notarget", None)
-	cmd.Cmd_AddCommand ("noclip", None)
-	cmd.Cmd_AddCommand ("invuse", None)
-	cmd.Cmd_AddCommand ("invprev", None)
-	cmd.Cmd_AddCommand ("invnext", None)
-	cmd.Cmd_AddCommand ("invdrop", None)
-	cmd.Cmd_AddCommand ("weapnext", None)
-	cmd.Cmd_AddCommand ("weapprev", None)
+	cmdparser.Cmd_AddCommand ("wave", None)
+	cmdparser.Cmd_AddCommand ("inven", None)
+	cmdparser.Cmd_AddCommand ("kill", None)
+	cmdparser.Cmd_AddCommand ("use", None)
+	cmdparser.Cmd_AddCommand ("drop", None)
+	cmdparser.Cmd_AddCommand ("say", None)
+	cmdparser.Cmd_AddCommand ("say_team", None)
+	cmdparser.Cmd_AddCommand ("info", None)
+	cmdparser.Cmd_AddCommand ("prog", None)
+	cmdparser.Cmd_AddCommand ("give", None)
+	cmdparser.Cmd_AddCommand ("god", None)
+	cmdparser.Cmd_AddCommand ("notarget", None)
+	cmdparser.Cmd_AddCommand ("noclip", None)
+	cmdparser.Cmd_AddCommand ("invuse", None)
+	cmdparser.Cmd_AddCommand ("invprev", None)
+	cmdparser.Cmd_AddCommand ("invnext", None)
+	cmdparser.Cmd_AddCommand ("invdrop", None)
+	cmdparser.Cmd_AddCommand ("weapnext", None)
+	cmdparser.Cmd_AddCommand ("weapprev", None)
 
 
 """
@@ -1507,12 +1519,12 @@ def CL_WriteConfiguration ():
 	if cls.state == client.connstate_t.ca_uninitialized:
 		return
 
-	path = os.path.join(files.FS_Gamedir(), "config.cfg")
+	path = os.path.join(filesystem.FS_Gamedir(), "config.cfg")
 
 	try:
 		f = open (path, "w")
 	except:
-		common.Com_Printf ("Couldn't write config.cfg.\n")
+		clientserver.Com_Printf ("Couldn't write config.cfg.\n")
 		return
 	
 	f.write("// generated by quake, do not modify\n")
@@ -1571,7 +1583,7 @@ numcheatvars = 0
 
 def CL_FixCvarCheats ():
 
-	maxclients = cl.configstrings[q_shared.CS_MAXCLIENTS]
+	maxclients = cl.configstrings[shared.CS_MAXCLIENTS]
 	if not maxclients or maxclients == "1":
 		return
 
@@ -1601,7 +1613,7 @@ def CL_SendCommand ():
 	vid_so.IN_Commands ()
 
 	# process console commands
-	cmd.Cbuf_Execute ()
+	cmdparser.Cbuf_Execute ()
 
 	# fix any cheating cvars
 	CL_FixCvarCheats ()
@@ -1629,7 +1641,7 @@ def CL_Frame (msec): #int
 	#static int	extratime;
 	#static int  lasttimecalled;
 
-	if common.dedicated.value != 0:
+	if frame.dedicated.value != 0:
 		return
 
 	extratime += msec
@@ -1679,11 +1691,11 @@ def CL_Frame (msec): #int
 		cl_view.CL_PrepRefresh ()
 
 	# update the screen
-	if common.host_speeds.value:
-		common.time_before_ref = q_shlinux.Sys_Milliseconds ()
+	if frame.host_speeds.value:
+		frame.time_before_ref = q_shlinux.Sys_Milliseconds ()
 	cl_scrn.SCR_UpdateScreen ()
-	if common.host_speeds.value:
-		common.time_after_ref = q_shlinux.Sys_Milliseconds ()
+	if frame.host_speeds.value:
+		frame.time_after_ref = q_shlinux.Sys_Milliseconds ()
 
 	# update audio
 	snd_dma.S_Update (cl.refdef.vieworg, cl.v_forward, cl.v_right, cl.v_up)
@@ -1727,7 +1739,7 @@ def CL_Frame (msec): #int
 # =============================================================================
 def CL_Init ():
 
-	if common.dedicated.value:
+	if frame.dedicated.value:
 		return		# nothing running on the client
 
 	# all archived variables will now be loaded
@@ -1743,7 +1755,7 @@ def CL_Init ():
 	#endif
 
 	cl_view.V_Init ()
-	common.SZ_Init(net_chan.net_message, qcommon.MAX_MSGLEN)
+	szone.SZ_Init(net_chan.net_message, common_h.MAX_MSGLEN)
 	menu.M_Init ()
 
 	cl_scrn.SCR_Init ()
@@ -1753,9 +1765,8 @@ def CL_Init ():
 	CL_InitLocal ()
 	vid_so.IN_Init ()
 
-	## Cbuf_AddText ("exec autoexec.cfg\n");
-	files.FS_ExecAutoexec ()
-	cmd.Cbuf_Execute ()
+	## Cbuf_AddText ("exec autoexec.cfg\n");	# Q2PORT: Yamagi execs autoexec.cfg in Qcommon_ExecConfigs
+	cmdparser.Cbuf_Execute ()
 
 
 # ===============

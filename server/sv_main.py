@@ -22,15 +22,25 @@ from __future__ import annotations
 import random
 import struct
 from server import sv_ccmds, sv_send, sv_init, sv_game, sv_user
-from qcommon import cvar, qcommon, common, net_chan, cmd, files
-from game import q_shared, game
+from qcommon import net_chan
+from game import game
 from linux import net_udp, q_shlinux
+from common.header import common as common_h
+from common.header import shared
+from common.shared import shared as shared_c
+from common import clientserver
+from common import cmdparser
+from common import cvar
+from common import filesystem
+from common import frame
+from common import movemsg
+from common import szone
 """
 #include "server.h"
 """
 master_adr = [] #netadr_t	[MAX_MASTERS], address of group servers
 for i in range(sv_init.MAX_MASTERS):
-	master_adr.append(qcommon.netadr_t())
+	master_adr.append(common_h.netadr_t())
 
 sv_client = None #client_t	*, current client
 
@@ -84,7 +94,7 @@ or crashing.
 def SV_DropClient (drop): #client_t *
 
 	# add the disconnect
-	common.MSG_WriteByte (drop.netchan.message, qcommon.svc_ops_e.svc_disconnect.value)
+	movemsg.MSG_WriteByte (drop.netchan.message, common_h.svc_ops_e.svc_disconnect.value)
 
 	if drop.state == sv_init.client_state_t.cs_spawned:
 	
@@ -94,7 +104,7 @@ def SV_DropClient (drop): #client_t *
 
 	if drop.download:
 	
-		files.FS_FreeFile (drop.download)
+		filesystem.FS_FreeFile (drop.download)
 		drop.download = None
 
 	drop.state = sv_init.client_state_t.cs_zombie		# become free in a few seconds
@@ -126,9 +136,9 @@ def SV_StatusString (): #char *
 	for i in range(int(maxclients.value)):
 		cl = sv_init.svs.clients[i]
 		if cl.state == sv_init.client_state_t.cs_connected or cl.state == sv_init.client_state_t.cs_spawned:
-			player = "{} {} \"{}\"\n".format(cl.edict.client.ps.stats[q_shared.STAT_FRAGS], cl.ping, cl.name)
+			player = "{} {} \"{}\"\n".format(cl.edict.client.ps.stats[shared.STAT_FRAGS], cl.ping, cl.name)
 			playerLength = len(player)
-			if statusLength + playerLength >= qcommon.MAX_MSGLEN - 16:
+			if statusLength + playerLength >= common_h.MAX_MSGLEN - 16:
 				break		# can't hold any more
 			status += player
 			statusLength += playerLength
@@ -143,7 +153,7 @@ Responds with all the info that qplug or qspy can see
 """
 def SVC_Status ():
 
-	net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, "print\n{}".format(SV_StatusString()))
+	net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, net_chan.net_from, "print\n{}".format(SV_StatusString()))
 """
 ================
 SVC_Ack
@@ -152,7 +162,7 @@ SVC_Ack
 """
 def SVC_Ack ():
 
-	common.Com_Printf ("Ping acknowledge from {}\n".format(net_udp.NET_AdrToString(net_chan.net_from)))
+	clientserver.Com_Printf ("Ping acknowledge from {}\n".format(net_udp.NET_AdrToString(net_chan.net_from)))
 """
 ================
 SVC_Info
@@ -169,11 +179,11 @@ def SVC_Info ():
 		return		# ignore in single player
 
 	try:
-		version = int(cmd.Cmd_Argv(1))
+		version = int(cmdparser.Cmd_Argv(1))
 	except ValueError:
 		version = None
 
-	if version != qcommon.PROTOCOL_VERSION:
+	if version != common_h.PROTOCOL_VERSION:
 		string = "{}: wrong version\n".format(hostname.string)
 	else:
 		count = 0
@@ -183,7 +193,7 @@ def SVC_Info ():
 
 		string = "{:16s} {:8s} {}/{}\n".format(hostname.string, sv_init.sv.name, count, int(maxclients.value))
 
-	net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, "info\n{}".format(string))
+	net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, net_chan.net_from, "info\n{}".format(string))
 """
 ================
 SVC_Ping
@@ -193,7 +203,7 @@ Just responds with an acknowledgement
 """
 def SVC_Ping ():
 
-	net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, "ack")
+	net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, net_chan.net_from, "ack")
 """
 =================
 SVC_GetChallenge
@@ -228,7 +238,7 @@ def SVC_GetChallenge ():
 		i = oldest
 
 	# send it back
-	net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, "challenge {}".format(sv_init.svs.challenges[i].challenge))
+	net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, net_chan.net_from, "challenge {}".format(sv_init.svs.challenges[i].challenge))
 """
 /*
 ==================
@@ -252,38 +262,37 @@ def SVC_DirectConnect ():
 
 	adr = net_chan.net_from
 
-	common.Com_DPrintf ("SVC_DirectConnect ()\n")
+	clientserver.Com_DPrintf ("SVC_DirectConnect ()\n")
 
 	try:
-		version = int(cmd.Cmd_Argv(1))
+		version = int(cmdparser.Cmd_Argv(1))
 	except ValueError:
 		version = None
-	if version != qcommon.PROTOCOL_VERSION:
+	if version != common_h.PROTOCOL_VERSION:
 	
-		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, adr, "print\nServer is version {:4.2f}.\n".format(qcommon.VERSION))
-		common.Com_DPrintf ("    rejected connect from version {}\n".format(version))
+		net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, adr, "print\nServer is version {:4.2f}.\n".format(common_h.VERSION))
+		clientserver.Com_DPrintf ("    rejected connect from version {}\n".format(version))
 		return
 	
 	try:
-		qport = int(cmd.Cmd_Argv(2))
-		challenge = int(cmd.Cmd_Argv(3))
+		qport = int(cmdparser.Cmd_Argv(2))
+		challenge = int(cmdparser.Cmd_Argv(3))
 	except ValueError:
 		qport = None
 		challenge = None
 
-	userinfo = cmd.Cmd_Argv(4)
+	userinfo = cmdparser.Cmd_Argv(4)
 
 	# force the IP key/value pair so the game can filter based on ip
-	userinfo = q_shared.Info_RemoveKey(userinfo, "ip")
-	userinfo += q_shared.Info_SetValueForKey ("ip", net_udp.NET_AdrToString(net_chan.net_from))
+	userinfo = shared_c.Info_SetValueForKey (userinfo, "ip", net_udp.NET_AdrToString(net_chan.net_from))
 
 	# attractloop servers are ONLY for local clients
 	if sv_init.sv.attractloop:
 	
 		if not net_udp.NET_IsLocalAddress (adr):
 		
-			common.Com_Printf ("Remote connect in attract loop.  Ignored.\n")
-			net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, adr, "print\nConnection refused.\n")
+			clientserver.Com_Printf ("Remote connect in attract loop.  Ignored.\n")
+			net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, adr, "print\nConnection refused.\n")
 			return
 
 	# see if the challenge is valid
@@ -296,10 +305,10 @@ def SVC_DirectConnect ():
 				found = True
 				if challenge == sv_init.svs.challenges[i].challenge:
 					break		# good
-				net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, adr, "print\nBad challenge.\n")
+				net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, adr, "print\nBad challenge.\n")
 				return
 		if not found:
-			net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, adr, "print\nNo challenge for address.\n")
+			net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, adr, "print\nNo challenge for address.\n")
 			return
 
 	newcl = sv_init.client_t()
@@ -315,10 +324,10 @@ def SVC_DirectConnect ():
 		
 			if not net_udp.NET_IsLocalAddress (adr) and (sv_init.svs.realtime - cl.lastconnect) < int(sv_reconnect_limit.value * 1000):
 			
-				common.Com_DPrintf ("{}:reconnect rejected : too soon\n".format(net_udp.NET_AdrToString (adr)))
+				clientserver.Com_DPrintf ("{}:reconnect rejected : too soon\n".format(net_udp.NET_AdrToString (adr)))
 				return
 			
-			common.Com_Printf ("{}:reconnect\n".format(net_udp.NET_AdrToString (adr)))
+			clientserver.Com_Printf ("{}:reconnect\n".format(net_udp.NET_AdrToString (adr)))
 			newcl = cl
 			SVC_DirectConnect_NewClient(newcl, adr, qport, userinfo, challenge)
 			return
@@ -335,8 +344,8 @@ def SVC_DirectConnect ():
 		
 	if newcl is None:
 	
-		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, adr, "print\nServer is full.\n")
-		common.Com_DPrintf ("Rejected a connection.\n")
+		net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, adr, "print\nServer is full.\n")
+		clientserver.Com_DPrintf ("Rejected a connection.\n")
 		return;
 	
 	SVC_DirectConnect_NewClient(newcl, adr, qport, userinfo, challenge)
@@ -357,12 +366,12 @@ def SVC_DirectConnect_NewClient(newcl, adr, qport, userinfo, challenge):
 	# get the game a chance to reject this connection or modify the userinfo
 	if not sv_game.ge.ClientConnect (ent, userinfo):
 	
-		if q_shared.Info_ValueForKey (userinfo, "rejmsg"):
-			net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, adr, "print\n{}\nConnection refused.\n".format(  
-				q_shared.Info_ValueForKey (userinfo, "rejmsg")))
+		if shared_c.Info_ValueForKey (userinfo, "rejmsg"):
+			net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, adr, "print\n{}\nConnection refused.\n".format(  
+				shared_c.Info_ValueForKey (userinfo, "rejmsg")))
 		else:
-			net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, adr, "print\nConnection refused.\n" )
-		common.Com_DPrintf ("Game rejected a connection.\n")
+			net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, adr, "print\nConnection refused.\n" )
+		clientserver.Com_DPrintf ("Game rejected a connection.\n")
 		return
 	
 	# parse some info from the info strings
@@ -370,13 +379,13 @@ def SVC_DirectConnect_NewClient(newcl, adr, qport, userinfo, challenge):
 	SV_UserinfoChanged (newcl)
 
 	# send the connect packet to the client
-	net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, adr, b"client_connect")
+	net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, adr, b"client_connect")
 
-	net_chan.Netchan_Setup (qcommon.netsrc_t.NS_SERVER, newcl.netchan, adr, qport)
+	net_chan.Netchan_Setup (common_h.netsrc_t.NS_SERVER, newcl.netchan, adr, qport)
 
 	newcl.state = sv_init.client_state_t.cs_connected
 	
-	common.SZ_Init(newcl.datagram, qcommon.MAX_MSGLEN)
+	szone.SZ_Init(newcl.datagram, common_h.MAX_MSGLEN)
 	newcl.datagram.allowoverflow = True
 	newcl.lastmessage = sv_init.svs.realtime	# don't timeout
 	newcl.lastconnect = sv_init.svs.realtime
@@ -409,22 +418,22 @@ def SVC_RemoteCommand ():
 	i = Rcon_Validate ()
 
 	if i == 0:
-		common.Com_Printf ("Bad rcon from {}:\n{}\n".format(net_udp.NET_AdrToString (net_chan.net_from), net_chan.net_message.data[4:].decode('ascii')))
+		clientserver.Com_Printf ("Bad rcon from {}:\n{}\n".format(net_udp.NET_AdrToString (net_chan.net_from), net_chan.net_message.data[4:].decode('ascii')))
 	else:
-		common.Com_Printf ("Rcon from {}:\n{}\n".format(net_udp.NET_AdrToString (net_chan.net_from), net_chan.net_message.data[4:].decode('ascii')))
+		clientserver.Com_Printf ("Rcon from {}:\n{}\n".format(net_udp.NET_AdrToString (net_chan.net_from), net_chan.net_message.data[4:].decode('ascii')))
 
-	common.Com_BeginRedirect (common.RD_PACKET, sv_send.sv_outputbuf, sv_send.SV_OUTPUTBUF_LENGTH, sv_send.SV_FlushRedirect)
+	clientserver.Com_BeginRedirect (clientserver.RD_PACKET, sv_send.sv_outputbuf, sv_send.SV_OUTPUTBUF_LENGTH, sv_send.SV_FlushRedirect)
 
 	if not Rcon_Validate ():
-		common.Com_Printf ("Bad rcon_password.\n")
+		clientserver.Com_Printf ("Bad rcon_password.\n")
 	else:
 		remaining = ""
-		for i in range(2, cmd.Cmd_Argc()):
-			remaining += cmd.Cmd_Argv(i) + " "
+		for i in range(2, cmdparser.Cmd_Argc()):
+			remaining += cmdparser.Cmd_Argv(i) + " "
 
-		cmd.Cmd_ExecuteString (remaining)
+		cmdparser.Cmd_ExecuteString (remaining)
 
-	common.Com_EndRedirect ()
+	clientserver.Com_EndRedirect ()
 
 """
 =================
@@ -441,15 +450,15 @@ def SV_ConnectionlessPacket ():
 	#char	*s;
 	#char	*c;
 
-	common.MSG_BeginReading (net_chan.net_message)
-	common.MSG_ReadLong (net_chan.net_message)		# skip the -1 marker
+	movemsg.MSG_BeginReading (net_chan.net_message)
+	movemsg.MSG_ReadLong (net_chan.net_message)		# skip the -1 marker
 
-	s = common.MSG_ReadStringLine (net_chan.net_message)
+	s = movemsg.MSG_ReadStringLine (net_chan.net_message)
 
-	cmd.Cmd_TokenizeString (s, False)
+	cmdparser.Cmd_TokenizeString (s, False)
 
-	c = cmd.Cmd_Argv(0)
-	common.Com_DPrintf ("Packet {} : {}\n".format(net_udp.NET_AdrToString(net_chan.net_from), c))
+	c = cmdparser.Cmd_Argv(0)
+	clientserver.Com_DPrintf ("Packet {} : {}\n".format(net_udp.NET_AdrToString(net_chan.net_from), c))
 
 	if c == "ping":
 		SVC_Ping ()
@@ -466,7 +475,7 @@ def SV_ConnectionlessPacket ():
 	elif c == "rcon":
 		SVC_RemoteCommand ()
 	else:
-		common.Com_Printf ("bad connectionless packet from {}:\n{}\n".format(
+		clientserver.Com_Printf ("bad connectionless packet from {}:\n{}\n".format(
 			net_udp.NET_AdrToString (net_chan.net_from), s))
 
 
@@ -524,7 +533,7 @@ def SV_ReadPackets ():
 	#client_t	*cl;
 	#int			qport;
 
-	rx, net_chan.net_from = net_udp.NET_GetPacket (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, net_chan.net_message)
+	rx, net_chan.net_from = net_udp.NET_GetPacket (common_h.netsrc_t.NS_SERVER, net_chan.net_from, net_chan.net_message)
 
 	while rx:
 		try:
@@ -537,10 +546,10 @@ def SV_ReadPackets ():
 			
 			# read the qport out of the message so we can fix up
 			# stupid address translating routers
-			common.MSG_BeginReading (net_chan.net_message)
-			common.MSG_ReadLong (net_chan.net_message)		# sequence number
-			common.MSG_ReadLong (net_chan.net_message)		# sequence number
-			qport = common.MSG_ReadShort (net_chan.net_message) & 0xffff
+			movemsg.MSG_BeginReading (net_chan.net_message)
+			movemsg.MSG_ReadLong (net_chan.net_message)		# sequence number
+			movemsg.MSG_ReadLong (net_chan.net_message)		# sequence number
+			qport = movemsg.MSG_ReadShort (net_chan.net_message) & 0xffff
 
 			# check for packets from connected clients
 			i = 0
@@ -556,7 +565,7 @@ def SV_ReadPackets ():
 						continue
 					if cl.netchan.remote_address.port != net_chan.net_from.port:
 					
-						common.Com_Printf ("SV_ReadPackets: fixing up a translated port\n")
+						clientserver.Com_Printf ("SV_ReadPackets: fixing up a translated port\n")
 						cl.netchan.remote_address.port = net_chan.net_from.port
 					
 					if net_chan.Netchan_Process(cl.netchan, net_chan.net_message):
@@ -575,7 +584,7 @@ def SV_ReadPackets ():
 				continue
 
 		finally:
-			rx, net_chan.net_from = net_udp.NET_GetPacket (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, net_chan.net_message)
+			rx, net_chan.net_from = net_udp.NET_GetPacket (common_h.netsrc_t.NS_SERVER, net_chan.net_from, net_chan.net_message)
 
 """
 ==================
@@ -608,7 +617,7 @@ def SV_CheckTimeouts ():
 			continue
 
 		if (cl.state == sv_init.client_state_t.cs_connected or cl.state == sv_init.client_state_t.cs_spawned) and cl.lastmessage < droppoint:
-			sv_send.SV_BroadcastPrintf (q_shared.PRINT_HIGH, "{} timed out\n".format(cl.name))
+			sv_send.SV_BroadcastPrintf (shared.PRINT_HIGH, "{} timed out\n".format(cl.name))
 			SV_DropClient (cl)
 			cl.state = sv_init.client_state_t.cs_free	# don't bother with zombie state
 def SV_PrepWorldFrame ():
@@ -624,7 +633,7 @@ def SV_PrepWorldFrame ():
 def SV_RunGameFrame ():
 	
 
-	if int(common.host_speeds.value):
+	if int(frame.host_speeds.value):
 		time_before_game = q_shlinux.Sys_Milliseconds ()
 
 	# we always need to bump framenum, even if we
@@ -643,10 +652,10 @@ def SV_RunGameFrame ():
 		if sv_init.sv.time < sv_init.svs.realtime:
 		
 			if int(sv_showclamp.value):
-				common.Com_Printf ("sv highclamp\n")
+				clientserver.Com_Printf ("sv highclamp\n")
 			sv_init.svs.realtime = sv_init.sv.time
 
-	if int(common.host_speeds.value):
+	if int(frame.host_speeds.value):
 		time_after_game = q_shlinux.Sys_Milliseconds ()
 
 
@@ -659,8 +668,8 @@ SV_Frame
 """
 def SV_Frame (msec): #int
  
-	common.time_before_game = 0
-	common.time_after_game = 0
+	frame.time_before_game = 0
+	frame.time_after_game = 0
 	
 	# if server is not active, do nothing
 	if not sv_init.svs.initialized:
@@ -684,7 +693,7 @@ def SV_Frame (msec): #int
 		if sv_init.sv.time - sv_init.svs.realtime > 100:
 		
 			if int(sv_showclamp.value):
-				common.Com_Printf ("sv lowclamp\n")
+				clientserver.Com_Printf ("sv lowclamp\n")
 			sv_init.svs.realtime = sv_init.sv.time - 100
 		
 		net_udp.NET_Sleep(sv_init.sv.time - sv_init.svs.realtime)
@@ -729,7 +738,7 @@ def Master_Heartbeat ():
 	string = None #char *
 
 	# pgm post3.19 change, cvar pointer not validated before dereferencing
-	if common.dedicated is None or not common.dedicated.value:
+	if frame.dedicated is None or not frame.dedicated.value:
 		return		# only dedicated servers send heartbeats
 
 	# pgm post3.19 change, cvar pointer not validated before dereferencing
@@ -751,8 +760,8 @@ def Master_Heartbeat ():
 	# send to group master
 	for i in range(sv_init.MAX_MASTERS):
 		if master_adr[i].port:
-			common.Com_Printf ("Sending heartbeat to {}\n".format(net_udp.NET_AdrToString (master_adr[i])))
-			net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, master_adr[i], "heartbeat\n{}".format(string))
+			clientserver.Com_Printf ("Sending heartbeat to {}\n".format(net_udp.NET_AdrToString (master_adr[i])))
+			net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, master_adr[i], "heartbeat\n{}".format(string))
 """
 /*
 =================
@@ -766,7 +775,7 @@ def Master_Shutdown ():
 	#int			i;
 
 	# pgm post3.19 change, cvar pointer not validated before dereferencing
-	if common.dedicated is None or not common.dedicated.value:
+	if frame.dedicated is None or not frame.dedicated.value:
 		return		# only dedicated servers send heartbeats
 
 	# pgm post3.19 change, cvar pointer not validated before dereferencing
@@ -778,8 +787,8 @@ def Master_Shutdown ():
 		if master_adr[i].port:
 		
 			if i > 0:
-				common.Com_Printf ("Sending heartbeat to {}\n".format(net_udp.NET_AdrToString (master_adr[i])))
-			net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, master_adr[i], b"shutdown")
+				clientserver.Com_Printf ("Sending heartbeat to {}\n".format(net_udp.NET_AdrToString (master_adr[i])))
+			net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, master_adr[i], b"shutdown")
 		
 """
 
@@ -801,12 +810,12 @@ def SV_UserinfoChanged (cl): #client_t *
 	sv_game.ge.ClientUserinfoChanged (cl.edict, cl.userinfo)
 
 	# name for C code
-	cl.name = q_shared.Info_ValueForKey (cl.userinfo, "name")[:31]
+	cl.name = shared_c.Info_ValueForKey (cl.userinfo, "name")[:31]
 	# mask off high bit
 	cl.name = "".join(chr(ord(ch) & 127) for ch in cl.name)
 
 	# rate command
-	val = q_shared.Info_ValueForKey (cl.userinfo, "rate")
+	val = shared_c.Info_ValueForKey (cl.userinfo, "rate")
 	if val:
 		try:
 			cl.rate = int(val)
@@ -820,7 +829,7 @@ def SV_UserinfoChanged (cl): #client_t *
 		cl.rate = 5000
 
 	# msg command
-	val = q_shared.Info_ValueForKey (cl.userinfo, "msg")
+	val = shared_c.Info_ValueForKey (cl.userinfo, "msg")
 	if val:
 		try:
 			cl.messagelevel = int(val)
@@ -837,34 +846,34 @@ def SV_Init ():
 	
 	rcon_password = cvar.Cvar_Get ("rcon_password", "", 0)
 	cvar.Cvar_Get ("skill", "1", 0)
-	cvar.Cvar_Get ("deathmatch", "0", q_shared.CVAR_LATCH)
-	cvar.Cvar_Get ("coop", "0", q_shared.CVAR_LATCH)
-	cvar.Cvar_Get ("dmflags", "".format(q_shared.DF_INSTANT_ITEMS), q_shared.CVAR_SERVERINFO)
-	cvar.Cvar_Get ("fraglimit", "0", q_shared.CVAR_SERVERINFO)
-	cvar.Cvar_Get ("timelimit", "0", q_shared.CVAR_SERVERINFO)
-	cvar.Cvar_Get ("cheats", "0", q_shared.CVAR_SERVERINFO|q_shared.CVAR_LATCH)
-	cvar.Cvar_Get ("protocol", "{}".format(qcommon.PROTOCOL_VERSION), q_shared.CVAR_SERVERINFO|q_shared.CVAR_NOSET)
-	maxclients = cvar.Cvar_Get ("maxclients", "1", q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH)
-	hostname = cvar.Cvar_Get ("hostname", "noname", q_shared.CVAR_SERVERINFO | q_shared.CVAR_ARCHIVE)
+	cvar.Cvar_Get ("deathmatch", "0", shared.CVAR_LATCH)
+	cvar.Cvar_Get ("coop", "0", shared.CVAR_LATCH)
+	cvar.Cvar_Get ("dmflags", "".format(shared.DF_INSTANT_ITEMS), shared.CVAR_SERVERINFO)
+	cvar.Cvar_Get ("fraglimit", "0", shared.CVAR_SERVERINFO)
+	cvar.Cvar_Get ("timelimit", "0", shared.CVAR_SERVERINFO)
+	cvar.Cvar_Get ("cheats", "0", shared.CVAR_SERVERINFO|shared.CVAR_LATCH)
+	cvar.Cvar_Get ("protocol", "{}".format(common_h.PROTOCOL_VERSION), shared.CVAR_SERVERINFO|shared.CVAR_NOSET)
+	maxclients = cvar.Cvar_Get ("maxclients", "1", shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
+	hostname = cvar.Cvar_Get ("hostname", "noname", shared.CVAR_SERVERINFO | shared.CVAR_ARCHIVE)
 	timeout = cvar.Cvar_Get ("timeout", "125", 0)
 	zombietime = cvar.Cvar_Get ("zombietime", "2", 0)
 	sv_showclamp = cvar.Cvar_Get ("showclamp", "0", 0)
 	sv_paused = cvar.Cvar_Get ("paused", "0", 0)
 	sv_timedemo = cvar.Cvar_Get ("timedemo", "0", 0)
 	sv_enforcetime = cvar.Cvar_Get ("sv_enforcetime", "0", 0)
-	allow_download = cvar.Cvar_Get ("allow_download", "1", q_shared.CVAR_ARCHIVE)
-	allow_download_players  = cvar.Cvar_Get ("allow_download_players", "0", q_shared.CVAR_ARCHIVE)
-	allow_download_models = cvar.Cvar_Get ("allow_download_models", "1", q_shared.CVAR_ARCHIVE)
-	allow_download_sounds = cvar.Cvar_Get ("allow_download_sounds", "1", q_shared.CVAR_ARCHIVE)
-	allow_download_maps	  = cvar.Cvar_Get ("allow_download_maps", "1", q_shared.CVAR_ARCHIVE)
+	allow_download = cvar.Cvar_Get ("allow_download", "1", shared.CVAR_ARCHIVE)
+	allow_download_players  = cvar.Cvar_Get ("allow_download_players", "0", shared.CVAR_ARCHIVE)
+	allow_download_models = cvar.Cvar_Get ("allow_download_models", "1", shared.CVAR_ARCHIVE)
+	allow_download_sounds = cvar.Cvar_Get ("allow_download_sounds", "1", shared.CVAR_ARCHIVE)
+	allow_download_maps	  = cvar.Cvar_Get ("allow_download_maps", "1", shared.CVAR_ARCHIVE)
 
 	sv_noreload = cvar.Cvar_Get ("sv_noreload", "0", 0)
 
-	sv_airaccelerate = cvar.Cvar_Get("sv_airaccelerate", "0", q_shared.CVAR_LATCH)
+	sv_airaccelerate = cvar.Cvar_Get("sv_airaccelerate", "0", shared.CVAR_LATCH)
 
 	public_server = cvar.Cvar_Get ("public", "0", 0)
 
-	sv_reconnect_limit = cvar.Cvar_Get ("sv_reconnect_limit", "3", q_shared.CVAR_ARCHIVE)
+	sv_reconnect_limit = cvar.Cvar_Get ("sv_reconnect_limit", "3", shared.CVAR_ARCHIVE)
 
 	#net_chan.net_message = ""
 
@@ -884,15 +893,15 @@ def SV_FinalMessage (message, reconnect): #char *, qboolean
 	#int			i;
 	#client_t	*cl;
 	
-	common.SZ_Clear (net_chan.net_message)
-	common.MSG_WriteByte (net_chan.net_message, qcommon.svc_ops_e.svc_print.value)
-	common.MSG_WriteByte (net_chan.net_message, q_shared.PRINT_HIGH)
-	common.MSG_WriteString (net_chan.net_message, message.encode('ascii'))
+	szone.SZ_Clear (net_chan.net_message)
+	movemsg.MSG_WriteByte (net_chan.net_message, common_h.svc_ops_e.svc_print.value)
+	movemsg.MSG_WriteByte (net_chan.net_message, shared.PRINT_HIGH)
+	movemsg.MSG_WriteString (net_chan.net_message, message.encode('ascii'))
 
 	if reconnect:
-		common.MSG_WriteByte (net_chan.net_message, qcommon.svc_ops_e.svc_reconnect.value)
+		movemsg.MSG_WriteByte (net_chan.net_message, common_h.svc_ops_e.svc_reconnect.value)
 	else:
-		common.MSG_WriteByte (net_chan.net_message, qcommon.svc_ops_e.svc_disconnect.value)
+		movemsg.MSG_WriteByte (net_chan.net_message, common_h.svc_ops_e.svc_disconnect.value)
 
 	# send it twice
 	# stagger the packets to crutch operating system limited buffers
@@ -926,10 +935,10 @@ def SV_Shutdown (finalmsg, reconnect): #char *, qboolean
 	sv_game.SV_ShutdownGameProgs ()
 
 	# free current level
-	if sv_init.sv.demofile is not None:
-		sv_init.sv.demofile.close ()
+	if sv_init.sv.demofile:
+		filesystem.FS_FCloseFile (sv_init.sv.demofile)
 	sv_init.sv.clear () # memset (&sv, 0, sizeof(sv));
-	common.Com_SetServerState (sv_init.sv.state.value)
+	clientserver.Com_SetServerState (sv_init.sv.state.value)
 
 	# free server static data
 	# Z_Free (svs.clients); Z_Free (svs.client_entities);

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, q_shared, m_flash, g_ai, g_spawn
+from game import g_main, g_local, g_ai, g_spawn
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_ai import (FoundTarget, M_CheckAttack)
 from game.g_local import (AI_DUCKED, AI_GOOD_GUY, AI_HOLD_FRAME, AI_MEDIC, AI_RESURRECTING, AI_STAND_GROUND, DEAD_DEAD, GIB_ORGANIC, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t, svc_temp_entity)
@@ -28,7 +28,10 @@ from game.g_misc import (ThrowGib, ThrowHead)
 from game.g_monster import (monster_fire_blaster, walkmonster_start)
 from game.g_utils import (findradius, G_FreeEdict, G_ProjectSource, vectoangles)
 from game.game import (SOLID_BBOX, SVF_DEADMONSTER, SVF_MONSTER)
-from game.q_shared import (ATTN_IDLE, ATTN_NORM, CHAN_AUTO, CHAN_VOICE, CHAN_WEAPON, EF_BLASTER, EF_HYPERBLASTER, MASK_SHOT, MZ2_MEDIC_BLASTER_1, multicast_t, temp_event_t)
+from common.header.shared import ATTN_IDLE, ATTN_NORM, CHAN_AUTO, CHAN_VOICE, CHAN_WEAPON, EF_BLASTER, EF_HYPERBLASTER, MASK_SHOT, MZ2_MEDIC_BLASTER_1, multicast_t, temp_event_t
+from common.header import shared
+from common.shared import flash
+from common.shared import shared as shared_c
 DAMAGE_AIM = damage_t.DAMAGE_AIM.value
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 MULTICAST_PVS = multicast_t.MULTICAST_PVS.value
@@ -445,20 +448,20 @@ def medic_fire_blaster (self): #edict_t *
 	else:
 		effect = 0
 
-	q_shared.AngleVectors (self.s.angles, forward, right, None)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_MEDIC_BLASTER_1], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, None)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[MZ2_MEDIC_BLASTER_1], forward, right, start)
 
-	q_shared.VectorCopy (self.enemy.s.origin, end)
+	shared.VectorCopy (self.enemy.s.origin, end)
 	end[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (end, start, dir)
+	shared.VectorSubtract (end, start, dir)
 
 	monster_fire_blaster (self, start, dir, 2, 1000, MZ2_MEDIC_BLASTER_1, effect)
 
 
 def medic_dead (self): #edict_t *
 
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, -8)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, -8)
 	self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	self.nextthink = 0
@@ -573,13 +576,13 @@ def medic_cable_attack (self): #edict_t *
 	if not self.enemy.inuse:
 		return
 
-	q_shared.AngleVectors (self.s.angles, f, r, None)
-	q_shared.VectorCopy (medic_cable_offsets[self.s.frame - FRAME_attack42], offset)
+	shared_c.AngleVectors (self.s.angles, f, r, None)
+	shared.VectorCopy (medic_cable_offsets[self.s.frame - FRAME_attack42], offset)
 	G_ProjectSource (self.s.origin, offset, f, r, start)
 
 	# check for max distance
-	q_shared.VectorSubtract (start, self.enemy.s.origin, dir)
-	distance = q_shared.VectorLength(dir)
+	shared.VectorSubtract (start, self.enemy.s.origin, dir)
+	distance = shared_c.VectorLength(dir)
 	if distance > 256:
 		return
 
@@ -619,10 +622,10 @@ def medic_cable_attack (self): #edict_t *
 			g_main.gi.sound (self, CHAN_WEAPON, sound_hook_heal, 1, ATTN_NORM, 0)
 
 	# adjust start for beam origin being in middle of a segment
-	q_shared.VectorMA (start, 8, f, start)
+	shared_c.VectorMA (start, 8, f, start)
 
 	# adjust end z for end spot since the monster is currently dead
-	q_shared.VectorCopy (self.enemy.s.origin, end)
+	shared.VectorCopy (self.enemy.s.origin, end)
 	end[2] = self.enemy.absmin[2] + self.enemy.size[2] / 2
 
 	g_main.gi.WriteByte (svc_temp_entity)
@@ -681,8 +684,8 @@ def SP_monster_medic (self): #edict_t *
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 	self.s.modelindex = g_main.gi.modelindex ("models/monsters/medic/tris.md2")
-	q_shared.VectorSet (self.mins, -24, -24, -24)
-	q_shared.VectorSet (self.maxs, 24, 24, 32)
+	shared.VectorSet (self.mins, -24, -24, -24)
+	shared.VectorSet (self.maxs, 24, 24, 32)
 
 	self.health = 300
 	self.gib_health = -130

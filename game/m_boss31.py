@@ -20,18 +20,20 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import numpy as np
-from game import q_shared, g_local, g_main, g_utils, g_monster, g_misc, g_ai, m_flash, m_boss32, m_supertank
+from game import g_local, g_main, g_utils, g_monster, g_misc, g_ai, m_boss32, m_supertank
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge, infront, range, visible
 from game.g_utils import G_ProjectSource, G_FreeEdict, vectoyaw
 from game.g_monster import monster_fire_bullet, monster_fire_bfg, walkmonster_start
-from game.q_shared import (CHAN_VOICE, CHAN_BODY, ATTN_NORM, CONTENTS_SOLID, CONTENTS_MONSTER,
-	CONTENTS_SLIME, CONTENTS_LAVA, MZ2_JORG_BFG_1, MZ2_JORG_MACHINEGUN_R1, MZ2_JORG_MACHINEGUN_L1)
+from common.header.shared import CHAN_VOICE, CHAN_BODY, ATTN_NORM, CONTENTS_SOLID, CONTENTS_MONSTER, CONTENTS_SLIME, CONTENTS_LAVA, MZ2_JORG_BFG_1, MZ2_JORG_MACHINEGUN_R1, MZ2_JORG_MACHINEGUN_L1
 from game.g_local import (DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, FRAMETIME,
 	MOVETYPE_STEP, AI_STAND_GROUND, FL_FLY,
 	RANGE_MELEE, RANGE_NEAR, RANGE_MID, RANGE_FAR, AS_MELEE, AS_MISSILE, AS_SLIDING,
 	AS_STRAIGHT, DEAD_DEAD, damage_t)
 DAMAGE_NO = damage_t.DAMAGE_NO.value
 from game.game import solid_t
+from common.header import shared
+from common.shared import flash
+from common.shared import shared as shared_c
 
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 
@@ -246,13 +248,13 @@ def jorgBFG (self):
 	dir = np.zeros((3,), dtype=np.float32)
 	vec = np.zeros((3,), dtype=np.float32)
 
-	q_shared.AngleVectors (self.s.angles, forward, right, up)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_JORG_BFG_1], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, up)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[MZ2_JORG_BFG_1], forward, right, start)
 
-	q_shared.VectorCopy (self.enemy.s.origin, vec)
+	shared.VectorCopy (self.enemy.s.origin, vec)
 	vec[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (vec, start, dir)
-	q_shared.VectorNormalize (dir)
+	shared.VectorSubtract (vec, start, dir)
+	shared_c.VectorNormalize (dir)
 	g_main.gi.sound (self, CHAN_VOICE, sound_attack2, 1, ATTN_NORM, 0)
 	monster_fire_bfg (self, start, dir, 50, 300, 100, 200, MZ2_JORG_BFG_1)
 
@@ -263,13 +265,13 @@ def jorg_firebullet_right (self):
 	target = np.zeros((3,), dtype=np.float32)
 	start = np.zeros((3,), dtype=np.float32)
 
-	q_shared.AngleVectors (self.s.angles, forward, right, up)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_JORG_MACHINEGUN_R1], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, up)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[MZ2_JORG_MACHINEGUN_R1], forward, right, start)
 
-	q_shared.VectorMA (self.enemy.s.origin, -0.2, self.enemy.velocity, target)
+	shared_c.VectorMA (self.enemy.s.origin, -0.2, self.enemy.velocity, target)
 	target[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (target, start, forward)
-	q_shared.VectorNormalize (forward)
+	shared.VectorSubtract (target, start, forward)
+	shared_c.VectorNormalize (forward)
 
 	monster_fire_bullet (self, start, forward, 6, 4, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, MZ2_JORG_MACHINEGUN_R1)
 
@@ -280,13 +282,13 @@ def jorg_firebullet_left (self):
 	target = np.zeros((3,), dtype=np.float32)
 	start = np.zeros((3,), dtype=np.float32)
 
-	q_shared.AngleVectors (self.s.angles, forward, right, up)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_JORG_MACHINEGUN_L1], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, up)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[MZ2_JORG_MACHINEGUN_L1], forward, right, start)
 
-	q_shared.VectorMA (self.enemy.s.origin, -0.2, self.enemy.velocity, target)
+	shared_c.VectorMA (self.enemy.s.origin, -0.2, self.enemy.velocity, target)
 	target[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (target, start, forward)
-	q_shared.VectorNormalize (forward)
+	shared.VectorSubtract (target, start, forward)
+	shared_c.VectorNormalize (forward)
 
 	monster_fire_bullet (self, start, forward, 6, 4, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, MZ2_JORG_MACHINEGUN_L1)
 
@@ -301,8 +303,8 @@ def jorg_attack (self):
 	vec = np.zeros((3,), dtype=np.float32)
 	range_ = 0.0
 
-	q_shared.VectorSubtract (self.enemy.s.origin, self.s.origin, vec)
-	range_ = q_shared.VectorLength (vec)
+	shared.VectorSubtract (self.enemy.s.origin, self.s.origin, vec)
+	range_ = shared_c.VectorLength (vec)
 
 	if g_local.random() <= 0.75:
 		g_main.gi.sound (self, CHAN_VOICE, sound_attack1, 1, ATTN_NORM, 0)
@@ -364,9 +366,9 @@ def Jorg_CheckAttack (self):
 
 	if self.enemy.health > 0:
 		# see if any entities are in the way of the shot
-		q_shared.VectorCopy (self.s.origin, spot1)
+		shared.VectorCopy (self.s.origin, spot1)
 		spot1[2] += self.viewheight
-		q_shared.VectorCopy (self.enemy.s.origin, spot2)
+		shared.VectorCopy (self.enemy.s.origin, spot2)
 		spot2[2] += self.enemy.viewheight
 
 		tr = g_main.gi.trace (spot1, None, None, spot2, self, CONTENTS_SOLID|CONTENTS_MONSTER|CONTENTS_SLIME|CONTENTS_LAVA)
@@ -377,7 +379,7 @@ def Jorg_CheckAttack (self):
 
 	enemy_infront = infront(self, self.enemy)
 	enemy_range = range(self, self.enemy)
-	q_shared.VectorSubtract (self.enemy.s.origin, self.s.origin, temp)
+	shared.VectorSubtract (self.enemy.s.origin, self.s.origin, temp)
 	enemy_yaw = vectoyaw(temp)
 
 	self.ideal_yaw = enemy_yaw
@@ -451,8 +453,8 @@ def SP_monster_jorg (self):
 	self.solid = SOLID_BBOX
 	self.s.modelindex = g_main.gi.modelindex ("models/monsters/boss3/rider/tris.md2")
 	self.s.modelindex2 = g_main.gi.modelindex ("models/monsters/boss3/jorg/tris.md2")
-	q_shared.VectorSet (self.mins, -80, -80, 0)
-	q_shared.VectorSet (self.maxs, 80, 80, 140)
+	shared.VectorSet (self.mins, -80, -80, 0)
+	shared.VectorSet (self.maxs, 80, 80, 140)
 
 	self.health = 3000
 	self.gib_health = -2000

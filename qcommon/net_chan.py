@@ -20,9 +20,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import struct
-from qcommon import cvar, qcommon, common
-from game import q_shared
+pass
+pass
 from linux import net_udp, q_shlinux
+from common.header import common as common_h
+from common.header import shared
+from common import clientserver
+from common import cvar
+from common import movemsg
+from common import szone
 """
 #include "qcommon.h"
 
@@ -84,9 +90,9 @@ showpackets = None #cvar_t		*
 showdrop = None #cvar_t		*
 qport = None #cvar_t		*
 
-net_from = qcommon.netadr_t() #netadr_t
-net_message = qcommon.sizebuf_t()
-net_message.maxsize = qcommon.MAX_MSGLEN
+net_from = common_h.netadr_t() #netadr_t
+net_message = common_h.sizebuf_t()
+net_message.maxsize = common_h.MAX_MSGLEN
 """
 byte		net_message_buffer[qcommon.MAX_MSGLEN];
 
@@ -107,7 +113,7 @@ def Netchan_Init ()->None:
 
 	showpackets = cvar.Cvar_Get ("showpackets", "0", 0)
 	showdrop = cvar.Cvar_Get ("showdrop", "0", 0)
-	qport = cvar.Cvar_Get ("qport", str(port), q_shared.CVAR_NOSET)
+	qport = cvar.Cvar_Get ("qport", str(port), shared.CVAR_NOSET)
 
 
 """
@@ -117,7 +123,7 @@ Netchan_OutOfBand
 Sends an out-of-band datagram
 ================
 """
-def Netchan_OutOfBand (net_socket: int, adr: qcommon.netadr_t, data: bytes)->None: #int, netadr_t, byte *
+def Netchan_OutOfBand (net_socket: int, adr: common_h.netadr_t, data: bytes)->None: #int, netadr_t, byte *
 
 	assert isinstance(data, bytes)
 
@@ -139,7 +145,7 @@ Netchan_OutOfBandPrint
 Sends a text message in an out-of-band datagram
 ================
 """
-def Netchan_OutOfBandPrint (net_socket: int, adr: qcommon.netadr_t, msg: str | bytes)->None: #int, netadr_t, char *
+def Netchan_OutOfBandPrint (net_socket: int, adr: common_h.netadr_t, msg: str | bytes)->None: #int, netadr_t, char *
 
 	#va_list		argptr;
 	#static char		string[qcommon.MAX_MSGLEN - 4];
@@ -162,7 +168,7 @@ Netchan_Setup
 called to open a channel to a remote system
 ==============
 """
-def Netchan_Setup (sock: qcommon.netsrc_t, chan: qcommon.netchan_t, adr: qcommon.netadr_t, qport: int)->None: #netsrc_t, netchan_t *, netadr_t, int
+def Netchan_Setup (sock: common_h.netsrc_t, chan: common_h.netchan_t, adr: common_h.netadr_t, qport: int)->None: #netsrc_t, netchan_t *, netadr_t, int
 	
 	chan.clear()
 	
@@ -173,7 +179,7 @@ def Netchan_Setup (sock: qcommon.netsrc_t, chan: qcommon.netchan_t, adr: qcommon
 	chan.incoming_sequence = 0
 	chan.outgoing_sequence = 1
 
-	common.SZ_Init (chan.message, qcommon.MAX_MSGLEN)
+	szone.SZ_Init (chan.message, common_h.MAX_MSGLEN)
 	chan.message.allowoverflow = True
 
 
@@ -185,13 +191,13 @@ Netchan_CanReliable
 Returns true if the last reliable message has acked
 ================
 """
-def Netchan_CanReliable (chan: qcommon.netchan_t)->bool: #netchan_t * (returns qboolean)
+def Netchan_CanReliable (chan: common_h.netchan_t)->bool: #netchan_t * (returns qboolean)
 
 	if chan.reliable_length:
 		return False			# waiting for ack
 	return True
 
-def Netchan_NeedReliable (chan: qcommon.netchan_t)->bool: #netchan_t *
+def Netchan_NeedReliable (chan: common_h.netchan_t)->bool: #netchan_t *
 
 	# qboolean	send_reliable;
 
@@ -221,11 +227,11 @@ transmition / retransmition of the reliable messages.
 A 0 length will still generate a packet and deal with the reliable messages.
 ================
 """
-def Netchan_Transmit (chan: qcommon.netchan_t, data: bytes | bytearray)->None: #netchan_t *
+def Netchan_Transmit (chan: common_h.netchan_t, data: bytes | bytearray)->None: #netchan_t *
 
 	assert isinstance(data, bytes) or isinstance(data, bytearray)
 
-	send = qcommon.sizebuf_t()
+	send = common_h.sizebuf_t()
 	#byte		send_buf[qcommon.MAX_MSGLEN];
 	#qboolean	send_reliable;
 	#unsigned	w1, w2;
@@ -235,7 +241,7 @@ def Netchan_Transmit (chan: qcommon.netchan_t, data: bytes | bytearray)->None: #
 	if chan.message.overflowed:
 	
 		chan.fatal_error = True
-		common.Com_Printf ("{}:Outgoing message overflow\n".format(
+		clientserver.Com_Printf ("{}:Outgoing message overflow\n".format(
 			net_udp.NET_AdrToString (chan.remote_address)))
 		return
 	
@@ -249,7 +255,7 @@ def Netchan_Transmit (chan: qcommon.netchan_t, data: bytes | bytearray)->None: #
 		chan.reliable_sequence ^= 1
 	
 	# write the packet header
-	common.SZ_Init (send, qcommon.MAX_MSGLEN)
+	szone.SZ_Init (send, common_h.MAX_MSGLEN)
 
 	w1 = ( chan.outgoing_sequence & ~(1<<31) ) | (send_reliable<<31)
 	w2 = ( chan.incoming_sequence & ~(1<<31) ) | (chan.incoming_reliable_sequence<<31)
@@ -258,24 +264,24 @@ def Netchan_Transmit (chan: qcommon.netchan_t, data: bytes | bytearray)->None: #
 	chan.last_sent = q_shlinux.curtime
 
 
-	common.MSG_WriteLong(send, w1)
-	common.MSG_WriteLong(send, w2)
+	movemsg.MSG_WriteLong(send, w1)
+	movemsg.MSG_WriteLong(send, w2)
 
 	# send the qport if we are a client
-	if chan.sock == qcommon.netsrc_t.NS_CLIENT:
-		common.MSG_WriteShort(send, int(qport.value))
+	if chan.sock == common_h.netsrc_t.NS_CLIENT:
+		movemsg.MSG_WriteShort(send, int(qport.value))
 
 	# copy the reliable message to the packet first
 	if send_reliable:
 	
-		common.SZ_Write(send, chan.reliable_buf)
+		szone.SZ_Write(send, chan.reliable_buf)
 		chan.last_reliable_sequence = chan.outgoing_sequence
 	
 	# add the unreliable part if space is available
 	if send.maxsize - send.cursize >= len(data):
-		common.SZ_Write(send, data)
+		szone.SZ_Write(send, data)
 	else:
-		common.Com_Printf ("Netchan_Transmit: dumped unreliable\n")
+		clientserver.Com_Printf ("Netchan_Transmit: dumped unreliable\n")
 
 	# send the datagram
 	net_udp.NET_SendPacket (chan.sock, send.data, chan.remote_address)
@@ -283,14 +289,14 @@ def Netchan_Transmit (chan: qcommon.netchan_t, data: bytes | bytearray)->None: #
 	if showpackets.value != 0:
 	
 		if send_reliable:
-			common.Com_Printf ("send {:4d} : s={:d} reliable={:d} ack={:d} rack={:d}\n".format(
+			clientserver.Com_Printf ("send {:4d} : s={:d} reliable={:d} ack={:d} rack={:d}\n".format(
 				send.cursize
 				, chan.outgoing_sequence - 1
 				, chan.reliable_sequence
 				, chan.incoming_sequence
 				, chan.incoming_reliable_sequence))
 		else:
-			common.Com_Printf ("send {:4d} : s={:d} ack={:d} rack={:d}\n".format(
+			clientserver.Com_Printf ("send {:4d} : s={:d} ack={:d} rack={:d}\n".format(
 				send.cursize
 				, chan.outgoing_sequence - 1
 				, chan.incoming_sequence
@@ -306,20 +312,20 @@ called when the current net_message is from remote_address
 modifies net_message so that it points to the packet payload
 =================
 """
-def Netchan_Process (chan: qcommon.netchan_t, msg: qcommon.sizebuf_t)->bool: #netchan_t *, sizebuf_t * (returns qboolean)
+def Netchan_Process (chan: common_h.netchan_t, msg: common_h.sizebuf_t)->bool: #netchan_t *, sizebuf_t * (returns qboolean)
 
 	#unsigned	sequence, sequence_ack;
 	#unsigned	reliable_ack, reliable_message;
 	#int			qport;
 
 	# get sequence numbers
-	common.MSG_BeginReading (msg)
-	sequence = common.MSG_ReadLong (msg)
-	sequence_ack = common.MSG_ReadLong (msg)
+	movemsg.MSG_BeginReading (msg)
+	sequence = movemsg.MSG_ReadLong (msg)
+	sequence_ack = movemsg.MSG_ReadLong (msg)
 	
 	# read the qport if we are a server
-	if chan.sock == qcommon.netsrc_t.NS_SERVER:
-		qport = common.MSG_ReadShort(msg)
+	if chan.sock == common_h.netsrc_t.NS_SERVER:
+		qport = movemsg.MSG_ReadShort(msg)
 
 	reliable_message = sequence >> 31
 	reliable_ack = sequence_ack >> 31
@@ -330,14 +336,14 @@ def Netchan_Process (chan: qcommon.netchan_t, msg: qcommon.sizebuf_t)->bool: #ne
 	if showpackets.value:
 	
 		if reliable_message:
-			common.Com_Printf ("recv {:4d} : s={:d} reliable={:d} ack={:d} rack={:d}\n".format(
+			clientserver.Com_Printf ("recv {:4d} : s={:d} reliable={:d} ack={:d} rack={:d}\n".format(
 				msg.cursize
 				, sequence
 				, chan.incoming_reliable_sequence ^ 1
 				, sequence_ack
 				, reliable_ack))
 		else:
-			common.Com_Printf ("recv {:4d} : s={:d} ack={:d} rack={:d}\n".format(
+			clientserver.Com_Printf ("recv {:4d} : s={:d} ack={:d} rack={:d}\n".format(
 				msg.cursize
 				, sequence
 				, sequence_ack
@@ -350,7 +356,7 @@ def Netchan_Process (chan: qcommon.netchan_t, msg: qcommon.sizebuf_t)->bool: #ne
 	if sequence <= chan.incoming_sequence:
 	
 		if showdrop.value:
-			common.Com_Printf ("{}:Out of order packet {:d} at {:d}\n".format(
+			clientserver.Com_Printf ("{}:Out of order packet {:d} at {:d}\n".format(
 				net_udp.NET_AdrToString (chan.remote_address)
 				,  sequence
 				, chan.incoming_sequence))
@@ -364,7 +370,7 @@ def Netchan_Process (chan: qcommon.netchan_t, msg: qcommon.sizebuf_t)->bool: #ne
 	if chan.dropped > 0:
 	
 		if showdrop.value:
-			common.Com_Printf ("{}:Dropped {:d} packets at {:d}\n".format(
+			clientserver.Com_Printf ("{}:Dropped {:d} packets at {:d}\n".format(
 			net_udp.NET_AdrToString (chan.remote_address)
 			, chan.dropped
 			, sequence))

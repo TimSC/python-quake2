@@ -20,10 +20,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import numpy as np
-from qcommon import cvar, net_chan, qcommon, common, cmd
-from game import q_shared
+from qcommon import net_chan
+pass
 from client import cl_main, client, keys, client, cl_cin
 from linux import vid_so, sys_linux, q_shlinux
+from common.header import common as common_h
+from common.header import shared
+from common import clientserver
+from common import cmdparser
+from common import crc
+from common import cvar
+from common import movemsg
+from common import szone
 """
 // cl_main.cl.input.c  -- builds an intended movement command to send to the server
 
@@ -331,7 +339,7 @@ cl_anglespeedkey = None
 
 
 def KeyDown(b):
-	c = cmd.Cmd_Argv(1)
+	c = cmdparser.Cmd_Argv(1)
 	if c:
 		k = int(c)
 	else:
@@ -345,13 +353,13 @@ def KeyDown(b):
 	elif not b.down[1]:
 		b.down[1] = k
 	else:
-		common.Com_Printf("Three keys down for a button!\n")
+		clientserver.Com_Printf("Three keys down for a button!\n")
 		return
 
 	if b.state & 1:
 		return
 
-	c = cmd.Cmd_Argv(2)
+	c = cmdparser.Cmd_Argv(2)
 	b.downtime = int(c) if c else 0
 	if not b.downtime:
 		b.downtime = sys_linux.sys_frame_time - 100
@@ -360,7 +368,7 @@ def KeyDown(b):
 
 
 def KeyUp(b):
-	c = cmd.Cmd_Argv(1)
+	c = cmdparser.Cmd_Argv(1)
 	if c:
 		k = int(c)
 	else:
@@ -381,7 +389,7 @@ def KeyUp(b):
 	if not (b.state & 1):
 		return
 
-	c = cmd.Cmd_Argv(2)
+	c = cmdparser.Cmd_Argv(2)
 	uptime = int(c) if c else 0
 	if uptime:
 		b.msec += uptime - b.downtime
@@ -426,7 +434,7 @@ def IN_UseUp(): KeyUp(in_use)
 
 def IN_Impulse():
 	global in_impulse
-	c = cmd.Cmd_Argv(1)
+	c = cmdparser.Cmd_Argv(1)
 	in_impulse = int(c) if c else 0
 
 
@@ -472,17 +480,17 @@ def CL_AdjustAngles():
 		speed = cl_main.cls.frametime
 
 	if not (in_strafe.state & 1):
-		cl_main.cl.viewangles[q_shared.YAW] -= speed * cl_yawspeed.value * CL_KeyState(in_right)
-		cl_main.cl.viewangles[q_shared.YAW] += speed * cl_yawspeed.value * CL_KeyState(in_left)
+		cl_main.cl.viewangles[shared.YAW] -= speed * cl_yawspeed.value * CL_KeyState(in_right)
+		cl_main.cl.viewangles[shared.YAW] += speed * cl_yawspeed.value * CL_KeyState(in_left)
 	if in_klook.state & 1:
-		cl_main.cl.viewangles[q_shared.PITCH] -= speed * cl_pitchspeed.value * CL_KeyState(in_forward)
-		cl_main.cl.viewangles[q_shared.PITCH] += speed * cl_pitchspeed.value * CL_KeyState(in_back)
+		cl_main.cl.viewangles[shared.PITCH] -= speed * cl_pitchspeed.value * CL_KeyState(in_forward)
+		cl_main.cl.viewangles[shared.PITCH] += speed * cl_pitchspeed.value * CL_KeyState(in_back)
 
 	up = CL_KeyState(in_lookup)
 	down = CL_KeyState(in_lookdown)
 
-	cl_main.cl.viewangles[q_shared.PITCH] -= speed * cl_pitchspeed.value * up
-	cl_main.cl.viewangles[q_shared.PITCH] += speed * cl_pitchspeed.value * down
+	cl_main.cl.viewangles[shared.PITCH] -= speed * cl_pitchspeed.value * up
+	cl_main.cl.viewangles[shared.PITCH] += speed * cl_pitchspeed.value * down
 
 def CL_BaseMove (cmd): #usercmd_t *
 
@@ -511,33 +519,33 @@ def CL_BaseMove (cmd): #usercmd_t *
 		cmd.upmove *= 2
 
 def CL_ClampPitch ():
-	pitch = q_shared.SHORT2ANGLE(cl_main.cl.frame.playerstate.pmove.delta_angles[q_shared.PITCH])
+	pitch = shared.SHORT2ANGLE(cl_main.cl.frame.playerstate.pmove.delta_angles[shared.PITCH])
 	if pitch > 180:
 		pitch -= 360
 
-	if cl_main.cl.viewangles[q_shared.PITCH] + pitch < -360:
-		cl_main.cl.viewangles[q_shared.PITCH] += 360
-	if cl_main.cl.viewangles[q_shared.PITCH] + pitch > 360:
-		cl_main.cl.viewangles[q_shared.PITCH] -= 360
+	if cl_main.cl.viewangles[shared.PITCH] + pitch < -360:
+		cl_main.cl.viewangles[shared.PITCH] += 360
+	if cl_main.cl.viewangles[shared.PITCH] + pitch > 360:
+		cl_main.cl.viewangles[shared.PITCH] -= 360
 
-	if cl_main.cl.viewangles[q_shared.PITCH] + pitch > 89:
-		cl_main.cl.viewangles[q_shared.PITCH] = 89 - pitch
-	if cl_main.cl.viewangles[q_shared.PITCH] + pitch < -89:
-		cl_main.cl.viewangles[q_shared.PITCH] = -89 - pitch
+	if cl_main.cl.viewangles[shared.PITCH] + pitch > 89:
+		cl_main.cl.viewangles[shared.PITCH] = 89 - pitch
+	if cl_main.cl.viewangles[shared.PITCH] + pitch < -89:
+		cl_main.cl.viewangles[shared.PITCH] = -89 - pitch
 def CL_FinishMove (cmd): #usercmd_t *
 
 	global in_impulse
 
 	if in_attack.state & 3:
-		cmd.buttons |= q_shared.BUTTON_ATTACK
+		cmd.buttons |= shared.BUTTON_ATTACK
 	in_attack.state &= ~2
 
 	if in_use.state & 3:
-		cmd.buttons |= q_shared.BUTTON_USE
+		cmd.buttons |= shared.BUTTON_USE
 	in_use.state &= ~2
 
 	if keys.anykeydown and cl_main.cls.key_dest == client.keydest_t.key_game:
-		cmd.buttons |= q_shared.BUTTON_ANY
+		cmd.buttons |= shared.BUTTON_ANY
 
 	ms = cl_main.cls.frametime * 1000
 	if ms > 250:
@@ -546,7 +554,7 @@ def CL_FinishMove (cmd): #usercmd_t *
 
 	CL_ClampPitch ()
 	for i in range(3):
-		cmd.angles[i] = ((q_shared.ANGLE2SHORT(cl_main.cl.viewangles[i]) + 0x8000) & 0xffff) - 0x8000 # short cmd->angles[i]
+		cmd.angles[i] = ((shared.ANGLE2SHORT(cl_main.cl.viewangles[i]) + 0x8000) & 0xffff) - 0x8000 # short cmd->angles[i]
 
 	cmd.impulse = in_impulse
 	in_impulse = 0
@@ -557,7 +565,7 @@ def CL_CreateCmd ():
 
 	global old_sys_frame_time, frame_msec
 
-	cmd = q_shared.usercmd_t()
+	cmd = shared.usercmd_t()
 
 	frame_msec = sys_linux.sys_frame_time - old_sys_frame_time
 	if frame_msec < 1:
@@ -580,8 +588,8 @@ def CL_CreateCmd ():
 	return cmd
 
 def IN_CenterView ():
-	cl_main.cl.viewangles[q_shared.PITCH] = -q_shared.SHORT2ANGLE(
-		cl_main.cl.frame.playerstate.pmove.delta_angles[q_shared.PITCH]
+	cl_main.cl.viewangles[shared.PITCH] = -shared.SHORT2ANGLE(
+		cl_main.cl.frame.playerstate.pmove.delta_angles[shared.PITCH]
 	)
 
 def CL_InitInput ():
@@ -590,39 +598,39 @@ def CL_InitInput ():
 	global cl_upspeed, cl_forwardspeed, cl_sidespeed
 	global cl_yawspeed, cl_pitchspeed, cl_run, cl_anglespeedkey
 
-	cmd.Cmd_AddCommand ("centerview", IN_CenterView)
+	cmdparser.Cmd_AddCommand ("centerview", IN_CenterView)
 
-	cmd.Cmd_AddCommand ("+moveup", IN_UpDown)
-	cmd.Cmd_AddCommand ("-moveup", IN_UpUp)
-	cmd.Cmd_AddCommand ("+movedown", IN_DownDown)
-	cmd.Cmd_AddCommand ("-movedown", IN_DownUp)
-	cmd.Cmd_AddCommand ("+left", IN_LeftDown)
-	cmd.Cmd_AddCommand ("-left", IN_LeftUp)
-	cmd.Cmd_AddCommand ("+right", IN_RightDown)
-	cmd.Cmd_AddCommand ("-right", IN_RightUp)
-	cmd.Cmd_AddCommand ("+forward", IN_ForwardDown)
-	cmd.Cmd_AddCommand ("-forward", IN_ForwardUp)
-	cmd.Cmd_AddCommand ("+back", IN_BackDown)
-	cmd.Cmd_AddCommand ("-back", IN_BackUp)
-	cmd.Cmd_AddCommand ("+lookup", IN_LookupDown)
-	cmd.Cmd_AddCommand ("-lookup", IN_LookupUp)
-	cmd.Cmd_AddCommand ("+lookdown", IN_LookdownDown)
-	cmd.Cmd_AddCommand ("-lookdown", IN_LookdownUp)
-	cmd.Cmd_AddCommand ("+strafe", IN_StrafeDown)
-	cmd.Cmd_AddCommand ("-strafe", IN_StrafeUp)
-	cmd.Cmd_AddCommand ("+moveleft", IN_MoveleftDown)
-	cmd.Cmd_AddCommand ("-moveleft", IN_MoveleftUp)
-	cmd.Cmd_AddCommand ("+moveright", IN_MoverightDown)
-	cmd.Cmd_AddCommand ("-moveright", IN_MoverightUp)
-	cmd.Cmd_AddCommand ("+speed", IN_SpeedDown)
-	cmd.Cmd_AddCommand ("-speed", IN_SpeedUp)
-	cmd.Cmd_AddCommand ("+attack", IN_AttackDown)
-	cmd.Cmd_AddCommand ("-attack", IN_AttackUp)
-	cmd.Cmd_AddCommand ("+use", IN_UseDown)
-	cmd.Cmd_AddCommand ("-use", IN_UseUp)
-	cmd.Cmd_AddCommand ("impulse", IN_Impulse)
-	cmd.Cmd_AddCommand ("+klook", IN_KLookDown)
-	cmd.Cmd_AddCommand ("-klook", IN_KLookUp)
+	cmdparser.Cmd_AddCommand ("+moveup", IN_UpDown)
+	cmdparser.Cmd_AddCommand ("-moveup", IN_UpUp)
+	cmdparser.Cmd_AddCommand ("+movedown", IN_DownDown)
+	cmdparser.Cmd_AddCommand ("-movedown", IN_DownUp)
+	cmdparser.Cmd_AddCommand ("+left", IN_LeftDown)
+	cmdparser.Cmd_AddCommand ("-left", IN_LeftUp)
+	cmdparser.Cmd_AddCommand ("+right", IN_RightDown)
+	cmdparser.Cmd_AddCommand ("-right", IN_RightUp)
+	cmdparser.Cmd_AddCommand ("+forward", IN_ForwardDown)
+	cmdparser.Cmd_AddCommand ("-forward", IN_ForwardUp)
+	cmdparser.Cmd_AddCommand ("+back", IN_BackDown)
+	cmdparser.Cmd_AddCommand ("-back", IN_BackUp)
+	cmdparser.Cmd_AddCommand ("+lookup", IN_LookupDown)
+	cmdparser.Cmd_AddCommand ("-lookup", IN_LookupUp)
+	cmdparser.Cmd_AddCommand ("+lookdown", IN_LookdownDown)
+	cmdparser.Cmd_AddCommand ("-lookdown", IN_LookdownUp)
+	cmdparser.Cmd_AddCommand ("+strafe", IN_StrafeDown)
+	cmdparser.Cmd_AddCommand ("-strafe", IN_StrafeUp)
+	cmdparser.Cmd_AddCommand ("+moveleft", IN_MoveleftDown)
+	cmdparser.Cmd_AddCommand ("-moveleft", IN_MoveleftUp)
+	cmdparser.Cmd_AddCommand ("+moveright", IN_MoverightDown)
+	cmdparser.Cmd_AddCommand ("-moveright", IN_MoverightUp)
+	cmdparser.Cmd_AddCommand ("+speed", IN_SpeedDown)
+	cmdparser.Cmd_AddCommand ("-speed", IN_SpeedUp)
+	cmdparser.Cmd_AddCommand ("+attack", IN_AttackDown)
+	cmdparser.Cmd_AddCommand ("-attack", IN_AttackUp)
+	cmdparser.Cmd_AddCommand ("+use", IN_UseDown)
+	cmdparser.Cmd_AddCommand ("-use", IN_UseUp)
+	cmdparser.Cmd_AddCommand ("impulse", IN_Impulse)
+	cmdparser.Cmd_AddCommand ("+klook", IN_KLookDown)
+	cmdparser.Cmd_AddCommand ("-klook", IN_KLookUp)
 
 	cl_nodelta = cvar.Cvar_Get ("cl_nodelta", "0", 0)
 	cl_upspeed = cvar.Cvar_Get ("cl_upspeed", "200", 0)
@@ -644,11 +652,11 @@ CL_SendCmd
 """
 def CL_SendCmd ():
 
-	buf = qcommon.sizebuf_t()
+	buf = common_h.sizebuf_t()
 	#byte		data[128];
 	#int			i;
 	#usercmd_t	*cmd, *oldcmd;
-	nullcmd = q_shared.usercmd_t()
+	nullcmd = shared.usercmd_t()
 	#int			checksumIndex;
 
 	# build a command even if not connected
@@ -677,10 +685,10 @@ def CL_SendCmd ():
 	
 		cl_main.CL_FixUpGender()
 		cvar.userinfo_modified = False
-		common.MSG_WriteByte (cl_main.cls.netchan.message, qcommon.clc_ops_e.clc_userinfo.value)
-		common.MSG_WriteString (cl_main.cls.netchan.message, cvar.Cvar_Userinfo().encode('ascii') )
+		movemsg.MSG_WriteByte (cl_main.cls.netchan.message, common_h.clc_ops_e.clc_userinfo.value)
+		movemsg.MSG_WriteString (cl_main.cls.netchan.message, cvar.Cvar_Userinfo().encode('ascii') )
 	
-	common.SZ_Init (buf, 128)
+	szone.SZ_Init (buf, 128)
 
 	if cmd.buttons and cl_main.cl.cinematictime > 0 and not cl_main.cl.attractloop \
 		and cl_main.cls.realtime - cl_main.cl.cinematictime > 1000:
@@ -688,39 +696,39 @@ def CL_SendCmd ():
 		cl_cin.SCR_FinishCinematic ()
 	
 	# begin a client move command
-	common.MSG_WriteByte (buf, qcommon.clc_ops_e.clc_move.value.to_bytes(1, 'big'))
+	movemsg.MSG_WriteByte (buf, common_h.clc_ops_e.clc_move.value.to_bytes(1, 'big'))
 
 	# save the position for a checksum byte
 	checksumIndex = len(buf.data)
-	common.MSG_WriteByte (buf, b'\x00')
+	movemsg.MSG_WriteByte (buf, b'\x00')
 	
 	# let the server know what the last frame we
 	# got was, so the next message can be delta compressed
 
 	if cl_nodelta.value or not cl_main.cl.frame.valid or cl_main.cls.demowaiting:
-		common.MSG_WriteSLong (buf, -1)	# no compression
+		movemsg.MSG_WriteSLong (buf, -1)	# no compression
 	else:
-		common.MSG_WriteLong (buf, cl_main.cl.frame.serverframe)
+		movemsg.MSG_WriteLong (buf, cl_main.cl.frame.serverframe)
 
 	# send this and the previous cmds in the message, so
 	# if the last packet was dropped, it can be recovered
 	
 	i = (cl_main.cls.netchan.outgoing_sequence-2) & (client.CMD_BACKUP-1)
 	cmd = cl_main.cl.cmds[i]
-	common.MSG_WriteDeltaUsercmd (buf, nullcmd, cmd)
+	movemsg.MSG_WriteDeltaUsercmd (buf, nullcmd, cmd)
 	oldcmd = cmd
 
 	i = (cl_main.cls.netchan.outgoing_sequence-1) & (client.CMD_BACKUP-1)
 	cmd = cl_main.cl.cmds[i]
-	common.MSG_WriteDeltaUsercmd (buf, oldcmd, cmd)
+	movemsg.MSG_WriteDeltaUsercmd (buf, oldcmd, cmd)
 	oldcmd = cmd
 
 	i = (cl_main.cls.netchan.outgoing_sequence) & (client.CMD_BACKUP-1)
 	cmd = cl_main.cl.cmds[i]
-	common.MSG_WriteDeltaUsercmd (buf, oldcmd, cmd)
+	movemsg.MSG_WriteDeltaUsercmd (buf, oldcmd, cmd)
 
 	# calculate a checksum over the move commands
-	buf.data[checksumIndex] = common.COM_BlockSequenceCRCByte(
+	buf.data[checksumIndex] = crc.COM_BlockSequenceCRCByte(
 		buf, checksumIndex + 1, len(buf.data) - checksumIndex - 1,
 		cl_main.cls.netchan.outgoing_sequence)[0]
 

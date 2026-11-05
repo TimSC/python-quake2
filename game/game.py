@@ -22,8 +22,9 @@ from __future__ import annotations
 import numpy as np
 from enum import Enum
 from enum import Enum
-from game import q_shared
+pass
 from game import g_local
+from common.header import shared
 """
 // game.h -- game dll information visible to server
 """
@@ -100,14 +101,14 @@ class gclient_s(object):
 
 	def clear(self): # memset (client, 0, sizeof(*client))
 
-		self.ps = q_shared.player_state_t()		# communicated by server to clients
+		self.ps = shared.player_state_t()		# communicated by server to clients
 		self.ping: int = 0
 
 		#================================
 		# private to game (from g_local.h struct gclient_s)
 		self.pers = g_local.client_persistant_t()
 		self.resp = g_local.client_respawn_t()
-		self.old_pmove = q_shared.pmove_state_t()	# for detecting out-of-pmove changes
+		self.old_pmove = shared.pmove_state_t()	# for detecting out-of-pmove changes
 
 		self.showscores = False
 		self.showinventory = False
@@ -203,7 +204,7 @@ class edict_t(object):
 		"""
 		entity_state_t	s;
 		"""
-		self.s = q_shared.entity_state_t()
+		self.s = shared.entity_state_t()
 		self.client = None # struct gclient_s *, NULL until a client slot is assigned
 		"""
 		qboolean	inuse;

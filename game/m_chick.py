@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, q_shared, m_flash, g_ai
+from game import g_main, g_local, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_local import (AI_DUCKED, AI_HOLD_FRAME, AI_STAND_GROUND, DEAD_DEAD, GIB_ORGANIC, MELEE_DISTANCE, MOVETYPE_STEP, MOVETYPE_TOSS, RANGE_MELEE, damage_t)
 from game.g_misc import (ThrowGib, ThrowHead)
@@ -28,7 +28,10 @@ from game.g_monster import (monster_fire_rocket, walkmonster_start)
 from game.g_utils import (G_FreeEdict, G_ProjectSource)
 from game.g_weapon import (fire_hit)
 from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
-from game.q_shared import (ATTN_IDLE, ATTN_NORM, CHAN_VOICE, CHAN_WEAPON, MZ2_CHICK_ROCKET_1)
+from common.header.shared import ATTN_IDLE, ATTN_NORM, CHAN_VOICE, CHAN_WEAPON, MZ2_CHICK_ROCKET_1
+from common.header import shared
+from common.shared import flash
+from common.shared import shared as shared_c
 DAMAGE_AIM = damage_t.DAMAGE_AIM.value
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 
@@ -434,8 +437,8 @@ def chick_pain (self, other, kick, damage): #edict_t *, edict_t *, float, int
 
 def chick_dead (self): #edict_t *
 
-	q_shared.VectorSet (self.mins, -16, -16, 0)
-	q_shared.VectorSet (self.maxs, 16, 16, 16)
+	shared.VectorSet (self.mins, -16, -16, 0)
+	shared.VectorSet (self.maxs, 16, 16, 16)
 	self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	self.nextthink = 0
@@ -515,7 +518,7 @@ def ChickSlash (self): #edict_t *
 
 	aim = np.zeros((3,), dtype=np.float32) #vec3_t
 
-	q_shared.VectorSet (aim, MELEE_DISTANCE, self.mins[0], 10)
+	shared.VectorSet (aim, MELEE_DISTANCE, self.mins[0], 10)
 	g_main.gi.sound (self, CHAN_WEAPON, sound_melee_swing, 1, ATTN_NORM, 0)
 	fire_hit (self, aim, (10 + (_r.randint(0, 2147483647) %6)), 100)
 
@@ -528,13 +531,13 @@ def ChickRocket (self): #edict_t *
 	dir = np.zeros((3,), dtype=np.float32) #vec3_t
 	vec = np.zeros((3,), dtype=np.float32) #vec3_t
 
-	q_shared.AngleVectors (self.s.angles, forward, right, None)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_CHICK_ROCKET_1], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, None)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[MZ2_CHICK_ROCKET_1], forward, right, start)
 
-	q_shared.VectorCopy (self.enemy.s.origin, vec)
+	shared.VectorCopy (self.enemy.s.origin, vec)
 	vec[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (vec, start, dir)
-	q_shared.VectorNormalize (dir)
+	shared.VectorSubtract (vec, start, dir)
+	shared_c.VectorNormalize (dir)
 
 	monster_fire_rocket (self, start, dir, 50, 500, MZ2_CHICK_ROCKET_1)
 
@@ -626,8 +629,8 @@ def SP_monster_chick (self): #edict_t *
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 	self.s.modelindex = g_main.gi.modelindex ("models/monsters/bitch/tris.md2")
-	q_shared.VectorSet (self.mins, -16, -16, 0)
-	q_shared.VectorSet (self.maxs, 16, 16, 56)
+	shared.VectorSet (self.mins, -16, -16, 0)
+	shared.VectorSet (self.maxs, 16, 16, 56)
 
 	self.health = 175
 	self.gib_health = -70

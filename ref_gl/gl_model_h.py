@@ -21,7 +21,8 @@ from __future__ import annotations
 
 import numpy as np
 from enum import Enum
-from qcommon import qfiles
+pass
+from common.header import files as files_h
 """
 
 d*_t structures are on-disk representations
@@ -244,7 +245,7 @@ class model_t(object):
 
 		self.lightdata = None
 
-		self.skins = [None] * qfiles.MAX_MD2SKINS
+		self.skins = [None] * files_h.MAX_MD2SKINS
 
 		self.extradatasize = 0
 		self.extradata = None
@@ -302,8 +303,8 @@ class msurface_t(object):
 		self.dlightframe = 0
 		self.dlightbits = 0
 		self.lightmaptexturenum = 0
-		self.styles = [0] * qfiles.MAXLIGHTMAPS
-		self.cached_light = [0.0] * qfiles.MAXLIGHTMAPS
+		self.styles = [0] * files_h.MAXLIGHTMAPS
+		self.cached_light = [0.0] * files_h.MAXLIGHTMAPS
 		self.samples = None
 
 

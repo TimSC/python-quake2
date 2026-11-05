@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, q_shared, m_flash
+from game import g_main, g_local
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_combat import (T_Damage)
 from game.g_local import (AI_STAND_GROUND, DAMAGE_NO_KNOCKBACK, DEAD_DEAD, GIB_ORGANIC, MOD_UNKNOWN, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t, svc_temp_entity)
@@ -28,7 +28,10 @@ from game.g_misc import (ThrowGib, ThrowHead)
 from game.g_monster import (walkmonster_start)
 from game.g_utils import (G_FreeEdict, G_ProjectSource, vectoangles)
 from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
-from game.q_shared import (ATTN_IDLE, ATTN_NORM, CHAN_AUTO, CHAN_VOICE, CHAN_WEAPON, MASK_SHOT, multicast_t, temp_event_t, vec3_origin)
+from common.header.shared import ATTN_IDLE, ATTN_NORM, CHAN_AUTO, CHAN_VOICE, CHAN_WEAPON, MASK_SHOT, multicast_t, temp_event_t
+from common.shared.shared import vec3_origin
+from common.header import shared
+from common.shared import shared as shared_c
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 MULTICAST_PVS = multicast_t.MULTICAST_PVS.value
 TE_PARASITE_ATTACK = temp_event_t.TE_PARASITE_ATTACK.value
@@ -301,8 +304,8 @@ def parasite_drain_attack_ok (start, end): #vec3_t, vec3_t
 	angles = np.zeros((3,), dtype=np.float32) #vec3_t
 
 	# check for max distance
-	q_shared.VectorSubtract (start, end, dir)
-	if q_shared.VectorLength(dir) > 256:
+	shared.VectorSubtract (start, end, dir)
+	if shared_c.VectorLength(dir) > 256:
 		return False
 
 	# check for min/max pitch
@@ -326,18 +329,18 @@ def parasite_drain_attack (self): #edict_t *
 	#trace_t	tr;
 	#int	damage;
 
-	q_shared.AngleVectors (self.s.angles, f, r, None)
-	q_shared.VectorSet (offset, 24, 0, 6)
+	shared_c.AngleVectors (self.s.angles, f, r, None)
+	shared.VectorSet (offset, 24, 0, 6)
 	G_ProjectSource (self.s.origin, offset, f, r, start)
 
-	q_shared.VectorCopy (self.enemy.s.origin, end)
+	shared.VectorCopy (self.enemy.s.origin, end)
 	if not parasite_drain_attack_ok(start, end):
 		end[2] = self.enemy.s.origin[2] + self.enemy.maxs[2] - 8
 		if not parasite_drain_attack_ok(start, end):
 			end[2] = self.enemy.s.origin[2] + self.enemy.mins[2] + 8
 			if not parasite_drain_attack_ok(start, end):
 				return
-	q_shared.VectorCopy (self.enemy.s.origin, end)
+	shared.VectorCopy (self.enemy.s.origin, end)
 
 	tr = g_main.gi.trace (start, None, None, end, self, MASK_SHOT)
 	if tr.ent != self.enemy:
@@ -358,7 +361,7 @@ def parasite_drain_attack (self): #edict_t *
 	g_main.gi.WritePosition (end)
 	g_main.gi.multicast (self.s.origin, MULTICAST_PVS)
 
-	q_shared.VectorSubtract (start, end, dir)
+	shared.VectorSubtract (start, end, dir)
 	T_Damage (self.enemy, self, self, dir, self.enemy.s.origin, vec3_origin, damage, 0, DAMAGE_NO_KNOCKBACK, MOD_UNKNOWN)
 
 
@@ -372,8 +375,8 @@ def parasite_attack (self): #edict_t *
 
 def parasite_dead (self): #edict_t *
 
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, -8)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, -8)
 	self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	self.nextthink = 0
@@ -427,8 +430,8 @@ def SP_monster_parasite (self): #edict_t *
 	sound_search = g_main.gi.soundindex("parasite/parsrch1.wav")
 
 	self.s.modelindex = g_main.gi.modelindex ("models/monsters/parasite/tris.md2")
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, 24)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, 24)
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 

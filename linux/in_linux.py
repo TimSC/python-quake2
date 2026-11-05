@@ -19,8 +19,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from __future__ import annotations
 
-from qcommon import cvar
-from game import q_shared
+pass
+pass
+from common.header import shared
+from common import cvar
 """
 // in_null.c -- for systems without a mouse
 
@@ -33,8 +35,8 @@ def IN_Init ():
 
 	global in_mouse, in_joystick
 
-	in_mouse = cvar.Cvar_Get ("in_mouse", "1", q_shared.CVAR_ARCHIVE)
-	in_joystick = cvar.Cvar_Get ("in_joystick", "0", q_shared.CVAR_ARCHIVE)
+	in_mouse = cvar.Cvar_Get ("in_mouse", "1", shared.CVAR_ARCHIVE)
+	in_joystick = cvar.Cvar_Get ("in_joystick", "0", shared.CVAR_ARCHIVE)
 
 """
 void IN_Shutdown (void)

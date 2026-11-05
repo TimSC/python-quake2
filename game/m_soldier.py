@@ -20,24 +20,21 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import q_shared, g_local, g_main, g_utils, g_monster, g_misc, g_ai, m_flash
+from game import g_local, g_main, g_utils, g_monster, g_misc, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_utils import G_ProjectSource, G_FreeEdict, vectoangles
 from game.g_monster import monster_fire_bullet, monster_fire_blaster, monster_fire_shotgun, walkmonster_start
 from game.g_misc import ThrowGib, ThrowHead
-from game.q_shared import (CHAN_VOICE, CHAN_WEAPON, ATTN_NORM, ATTN_IDLE, EF_BLASTER,
-	MZ2_SOLDIER_BLASTER_1, MZ2_SOLDIER_BLASTER_2, MZ2_SOLDIER_BLASTER_3, MZ2_SOLDIER_BLASTER_4,
-	MZ2_SOLDIER_BLASTER_5, MZ2_SOLDIER_BLASTER_6, MZ2_SOLDIER_BLASTER_7, MZ2_SOLDIER_BLASTER_8,
-	MZ2_SOLDIER_SHOTGUN_1, MZ2_SOLDIER_SHOTGUN_2, MZ2_SOLDIER_SHOTGUN_3, MZ2_SOLDIER_SHOTGUN_4,
-	MZ2_SOLDIER_SHOTGUN_5, MZ2_SOLDIER_SHOTGUN_6, MZ2_SOLDIER_SHOTGUN_7, MZ2_SOLDIER_SHOTGUN_8,
-	MZ2_SOLDIER_MACHINEGUN_1, MZ2_SOLDIER_MACHINEGUN_2, MZ2_SOLDIER_MACHINEGUN_3, MZ2_SOLDIER_MACHINEGUN_4,
-	MZ2_SOLDIER_MACHINEGUN_5, MZ2_SOLDIER_MACHINEGUN_6, MZ2_SOLDIER_MACHINEGUN_7, MZ2_SOLDIER_MACHINEGUN_8)
+from common.header.shared import CHAN_VOICE, CHAN_WEAPON, ATTN_NORM, ATTN_IDLE, EF_BLASTER, MZ2_SOLDIER_BLASTER_1, MZ2_SOLDIER_BLASTER_2, MZ2_SOLDIER_BLASTER_3, MZ2_SOLDIER_BLASTER_4, MZ2_SOLDIER_BLASTER_5, MZ2_SOLDIER_BLASTER_6, MZ2_SOLDIER_BLASTER_7, MZ2_SOLDIER_BLASTER_8, MZ2_SOLDIER_SHOTGUN_1, MZ2_SOLDIER_SHOTGUN_2, MZ2_SOLDIER_SHOTGUN_3, MZ2_SOLDIER_SHOTGUN_4, MZ2_SOLDIER_SHOTGUN_5, MZ2_SOLDIER_SHOTGUN_6, MZ2_SOLDIER_SHOTGUN_7, MZ2_SOLDIER_SHOTGUN_8, MZ2_SOLDIER_MACHINEGUN_1, MZ2_SOLDIER_MACHINEGUN_2, MZ2_SOLDIER_MACHINEGUN_3, MZ2_SOLDIER_MACHINEGUN_4, MZ2_SOLDIER_MACHINEGUN_5, MZ2_SOLDIER_MACHINEGUN_6, MZ2_SOLDIER_MACHINEGUN_7, MZ2_SOLDIER_MACHINEGUN_8
 from game.g_local import (FRAMETIME, GIB_ORGANIC, DEAD_DEAD, MOVETYPE_TOSS,
 	MOVETYPE_STEP, AI_STAND_GROUND, AI_HOLD_FRAME, AI_DUCKED, RANGE_MELEE, RANGE_MID,
 	DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, crandom, damage_t)
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 DAMAGE_AIM = damage_t.DAMAGE_AIM.value
 from game.game import solid_t, SVF_DEADMONSTER
+from common.header import shared
+from common.shared import flash
+from common.shared import shared as shared_c
 
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 
@@ -410,26 +407,26 @@ def soldier_fire (self, flash_number):
 	else:
 		flash_index = machinegun_flash[flash_number]
 
-	q_shared.AngleVectors (self.s.angles, forward, right, None)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[flash_index], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, None)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[flash_index], forward, right, start)
 
 	if flash_number == 5 or flash_number == 6:
-		q_shared.VectorCopy (forward, aim)
+		shared.VectorCopy (forward, aim)
 	else:
-		q_shared.VectorCopy (self.enemy.s.origin, end)
+		shared.VectorCopy (self.enemy.s.origin, end)
 		end[2] += self.enemy.viewheight
-		q_shared.VectorSubtract (end, start, aim)
+		shared.VectorSubtract (end, start, aim)
 		g_utils.vectoangles (aim, dir)
-		q_shared.AngleVectors (dir, forward, right, up)
+		shared_c.AngleVectors (dir, forward, right, up)
 
 		r = g_local.crandom() * 1000
 		u = g_local.crandom() * 500
-		q_shared.VectorMA (start, 8192, forward, end)
-		q_shared.VectorMA (end, r, right, end)
-		q_shared.VectorMA (end, u, up, end)
+		shared_c.VectorMA (start, 8192, forward, end)
+		shared_c.VectorMA (end, r, right, end)
+		shared_c.VectorMA (end, u, up, end)
 
-		q_shared.VectorSubtract (end, start, aim)
-		q_shared.VectorNormalize (aim)
+		shared.VectorSubtract (end, start, aim)
+		shared_c.VectorNormalize (aim)
 
 	if self.s.skinnum <= 1:
 		monster_fire_blaster (self, start, aim, 5, 600, flash_index, EF_BLASTER)
@@ -626,8 +623,8 @@ def soldier_fire7 (self):
 
 def soldier_dead (self):
 	#edict_t *self
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, -8)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, -8)
 	self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	self.nextthink = 0
@@ -685,8 +682,8 @@ def SP_monster_soldier_x (self): #edict_t *
 
 	self.s.modelindex = g_main.gi.modelindex ("models/monsters/soldier/tris.md2")
 	self.monsterinfo.scale = MODEL_SCALE
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, 32)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, 32)
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 

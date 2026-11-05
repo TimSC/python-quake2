@@ -20,12 +20,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import numpy as np
-from qcommon import cmd, cvar, common
-from game import q_shared
+pass
+pass
 from linux import snd_linux, q_shlinux
 from client import snd_mix, snd_loc, snd_mem, cl_main, cl_ents, client
-from qcommon import files
+pass
 import pygame
+from common.header import shared
+from common.shared import shared as shared_c
+from common import clientserver
+from common import cmdparser
+from common import cvar
+from common import filesystem
 """
 // snd_dma.c -- main control for any streaming sound output device
 
@@ -66,7 +72,7 @@ paintedtime = None 	# int, sample PAIRS
 # than could actually be referenced during gameplay,
 # because we don't want to free anything until we are
 # sure we won't need it.
-MAX_SFX = (q_shared.MAX_SOUNDS*2)
+MAX_SFX = (shared.MAX_SOUNDS*2)
 known_sfx = [] #sfx_t [MAX_SFX];
 for i in range(MAX_SFX):
 	known_sfx.append(snd_loc.sfx_t())
@@ -130,25 +136,25 @@ def S_Init ():
 
 	#cvar_t	*cv;
 
-	common.Com_Printf("\n------- sound initialization -------\n")
+	clientserver.Com_Printf("\n------- sound initialization -------\n")
 
 	cv = cvar.Cvar_Get ("s_initsound", "1", 0)
 	if not cv.value:
-		common.Com_Printf ("not initializing.\n")
+		clientserver.Com_Printf ("not initializing.\n")
 	else:
 	
-		s_volume = cvar.Cvar_Get ("s_volume", "0.7", q_shared.CVAR_ARCHIVE)
-		s_khz = cvar.Cvar_Get ("s_khz", "11", q_shared.CVAR_ARCHIVE)
-		s_loadas8bit = cvar.Cvar_Get ("s_loadas8bit", "1", q_shared.CVAR_ARCHIVE)
-		s_mixahead = cvar.Cvar_Get ("s_mixahead", "0.2", q_shared.CVAR_ARCHIVE)
+		s_volume = cvar.Cvar_Get ("s_volume", "0.7", shared.CVAR_ARCHIVE)
+		s_khz = cvar.Cvar_Get ("s_khz", "11", shared.CVAR_ARCHIVE)
+		s_loadas8bit = cvar.Cvar_Get ("s_loadas8bit", "1", shared.CVAR_ARCHIVE)
+		s_mixahead = cvar.Cvar_Get ("s_mixahead", "0.2", shared.CVAR_ARCHIVE)
 		s_show = cvar.Cvar_Get ("s_show", "0", 0)
 		s_testsound = cvar.Cvar_Get ("s_testsound", "0", 0)
-		s_primary = cvar.Cvar_Get ("s_primary", "0", q_shared.CVAR_ARCHIVE)	# win32 specific
+		s_primary = cvar.Cvar_Get ("s_primary", "0", shared.CVAR_ARCHIVE)	# win32 specific
 
-		cmd.Cmd_AddCommand("play", S_Play)
-		cmd.Cmd_AddCommand("stopsound", S_StopAllSounds)
-		cmd.Cmd_AddCommand("soundlist", S_SoundList)
-		cmd.Cmd_AddCommand("soundinfo", S_SoundInfo_f)
+		cmdparser.Cmd_AddCommand("play", S_Play)
+		cmdparser.Cmd_AddCommand("stopsound", S_StopAllSounds)
+		cmdparser.Cmd_AddCommand("soundlist", S_SoundList)
+		cmdparser.Cmd_AddCommand("soundinfo", S_SoundInfo_f)
 		
 		if not snd_linux.SNDDMA_Init():
 			return
@@ -161,7 +167,7 @@ def S_Init ():
 		soundtime = 0
 		paintedtime = 0
 
-		common.Com_Printf ("sound sampling rate: {}\n".format(dma.speed))
+		clientserver.Com_Printf ("sound sampling rate: {}\n".format(dma.speed))
 
 		pygame.mixer.set_num_channels(snd_loc.MAX_CHANNELS)
 
@@ -171,7 +177,7 @@ def S_Init ():
 		
 		S_StopAllSounds ()
 	
-	common.Com_Printf("------------------------------------\n")
+	clientserver.Com_Printf("------------------------------------\n")
 
 
 """
@@ -192,10 +198,10 @@ def S_Shutdown():
 
 	sound_started = 0
 
-	cmd.Cmd_RemoveCommand("play")
-	cmd.Cmd_RemoveCommand("stopsound")
-	cmd.Cmd_RemoveCommand("soundlist")
-	cmd.Cmd_RemoveCommand("soundinfo")
+	cmdparser.Cmd_RemoveCommand("play")
+	cmdparser.Cmd_RemoveCommand("stopsound")
+	cmdparser.Cmd_RemoveCommand("soundlist")
+	cmdparser.Cmd_RemoveCommand("soundinfo")
 
 	# free all sounds
 	total = 0
@@ -224,12 +230,12 @@ def S_FindName (name, create): #char *, qboolean (returns sfx_t *)
 	#sfx_t	*sfx;
 
 	if name is None:
-		common.Com_Error (q_shared.ERR_FATAL, "S_FindName: NULL\n")
+		clientserver.Com_Error (shared.ERR_FATAL, "S_FindName: NULL\n")
 	if len(name) == 0:
-		common.Com_Error (q_shared.ERR_FATAL, "S_FindName: empty name\n")
+		clientserver.Com_Error (shared.ERR_FATAL, "S_FindName: empty name\n")
 
-	if len(name) >= q_shared.MAX_QPATH:
-		common.Com_Error (q_shared.ERR_FATAL, "Sound name too long: {}".format(name))
+	if len(name) >= shared.MAX_QPATH:
+		clientserver.Com_Error (shared.ERR_FATAL, "Sound name too long: {}".format(name))
 
 	# see if already loaded
 	for i in range(num_sfx):
@@ -250,7 +256,7 @@ def S_FindName (name, create): #char *, qboolean (returns sfx_t *)
 	if i == num_sfx:
 	
 		if num_sfx == MAX_SFX:
-			common.Com_Error (q_shared.ERR_FATAL, "S_FindName: out of sfx_t")
+			clientserver.Com_Error (shared.ERR_FATAL, "S_FindName: out of sfx_t")
 		num_sfx+=1
 	
 	sfx = known_sfx[i]
@@ -290,7 +296,7 @@ def S_AliasName (aliasname, truename): #char *, char * (returns sfx_t *)
 	if i == num_sfx:
 	
 		if num_sfx == MAX_SFX:
-			common.Com_Error (q_shared.ERR_FATAL, "S_FindName: out of sfx_t")
+			clientserver.Com_Error (shared.ERR_FATAL, "S_FindName: out of sfx_t")
 		num_sfx+=1
 	
 	sfx = known_sfx[i]
@@ -398,7 +404,7 @@ def S_PickChannel(entnum, entchannel): #int, int (returns channel_t *)
 	global channels
 
 	if entchannel<0:
-		common.Com_Error (q_shared.ERR_DROP, "S_PickChannel: entchannel<0")
+		clientserver.Com_Error (shared.ERR_DROP, "S_PickChannel: entchannel<0")
 
 	# Check for replacement sound, or find the best one to replace
 	first_to_die = -1
@@ -458,15 +464,15 @@ def S_SpatializeOrigin (origin, master_vol, dist_mult): #vec3_t, float, float (r
 		return left_vol, right_vol
 	
 	# calculate stereo seperation and distance attenuation
-	q_shared.VectorSubtract(origin, listener_origin, source_vec)
+	shared.VectorSubtract(origin, listener_origin, source_vec)
 
-	dist = q_shared.VectorNormalize(source_vec)
+	dist = shared_c.VectorNormalize(source_vec)
 	dist -= SOUND_FULLVOLUME
 	if dist < 0:
 		dist = 0			# close enough to be at full volume
 	dist *= dist_mult		# different attenuation levels
 	
-	dot = q_shared.DotProduct(listener_right, source_vec)
+	dot = shared.DotProduct(listener_right, source_vec)
 
 	if dma.channels == 1 or not dist_mult:
 		# no attenuation = no spatialization
@@ -509,7 +515,7 @@ def S_Spatialize(ch): #channel_t *
 	
 
 	if ch.fixed_origin:	
-		q_shared.VectorCopy(ch.origin, origin)
+		shared.VectorCopy(ch.origin, origin)
 
 	else:
 		origin = cl_ents.CL_GetEntitySoundOrigin (ch.entnum)
@@ -574,7 +580,7 @@ def S_IssuePlaysound (ps): #playsound_t *
 	"""
 
 	if s_show.value:
-		common.Com_Printf ("Issue {}\n".format(ps.begin))
+		clientserver.Com_Printf ("Issue {}\n".format(ps.begin))
 	# pick a channel to play on
 	ch = S_PickChannel(ps.entnum, ps.entchannel)
 	if ch is None:
@@ -583,7 +589,7 @@ def S_IssuePlaysound (ps): #playsound_t *
 		return;
 
 	# spatialize
-	if ps.attenuation == q_shared.ATTN_STATIC:
+	if ps.attenuation == shared.ATTN_STATIC:
 		ch.dist_mult = ps.attenuation * 0.001
 	else:
 		ch.dist_mult = ps.attenuation * 0.0005
@@ -620,7 +626,7 @@ def S_RegisterSexedSound (ent, base): #entity_state_t *, char * (returns struct 
 
 	# determine what model the client is using
 	model = ""
-	n = q_shared.CS_PLAYERSKINS + ent.number - 1
+	n = shared.CS_PLAYERSKINS + ent.number - 1
 	if cl_main.cl.configstrings[n]:
 	
 		p = cl_main.cl.configstrings[n].find('\\')
@@ -643,11 +649,11 @@ def S_RegisterSexedSound (ent, base): #entity_state_t *, char * (returns struct 
 	if sfx is None:
 	
 		# no, so see if it exists
-		length, f = files.FS_FOpenFile (sexedFilename[1:])
+		length, f = filesystem.FS_FOpenFile (sexedFilename[1:])
 		if f is not None:
 		
 			# yes, close the file and register it
-			files.FS_FCloseFile (f)
+			filesystem.FS_FCloseFile (f)
 			sfx = S_RegisterSound (sexedFilename)
 		
 		else:
@@ -762,7 +768,7 @@ def S_StartLocalSound (sound): #char *
 	sfx = S_RegisterSound (sound)
 	if sfx is None:
 	
-		common.Com_Printf ("S_StartLocalSound: can't cache {}\n".format(sound))
+		clientserver.Com_Printf ("S_StartLocalSound: can't cache {}\n".format(sound))
 		return
 	
 	S_StartSound (None, cl_main.cl.playernum+1, 0, sfx, 1, 1, 0.0)
@@ -860,7 +866,7 @@ def S_AddLoopSounds ():
 	int			num;
 	entity_state_t	*ent;
 	"""
-	sounds = [0] * q_shared.MAX_EDICTS
+	sounds = [0] * shared.MAX_EDICTS
 
 	if cl_main.cl_paused.value:
 		return
@@ -980,9 +986,9 @@ def S_RawSamples (samples: int, rate: int, width: int, channels: int, data): # b
 				dst = s_rawend&(snd_loc.MAX_RAW_SAMPLES-1)
 				s_rawend+=1
 				s_rawsamples[dst].left = \
-					q_shared.LittleSShort(data[i*4:i*4+2] )
+					shared_c.LittleSShort(data[i*4:i*4+2] )
 				s_rawsamples[dst].right = \
-					q_shared.LittleSShort(data[i*4+2:i*4+4] )
+					shared_c.LittleSShort(data[i*4+2:i*4+4] )
 
 				#print ("a", dst, s_rawsamples[dst].left, s_rawsamples[dst].right)
 				if rangestart is None:
@@ -1000,9 +1006,9 @@ def S_RawSamples (samples: int, rate: int, width: int, channels: int, data): # b
 				s_rawend+=1
 
 				s_rawsamples[dst].left = \
-					q_shared.LittleSShort(data[src*2:src*2+2] )
+					shared_c.LittleSShort(data[src*2:src*2+2] )
 				s_rawsamples[dst].right = \
-					q_shared.LittleSShort(data[src*2+2:src*2+4] )
+					shared_c.LittleSShort(data[src*2+2:src*2+4] )
 				i += 1
 			
 	elif channels == 1 and width == 2:
@@ -1097,10 +1103,10 @@ def S_Update(origin, forward, right, up): #vec3_t, vec3_t, vec3_t, vec3_t
 		S_InitScaletable ();
 	"""
 
-	q_shared.VectorCopy(origin, listener_origin)
-	q_shared.VectorCopy(forward, listener_forward)
-	q_shared.VectorCopy(right, listener_right)
-	q_shared.VectorCopy(up, listener_up)
+	shared.VectorCopy(origin, listener_origin)
+	shared.VectorCopy(forward, listener_forward)
+	shared.VectorCopy(right, listener_right)
+	shared.VectorCopy(up, listener_up)
 
 	combine = None
 
@@ -1251,14 +1257,14 @@ def S_Play():
 	sfx_t	*sfx;
 	"""
 	i = 1
-	while i<cmd.Cmd_Argc():
+	while i<cmdparser.Cmd_Argc():
 	
-		if cmd.Cmd_Argv(i).find('.') == -1:
+		if cmdparser.Cmd_Argv(i).find('.') == -1:
 		
-			name = "{}.wav".format(cmd.Cmd_Argv(i))
+			name = "{}.wav".format(cmdparser.Cmd_Argv(i))
 		
 		else:
-			name = cmd.Cmd_Argv(i)
+			name = cmdparser.Cmd_Argv(i)
 		sfx = S_RegisterSound(name)
 		S_StartSound(None, cl_main.cl.playernum+1, 0, sfx, 1.0, 1.0, 0.0)
 		i+=1
@@ -1286,18 +1292,18 @@ def S_SoundList():
 			size = len(sc.data.get_raw())
 			total += size;
 			if sc.loopstart >= 0:
-				common.Com_Printf ("L")
+				clientserver.Com_Printf ("L")
 			else:
-				common.Com_Printf (" ")
-			common.Com_Printf("  {}\n", sfx.name)
+				clientserver.Com_Printf (" ")
+			clientserver.Com_Printf("  {}\n", sfx.name)
 		
 		else:
 		
 			if sfx.name[0] == '*':
-				common.Com_Printf("  placeholder : {}\n".format(sfx.name))
+				clientserver.Com_Printf("  placeholder : {}\n".format(sfx.name))
 			else:
-				common.Com_Printf("  not loaded  : {}\n".format(sfx.name))
+				clientserver.Com_Printf("  not loaded  : {}\n".format(sfx.name))
 		
-	common.Com_Printf ("Total resident: {}\n".format(total))
+	clientserver.Com_Printf ("Total resident: {}\n".format(total))
 
 

@@ -20,10 +20,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import pygame
-from qcommon import cmd, common, cvar
-from game import q_shared
+pass
+pass
 from client import console, client, cl_main, cl_scrn, menu
 from linux import sys_linux, q_shlinux
+from common.header import shared
+from common.shared import shared as shared_c
+from common import clientserver
+from common import cmdparser
+from common import cvar
 
 #
 # these are the key numbers that should be passed to Key_Event
@@ -336,7 +341,7 @@ def CompleteCommand ():
 			cursor+=1
 		s = s[cursor:]
 
-	cmdStr = cmd.Cmd_CompleteCommand (s)
+	cmdStr = cmdparser.Cmd_CompleteCommand (s)
 	if cmdStr is None:
 		cmdStr = cvar.Cvar_CompleteVariable (s)
 	if cmdStr is not None:
@@ -392,18 +397,18 @@ def Key_Console (key): #int
 
 	if key == ord('l'): 
 		if keydown[K_CTRL]:
-			cmd.Cbuf_AddText ("clear\n")
+			cmdparser.Cbuf_AddText ("clear\n")
 			return
 	
 	if key == K_ENTER or key == K_KP_ENTER:
 		# backslash text are commands, else chat
 		if len(key_lines[edit_line]) >= 2 and (key_lines[edit_line][1] == '\\' or key_lines[edit_line][1] == '/'):
-			cmd.Cbuf_AddText (key_lines[edit_line][2:])	# skip the >
+			cmdparser.Cbuf_AddText (key_lines[edit_line][2:])	# skip the >
 		else:
-			cmd.Cbuf_AddText (key_lines[edit_line][1:])	# valid command
+			cmdparser.Cbuf_AddText (key_lines[edit_line][1:])	# valid command
 
-		cmd.Cbuf_AddText ("\n")
-		common.Com_Printf ("{}\n".format(key_lines[edit_line]))
+		cmdparser.Cbuf_AddText ("\n")
+		clientserver.Com_Printf ("{}\n".format(key_lines[edit_line]))
 		edit_line = (edit_line + 1) & 31
 		history_line = edit_line
 		key_lines[edit_line] = ']'
@@ -510,11 +515,11 @@ def Key_Message (key): #int
 
 	if key == K_ENTER or key == K_KP_ENTER:
 		if chat_team:
-			cmd.Cbuf_AddText("say_team \"")
+			cmdparser.Cbuf_AddText("say_team \"")
 		else:
-			cmd.Cbuf_AddText("say \"")
-		cmd.Cbuf_AddText(chat_buffer)
-		cmd.Cbuf_AddText("\"\n")
+			cmdparser.Cbuf_AddText("say \"")
+		cmdparser.Cbuf_AddText(chat_buffer)
+		cmdparser.Cbuf_AddText("\"\n")
 
 		cl_main.cls.key_dest = client.keydest_t.key_game
 		chat_buffer = ""
@@ -608,7 +613,7 @@ def Key_StringToKeynum (strIn): #char * (returns int)
 		return ord(strIn)
 
 	for kn in keynames:
-		if not q_shared.Q_strcasecmp(strIn, kn[0]):
+		if not shared_c.Q_strcasecmp(strIn, kn[0]):
 			return kn[1]
 	
 	return -1
@@ -664,16 +669,16 @@ def Key_Unbind_f ():
 
 	#int		b;
 
-	if cmd.Cmd_Argc() != 2:
+	if cmdparser.Cmd_Argc() != 2:
 	
-		common.Com_Printf ("unbind <key> : remove commands from a key\n")
+		clientserver.Com_Printf ("unbind <key> : remove commands from a key\n")
 		return
 	
 	
-	b = Key_StringToKeynum (cmd.Cmd_Argv(1))
+	b = Key_StringToKeynum (cmdparser.Cmd_Argv(1))
 	if b==-1:
 	
-		common.Com_Printf ("\"{}\" isn't a valid key\n".format( cmd.Cmd_Argv(1)))
+		clientserver.Com_Printf ("\"{}\" isn't a valid key\n".format( cmdparser.Cmd_Argv(1)))
 		return;
 	
 
@@ -694,26 +699,26 @@ Key_Bind_f
 """
 def Key_Bind_f ():
 	
-	c = cmd.Cmd_Argc()
+	c = cmdparser.Cmd_Argc()
 
 	if c < 2:
 	
-		common.Com_Printf ("bind <key> [command] : attach a command to a key\n")
+		clientserver.Com_Printf ("bind <key> [command] : attach a command to a key\n")
 		return
 	
-	b = Key_StringToKeynum (cmd.Cmd_Argv(1))
+	b = Key_StringToKeynum (cmdparser.Cmd_Argv(1))
 
 	if b==-1:
 	
-		common.Com_Printf ("\"{}\" isn't a valid key\n".format(cmd.Cmd_Argv(1)))
+		clientserver.Com_Printf ("\"{}\" isn't a valid key\n".format(cmdparser.Cmd_Argv(1)))
 		return
 	
 	if c == 2:
 	
 		if keybindings[b] is not None:
-			common.Com_Printf ("\"{}\" = \"{}\"\n".format(cmd.Cmd_Argv(1), keybindings[b]))
+			clientserver.Com_Printf ("\"{}\" = \"{}\"\n".format(cmdparser.Cmd_Argv(1), keybindings[b]))
 		else:
-			common.Com_Printf ("\"{}\" is not bound\n".format( cmd.Cmd_Argv(1)) )
+			clientserver.Com_Printf ("\"{}\" is not bound\n".format( cmdparser.Cmd_Argv(1)) )
 		return
 	
 	
@@ -721,7 +726,7 @@ def Key_Bind_f ():
 	cmdArr = []		# start out with a null string
 	for i in range(2, c):
 	
-		cmdArr.append(cmd.Cmd_Argv(i))
+		cmdArr.append(cmdparser.Cmd_Argv(i))
 		if i != (c-1):
 			cmdArr.append(" ")
 	
@@ -753,7 +758,7 @@ def Key_Bindlist_f ():
 
 	for i in range(256):
 		if keybindings[i] is not None:
-			common.Com_Printf ("{} \"{}\"\n".format(Key_KeynumToString(i), keybindings[i]))
+			clientserver.Com_Printf ("{} \"{}\"\n".format(Key_KeynumToString(i), keybindings[i]))
 
 """
 ===================
@@ -841,10 +846,10 @@ def Key_Init ():
 	# register our functions
 	#
 
-	cmd.Cmd_AddCommand ("bind",Key_Bind_f);
-	cmd.Cmd_AddCommand ("unbind",Key_Unbind_f);
-	cmd.Cmd_AddCommand ("unbindall",Key_Unbindall_f);
-	cmd.Cmd_AddCommand ("bindlist",Key_Bindlist_f);
+	cmdparser.Cmd_AddCommand ("bind",Key_Bind_f);
+	cmdparser.Cmd_AddCommand ("unbind",Key_Unbind_f);
+	cmdparser.Cmd_AddCommand ("unbindall",Key_Unbindall_f);
+	cmdparser.Cmd_AddCommand ("bindlist",Key_Bindlist_f);
 
 """
 ===================
@@ -882,7 +887,7 @@ def Key_Event (key, down, timestamp): #int, qboolean, unsigned
 			return	# ignore most autorepeats
 			
 		if key >= 200 and not keybindings[key]:
-			common.Com_Printf ("{} is unbound, hit F4 to set.\n".format(Key_KeynumToString (key) ))
+			clientserver.Com_Printf ("{} is unbound, hit F4 to set.\n".format(Key_KeynumToString (key) ))
 	
 	else:
 	
@@ -912,9 +917,9 @@ def Key_Event (key, down, timestamp): #int, qboolean, unsigned
 		if not down:
 			return
 
-		if cl_main.cl.frame.playerstate.stats[q_shared.STAT_LAYOUTS] and cl_main.cls.key_dest == client.keydest_t.key_game:
+		if cl_main.cl.frame.playerstate.stats[shared.STAT_LAYOUTS] and cl_main.cls.key_dest == client.keydest_t.key_game:
 			# put away help computer / inventory
-			cmd.Cbuf_AddText ("cmd putaway\n")
+			cmdparser.Cbuf_AddText ("cmd putaway\n")
 			return
 		
 		if cl_main.cls.key_dest == client.keydest_t.key_message:
@@ -924,7 +929,7 @@ def Key_Event (key, down, timestamp): #int, qboolean, unsigned
 		elif cl_main.cls.key_dest in [client.keydest_t.key_game, client.keydest_t.key_console]:
 			menu.M_Menu_Main_f ()
 		else:
-			common.Com_Error (q_shared.ERR_FATAL, "Bad cls.key_dest")
+			clientserver.Com_Error (shared.ERR_FATAL, "Bad cls.key_dest")
 
 		return
 	
@@ -956,7 +961,7 @@ def Key_Event (key, down, timestamp): #int, qboolean, unsigned
 		if kb and kb[0] == '+':
 		
 			cmdStr = "-{} {} {}\n".format(kb[1:], key, timestamp)
-			cmd.Cbuf_AddText (cmdStr)
+			cmdparser.Cbuf_AddText (cmdStr)
 		
 		if keyshift[key] != key:
 		
@@ -964,7 +969,7 @@ def Key_Event (key, down, timestamp): #int, qboolean, unsigned
 			if kb and kb[0] == '+':
 			
 				cmdStr = "-{} {} {}\n".format(kb[1:], key, timestamp)
-				cmd.Cbuf_AddText (cmdStr)
+				cmdparser.Cbuf_AddText (cmdStr)
 		
 		return
 	
@@ -982,11 +987,11 @@ def Key_Event (key, down, timestamp): #int, qboolean, unsigned
 			if kb[0] == '+':
 				# button commands add keynum and timestamp as a parm
 				cmdStr = "{} {} {}\n".format(kb, key, timestamp)
-				cmd.Cbuf_AddText (cmdStr)
+				cmdparser.Cbuf_AddText (cmdStr)
 			
 			else:			
-				cmd.Cbuf_AddText (kb)
-				cmd.Cbuf_AddText ("\n")
+				cmdparser.Cbuf_AddText (kb)
+				cmdparser.Cbuf_AddText ("\n")
 
 		return
 	
@@ -1003,7 +1008,7 @@ def Key_Event (key, down, timestamp): #int, qboolean, unsigned
 	elif cl_main.cls.key_dest in [client.keydest_t.key_game, client.keydest_t.key_console]:
 		Key_Console (key)
 	else:
-		common.Com_Error (q_shared.ERR_FATAL, "Bad cls.key_dest")
+		clientserver.Com_Error (shared.ERR_FATAL, "Bad cls.key_dest")
 
 """
 ===================

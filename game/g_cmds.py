@@ -19,7 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from __future__ import annotations
 
-from game import q_shared
+pass
 from game import g_local
 from game import g_main
 from game import g_utils
@@ -27,9 +27,8 @@ from game import g_items
 from game import g_chase
 from game import p_hud
 from game import p_client
-from game.q_shared import (Q_stricmp, Info_ValueForKey, vec3_origin, MAX_ITEMS,
-	STAT_FRAGS, PMF_DUCKED, DF_MODELTEAMS,
-	DF_SKINTEAMS, PRINT_HIGH, PRINT_CHAT)
+from common.shared.shared import Q_stricmp, Info_ValueForKey, vec3_origin
+from common.header.shared import MAX_ITEMS, STAT_FRAGS, PMF_DUCKED, DF_MODELTEAMS, DF_SKINTEAMS, PRINT_HIGH, PRINT_CHAT
 from game.g_local import (IT_WEAPON, IT_AMMO, IT_ARMOR, IT_POWERUP,
 	FL_GODMODE, FL_NOTARGET, MOVETYPE_NOCLIP, MOVETYPE_WALK, ANIM_WAVE,
 	MOD_SUICIDE, svc_inventory,

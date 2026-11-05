@@ -20,14 +20,15 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, q_shared, m_flash
+from game import g_main, g_local
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_local import (AI_GOOD_GUY, AI_STAND_GROUND, DEAD_DEAD, FL_FLY, FL_NO_KNOCKBACK, GIB_ORGANIC, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t)
 from game.g_misc import (ThrowGib, ThrowHead)
 from game.g_monster import (flymonster_start, walkmonster_start)
 from game.g_utils import (G_FreeEdict)
 from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
-from game.q_shared import (ATTN_IDLE, CHAN_VOICE)
+from common.header.shared import ATTN_IDLE, CHAN_VOICE
+from common.header import shared
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 
 # m_insane.h
@@ -489,8 +490,8 @@ def insane_dead (self): #edict_t *
 	if self.spawnflags & 8:
 		self.flags |= FL_FLY
 	else:
-		q_shared.VectorSet (self.mins, -16, -16, -24)
-		q_shared.VectorSet (self.maxs, 16, 16, -8)
+		shared.VectorSet (self.mins, -16, -16, -24)
+		shared.VectorSet (self.maxs, 16, 16, -8)
 		self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	self.nextthink = 0
@@ -555,8 +556,8 @@ def SP_misc_insane (self): #edict_t *
 	self.solid = SOLID_BBOX
 	self.s.modelindex = g_main.gi.modelindex("models/monsters/insane/tris.md2")
 
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, 32)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, 32)
 
 	self.health = 100
 	self.gib_health = -50
@@ -592,8 +593,8 @@ def SP_misc_insane (self): #edict_t *
 
 	if self.spawnflags & 8:
 		# Crucified ?
-		q_shared.VectorSet (self.mins, -16, 0, 0)
-		q_shared.VectorSet (self.maxs, 16, 8, 32)
+		shared.VectorSet (self.mins, -16, 0, 0)
+		shared.VectorSet (self.maxs, 16, 8, 32)
 		self.flags |= FL_NO_KNOCKBACK
 		flymonster_start (self)
 	else:

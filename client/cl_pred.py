@@ -21,15 +21,18 @@ from __future__ import annotations
 
 import copy
 import numpy as np
-from qcommon import common, cmodel, pmove
-from game import q_shared
+from qcommon import cmodel, pmove
+pass
 from client import cl_main, client
+from common.header import shared
+from common.shared import shared as shared_c
+from common import clientserver
 
-def _copy_trace(src: q_shared.trace_t, dest: q_shared.trace_t):
+def _copy_trace(src: shared.trace_t, dest: shared.trace_t):
     dest.allsolid = src.allsolid
     dest.startsolid = src.startsolid
     dest.fraction = src.fraction
-    q_shared.VectorCopy(src.endpos, dest.endpos)
+    shared.VectorCopy(src.endpos, dest.endpos)
     dest.plane = src.plane
     dest.surface = src.surface
     dest.contents = src.contents
@@ -46,7 +49,7 @@ def CL_CheckPredictionError():
     pm_flags = cl_main.cl.frame.playerstate.pmove.pm_flags
     if pm_flags is None:
         pm_flags = 0
-    if pm_flags & q_shared.PMF_NO_PREDICTION:
+    if pm_flags & shared.PMF_NO_PREDICTION:
         return
 
     frame = cl_main.cls.netchan.incoming_acknowledged & (client.CMD_BACKUP - 1)
@@ -57,18 +60,18 @@ def CL_CheckPredictionError():
         predicted_origin = np.zeros((3,), dtype=np.float32)
         cl_main.cl.predicted_origins[frame] = predicted_origin
 
-    q_shared.VectorSubtract(cl_main.cl.frame.playerstate.pmove.origin, predicted_origin, delta)
+    shared.VectorSubtract(cl_main.cl.frame.playerstate.pmove.origin, predicted_origin, delta)
 
     length = abs(delta[0]) + abs(delta[1]) + abs(delta[2])
     if length > 640:
-        q_shared.VectorClear(cl_main.cl.prediction_error)
+        shared.VectorClear(cl_main.cl.prediction_error)
     else:
         if (delta[0] or delta[1] or delta[2]) and cl_main.cl_showmiss and cl_main.cl_showmiss.value:
-            common.Com_Printf(
+            clientserver.Com_Printf(
                 "prediction miss on %i: %i\n"
                 % (cl_main.cl.frame.serverframe, int(delta[0] + delta[1] + delta[2]))
             )
-        q_shared.VectorCopy(cl_main.cl.frame.playerstate.pmove.origin, predicted_origin)
+        shared.VectorCopy(cl_main.cl.frame.playerstate.pmove.origin, predicted_origin)
         for i in range(3):
             cl_main.cl.prediction_error[i] = delta[i] * 0.125
 
@@ -110,7 +113,7 @@ def CL_ClipMoveToEntities(start, mins, maxs, end, tr):
             bmaxs[2] = zu
 
             headnode = cmodel.CM_HeadnodeForBox(bmins, bmaxs)
-            angles = q_shared.vec3_origin
+            angles = shared_c.vec3_origin
 
         if tr.allsolid:
             return
@@ -121,7 +124,7 @@ def CL_ClipMoveToEntities(start, mins, maxs, end, tr):
             mins,
             maxs,
             headnode,
-            q_shared.MASK_PLAYERSOLID,
+            shared.MASK_PLAYERSOLID,
             ent.origin,
             angles,
         )
@@ -142,7 +145,7 @@ CL_PMTrace
 ================
 """
 def CL_PMTrace(start, mins, maxs, end):
-    trace = cmodel.CM_BoxTrace(start, end, mins, maxs, 0, q_shared.MASK_PLAYERSOLID)
+    trace = cmodel.CM_BoxTrace(start, end, mins, maxs, 0, shared.MASK_PLAYERSOLID)
     if trace.fraction < 1.0:
         trace.ent = 1
     CL_ClipMoveToEntities(start, mins, maxs, end, trace)
@@ -190,12 +193,12 @@ def CL_PredictMovement():
     if (
         not cl_main.cl_predict
         or not cl_main.cl_predict.value
-        or pm_flags & q_shared.PMF_NO_PREDICTION
+        or pm_flags & shared.PMF_NO_PREDICTION
     ):
         for i in range(3):
             cl_main.cl.predicted_angles[i] = (
                 cl_main.cl.viewangles[i]
-                + q_shared.SHORT2ANGLE(pm_state.delta_angles[i])
+                + shared.SHORT2ANGLE(pm_state.delta_angles[i])
             )
         return
 
@@ -204,14 +207,14 @@ def CL_PredictMovement():
 
     if current - ack >= client.CMD_BACKUP:
         if cl_main.cl_showmiss and cl_main.cl_showmiss.value:
-            common.Com_Printf("exceeded CMD_BACKUP\n")
+            clientserver.Com_Printf("exceeded CMD_BACKUP\n")
         return
 
     pm = pmove.pmove_t()
     pm.trace = CL_PMTrace
     pm.pointcontents = CL_PMpointcontents
 
-    airaccel = cl_main.cl.configstrings[q_shared.CS_AIRACCEL]
+    airaccel = cl_main.cl.configstrings[shared.CS_AIRACCEL]
     pmove.pm_airaccelerate = float(airaccel) if airaccel else 0.0
 
     pm.s = copy.deepcopy(pm_state)
@@ -227,7 +230,7 @@ def CL_PredictMovement():
             cl_main.cl.predicted_origins[frame_index] = np.zeros(
                 (3,), dtype=np.float32
             )
-        q_shared.VectorCopy(
+        shared.VectorCopy(
             pm.s.origin, cl_main.cl.predicted_origins[frame_index]
         )
 
@@ -236,7 +239,7 @@ def CL_PredictMovement():
     oldz = old_origin[2] if old_origin is not None else 0
 
     step = pm.s.origin[2] - oldz
-    if step > 63 and step < 160 and (pm.s.pm_flags & q_shared.PMF_ON_GROUND):
+    if step > 63 and step < 160 and (pm.s.pm_flags & shared.PMF_ON_GROUND):
         cl_main.cl.predicted_step = step * 0.125
         cl_main.cl.predicted_step_time = (
             cl_main.cls.realtime - cl_main.cls.frametime * 500
@@ -245,4 +248,4 @@ def CL_PredictMovement():
     for i in range(3):
         cl_main.cl.predicted_origin[i] = pm.s.origin[i] * 0.125
 
-    q_shared.VectorCopy(pm.viewangles, cl_main.cl.predicted_angles)
+    shared.VectorCopy(pm.viewangles, cl_main.cl.predicted_angles)

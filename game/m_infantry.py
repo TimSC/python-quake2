@@ -20,19 +20,22 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import q_shared, g_local, g_main, g_utils, g_monster, g_misc, g_ai, m_flash
+from game import g_local, g_main, g_utils, g_monster, g_misc, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_utils import G_ProjectSource, G_FreeEdict
 from game.g_monster import monster_fire_bullet, walkmonster_start
 from game.g_weapon import fire_hit
 from game.g_misc import ThrowGib, ThrowHead
-from game.q_shared import CHAN_VOICE, CHAN_WEAPON, CHAN_BODY, ATTN_NORM, ATTN_IDLE, MZ2_INFANTRY_MACHINEGUN_1, MZ2_INFANTRY_MACHINEGUN_2
+from common.header.shared import CHAN_VOICE, CHAN_WEAPON, CHAN_BODY, ATTN_NORM, ATTN_IDLE, MZ2_INFANTRY_MACHINEGUN_1, MZ2_INFANTRY_MACHINEGUN_2
 from game.g_local import (FRAMETIME, MELEE_DISTANCE, GIB_ORGANIC, DEAD_DEAD, MOVETYPE_STEP,
 	MOVETYPE_TOSS, AI_STAND_GROUND, AI_HOLD_FRAME, AI_DUCKED, RANGE_MELEE,
 	DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, damage_t)
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 DAMAGE_AIM = damage_t.DAMAGE_AIM.value
 from game.game import solid_t, SVF_DEADMONSTER
+from common.header import shared
+from common.shared import flash
+from common.shared import shared as shared_c
 
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 
@@ -191,24 +194,24 @@ def InfantryMachineGun (self):
 
 	if self.s.frame == FRAME_attak111:
 		flash_number = MZ2_INFANTRY_MACHINEGUN_1
-		q_shared.AngleVectors (self.s.angles, forward, right, None)
-		G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[flash_number], forward, right, start)
+		shared_c.AngleVectors (self.s.angles, forward, right, None)
+		G_ProjectSource (self.s.origin, flash.monster_flash_offset[flash_number], forward, right, start)
 
 		if self.enemy:
-			q_shared.VectorMA (self.enemy.s.origin, -0.2, self.enemy.velocity, target)
+			shared_c.VectorMA (self.enemy.s.origin, -0.2, self.enemy.velocity, target)
 			target[2] += self.enemy.viewheight
-			q_shared.VectorSubtract (target, start, forward)
-			q_shared.VectorNormalize (forward)
+			shared.VectorSubtract (target, start, forward)
+			shared_c.VectorNormalize (forward)
 		else:
-			q_shared.AngleVectors (self.s.angles, forward, right, None)
+			shared_c.AngleVectors (self.s.angles, forward, right, None)
 	else:
 		flash_number = MZ2_INFANTRY_MACHINEGUN_2 + (self.s.frame - FRAME_death211)
 
-		q_shared.AngleVectors (self.s.angles, forward, right, None)
-		G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[flash_number], forward, right, start)
+		shared_c.AngleVectors (self.s.angles, forward, right, None)
+		G_ProjectSource (self.s.origin, flash.monster_flash_offset[flash_number], forward, right, start)
 
-		q_shared.VectorSubtract (self.s.angles, aimangles[flash_number - MZ2_INFANTRY_MACHINEGUN_2], vec)
-		q_shared.AngleVectors (vec, forward, None, None)
+		shared.VectorSubtract (self.s.angles, aimangles[flash_number - MZ2_INFANTRY_MACHINEGUN_2], vec)
+		shared_c.AngleVectors (vec, forward, None, None)
 
 	monster_fire_bullet (self, start, forward, 3, 4, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, flash_number)
 
@@ -218,8 +221,8 @@ def infantry_sight (self, other):
 
 def infantry_dead (self):
 	#edict_t *self
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, -8)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, -8)
 	self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	g_main.gi.linkentity (self)
@@ -320,7 +323,7 @@ def infantry_smack (self):
 	global sound_punch_hit
 	aim = [0.0, 0.0, 0.0]
 
-	q_shared.VectorSet (aim, MELEE_DISTANCE, 0, 0)
+	shared.VectorSet (aim, MELEE_DISTANCE, 0, 0)
 	if fire_hit (self, aim, (5 + (_r.randint(0, 2147483647) % 5)), 50):
 		g_main.gi.sound (self, CHAN_WEAPON, sound_punch_hit, 1, ATTN_NORM, 0)
 
@@ -361,8 +364,8 @@ def SP_monster_infantry (self):
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 	self.s.modelindex = g_main.gi.modelindex("models/monsters/infantry/tris.md2")
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, 32)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, 32)
 
 	self.health = 100
 	self.gib_health = -40

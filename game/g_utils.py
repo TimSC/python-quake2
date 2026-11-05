@@ -21,14 +21,16 @@ from __future__ import annotations
 
 import math
 import numpy as np
-from game import q_shared
+pass
 from game import g_local
 from game import g_main
 from game import g_combat
 from game.game import edict_t, SOLID_NOT, SVF_MONSTER
-from game.q_shared import CHAN_AUTO, ATTN_NORM, CHAN_BODY, CHAN_VOICE
-from game.q_shared import AREA_TRIGGERS, AREA_SOLID, MASK_PLAYERSOLID
+from common.header.shared import CHAN_AUTO, ATTN_NORM, CHAN_BODY, CHAN_VOICE
+from common.header.shared import AREA_TRIGGERS, AREA_SOLID, MASK_PLAYERSOLID
 from game.g_local import DAMAGE_NO_PROTECTION, MOD_TELEFRAG
+from common.header import shared
+from common.shared import shared as shared_c
 
 """
 // g_utils.c -- misc utility functions for game module
@@ -86,7 +88,7 @@ def G_Find (from_, fieldofs, match):
 		s = getattr(e, fieldofs)
 		if not s:
 			continue
-		if not q_shared.Q_stricmp (s, match):
+		if not shared_c.Q_stricmp (s, match):
 			return e
 
 	return None
@@ -117,7 +119,7 @@ def findradius (from_, org, rad):
 			continue
 		for j in range(3):
 			eorg[j] = org[j] - (e.s.origin[j] + (e.mins[j] + e.maxs[j])*0.5)
-		if q_shared.VectorLength(eorg) > rad:
+		if shared_c.VectorLength(eorg) > rad:
 			continue
 		return e
 
@@ -235,8 +237,8 @@ def G_UseTargets (ent, activator):
 			if not t:
 				break
 			# doors fire area portals in a specific way
-			if not q_shared.Q_stricmp(t.classname, "func_areaportal") and \
-				(not q_shared.Q_stricmp(ent.classname, "func_door") or not q_shared.Q_stricmp(ent.classname, "func_door_rotating")):
+			if not shared_c.Q_stricmp(t.classname, "func_areaportal") and \
+				(not shared_c.Q_stricmp(ent.classname, "func_door") or not shared_c.Q_stricmp(ent.classname, "func_door_rotating")):
 				continue
 
 			if t == ent:
@@ -291,27 +293,27 @@ def vtos (v):
 
 
 def G_SetMovedir (angles, movedir):
-	if q_shared.VectorCompare (angles, VEC_UP):
-		q_shared.VectorCopy (MOVEDIR_UP, movedir)
-	elif q_shared.VectorCompare (angles, VEC_DOWN):
-		q_shared.VectorCopy (MOVEDIR_DOWN, movedir)
+	if shared_c.VectorCompare (angles, VEC_UP):
+		shared.VectorCopy (MOVEDIR_UP, movedir)
+	elif shared_c.VectorCompare (angles, VEC_DOWN):
+		shared.VectorCopy (MOVEDIR_DOWN, movedir)
 	else:
-		q_shared.AngleVectors (angles, movedir, None, None)
+		shared_c.AngleVectors (angles, movedir, None, None)
 
-	q_shared.VectorClear (angles)
+	shared.VectorClear (angles)
 
 
 def vectoyaw (vec):
 	#float yaw
 	yaw = 0
 
-	if vec[q_shared.PITCH] == 0:
-		if vec[q_shared.YAW] > 0:
+	if vec[shared.PITCH] == 0:
+		if vec[shared.YAW] > 0:
 			yaw = 90
-		elif vec[q_shared.YAW] < 0:
+		elif vec[shared.YAW] < 0:
 			yaw = -90
 	else:
-		yaw = int (math.atan2(vec[q_shared.YAW], vec[q_shared.PITCH]) * 180 / math.pi)
+		yaw = int (math.atan2(vec[shared.YAW], vec[shared.PITCH]) * 180 / math.pi)
 		if yaw < 0:
 			yaw += 360
 
@@ -341,9 +343,9 @@ def vectoangles (value1, angles):
 		if pitch < 0:
 			pitch += 360
 
-	angles[q_shared.PITCH] = -pitch
-	angles[q_shared.YAW] = yaw
-	angles[q_shared.ROLL] = 0
+	angles[shared.PITCH] = -pitch
+	angles[shared.YAW] = yaw
+	angles[shared.ROLL] = 0
 
 
 def G_CopyString (in_):
@@ -422,8 +424,8 @@ def G_TouchTriggers (ent):
 	if ((ent.client or (ent.svflags & SVF_MONSTER)) and (ent.health <= 0)):
 		return
 
-	touch = [None] * q_shared.MAX_EDICTS
-	num = g_main.gi.BoxEdicts (ent.absmin, ent.absmax, touch, q_shared.MAX_EDICTS, AREA_TRIGGERS)
+	touch = [None] * shared.MAX_EDICTS
+	num = g_main.gi.BoxEdicts (ent.absmin, ent.absmax, touch, shared.MAX_EDICTS, AREA_TRIGGERS)
 
 	# be careful, it is possible to have an entity in this
 	# list removed before we get to it (killtriggered)
@@ -447,8 +449,8 @@ to force all entities it covers to immediately touch it
 def G_TouchSolids (ent):
 	#int i, num
 
-	touch = [None] * q_shared.MAX_EDICTS
-	num = g_main.gi.BoxEdicts (ent.absmin, ent.absmax, touch, q_shared.MAX_EDICTS, AREA_SOLID)
+	touch = [None] * shared.MAX_EDICTS
+	num = g_main.gi.BoxEdicts (ent.absmin, ent.absmax, touch, shared.MAX_EDICTS, AREA_SOLID)
 
 	# be careful, it is possible to have an entity in this
 	# list removed before we get to it (killtriggered)
@@ -485,7 +487,7 @@ def KillBox (ent):
 			break
 
 		# nail it
-		g_combat.T_Damage (tr.ent, ent, ent, q_shared.vec3_origin, ent.s.origin, q_shared.vec3_origin, 100000, 0, DAMAGE_NO_PROTECTION, MOD_TELEFRAG)
+		g_combat.T_Damage (tr.ent, ent, ent, shared_c.vec3_origin, ent.s.origin, shared_c.vec3_origin, 100000, 0, DAMAGE_NO_PROTECTION, MOD_TELEFRAG)
 
 		# if we didn't kill it, fail
 		if tr.ent.solid:

@@ -20,10 +20,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import numpy as np
-from game import q_shared, g_main
-from game.q_shared import pmtype_t
-from game.q_shared import (PMF_NO_PREDICTION, MASK_SOLID, ANGLE2SHORT, TO_SHORT, PITCH,
-	YAW, ROLL, vec3_origin, VectorCopy, VectorMA, VectorNormalize, AngleVectors)
+from game import g_main
+from common.header.shared import pmtype_t
+from common.header.shared import PMF_NO_PREDICTION, MASK_SOLID, ANGLE2SHORT, PITCH, YAW, ROLL, VectorCopy
+from common.shared.shared import TO_SHORT, vec3_origin, VectorMA, VectorNormalize, AngleVectors
 """
 /*
 Copyright (C) 1997-2001 Id Software, Inc.

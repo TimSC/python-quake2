@@ -20,14 +20,17 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, q_shared, m_flash, g_ai
+from game import g_main, g_local, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_local import (AI_STAND_GROUND, DEAD_DEAD, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, GIB_METALLIC, GIB_ORGANIC, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t, svc_temp_entity)
 from game.g_misc import (ThrowGib, ThrowHead)
 from game.g_monster import (monster_fire_bullet, monster_fire_rocket, walkmonster_start)
 from game.g_utils import (G_FreeEdict, G_ProjectSource)
 from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
-from game.q_shared import (ATTN_NORM, CHAN_VOICE, MZ2_SUPERTANK_MACHINEGUN_1, MZ2_SUPERTANK_ROCKET_1, MZ2_SUPERTANK_ROCKET_2, MZ2_SUPERTANK_ROCKET_3, multicast_t, temp_event_t)
+from common.header.shared import ATTN_NORM, CHAN_VOICE, MZ2_SUPERTANK_MACHINEGUN_1, MZ2_SUPERTANK_ROCKET_1, MZ2_SUPERTANK_ROCKET_2, MZ2_SUPERTANK_ROCKET_3, multicast_t, temp_event_t
+from common.header import shared
+from common.shared import flash
+from common.shared import shared as shared_c
 DAMAGE_NO = damage_t.DAMAGE_NO.value
 MULTICAST_PVS = multicast_t.MULTICAST_PVS.value
 TE_EXPLOSION1 = temp_event_t.TE_EXPLOSION1.value
@@ -419,13 +422,13 @@ def supertankRocket (self): #edict_t *
 		# (self->s.frame == FRAME_attak2_14)
 		flash_number = MZ2_SUPERTANK_ROCKET_3
 
-	q_shared.AngleVectors (self.s.angles, forward, right, None)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[flash_number], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, None)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[flash_number], forward, right, start)
 
-	q_shared.VectorCopy (self.enemy.s.origin, vec)
+	shared.VectorCopy (self.enemy.s.origin, vec)
 	vec[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (vec, start, dir)
-	q_shared.VectorNormalize (dir)
+	shared.VectorSubtract (vec, start, dir)
+	shared_c.VectorNormalize (dir)
 
 	monster_fire_rocket (self, start, dir, 50, 500, flash_number)
 
@@ -446,15 +449,15 @@ def supertankMachineGun (self): #edict_t *
 	dir[1] = self.s.angles[1]
 	dir[2] = 0
 
-	q_shared.AngleVectors (dir, forward, right, None)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[flash_number], forward, right, start)
+	shared_c.AngleVectors (dir, forward, right, None)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[flash_number], forward, right, start)
 
 	if self.enemy:
-		q_shared.VectorCopy (self.enemy.s.origin, vec)
-		q_shared.VectorMA (vec, 0, self.enemy.velocity, vec)
+		shared.VectorCopy (self.enemy.s.origin, vec)
+		shared_c.VectorMA (vec, 0, self.enemy.velocity, vec)
 		vec[2] += self.enemy.viewheight
-		q_shared.VectorSubtract (vec, start, forward)
-		q_shared.VectorNormalize (forward)
+		shared.VectorSubtract (vec, start, forward)
+		shared_c.VectorNormalize (forward)
 
 	monster_fire_bullet (self, start, forward, 6, 4, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, flash_number)
 
@@ -465,8 +468,8 @@ def supertank_attack (self): #edict_t *
 	#float	range;
 	# float	r;
 
-	q_shared.VectorSubtract (self.enemy.s.origin, self.s.origin, vec)
-	range = q_shared.VectorLength (vec)
+	shared.VectorSubtract (self.enemy.s.origin, self.s.origin, vec)
+	range = shared_c.VectorLength (vec)
 
 	# r = random();
 
@@ -485,8 +488,8 @@ def supertank_attack (self): #edict_t *
 
 def supertank_dead (self): #edict_t *
 
-	q_shared.VectorSet (self.mins, -60, -60, 0)
-	q_shared.VectorSet (self.maxs, 60, 60, 72)
+	shared.VectorSet (self.mins, -60, -60, 0)
+	shared.VectorSet (self.maxs, 60, 60, 72)
 	self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	self.nextthink = 0
@@ -497,7 +500,7 @@ def BossExplode (self):
 	org = np.zeros((3,), dtype=np.float32)
 
 	self.think = BossExplode
-	q_shared.VectorCopy (self.s.origin, org)
+	shared.VectorCopy (self.s.origin, org)
 	org[2] += 24 + (_r.randint(0, 2147483647) & 15)
 	switch = self.count
 	self.count += 1
@@ -575,8 +578,8 @@ def SP_monster_supertank (self): #edict_t *
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 	self.s.modelindex = g_main.gi.modelindex ("models/monsters/boss1/tris.md2")
-	q_shared.VectorSet (self.mins, -64, -64, 0)
-	q_shared.VectorSet (self.maxs, 64, 64, 112)
+	shared.VectorSet (self.mins, -64, -64, 0)
+	shared.VectorSet (self.maxs, 64, 64, 112)
 
 	self.health = 1500
 	self.gib_health = -500

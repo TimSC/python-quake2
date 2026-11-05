@@ -20,10 +20,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import copy
-from qcommon import cvar, cmd, qcommon, common
+pass
 from client import console, cl_main, client, menu, cl_cin, snd_dma, cl_view, cl_inv
 from linux import q_shlinux, vid_so, cd_linux
-from game import q_shared
+pass
+from common.header import shared
+from common import clientserver
+from common import cmdparser
+from common import cvar
+from common import frame as common_frame
+from common import movemsg
 """
 // cl_scrn.c -- master for refresh, status bar, console, chat, notify, etc
 
@@ -188,7 +194,7 @@ def SCR_CenterPrint (text):
 	scr_centertime_off = scr_centertime.value
 	scr_centertime_start = cl_main.cl.time
 	scr_center_lines = text.count("\n") + 1
-	common.Com_Printf("\n\n" + text + "\n\n")
+	clientserver.Com_Printf("\n\n" + text + "\n\n")
 	console.Con_ClearNotify ()
 
 
@@ -229,11 +235,11 @@ def SCR_CheckDrawCenterString ():
 
 def SCR_DrawStats ():
 
-	SCR_ExecuteLayoutString (cl_main.cl.configstrings[q_shared.CS_STATUSBAR])
+	SCR_ExecuteLayoutString (cl_main.cl.configstrings[shared.CS_STATUSBAR])
 
 
 def SCR_DrawLayout ():
-	if not cl_main.cl.frame.playerstate.stats[q_shared.STAT_LAYOUTS]:
+	if not cl_main.cl.frame.playerstate.stats[shared.STAT_LAYOUTS]:
 		return
 	SCR_ExecuteLayoutString (cl_main.cl.layout)
 # ================================================================================
@@ -307,22 +313,22 @@ def SCR_Sky_f ():
 	#float	rotate;
 	#vec3_t	axis;
 
-	if cmd.Cmd_Argc() < 2:
-		common.Com_Printf ("Usage: sky <basename> <rotate> <axis x y z>\n")
+	if cmdparser.Cmd_Argc() < 2:
+		clientserver.Com_Printf ("Usage: sky <basename> <rotate> <axis x y z>\n")
 		return
 
-	if cmd.Cmd_Argc() > 2:
-		rotate = float(cmd.Cmd_Argv(2))
+	if cmdparser.Cmd_Argc() > 2:
+		rotate = float(cmdparser.Cmd_Argv(2))
 	else:
 		rotate = 0.0
 
 	axis = [0.0, 0.0, 1.0]
-	if cmd.Cmd_Argc() == 6:
-		axis[0] = float(cmd.Cmd_Argv(3))
-		axis[1] = float(cmd.Cmd_Argv(4))
-		axis[2] = float(cmd.Cmd_Argv(5))
+	if cmdparser.Cmd_Argc() == 6:
+		axis[0] = float(cmdparser.Cmd_Argv(3))
+		axis[1] = float(cmdparser.Cmd_Argv(4))
+		axis[2] = float(cmdparser.Cmd_Argv(5))
 
-	vid_so.re.SetSky (cmd.Cmd_Argv(1), rotate, axis)
+	vid_so.re.SetSky (cmdparser.Cmd_Argv(1), rotate, axis)
 
 # ================================================================================
 
@@ -337,7 +343,7 @@ def SCR_Init ():
 	global scr_viewsize, scr_conspeed, scr_centertime, scr_showturtle, scr_showpause, scr_printspeed
 	global scr_netgraph, scr_timegraph, scr_debuggraph, scr_graphheight, scr_graphscale, scr_graphshift, scr_drawall
 
-	scr_viewsize = cvar.Cvar_Get ("viewsize", "100", q_shared.CVAR_ARCHIVE)
+	scr_viewsize = cvar.Cvar_Get ("viewsize", "100", shared.CVAR_ARCHIVE)
 	scr_conspeed = cvar.Cvar_Get ("scr_conspeed", "3", 0)
 	scr_showturtle = cvar.Cvar_Get ("scr_showturtle", "0", 0)
 	scr_showpause = cvar.Cvar_Get ("scr_showpause", "1", 0)
@@ -354,11 +360,11 @@ def SCR_Init ():
 	#
 	# register our commands
 	#
-	cmd.Cmd_AddCommand ("timerefresh",SCR_TimeRefresh_f)
-	cmd.Cmd_AddCommand ("loading",SCR_Loading_f)
-	cmd.Cmd_AddCommand ("sizeup",SCR_SizeUp_f)
-	cmd.Cmd_AddCommand ("sizedown",SCR_SizeDown_f)
-	cmd.Cmd_AddCommand ("sky",SCR_Sky_f)
+	cmdparser.Cmd_AddCommand ("timerefresh",SCR_TimeRefresh_f)
+	cmdparser.Cmd_AddCommand ("loading",SCR_Loading_f)
+	cmdparser.Cmd_AddCommand ("sizeup",SCR_SizeUp_f)
+	cmdparser.Cmd_AddCommand ("sizedown",SCR_SizeDown_f)
+	cmdparser.Cmd_AddCommand ("sky",SCR_Sky_f)
 
 	scr_initialized = True
 
@@ -489,7 +495,7 @@ def SCR_BeginLoadingPlaque ():
 	cd_linux.CDAudio_Stop ()
 	if cl_main.cls.disable_screen:
 		return
-	if common.developer.value:
+	if common_frame.developer.value:
 		return
 	if cl_main.cls.state == client.connstate_t.ca_disconnected:
 		return	# if at console, don't bring up the plaque
@@ -564,7 +570,7 @@ def SCR_TimeRefresh_f ():
 
 	start = q_shlinux.Sys_Milliseconds ()
 
-	if cmd.Cmd_Argc() == 2:
+	if cmdparser.Cmd_Argc() == 2:
 		vid_so.re.BeginFrame(0)
 		for i in range(128):
 			cl_main.cl.refdef.viewangles[1] = i/128.0*360.0
@@ -579,7 +585,7 @@ def SCR_TimeRefresh_f ():
 
 	stop = q_shlinux.Sys_Milliseconds ()
 	time = (stop-start)/1000.0
-	common.Com_Printf ("%f seconds (%f fps)\n", time, 128/time)
+	clientserver.Com_Printf ("%f seconds (%f fps)\n", time, 128/time)
 
 """
 =================
@@ -848,55 +854,55 @@ def SCR_ExecuteLayoutString (s): #char *
 	cursor = 0
 	while cursor is not None and cursor < len(s):
 	
-		token, cursor = common.COM_Parse (s, cursor)
+		token, cursor = movemsg.COM_Parse (s, cursor)
 
 		if token == "xl":
 		
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			x = int(token)
 			continue
 		
 		if token == "xr":
 		
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			x = viddef.width + int(token)
 			continue
 		
 		if token == "xv":
 		
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			x = viddef.width//2 - 160 + int(token)
 			continue
 		
 		if token == "yt":
 		
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			y = int(token)
 			continue
 		
 		if token == "yb":
 		
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			y = viddef.height + int(token)
 			continue
 		
 		if token == "yv":
 		
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			y = viddef.height//2 - 120 + int(token)
 			continue
 		
 		if token == "pic":
 			# draw a pic from a stat number
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			value = cl.frame.playerstate.stats[int(token)]
-			if value >= q_shared.MAX_IMAGES:
-				common.Com_Error (q_shared.ERR_DROP, "Pic >= MAX_IMAGES")
-			if cl.configstrings[q_shared.CS_IMAGES+value]:
+			if value >= shared.MAX_IMAGES:
+				clientserver.Com_Error (shared.ERR_DROP, "Pic >= MAX_IMAGES")
+			if cl.configstrings[shared.CS_IMAGES+value]:
 			
 				SCR_AddDirtyPoint (x, y)
 				SCR_AddDirtyPoint (x+23, y+23)
-				vid_so.re.DrawPic (x, y, cl.configstrings[q_shared.CS_IMAGES+value])
+				vid_so.re.DrawPic (x, y, cl.configstrings[shared.CS_IMAGES+value])
 			
 			continue
 		
@@ -904,26 +910,26 @@ def SCR_ExecuteLayoutString (s): #char *
 			# draw a deathmatch client block
 			#int		score, ping, time;
 
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			x = viddef.width//2 - 160 + int(token)
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			y = viddef.height//2 - 120 + int(token)
 			SCR_AddDirtyPoint (x, y)
 			SCR_AddDirtyPoint (x+159, y+31)
 
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			value = int(token)
-			if value >= q_shared.MAX_CLIENTS or value < 0:
-				common.Com_Error (q_shared.ERR_DROP, "client >= MAX_CLIENTS")
+			if value >= shared.MAX_CLIENTS or value < 0:
+				clientserver.Com_Error (shared.ERR_DROP, "client >= MAX_CLIENTS")
 			ci = cl.clientinfo[value]
 
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			score = int(token)
 
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			ping = int(token)
 
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			time = int(token)
 
 			console.DrawAltString (x+32, y, ci.name)
@@ -942,23 +948,23 @@ def SCR_ExecuteLayoutString (s): #char *
 			#int		score, ping;
 			#char	block[80];
 
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			x = viddef.width//2 - 160 + int(token)
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			y = viddef.height//2 - 120 + int(token)
 			SCR_AddDirtyPoint (x, y)
 			SCR_AddDirtyPoint (x+159, y+31)
 
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			value = int(token)
-			if value >= q_shared.MAX_CLIENTS or value < 0:
-				common.Com_Error (q_shared.ERR_DROP, "client >= MAX_CLIENTS")
+			if value >= shared.MAX_CLIENTS or value < 0:
+				clientserver.Com_Error (shared.ERR_DROP, "client >= MAX_CLIENTS")
 			ci = cl.clientinfo[value]
 
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			score = int(token)
 
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			ping = int(token)
 			if ping > 999:
 				ping = 999
@@ -973,7 +979,7 @@ def SCR_ExecuteLayoutString (s): #char *
 		
 		if token == "picn":
 			# draw a pic from a name
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			SCR_AddDirtyPoint (x, y)
 			SCR_AddDirtyPoint (x+23, y+23)
 			vid_so.re.DrawPic (x, y, token)
@@ -981,9 +987,9 @@ def SCR_ExecuteLayoutString (s): #char *
 		
 		if token == "num":
 			# draw a number
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			width = int(token)
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			value = cl.frame.playerstate.stats[int(token)]
 			SCR_DrawField (x, y, 0, width, value)
 			continue
@@ -993,7 +999,7 @@ def SCR_ExecuteLayoutString (s): #char *
 			#int		color;
 
 			width = 3
-			value = cl.frame.playerstate.stats[q_shared.STAT_HEALTH]
+			value = cl.frame.playerstate.stats[shared.STAT_HEALTH]
 			if value > 25:
 				color = 0	# green
 			elif value > 0:
@@ -1001,7 +1007,7 @@ def SCR_ExecuteLayoutString (s): #char *
 			else:
 				color = 1
 
-			if cl.frame.playerstate.stats[q_shared.STAT_FLASHES] & 1:
+			if cl.frame.playerstate.stats[shared.STAT_FLASHES] & 1:
 				vid_so.re.DrawPic (x, y, "field_3")
 
 			SCR_DrawField (x, y, color, width, value)
@@ -1012,7 +1018,7 @@ def SCR_ExecuteLayoutString (s): #char *
 			#int		color;
 
 			width = 3
-			value = cl.frame.playerstate.stats[q_shared.STAT_AMMO]
+			value = cl.frame.playerstate.stats[shared.STAT_AMMO]
 			if value > 5:
 				color = 0	# green
 			elif value >= 0:
@@ -1020,7 +1026,7 @@ def SCR_ExecuteLayoutString (s): #char *
 			else:
 				continue	# negative number = don't show
 
-			if cl.frame.playerstate.stats[q_shared.STAT_FLASHES] & 4:
+			if cl.frame.playerstate.stats[shared.STAT_FLASHES] & 4:
 				vid_so.re.DrawPic (x, y, "field_3")
 
 			SCR_DrawField (x, y, color, width, value)
@@ -1031,13 +1037,13 @@ def SCR_ExecuteLayoutString (s): #char *
 			#int		color;
 
 			width = 3
-			value = cl.frame.playerstate.stats[q_shared.STAT_ARMOR]
+			value = cl.frame.playerstate.stats[shared.STAT_ARMOR]
 			if value < 1:
 				continue
 
 			color = 0	# green
 
-			if cl.frame.playerstate.stats[q_shared.STAT_FLASHES] & 2:
+			if cl.frame.playerstate.stats[shared.STAT_FLASHES] & 2:
 				vid_so.re.DrawPic (x, y, "field_3")
 
 			SCR_DrawField (x, y, color, width, value)
@@ -1045,49 +1051,49 @@ def SCR_ExecuteLayoutString (s): #char *
 		
 		if token == "stat_string":
 		
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			index = int(token)
-			if index < 0 or index >= q_shared.MAX_CONFIGSTRINGS:
-				common.Com_Error (q_shared.ERR_DROP, "Bad stat_string index")
+			if index < 0 or index >= shared.MAX_CONFIGSTRINGS:
+				clientserver.Com_Error (shared.ERR_DROP, "Bad stat_string index")
 			index = cl.frame.playerstate.stats[index]
-			if index < 0 or index >= q_shared.MAX_CONFIGSTRINGS:
-				common.Com_Error (q_shared.ERR_DROP, "Bad stat_string index")
+			if index < 0 or index >= shared.MAX_CONFIGSTRINGS:
+				clientserver.Com_Error (shared.ERR_DROP, "Bad stat_string index")
 			console.DrawString (x, y, cl.configstrings[index])
 			continue
 		
 		if token == "cstring":
 		
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			DrawHUDString (token, x, y, 320, 0)
 			continue
 		
 		if token == "string":
 		
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			console.DrawString (x, y, token)
 			continue
 		
 		if token == "cstring2":
 		
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			DrawHUDString (token, x, y, 320,0x80)
 			continue
 		
 		if token == "string2":
 		
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			console.DrawAltString (x, y, token)
 			continue
 		
 		if token == "if":
 			# draw a number
-			token, cursor = common.COM_Parse (s, cursor)
+			token, cursor = movemsg.COM_Parse (s, cursor)
 			value = cl.frame.playerstate.stats[int(token)]
 			if not value:
 				# skip to endif
 				while cursor is not None and cursor < len(s) and token != "endif":
 				
-					token, cursor = common.COM_Parse (s, cursor)
+					token, cursor = movemsg.COM_Parse (s, cursor)
 				
 			continue
 		
@@ -1118,7 +1124,7 @@ def SCR_UpdateScreen ():
 		if q_shlinux.Sys_Milliseconds () - cl_main.cls.disable_screen > 120000:
 		
 			cl_main.cls.disable_screen = 0
-			common.Com_Printf ("Loading plaque timed out.\n")
+			clientserver.Com_Printf ("Loading plaque timed out.\n")
 		
 		return
 
@@ -1215,9 +1221,9 @@ def SCR_UpdateScreen ():
 
 			cl_view.V_RenderView ( separation[i] )
 			SCR_DrawStats ()
-			if cl_main.cl.frame.playerstate.stats[q_shared.STAT_LAYOUTS] & 1:
+			if cl_main.cl.frame.playerstate.stats[shared.STAT_LAYOUTS] & 1:
 				SCR_DrawLayout ()
-			if cl_main.cl.frame.playerstate.stats[q_shared.STAT_LAYOUTS] & 2:
+			if cl_main.cl.frame.playerstate.stats[shared.STAT_LAYOUTS] & 2:
 				cl_inv.CL_DrawInventory ()
 
 			SCR_DrawNet ()

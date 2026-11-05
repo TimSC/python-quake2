@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, q_shared, m_flash
+from game import g_main, g_local
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_local import (AI_STAND_GROUND, DEAD_DEAD, GIB_ORGANIC, MELEE_DISTANCE, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t)
 from game.g_misc import (ThrowGib, ThrowHead)
@@ -28,7 +28,10 @@ from game.g_monster import (monster_fire_railgun, walkmonster_start)
 from game.g_utils import (G_FreeEdict, G_ProjectSource)
 from game.g_weapon import (fire_hit)
 from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
-from game.q_shared import (ATTN_IDLE, ATTN_NORM, CHAN_AUTO, CHAN_VOICE, CHAN_WEAPON, MZ2_GLADIATOR_RAILGUN_1)
+from common.header.shared import ATTN_IDLE, ATTN_NORM, CHAN_AUTO, CHAN_VOICE, CHAN_WEAPON, MZ2_GLADIATOR_RAILGUN_1
+from common.header import shared
+from common.shared import flash
+from common.shared import shared as shared_c
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 
 # m_gladiator.h
@@ -201,7 +204,7 @@ def GaldiatorMelee (self): #edict_t *
 
 	aim = np.zeros((3,), dtype=np.float32) #vec3_t
 
-	q_shared.VectorSet (aim, MELEE_DISTANCE, self.mins[0], -4)
+	shared.VectorSet (aim, MELEE_DISTANCE, self.mins[0], -4)
 	if fire_hit (self, aim, (20 + (_r.randint(0, 2147483647) %5)), 300):
 		g_main.gi.sound (self, CHAN_AUTO, sound_cleaver_hit, 1, ATTN_NORM, 0)
 	else:
@@ -220,12 +223,12 @@ def GladiatorGun (self): #edict_t *
 	forward = np.zeros((3,), dtype=np.float32) #vec3_t
 	right = np.zeros((3,), dtype=np.float32) #vec3_t
 
-	q_shared.AngleVectors (self.s.angles, forward, right, None)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_GLADIATOR_RAILGUN_1], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, None)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[MZ2_GLADIATOR_RAILGUN_1], forward, right, start)
 
 	# calc direction to where we targted
-	q_shared.VectorSubtract (self.pos1, start, dir)
-	q_shared.VectorNormalize (dir)
+	shared.VectorSubtract (self.pos1, start, dir)
+	shared_c.VectorNormalize (dir)
 
 	monster_fire_railgun (self, start, dir, 50, 100, MZ2_GLADIATOR_RAILGUN_1)
 
@@ -236,14 +239,14 @@ def gladiator_attack (self): #edict_t *
 	v = np.zeros((3,), dtype=np.float32) #vec3_t
 
 	# a small safe zone
-	q_shared.VectorSubtract (self.s.origin, self.enemy.s.origin, v)
-	range = q_shared.VectorLength(v)
+	shared.VectorSubtract (self.s.origin, self.enemy.s.origin, v)
+	range = shared_c.VectorLength(v)
 	if range <= (MELEE_DISTANCE + 32):
 		return
 
 	# charge up the railgun
 	g_main.gi.sound (self, CHAN_WEAPON, sound_gun, 1, ATTN_NORM, 0)
-	q_shared.VectorCopy (self.enemy.s.origin, self.pos1)	# save for aiming the shot
+	shared.VectorCopy (self.enemy.s.origin, self.pos1)	# save for aiming the shot
 	self.pos1[2] += self.enemy.viewheight
 	self.monsterinfo.currentmove = gladiator_move_attack_gun
 
@@ -276,8 +279,8 @@ def gladiator_pain (self, other, kick, damage): #edict_t *, edict_t *, float, in
 
 def gladiator_dead (self): #edict_t *
 
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, -8)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, -8)
 	self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	self.nextthink = 0
@@ -333,8 +336,8 @@ def SP_monster_gladiator (self): #edict_t *
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 	self.s.modelindex = g_main.gi.modelindex ("models/monsters/gladiatr/tris.md2")
-	q_shared.VectorSet (self.mins, -32, -32, -24)
-	q_shared.VectorSet (self.maxs, 32, 32, 64)
+	shared.VectorSet (self.mins, -32, -32, -24)
+	shared.VectorSet (self.maxs, 32, 32, 64)
 
 	self.health = 400
 	self.gib_health = -175

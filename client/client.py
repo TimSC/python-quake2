@@ -21,10 +21,12 @@ from __future__ import annotations
 
 import numpy as np
 from enum import Enum
-from game import q_shared
-from qcommon import qcommon
+pass
+pass
 from ref_gl import gl_model_h, gl_image
 from client import snd_loc, ref
+from common.header import common as common_h
+from common.header import shared
 """
 // client.h -- primary header for client
 
@@ -59,7 +61,7 @@ class frame_t(object):
 		self.servertime = 0		# int, server time the message is valid for (in msec)
 		self.deltaframe = 0 	# int
 		self.areabits = []		#byte[MAX_MAP_AREAS/8], portalarea visibility bits
-		self.playerstate = q_shared.player_state_t() # player_state_t
+		self.playerstate = shared.player_state_t() # player_state_t
 		self.num_entities = 0 	# int
 		self.parse_entities = 0 	# int, non-masked index into cl_parse_entities array
 
@@ -70,9 +72,9 @@ class centity_t(object):
 		self.clear()
 
 	def clear(self):
-		self.baseline = q_shared.entity_state_t() # delta from this if not from a previous frame
-		self.current = q_shared.entity_state_t()
-		self.prev = q_shared.entity_state_t()			# will always be valid, but might just be a copy of current
+		self.baseline = shared.entity_state_t() # delta from this if not from a previous frame
+		self.current = shared.entity_state_t()
+		self.prev = shared.entity_state_t()			# will always be valid, but might just be a copy of current
 
 		self.serverframe: int = 0		# if not current, this ent isn't in the frame
 
@@ -142,13 +144,13 @@ class client_state_t(object):
 		"""
 		self.parse_entities: int = 0 # index (not anded off) into cl_parse_entities[]
 
-		self.cmd = q_shared.usercmd_t()
-		self.cmds = [q_shared.usercmd_t() for i in range(CMD_BACKUP)] #usercmd_t[CMD_BACKUP], each mesage will send several old cmds
+		self.cmd = shared.usercmd_t()
+		self.cmds = [shared.usercmd_t() for i in range(CMD_BACKUP)] #usercmd_t[CMD_BACKUP], each mesage will send several old cmds
 		self.cmd_time = [0 for i in range(CMD_BACKUP)] #int[CMD_BACKUP]	# time sent, for calculating pings
 		self.predicted_origins = [] #short[CMD_BACKUP][3], for debug comparing against server
 
 		for i in range(CMD_BACKUP):
-			self.cmds.append(q_shared.usercmd_t())
+			self.cmds.append(shared.usercmd_t())
 			self.cmd_time.append(0)
 			self.predicted_origins.append(None)
 
@@ -164,7 +166,7 @@ class client_state_t(object):
 
 		surpressCount: int = None		# number of messages rate supressed
 		self.frames = []
-		for i in range(qcommon.UPDATE_BACKUP):
+		for i in range(common_h.UPDATE_BACKUP):
 			self.frames.append(frame_t())
 		self.surpressCount: int = 0		# number of messages rate supressed
 		"""
@@ -189,14 +191,14 @@ class client_state_t(object):
 		# transient data from server
 		#
 		self.layout = "" #char [1024], general 2D overlay
-		self.inventory = [0] * q_shared.MAX_ITEMS #int [MAX_ITEMS]
+		self.inventory = [0] * shared.MAX_ITEMS #int [MAX_ITEMS]
 		"""
 
 		//
 		// non-gameserver infornamtion
 		// FIXME: move this cinematic stuff into the cin_t structure
 		"""
-		self.cinematic_file = None # file handle 
+		self.cinematic_file = 0 # fileHandle_t 
 		self.cinematictime = 0 #int, cls.realtime for first cinematic frame
 		self.cinematicframe = None #int
 		self.cinematicpalette = None# char[768]
@@ -213,28 +215,28 @@ class client_state_t(object):
 		self.playernum = 0 #int FIXME what should the default be?
 
 		self.configstrings = [] #char[MAX_CONFIGSTRINGS][MAX_QPATH]
-		for i in range(q_shared.MAX_CONFIGSTRINGS):
+		for i in range(shared.MAX_CONFIGSTRINGS):
 			self.configstrings.append(None)
 
 		#
 		# locally derived information from server state
 		#
 		self.model_draw = [] #struct model_s	*[MAX_MODELS];
-		for i in range(q_shared.MAX_MODELS):
+		for i in range(shared.MAX_MODELS):
 			self.model_draw.append(None) # NULL until registered, index 0 is always no model
 		self.model_clip = [] #struct cmodel_s	*model_clip[MAX_MODELS];
-		for i in range(q_shared.MAX_MODELS):
-			self.model_clip.append(q_shared.cmodel_t())
+		for i in range(shared.MAX_MODELS):
+			self.model_clip.append(shared.cmodel_t())
 
 		self.sound_precache = [] #struct sfx_s	*sound_precache[MAX_SOUNDS];
-		for i in range(q_shared.MAX_SOUNDS):
+		for i in range(shared.MAX_SOUNDS):
 			self.sound_precache.append(None)
 		self.image_precache = [] #struct image_s	*image_precache[MAX_IMAGES];
-		for i in range(q_shared.MAX_IMAGES):
+		for i in range(shared.MAX_IMAGES):
 			self.image_precache.append(gl_image.image_t())
 
 		self.clientinfo = [] # clientinfo_t	clientinfo[MAX_CLIENTS];
-		for i in range(q_shared.MAX_CLIENTS):
+		for i in range(shared.MAX_CLIENTS):
 			self.clientinfo.append(clientinfo_t())
 		self.baseclientinfo = clientinfo_t()
 
@@ -301,7 +303,7 @@ class client_static_t(object):
 		self.quakePort = 0 # int, a 16 bit value that allows quake servers
 										# to work around address translating routers
 
-		self.netchan = qcommon.netchan_t()
+		self.netchan = common_h.netchan_t()
 		self.serverProtocol = 0 #int, in case we are doing some kind of version hack
 
 		self.challenge = 0 #int, from the server to use for connecting

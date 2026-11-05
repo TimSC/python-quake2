@@ -20,14 +20,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import numpy as np
-from game import q_shared, g_local, g_main, g_utils, g_monster, g_misc, g_ai, m_flash
+from game import g_local, g_main, g_utils, g_monster, g_misc, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge, infront, range, visible
 from game.g_utils import G_ProjectSource, G_FreeEdict, vectoyaw, vectoangles
 from game.g_monster import monster_fire_bullet, monster_fire_bfg, monster_fire_railgun, monster_fire_blaster, walkmonster_start
 from game.g_misc import ThrowGib, ThrowHead
-from game.q_shared import (CHAN_AUTO, CHAN_VOICE, CHAN_BODY, CHAN_WEAPON, ATTN_NONE, ATTN_NORM,
-	CONTENTS_SOLID, CONTENTS_MONSTER, CONTENTS_SLIME, CONTENTS_LAVA,
-	MZ2_MAKRON_BFG, MZ2_MAKRON_RAILGUN_1, MZ2_MAKRON_BLASTER_1, EF_BLASTER)
+from common.header.shared import CHAN_AUTO, CHAN_VOICE, CHAN_BODY, CHAN_WEAPON, ATTN_NONE, ATTN_NORM, CONTENTS_SOLID, CONTENTS_MONSTER, CONTENTS_SLIME, CONTENTS_LAVA, MZ2_MAKRON_BFG, MZ2_MAKRON_RAILGUN_1, MZ2_MAKRON_BLASTER_1, EF_BLASTER
 from game.g_local import (FRAMETIME, MOVETYPE_NONE, MOVETYPE_STEP, MOVETYPE_TOSS,
 	AI_STAND_GROUND, FL_FLY,
 	RANGE_MELEE, RANGE_NEAR, RANGE_MID, RANGE_FAR, AS_MELEE, AS_MISSILE, AS_SLIDING,
@@ -35,6 +33,9 @@ from game.g_local import (FRAMETIME, MOVETYPE_NONE, MOVETYPE_STEP, MOVETYPE_TOSS
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 DAMAGE_NO = damage_t.DAMAGE_NO.value
 from game.game import solid_t, SVF_DEADMONSTER
+from common.header import shared
+from common.shared import flash
+from common.shared import shared as shared_c
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 SOLID_NOT = solid_t.SOLID_NOT.value
 
@@ -222,18 +223,18 @@ def makronBFG (self):
 	dir = np.zeros((3,), dtype=np.float32)
 	vec = np.zeros((3,), dtype=np.float32)
 
-	q_shared.AngleVectors (self.s.angles, forward, right, up)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_MAKRON_BFG], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, up)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[MZ2_MAKRON_BFG], forward, right, start)
 
-	q_shared.VectorCopy (self.enemy.s.origin, vec)
+	shared.VectorCopy (self.enemy.s.origin, vec)
 	vec[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (vec, start, dir)
-	q_shared.VectorNormalize (dir)
+	shared.VectorSubtract (vec, start, dir)
+	shared_c.VectorNormalize (dir)
 	g_main.gi.sound (self, CHAN_VOICE, sound_attack_bfg, 1, ATTN_NORM, 0)
 	monster_fire_bfg (self, start, dir, 50, 300, 100, 300, MZ2_MAKRON_BFG)
 
 def MakronSaveloc (self):
-	q_shared.VectorCopy (self.enemy.s.origin, self.pos1)	# save for aiming the shot
+	shared.VectorCopy (self.enemy.s.origin, self.pos1)	# save for aiming the shot
 	self.pos1[2] += self.enemy.viewheight
 	"""
 ;
@@ -246,12 +247,12 @@ def MakronRailgun (self):
 	right = np.zeros((3,), dtype=np.float32)
 	up = np.zeros((3,), dtype=np.float32)
 
-	q_shared.AngleVectors (self.s.angles, forward, right, up)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_MAKRON_RAILGUN_1], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, up)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[MZ2_MAKRON_RAILGUN_1], forward, right, start)
 
 	# calc direction to where we targted
-	q_shared.VectorSubtract (self.pos1, start, dir)
-	q_shared.VectorNormalize (dir)
+	shared.VectorSubtract (self.pos1, start, dir)
+	shared_c.VectorNormalize (dir)
 
 	monster_fire_railgun (self, start, dir, 50, 100, MZ2_MAKRON_RAILGUN_1)
 
@@ -265,13 +266,13 @@ def MakronHyperblaster (self):
 
 	flash_number = MZ2_MAKRON_BLASTER_1 + (self.s.frame - FRAME_attak405)
 
-	q_shared.AngleVectors (self.s.angles, forward, right, up)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[flash_number], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, up)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[flash_number], forward, right, start)
 
 	if self.enemy:
-		q_shared.VectorCopy (self.enemy.s.origin, vec)
+		shared.VectorCopy (self.enemy.s.origin, vec)
 		vec[2] += self.enemy.viewheight
-		q_shared.VectorSubtract (vec, start, vec)
+		shared.VectorSubtract (vec, start, vec)
 		vectoangles (vec, vec)
 		dir[0] = vec[0]
 	else:
@@ -282,7 +283,7 @@ def MakronHyperblaster (self):
 		dir[1] = self.s.angles[1] + 10 * (self.s.frame - FRAME_attak421)
 	dir[2] = 0
 
-	q_shared.AngleVectors (dir, forward, None, None)
+	shared_c.AngleVectors (dir, forward, None, None)
 
 	monster_fire_blaster (self, start, forward, 15, 1000, MZ2_MAKRON_BLASTER_1, EF_BLASTER)
 
@@ -332,8 +333,8 @@ def makron_attack (self):
 	range_ = 0.0
 	r = g_local.random()
 
-	q_shared.VectorSubtract (self.enemy.s.origin, self.s.origin, vec)
-	range_ = q_shared.VectorLength (vec)
+	shared.VectorSubtract (self.enemy.s.origin, self.s.origin, vec)
+	range_ = shared_c.VectorLength (vec)
 
 	if r <= 0.3:
 		self.monsterinfo.currentmove = makron_move_attack3
@@ -353,8 +354,8 @@ def makron_torso_think (self):
 def makron_torso (ent):
 	ent.movetype = MOVETYPE_NONE
 	ent.solid = SOLID_NOT
-	q_shared.VectorSet (ent.mins, -8, -8, 0)
-	q_shared.VectorSet (ent.maxs, 8, 8, 8)
+	shared.VectorSet (ent.mins, -8, -8, 0)
+	shared.VectorSet (ent.maxs, 8, 8, 8)
 	ent.s.frame = 346
 	ent.s.modelindex = g_main.gi.modelindex ("models/monsters/boss3/rider/tris.md2")
 	ent.think = makron_torso_think
@@ -363,8 +364,8 @@ def makron_torso (ent):
 	g_main.gi.linkentity (ent)
 
 def makron_dead (self):
-	q_shared.VectorSet (self.mins, -60, -60, 0)
-	q_shared.VectorSet (self.maxs, 60, 60, 72)
+	shared.VectorSet (self.mins, -60, -60, 0)
+	shared.VectorSet (self.maxs, 60, 60, 72)
 	self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	self.nextthink = 0
@@ -396,8 +397,8 @@ def makron_die (self, inflictor, attacker, damage, point):
 	self.takedamage = DAMAGE_YES
 
 	tempent = g_utils.G_Spawn()
-	q_shared.VectorCopy (self.s.origin, tempent.s.origin)
-	q_shared.VectorCopy (self.s.angles, tempent.s.angles)
+	shared.VectorCopy (self.s.origin, tempent.s.origin)
+	shared.VectorCopy (self.s.angles, tempent.s.angles)
 	tempent.s.origin[1] -= 84
 	makron_torso (tempent)
 
@@ -415,9 +416,9 @@ def Makron_CheckAttack (self):
 
 	if self.enemy.health > 0:
 		# see if any entities are in the way of the shot
-		q_shared.VectorCopy (self.s.origin, spot1)
+		shared.VectorCopy (self.s.origin, spot1)
 		spot1[2] += self.viewheight
-		q_shared.VectorCopy (self.enemy.s.origin, spot2)
+		shared.VectorCopy (self.enemy.s.origin, spot2)
 		spot2[2] += self.enemy.viewheight
 
 		tr = g_main.gi.trace (spot1, None, None, spot2, self, CONTENTS_SOLID|CONTENTS_MONSTER|CONTENTS_SLIME|CONTENTS_LAVA)
@@ -428,7 +429,7 @@ def Makron_CheckAttack (self):
 
 	enemy_infront = infront(self, self.enemy)
 	enemy_range = range(self, self.enemy)
-	q_shared.VectorSubtract (self.enemy.s.origin, self.s.origin, temp)
+	shared.VectorSubtract (self.enemy.s.origin, self.s.origin, temp)
 	enemy_yaw = vectoyaw(temp)
 
 	self.ideal_yaw = enemy_yaw
@@ -504,8 +505,8 @@ def SP_monster_makron (self):
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 	self.s.modelindex = g_main.gi.modelindex ("models/monsters/boss3/rider/tris.md2")
-	q_shared.VectorSet (self.mins, -30, -30, 0)
-	q_shared.VectorSet (self.maxs, 30, 30, 90)
+	shared.VectorSet (self.mins, -30, -30, 0)
+	shared.VectorSet (self.maxs, 30, 30, 90)
 
 	self.health = 3000
 	self.gib_health = -2000
@@ -541,10 +542,10 @@ def MakronSpawn (self):
 	if not player:
 		return
 
-	q_shared.VectorSubtract (player.s.origin, self.s.origin, vec)
+	shared.VectorSubtract (player.s.origin, self.s.origin, vec)
 	self.s.angles[1] = vectoyaw(vec)
-	q_shared.VectorNormalize (vec)
-	q_shared.VectorMA (q_shared.vec3_origin, 400, vec, self.velocity)
+	shared_c.VectorNormalize (vec)
+	shared_c.VectorMA (shared_c.vec3_origin, 400, vec, self.velocity)
 	self.velocity[2] = 200
 	self.groundentity = None
 
@@ -553,7 +554,7 @@ def MakronToss (self):
 	ent.nextthink = g_main.level.time + 0.8
 	ent.think = MakronSpawn
 	ent.target = self.target
-	q_shared.VectorCopy (self.s.origin, ent.s.origin)
+	shared.VectorCopy (self.s.origin, ent.s.origin)
 
 # ----------------------------------------------------------------------------
 # Animation move tables (defined after the functions they reference)

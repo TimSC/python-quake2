@@ -24,9 +24,15 @@ import sys
 import socket
 import select
 from errno import EWOULDBLOCK, ECONNREFUSED
-from qcommon import qcommon, common, cvar
-from game import q_shared
+pass
+pass
 from linux import sys_linux
+from common.header import common as common_h
+from common.header import shared
+from common.shared import shared as shared_c
+from common import clientserver
+from common import cvar
+from common import frame
 """
 // net_wins.c
 
@@ -46,7 +52,7 @@ from linux import sys_linux
 #include <libc.h>
 #endif
 """
-net_local_adr = qcommon.netadr_t()
+net_local_adr = common_h.netadr_t()
 """
 #define	LOOPBACK	0x7f000001
 """
@@ -79,13 +85,13 @@ def NetadrToSockadr (a): #netadr_t * (returns struct sockaddr_in, as a (host, si
 
 	s = None # memset (s, 0, sizeof(*s));
 
-	if a.type == qcommon.netadrtype_t.NA_BROADCAST:
+	if a.type == common_h.netadrtype_t.NA_BROADCAST:
 	
 		# s->sin_family = AF_INET;
 
 		s = ("<broadcast>", a.port) # s->sin_port = a->port; *(int *)&s->sin_addr = -1;
 	
-	elif a.type == qcommon.netadrtype_t.NA_IP:
+	elif a.type == common_h.netadrtype_t.NA_IP:
 	
 		# s->sin_family = AF_INET;
 
@@ -98,7 +104,7 @@ def SockadrToNetadr (s, a): #struct sockaddr_in * ((host, sin_port) tuple, sin_p
 
 	a.ip = socket.inet_aton(s[0]) # *(int *)&a->ip = *(int *)&s->sin_addr;
 	a.port = s[1]
-	a.type = qcommon.netadrtype_t.NA_IP
+	a.type = common_h.netadrtype_t.NA_IP
 
 def NET_CompareAdr (a, b): #netadr_t, netadr_t (returns qboolean)
 
@@ -118,16 +124,16 @@ def NET_CompareBaseAdr (a, b): # netadr_t, netadr_t (returns qboolean)
 	if a.type != b.type:
 		return False
 
-	if a.type == qcommon.netadrtype_t.NA_LOOPBACK:
+	if a.type == common_h.netadrtype_t.NA_LOOPBACK:
 		return True
 
-	if a.type == qcommon.netadrtype_t.NA_IP:
+	if a.type == common_h.netadrtype_t.NA_IP:
 	
 		if a.ip[0] == b.ip[0] and a.ip[1] == b.ip[1] and a.ip[2] == b.ip[2] and a.ip[3] == b.ip[3]:
 			return True
 		return False
 	
-	if a.type == qcommon.netadrtype_t.NA_IPX:
+	if a.type == common_h.netadrtype_t.NA_IPX:
 	
 		if a.ipx == b.ipx:
 			return True
@@ -181,7 +187,7 @@ def NET_StringToSockaddr (s): #char * (returns struct sockaddr, as a (host, sin_
 	colon = copy.find(':')
 	if colon != -1:
 	
-		sin_port = socket.htons(q_shared.atoi(copy[colon+1:]) & 0xffff) # htons((short)atoi(colon+1))
+		sin_port = socket.htons(shared_c.atoi(copy[colon+1:]) & 0xffff) # htons((short)atoi(colon+1))
 		copy = copy[:colon]
 	
 	if copy and copy[0] >= '0' and copy[0] <= '9':
@@ -216,12 +222,12 @@ def NET_StringToAdr (s): #char * (returns netadr_t *, or None for false)
 
 	#struct sockaddr_in sadr;
 	
-	a = qcommon.netadr_t()
+	a = common_h.netadr_t()
 
 	if s == "localhost":
 	
 		# memset (a, 0, sizeof(*a));
-		a.type = qcommon.netadrtype_t.NA_LOOPBACK
+		a.type = common_h.netadrtype_t.NA_LOOPBACK
 		return a
 	
 	sadr = NET_StringToSockaddr (s)
@@ -316,16 +322,16 @@ def NET_GetPacket (sock, net_from, net_message): #netsrc_t, netadr_t *, sizebuf_
 
 			if err == EWOULDBLOCK or err == ECONNREFUSED:
 				continue
-			common.Com_Printf ("NET_GetPacket: {} from {}\n".format(NET_ErrorString(),
+			clientserver.Com_Printf ("NET_GetPacket: {} from {}\n".format(NET_ErrorString(),
 						NET_AdrToString(net_from)))
 			continue
 		
-		net_from = qcommon.netadr_t()
+		net_from = common_h.netadr_t()
 		SockadrToNetadr (from_adr, net_from) # C converts before the error check, python has no address on error
 
 		if ret == net_message.maxsize:
 		
-			common.Com_Printf ("Oversize packet from {}\n".format(NET_AdrToString (net_from)))
+			clientserver.Com_Printf ("Oversize packet from {}\n".format(NET_AdrToString (net_from)))
 			continue
 		
 		net_message.data = bytearray(data)
@@ -345,37 +351,37 @@ def NET_SendPacket (sock, data, to): #netsrc_t, void *, netadr_t
 
 	global errno
 
-	if to.type == qcommon.netadrtype_t.NA_LOOPBACK:
+	if to.type == common_h.netadrtype_t.NA_LOOPBACK:
 	
 		NET_SendLoopPacket (sock, data, to)
 		return
 	
-	if to.type == qcommon.netadrtype_t.NA_BROADCAST:
+	if to.type == common_h.netadrtype_t.NA_BROADCAST:
 	
 		net_socket = ip_sockets[sock.value]
 		if net_socket is None:
 			return
 	
-	elif to.type == qcommon.netadrtype_t.NA_IP:
+	elif to.type == common_h.netadrtype_t.NA_IP:
 	
 		net_socket = ip_sockets[sock.value]
 		if net_socket is None:
 			return
 	
-	elif to.type == qcommon.netadrtype_t.NA_IPX:
+	elif to.type == common_h.netadrtype_t.NA_IPX:
 	
 		net_socket = ipx_sockets[sock.value]
 		if net_socket is None:
 			return
 	
-	elif to.type == qcommon.netadrtype_t.NA_BROADCAST_IPX:
+	elif to.type == common_h.netadrtype_t.NA_BROADCAST_IPX:
 	
 		net_socket = ipx_sockets[sock.value]
 		if net_socket is None:
 			return
 	
 	else:
-		common.Com_Error (q_shared.ERR_FATAL, "NET_SendPacket: bad address type")
+		clientserver.Com_Error (shared.ERR_FATAL, "NET_SendPacket: bad address type")
 
 	addr = NetadrToSockadr (to)
 
@@ -386,7 +392,7 @@ def NET_SendPacket (sock, data, to): #netsrc_t, void *, netadr_t
 		ret = -1
 	if ret == -1:
 	
-		common.Com_Printf ("NET_SendPacket ERROR: {} to {}\n".format(NET_ErrorString(),
+		clientserver.Com_Printf ("NET_SendPacket ERROR: {} to {}\n".format(NET_ErrorString(),
 				NET_AdrToString (to)))
 	
 
@@ -405,13 +411,13 @@ def NET_OpenIP ():
 
 	#cvar_t	*port, *ip;
 
-	port = cvar.Cvar_Get ("port", "{}".format(qcommon.PORT_SERVER), q_shared.CVAR_NOSET)
-	ip = cvar.Cvar_Get ("ip", "localhost", q_shared.CVAR_NOSET)
+	port = cvar.Cvar_Get ("port", "{}".format(common_h.PORT_SERVER), shared.CVAR_NOSET)
+	ip = cvar.Cvar_Get ("ip", "localhost", shared.CVAR_NOSET)
 
-	if ip_sockets[qcommon.netsrc_t.NS_SERVER.value] is None:
-		ip_sockets[qcommon.netsrc_t.NS_SERVER.value] = NET_Socket (ip.string, int(port.value))
-	if ip_sockets[qcommon.netsrc_t.NS_CLIENT.value] is None:
-		ip_sockets[qcommon.netsrc_t.NS_CLIENT.value] = NET_Socket (ip.string, qcommon.PORT_ANY)
+	if ip_sockets[common_h.netsrc_t.NS_SERVER.value] is None:
+		ip_sockets[common_h.netsrc_t.NS_SERVER.value] = NET_Socket (ip.string, int(port.value))
+	if ip_sockets[common_h.netsrc_t.NS_CLIENT.value] is None:
+		ip_sockets[common_h.netsrc_t.NS_CLIENT.value] = NET_Socket (ip.string, common_h.PORT_ANY)
 
 
 """
@@ -487,7 +493,7 @@ def NET_Socket (net_interface, port): #char *, int (returns int, a python socket
 		newsocket = socket.socket (socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 	except OSError as e:
 		errno = e.errno
-		common.Com_Printf ("ERROR: UDP_OpenSocket: socket: {}".format(NET_ErrorString()))
+		clientserver.Com_Printf ("ERROR: UDP_OpenSocket: socket: {}".format(NET_ErrorString()))
 		return None
 	
 	# make it non-blocking
@@ -495,7 +501,7 @@ def NET_Socket (net_interface, port): #char *, int (returns int, a python socket
 		newsocket.setblocking (False) # ioctl (newsocket, FIONBIO, &_true)
 	except OSError as e:
 		errno = e.errno
-		common.Com_Printf ("ERROR: UDP_OpenSocket: ioctl FIONBIO:{}\n".format(NET_ErrorString()))
+		clientserver.Com_Printf ("ERROR: UDP_OpenSocket: ioctl FIONBIO:{}\n".format(NET_ErrorString()))
 		return None
 	
 	# make it broadcast capable
@@ -503,16 +509,16 @@ def NET_Socket (net_interface, port): #char *, int (returns int, a python socket
 		newsocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 	except OSError as e:
 		errno = e.errno
-		common.Com_Printf ("ERROR: UDP_OpenSocket: setsockopt SO_BROADCAST:{}\n".format(NET_ErrorString()))
+		clientserver.Com_Printf ("ERROR: UDP_OpenSocket: setsockopt SO_BROADCAST:{}\n".format(NET_ErrorString()))
 		return None
 	
-	if not net_interface or q_shared.Q_stricmp(net_interface, "localhost") == 0:
+	if not net_interface or shared_c.Q_stricmp(net_interface, "localhost") == 0:
 		sin_addr = "" # INADDR_ANY
 	else:
 		sadr = NET_StringToSockaddr (net_interface)
 		sin_addr = sadr[0] if sadr is not None else ""
 
-	if port == qcommon.PORT_ANY:
+	if port == common_h.PORT_ANY:
 		sin_port = 0
 	else:
 		sin_port = socket.htons(port & 0xffff) # htons((short)port)
@@ -523,7 +529,7 @@ def NET_Socket (net_interface, port): #char *, int (returns int, a python socket
 		newsocket.bind ((sin_addr, socket.ntohs(sin_port))) # python takes the port in host byte order
 	except OSError as e:
 		errno = e.errno
-		common.Com_Printf ("ERROR: UDP_OpenSocket: bind: {}\n".format(NET_ErrorString()))
+		clientserver.Com_Printf ("ERROR: UDP_OpenSocket: bind: {}\n".format(NET_ErrorString()))
 		newsocket.close ()
 		return None
 	
@@ -560,13 +566,13 @@ def NET_Sleep(msec: int):
 	#extern cvar_t *dedicated;
 	#extern qboolean stdin_active;
 
-	if ip_sockets[qcommon.netsrc_t.NS_SERVER.value] is None or (common.dedicated is not None and not common.dedicated.value):
+	if ip_sockets[common_h.netsrc_t.NS_SERVER.value] is None or (frame.dedicated is not None and not frame.dedicated.value):
 		return # we're not a server, just run full speed
 
 	fdset = [] # FD_ZERO(&fdset);
 	if sys_linux.stdin_active:
 		fdset.append(sys.stdin) # stdin is processed too
-	fdset.append(ip_sockets[qcommon.netsrc_t.NS_SERVER.value]) # network socket
+	fdset.append(ip_sockets[common_h.netsrc_t.NS_SERVER.value]) # network socket
 	timeout = msec / 1000.0 # timeout.tv_sec = msec/1000; timeout.tv_usec = (msec%1000)*1000;
 	select.select(fdset, [], [], timeout)
 

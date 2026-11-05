@@ -22,9 +22,12 @@ from __future__ import annotations
 import math
 import numpy as np
 import OpenGL.GL as GL
-from game import q_shared
-from qcommon import qfiles
+pass
+pass
 from ref_gl import gl_rmain, gl_model_h
+from common.header import files as files_h
+from common.header import shared
+from common.shared import shared as shared_c
 """
 // r_light.c
 
@@ -72,7 +75,7 @@ def R_RenderDlight (light): #dlight_t *
 
 	rad = light.intensity * 0.35
 
-	q_shared.VectorSubtract (light.origin, gl_rmain.r_origin, v)
+	shared.VectorSubtract (light.origin, gl_rmain.r_origin, v)
 	"""
 #if 0
 	// FIXME?
@@ -160,7 +163,7 @@ def R_MarkLights (light, bit, node): #dlight_t *, int, mnode_t *
 		return
 
 	splitplane = node.plane
-	dist = q_shared.DotProduct (light.origin, splitplane.normal) - splitplane.dist
+	dist = shared.DotProduct (light.origin, splitplane.normal) - splitplane.dist
 	
 	if dist > light.intensity-DLIGHT_CUTOFF:
 	
@@ -246,8 +249,8 @@ def RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (returns 
 
 	# FIXME: optimize for axial
 	plane = node.plane
-	front = q_shared.DotProduct (start, plane.normal) - plane.dist
-	back = q_shared.DotProduct (end, plane.normal) - plane.dist
+	front = shared.DotProduct (start, plane.normal) - plane.dist
+	back = shared.DotProduct (end, plane.normal) - plane.dist
 	side = 1 if front < 0 else 0
 	
 	if (back < 0) == side:
@@ -268,7 +271,7 @@ def RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (returns 
 		return -1		# didn't hit anuthing
 		
 	# check for impact on this node
-	q_shared.VectorCopy (mid, lightspot)
+	shared.VectorCopy (mid, lightspot)
 	lightplane = plane
 
 	surfaces = gl_rmain.r_worldmodel.surfaces
@@ -280,8 +283,8 @@ def RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (returns 
 
 		tex = surf.texinfo
 		
-		s = int(q_shared.DotProduct (mid, tex.vecs[0]) + tex.vecs[0][3])
-		t = int(q_shared.DotProduct (mid, tex.vecs[1]) + tex.vecs[1][3])
+		s = int(shared.DotProduct (mid, tex.vecs[0]) + tex.vecs[0][3])
+		t = int(shared.DotProduct (mid, tex.vecs[1]) + tex.vecs[1][3])
 
 		if s < surf.texturemins[0] or t < surf.texturemins[1]:
 			continue
@@ -299,7 +302,7 @@ def RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (returns 
 		dt >>= 4
 
 		lightmap = surf.samples
-		q_shared.VectorClear (pointcolor) # VectorCopy (vec3_origin, pointcolor)
+		shared.VectorClear (pointcolor) # VectorCopy (vec3_origin, pointcolor)
 		if lightmap is not None:
 		
 			scale = [0.0, 0.0, 0.0] #vec3_t
@@ -307,7 +310,7 @@ def RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (returns 
 			lightmap_p = 3*(dt * ((surf.extents[0]>>4)+1) + ds)
 
 			maps = 0
-			while maps < qfiles.MAXLIGHTMAPS and surf.styles[maps] != 255:
+			while maps < files_h.MAXLIGHTMAPS and surf.styles[maps] != 255:
 			
 				for j in range(3):
 					scale[j] = gl_rmain.gl_modulate.value*gl_rmain.r_newrefdef.lightstyles[surf.styles[maps]].rgb[j]
@@ -355,9 +358,9 @@ def R_LightPoint (p, color): #vec3_t, vec3_t
 	r = RecursiveLightPoint (gl_rmain.r_worldmodel.nodes[0], p, end)
 	
 	if r == -1:
-		q_shared.VectorClear (color) # VectorCopy (vec3_origin, color)
+		shared.VectorClear (color) # VectorCopy (vec3_origin, color)
 	else:
-		q_shared.VectorCopy (pointcolor, color)
+		shared.VectorCopy (pointcolor, color)
 
 	#
 	# add dynamic lights
@@ -367,15 +370,15 @@ def R_LightPoint (p, color): #vec3_t, vec3_t
 	for lnum in range(gl_rmain.r_newrefdef.num_dlights):
 	
 		dl = dlights[lnum]
-		q_shared.VectorSubtract (gl_rmain.currententity.origin,
+		shared.VectorSubtract (gl_rmain.currententity.origin,
 						dl.origin,
 						dist)
-		add = dl.intensity - q_shared.VectorLength(dist)
+		add = dl.intensity - shared_c.VectorLength(dist)
 		add *= (1.0/256)
 		if add > 0:
-			q_shared.VectorMA (color, add, dl.color, color)
+			shared_c.VectorMA (color, add, dl.color, color)
 	
-	q_shared.VectorScale (color, gl_rmain.gl_modulate.value, color)
+	shared_c.VectorScale (color, gl_rmain.gl_modulate.value, color)
 
 
 """
@@ -420,7 +423,7 @@ def R_AddDynamicLights (surf): #msurface_t *
 
 		dl = gl_rmain.r_newrefdef.dlights[lnum]
 		frad = dl.intensity
-		fdist = q_shared.DotProduct (dl.origin, surf.plane.normal) - \
+		fdist = shared.DotProduct (dl.origin, surf.plane.normal) - \
 				surf.plane.dist
 		frad -= abs(fdist)
 		# rad is now the highest intensity on the plane
@@ -435,8 +438,8 @@ def R_AddDynamicLights (surf): #msurface_t *
 			impact[i] = dl.origin[i] - \
 					surf.plane.normal[i]*fdist
 		
-		local[0] = q_shared.DotProduct (impact, tex.vecs[0]) + tex.vecs[0][3] - surf.texturemins[0]
-		local[1] = q_shared.DotProduct (impact, tex.vecs[1]) + tex.vecs[1][3] - surf.texturemins[1]
+		local[0] = shared.DotProduct (impact, tex.vecs[0]) + tex.vecs[0][3] - surf.texturemins[0]
+		local[1] = shared.DotProduct (impact, tex.vecs[1]) + tex.vecs[1][3] - surf.texturemins[1]
 
 		pfBL = 0 # index into s_blocklights
 		ftacc = 0
@@ -449,7 +452,7 @@ def R_AddDynamicLights (surf): #msurface_t *
 			fsacc = 0
 			for s in range(smax):
 			
-				sd = q_shared.Q_ftol( local[0] - fsacc )
+				sd = shared.Q_ftol( local[0] - fsacc )
 
 				if sd < 0:
 					sd = -sd
@@ -478,7 +481,7 @@ def R_SetCacheState (surf): #msurface_t *
 	if not surf or not hasattr(surf, "styles"):
 		return
 
-	for maps in range(qfiles.MAXLIGHTMAPS):
+	for maps in range(files_h.MAXLIGHTMAPS):
 		style_idx = surf.styles[maps] if maps < len(surf.styles) else 255
 		if style_idx == 255:
 			break
@@ -490,16 +493,16 @@ def R_BuildLightMap (surf, dest, stride): #msurface_t *, byte *, int
 		return
 
 	flags = surf.texinfo.flags
-	forbidden = (q_shared.SURF_SKY | q_shared.SURF_TRANS33 | q_shared.SURF_TRANS66 | q_shared.SURF_WARP)
+	forbidden = (shared.SURF_SKY | shared.SURF_TRANS33 | shared.SURF_TRANS66 | shared.SURF_WARP)
 	if flags & forbidden:
-		gl_rmain.ri.Sys_Error(q_shared.ERR_DROP, "R_BuildLightMap called for non-lit surface")
+		gl_rmain.ri.Sys_Error(shared.ERR_DROP, "R_BuildLightMap called for non-lit surface")
 
 	smax = (surf.extents[0] >> 4) + 1
 	tmax = (surf.extents[1] >> 4) + 1
 	size = smax * tmax
 	max_size = len(s_blocklights) // 3
 	if size > max_size:
-		gl_rmain.ri.Sys_Error(q_shared.ERR_DROP, "Bad s_blocklights size")
+		gl_rmain.ri.Sys_Error(shared.ERR_DROP, "Bad s_blocklights size")
 
 	modulate = gl_rmain.gl_modulate.value if gl_rmain.gl_modulate else 1.0
 	lightmap_data = surf.samples
@@ -510,7 +513,7 @@ def R_BuildLightMap (surf, dest, stride): #msurface_t *, byte *, int
 		if isinstance(lightmap_data, (bytes, bytearray)):
 			lightmap_data = memoryview(lightmap_data)
 		nummaps = 0
-		while nummaps < qfiles.MAXLIGHTMAPS:
+		while nummaps < files_h.MAXLIGHTMAPS:
 			style_idx = surf.styles[nummaps] if nummaps < len(surf.styles) else 255
 			if style_idx == 255:
 				break
@@ -518,7 +521,7 @@ def R_BuildLightMap (surf, dest, stride): #msurface_t *, byte *, int
 
 		lightmap_offset = 0
 		if nummaps == 1:
-			for maps in range(qfiles.MAXLIGHTMAPS):
+			for maps in range(files_h.MAXLIGHTMAPS):
 				style_idx = surf.styles[maps] if maps < len(surf.styles) else 255
 				if style_idx == 255:
 					break
@@ -539,7 +542,7 @@ def R_BuildLightMap (surf, dest, stride): #msurface_t *, byte *, int
 		else:
 			for idx in range(size * 3):
 				s_blocklights[idx] = 0.0
-			for maps in range(qfiles.MAXLIGHTMAPS):
+			for maps in range(files_h.MAXLIGHTMAPS):
 				style_idx = surf.styles[maps] if maps < len(surf.styles) else 255
 				if style_idx == 255:
 					break
@@ -581,9 +584,9 @@ def R_BuildLightMap (surf, dest, stride): #msurface_t *, byte *, int
 	for _ in range(tmax):
 		row_base = dest_idx
 		for _ in range(smax):
-			r = q_shared.Q_ftol(s_blocklights[bl_idx])
-			g = q_shared.Q_ftol(s_blocklights[bl_idx + 1])
-			b = q_shared.Q_ftol(s_blocklights[bl_idx + 2])
+			r = shared.Q_ftol(s_blocklights[bl_idx])
+			g = shared.Q_ftol(s_blocklights[bl_idx + 1])
+			b = shared.Q_ftol(s_blocklights[bl_idx + 2])
 			if r < 0: r = 0
 			if g < 0: g = 0
 			if b < 0: b = 0

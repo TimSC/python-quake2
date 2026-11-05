@@ -17,7 +17,8 @@ far too slow. Avoid "cleanup" refactors and renaming.
 
 ## Workflow
 
-1. Find the original C file in `quake2-original/`.
+1. Find the C file in `yquake2/src/` (or, for code not moved yet, in
+   `quake2-original/`).
 2. Create or open the matching `.py` file at the same relative path.
 3. Paste the original C into it in `"""` blocks (or keep the existing
    blocks), as described under "Keeping unported C".
@@ -31,6 +32,34 @@ far too slow. Avoid "cleanup" refactors and renaming.
    Python too.
 
 ## Files and modules
+
+On the `yquake2` branch the port is moving from id's source to Yamagi
+Quake II (`yquake2/src/`, pinned at git `4e2ad5e7`), one group at a time
+(see `docs/yquake2_plan.md`). Moved code follows Yamagi's layout:
+
+- Each Yamagi `.c` file becomes a `.py` file at the same path under the
+  repo root: `yquake2/src/common/shared/shared.c` becomes
+  `common/shared/shared.py`, `src/server/sv_main.c` becomes
+  `server/sv_main.py`.
+- Each Yamagi header becomes a module at the same path:
+  `src/common/header/shared.h` becomes `common/header/shared.py`. If a
+  header sits next to a `.c` file with the same stem, add `_h`.
+- Each moved module has one local import name, the same in every file,
+  so a prefix always means the same C file: `shared` is
+  `common/header/shared.py`, `shared_c` is `common/shared/shared.py`,
+  `common_h` and `files_h` are `common/header/common.py` and `files.py`
+  (while id's `qcommon/common.py` and `files.py` still exist), `flash`
+  is `common/shared/flash.py`. `scripts/yq_alias.py` renames them.
+- The port of a Yamagi file follows Yamagi's C (names, order, globals,
+  bug fixes and gameplay changes). `quake2-original/` stays as a
+  historical reference only.
+- `scripts/yq_index.py`, `yq_plan.py` and `yq_move.py` do the mechanical
+  moves; `scripts/yq_diff.py <function>` shows what Yamagi changed in a
+  function compared with id's code.
+- Run `tests/run_all.sh` (and `tests/harness/run.sh` for collision and
+  movement) after each group.
+
+Code not yet moved still follows id's layout (historical rules):
 
 - Each `.c` file becomes a `.py` file with the same name in the same
   directory: `client/cl_main.c` becomes `client/cl_main.py`.
@@ -53,7 +82,7 @@ far too slow. Avoid "cleanup" refactors and renaming.
 - Import whole modules from their packages:
   `from qcommon import cvar, common, cmd`. Then always write the module
   name when using something from it: `common.Com_Printf(...)`,
-  `q_shared.CVAR_ARCHIVE`, `cl_main.cls.state`.
+  `shared.CVAR_ARCHIVE`, `cl_main.cls.state`.
 - Don't use `from x import *`, and don't import single names. The
   module prefix shows which C file a symbol comes from.
 - Every Python file starts with `from __future__ import annotations`
@@ -62,8 +91,10 @@ far too slow. Avoid "cleanup" refactors and renaming.
 - Put standard library and third-party imports first (`io`, `math`,
   `struct`, `numpy as np`, `pygame`, `OpenGL.GL as GL`), then project
   imports, kept close to the C `#include` order.
-- Shared constants and structs come from `game/q_shared.py` and
-  `qcommon/qfiles.py`.
+- Shared constants and structs come from `common/header/shared.py`
+  (Yamagi's `shared.h`, formerly `game/q_shared.py`; the functions of
+  `q_shared.c` are in `common/shared/shared.py`) and
+  `common/header/files.py` (formerly `qcommon/qfiles.py`).
 - Circular imports between modules are normal (the C globals are
   shared everywhere). They work because names are only looked up at
   call time.
@@ -227,8 +258,8 @@ far too slow. Avoid "cleanup" refactors and renaming.
   slicing. Use names like `in_offset`, `in_offset2` and `out_p`:
 
   ```python
-  	in_offset = l.fileofs + i * qfiles.dvertex_t.packed_size()
-  	in_offset2 = in_offset + qfiles.dvertex_t.packed_size()
+  	in_offset = l.fileofs + i * files_h.dvertex_t.packed_size()
+  	in_offset2 = in_offset + files_h.dvertex_t.packed_size()
   	in_obj.load(mod_base[in_offset:in_offset2])
   ```
 
@@ -242,7 +273,7 @@ far too slow. Avoid "cleanup" refactors and renaming.
 
 ## Binary file formats
 
-- On-disk structs (in `qcommon/qfiles.py`) are classes with a `load` or
+- On-disk structs (in `common/header/files.py`) are classes with a `load` or
   `read` method. It unpacks a byte slice or file handle with `struct`
   and explicit little-endian formats (`"<lll"`, `"<H"`). A
   `packed_size()` classmethod returns the size on disk.

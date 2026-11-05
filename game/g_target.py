@@ -20,12 +20,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 from game import game as _gamemod
-from game import q_shared, g_local, g_main, g_utils, g_misc, g_combat, g_weapon, g_spawn, p_hud
-from game.q_shared import (CHAN_VOICE, CHAN_RELIABLE, CHAN_AUTO,
-	ATTN_NORM, ATTN_NONE, RF_BEAM, RF_TRANSLUCENT, EF_BLASTER, EF_HYPERBLASTER,
-	CS_CDTRACK, CS_LIGHTS, CONTENTS_SOLID, CONTENTS_MONSTER, CONTENTS_DEADMONSTER,
-	DF_ALLOW_EXIT, PRINT_HIGH)
-from game.q_shared import temp_event_t, multicast_t
+from game import g_local, g_main, g_utils, g_misc, g_combat, g_weapon, g_spawn, p_hud
+from common.header.shared import CHAN_VOICE, CHAN_RELIABLE, CHAN_AUTO, ATTN_NORM, ATTN_NONE, RF_BEAM, RF_TRANSLUCENT, EF_BLASTER, EF_HYPERBLASTER, CS_CDTRACK, CS_LIGHTS, CONTENTS_SOLID, CONTENTS_MONSTER, CONTENTS_DEADMONSTER, DF_ALLOW_EXIT, PRINT_HIGH
+from common.header.shared import temp_event_t, multicast_t
 TE_EXPLOSION1 = temp_event_t.TE_EXPLOSION1.value
 TE_SPLASH = temp_event_t.TE_SPLASH.value
 TE_LASER_SPARKS = temp_event_t.TE_LASER_SPARKS.value
@@ -35,6 +32,8 @@ from game.g_local import (svc_temp_entity, FRAMETIME, crandom, FL_IMMUNE_LASER, 
 	MOD_EXPLOSIVE, MOD_EXIT, MOD_SPLASH, MOD_TARGET_BLASTER, MOD_TARGET_LASER,
 	SFL_CROSS_TRIGGER_MASK, MOVETYPE_NONE)
 from game.game import SVF_NOCLIENT, solid_t
+from common.header import shared
+from common.shared import shared as shared_c
 SOLID_NOT = solid_t.SOLID_NOT.value
 """
 #include "g_local.h"
@@ -240,7 +239,7 @@ def SP_target_secret (ent): #edict_t *
 	ent.svflags = SVF_NOCLIENT
 	g_main.level.total_secrets += 1
 	# map bug hack
-	if q_shared.Q_stricmp(g_main.level.mapname, "mine3") == 0 and ent.s.origin[0] == 280 and ent.s.origin[1] == -2048 and ent.s.origin[2] == -624:
+	if shared_c.Q_stricmp(g_main.level.mapname, "mine3") == 0 and ent.s.origin[0] == 280 and ent.s.origin[1] == -2048 and ent.s.origin[2] == -624:
 		ent.message = "You have found a secret area."
 	"""
 	if (deathmatch->value)
@@ -385,7 +384,7 @@ def use_target_changelevel (self, other, activator): #edict_t *, edict_t *, edic
 
 	# if noexit, do a ton of damage to other
 	if g_main.deathmatch.value and not (int(g_main.dmflags.value) & DF_ALLOW_EXIT) and other != g_main.g_edicts[1]:
-		g_combat.T_Damage (other, self, self, q_shared.vec3_origin, other.s.origin, q_shared.vec3_origin, 10 * other.max_health, 1000, 0, MOD_EXIT)
+		g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, 10 * other.max_health, 1000, 0, MOD_EXIT)
 		return
 
 	# if multiplayer, let everyone know who hit the exit
@@ -437,7 +436,7 @@ def SP_target_changelevel (ent): #edict_t *
 		return
 
 	# ugly hack because *SOMEBODY* screwed up their map
-	if (q_shared.Q_stricmp(g_main.level.mapname, "fact1") == 0) and (q_shared.Q_stricmp(ent.map, "fact3") == 0):
+	if (shared_c.Q_stricmp(g_main.level.mapname, "fact1") == 0) and (shared_c.Q_stricmp(ent.map, "fact3") == 0):
 		ent.map = "fact3$secret1"
 
 	ent.use = use_target_changelevel
@@ -508,14 +507,14 @@ def use_target_spawner (self, other, activator): #edict_t *, edict_t *, edict_t 
 
 	ent = g_utils.G_Spawn()
 	ent.classname = self.target
-	q_shared.VectorCopy (self.s.origin, ent.s.origin)
-	q_shared.VectorCopy (self.s.angles, ent.s.angles)
+	shared.VectorCopy (self.s.origin, ent.s.origin)
+	shared.VectorCopy (self.s.angles, ent.s.angles)
 	g_spawn.ED_CallSpawn (ent)
 	g_main.gi.unlinkentity (ent)
 	g_utils.KillBox (ent)
 	g_main.gi.linkentity (ent)
 	if self.speed:
-		q_shared.VectorCopy (self.movedir, ent.velocity)
+		shared.VectorCopy (self.movedir, ent.velocity)
 	"""
 	edict_t	*ent;
 
@@ -537,7 +536,7 @@ def SP_target_spawner (self): #edict_t *
 	self.svflags = SVF_NOCLIENT
 	if self.speed:
 		g_utils.G_SetMovedir (self.s.angles, self.movedir)
-		q_shared.VectorScale (self.movedir, self.speed, self.movedir)
+		shared_c.VectorScale (self.movedir, self.speed, self.movedir)
 	"""
 	self->use = use_target_spawner;
 	self->svflags = SVF_NOCLIENT;
@@ -651,11 +650,11 @@ def SP_target_crosslevel_target (self): #edict_t *
 
 def target_laser_think (self): #edict_t *
 	ignore = None
-	start = q_shared.vec3_origin.copy()
-	end = q_shared.vec3_origin.copy()
-	tr = q_shared.trace_t()
-	point = q_shared.vec3_origin.copy()
-	last_movedir = q_shared.vec3_origin.copy()
+	start = shared_c.vec3_origin.copy()
+	end = shared_c.vec3_origin.copy()
+	tr = shared.trace_t()
+	point = shared_c.vec3_origin.copy()
+	last_movedir = shared_c.vec3_origin.copy()
 	count = 0
 
 	if self.spawnflags & 0x80000000:
@@ -664,16 +663,16 @@ def target_laser_think (self): #edict_t *
 		count = 4
 
 	if self.enemy:
-		q_shared.VectorCopy (self.movedir, last_movedir)
-		q_shared.VectorMA (self.enemy.absmin, 0.5, self.enemy.size, point)
-		q_shared.VectorSubtract (point, self.s.origin, self.movedir)
-		q_shared.VectorNormalize (self.movedir)
-		if not q_shared.VectorCompare(self.movedir, last_movedir):
+		shared.VectorCopy (self.movedir, last_movedir)
+		shared_c.VectorMA (self.enemy.absmin, 0.5, self.enemy.size, point)
+		shared.VectorSubtract (point, self.s.origin, self.movedir)
+		shared_c.VectorNormalize (self.movedir)
+		if not shared_c.VectorCompare(self.movedir, last_movedir):
 			self.spawnflags |= 0x80000000
 
 	ignore = self
-	q_shared.VectorCopy (self.s.origin, start)
-	q_shared.VectorMA (start, 2048, self.movedir, end)
+	shared.VectorCopy (self.s.origin, start)
+	shared_c.VectorMA (start, 2048, self.movedir, end)
 	while True:
 		tr = g_main.gi.trace (start, None, None, end, ignore, CONTENTS_SOLID|CONTENTS_MONSTER|CONTENTS_DEADMONSTER)
 
@@ -682,7 +681,7 @@ def target_laser_think (self): #edict_t *
 
 		# hurt it if we can
 		if (tr.ent.takedamage) and not (tr.ent.flags & FL_IMMUNE_LASER):
-			g_combat.T_Damage (tr.ent, self, self.activator, self.movedir, tr.endpos, q_shared.vec3_origin, self.dmg, 1, DAMAGE_ENERGY, MOD_TARGET_LASER)
+			g_combat.T_Damage (tr.ent, self, self.activator, self.movedir, tr.endpos, shared_c.vec3_origin, self.dmg, 1, DAMAGE_ENERGY, MOD_TARGET_LASER)
 
 		# if we hit something that's not a monster or player or is immune to lasers, we're done
 		if not (tr.ent.svflags & _gamemod.SVF_MONSTER) and not tr.ent.client:
@@ -698,9 +697,9 @@ def target_laser_think (self): #edict_t *
 			break
 
 		ignore = tr.ent
-		q_shared.VectorCopy (tr.endpos, start)
+		shared.VectorCopy (tr.endpos, start)
 
-	q_shared.VectorCopy (tr.endpos, self.s.old_origin)
+	shared.VectorCopy (tr.endpos, self.s.old_origin)
 
 	self.nextthink = g_main.level.time + FRAMETIME
 	"""
@@ -849,8 +848,8 @@ def target_laser_start (self): #edict_t *
 	if not self.dmg:
 		self.dmg = 1
 
-	q_shared.VectorSet (self.mins, -8, -8, -8)
-	q_shared.VectorSet (self.maxs, 8, 8, 8)
+	shared.VectorSet (self.mins, -8, -8, -8)
+	shared.VectorSet (self.maxs, 8, 8, 8)
 	g_main.gi.linkentity (self)
 
 	if self.spawnflags & 1:

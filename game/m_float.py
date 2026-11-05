@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, q_shared, m_flash
+from game import g_main, g_local
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_combat import (T_Damage)
 from game.g_local import (AI_STAND_GROUND, DAMAGE_ENERGY, MELEE_DISTANCE, MOD_UNKNOWN, MOVETYPE_STEP, MOVETYPE_TOSS, svc_temp_entity)
@@ -29,7 +29,11 @@ from game.g_monster import (flymonster_start, monster_fire_blaster)
 from game.g_utils import (G_FreeEdict, G_ProjectSource)
 from game.g_weapon import (fire_hit)
 from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
-from game.q_shared import (ATTN_IDLE, ATTN_NORM, CHAN_VOICE, CHAN_WEAPON, EF_HYPERBLASTER, MZ2_FLOAT_BLASTER_1, multicast_t, temp_event_t, vec3_origin)
+from common.header.shared import ATTN_IDLE, ATTN_NORM, CHAN_VOICE, CHAN_WEAPON, EF_HYPERBLASTER, MZ2_FLOAT_BLASTER_1, multicast_t, temp_event_t
+from common.shared.shared import vec3_origin
+from common.header import shared
+from common.shared import flash
+from common.shared import shared as shared_c
 MULTICAST_PVS = multicast_t.MULTICAST_PVS.value
 TE_SPLASH = temp_event_t.TE_SPLASH.value
 
@@ -339,12 +343,12 @@ def floater_fire_blaster (self): #edict_t *
 		effect = EF_HYPERBLASTER
 	else:
 		effect = 0
-	q_shared.AngleVectors (self.s.angles, forward, right, None)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_FLOAT_BLASTER_1], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, None)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[MZ2_FLOAT_BLASTER_1], forward, right, start)
 
-	q_shared.VectorCopy (self.enemy.s.origin, end)
+	shared.VectorCopy (self.enemy.s.origin, end)
 	end[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (end, start, dir)
+	shared.VectorSubtract (end, start, dir)
 
 	monster_fire_blaster (self, start, dir, 1, 1000, MZ2_FLOAT_BLASTER_1, effect)
 
@@ -385,11 +389,11 @@ def floater_zap (self): #edict_t *
 	dir = np.zeros((3,), dtype=np.float32) #vec3_t
 	offset = np.zeros((3,), dtype=np.float32) #vec3_t
 
-	q_shared.VectorSubtract (self.enemy.s.origin, self.s.origin, dir)
+	shared.VectorSubtract (self.enemy.s.origin, self.s.origin, dir)
 
-	q_shared.AngleVectors (self.s.angles, forward, right, None)
+	shared_c.AngleVectors (self.s.angles, forward, right, None)
 	# FIXME use a flash and replace these two lines with the commented one
-	q_shared.VectorSet (offset, 18.5, -0.9, 10)
+	shared.VectorSet (offset, 18.5, -0.9, 10)
 	G_ProjectSource (self.s.origin, offset, forward, right, origin)
 	# G_ProjectSource (self->s.origin, monster_flash_offset[flash_number], forward, right, origin);
 
@@ -445,8 +449,8 @@ def floater_pain (self, other, kick, damage): #edict_t *, edict_t *, float, int
 
 def floater_dead (self): #edict_t *
 
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, -8)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, -8)
 	self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	self.nextthink = 0
@@ -483,8 +487,8 @@ def SP_monster_floater (self): #edict_t *
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 	self.s.modelindex = g_main.gi.modelindex ("models/monsters/float/tris.md2")
-	q_shared.VectorSet (self.mins, -24, -24, -24)
-	q_shared.VectorSet (self.maxs, 24, 24, 32)
+	shared.VectorSet (self.mins, -24, -24, -24)
+	shared.VectorSet (self.maxs, 24, 24, 32)
 
 	self.health = 200
 	self.gib_health = -80

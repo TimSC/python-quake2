@@ -24,10 +24,14 @@ import sys
 import select
 import time
 import pygame
-from qcommon import common, cvar
+pass
 from client import cl_main
 from linux import q_shlinux, vid_so
 from game import g_main
+from common import cvar
+from common import frame, filesystem, clientserver
+from common.header import common as common_h
+from common.header import shared
 """
 #include <unistd.h>
 #include <signal.h>
@@ -104,7 +108,7 @@ void Sys_Printf (char *fmt, ...)
 def Sys_Quit ():
 
 	cl_main.CL_Shutdown ()
-	common.Qcommon_Shutdown ()
+	frame.Qcommon_Shutdown ()
 	#fcntl (0, F_SETFL, fcntl (0, F_GETFL, 0) & ~FNDELAY);
 	sys.stdout.flush() # Q2PORT: _exit does not flush python's buffered stdout
 	os._exit(0)
@@ -129,7 +133,7 @@ def Sys_Error (error):
 """
 	cl_main.CL_Shutdown ()
 
-	common.Qcommon_Shutdown ()
+	frame.Qcommon_Shutdown ()
 	""" 
     va_start (argptr,error);
     vsprintf (string,error,argptr);
@@ -184,7 +188,7 @@ def Sys_ConsoleInput(): # (returns char *)
 	#struct timeval timeout;
 
 	# Q2PORT: env Q2STDIN=1 also reads terminal commands in the GUI build (default off)
-	if (common.dedicated is None or not common.dedicated.value) and os.environ.get("Q2STDIN") != "1":
+	if (frame.dedicated is None or not frame.dedicated.value) and os.environ.get("Q2STDIN") != "1":
 		return None
 
 	if not stdin_active:
@@ -310,6 +314,89 @@ def Sys_SendKeyEvents ():
 /*****************************************************************************/
 """
 
+# ---- Q2PORT: from Yamagi's backends/unix/system.c and backends/generic/misc.c, until the
+# platform layer (group 14) moves them there
+
+cfgdir = common_h.CFGDIRNAME #char [MAX_OSPATH]
+user_cfgdir = False #static qboolean
+
+# Q2PORT: the port's own config dir (~/.yq2py), so its configs and save games don't replace
+# those of a Yamagi Quake II install in ~/.yq2. -cfgdir still works as in Yamagi.
+PORT_CFGDIRNAME_SHORT = "yq2py"
+
+def setCustomCfgDir(dir: str): #const char *
+
+	global cfgdir, user_cfgdir
+
+	cfgdir = dir[:shared.MAX_OSPATH - 1]
+	user_cfgdir = True
+
+def Sys_Mkdir(path: str): #const char *
+
+	if not Sys_IsDir(path):
+
+		try:
+			os.mkdir(path, 0o755)
+		except OSError:
+			clientserver.Com_Error(shared.ERR_FATAL, "Couldn't create dir %s\n", path)
+
+def Sys_IsDir(path: str)->bool: #const char * (returns qboolean)
+
+	return os.path.isdir(path)
+
+def Sys_IsFile(path: str)->bool: #const char * (returns qboolean)
+
+	return os.path.isfile(path)
+
+_homedir = "" #static char dir[MAX_OSPATH], in Sys_GetHomeDir
+
+def Sys_GetHomeDir()->str: #(returns char *)
+
+	global _homedir
+
+	if not _homedir:
+
+		home = os.environ.get("HOME")
+
+		if not home:
+			# uh-oh
+			return None
+
+		if user_cfgdir:
+			# custom cfgdir was set by the user: ~/{cfgdir}
+			_homedir = "{}/{}/".format(home, cfgdir)
+			Sys_Mkdir(_homedir)
+			return _homedir
+
+		# hidden dir: ~/.{CFGDIRNAME_SHORT}
+		_homedir = "{}/.{}/".format(home, PORT_CFGDIRNAME_SHORT)	# Q2PORT: CFGDIRNAME_SHORT is "yq2"
+
+	Sys_Mkdir(_homedir)
+	return _homedir
+
+def Sys_Realpath(inpath: str): #const char *, char *, size_t (returns qboolean)
+	# Q2PORT: returns the result and the path: ok, out = Sys_Realpath(inpath)
+
+	if not os.path.exists(inpath):
+
+		clientserver.Com_Printf("Couldn't get realpath for %s\n", inpath)
+		return False, ""
+
+	return True, os.path.realpath(inpath)
+
+_exeDir = "" #static char exeDir[PATH_MAX], in Sys_GetBinaryDir
+
+def Sys_GetBinaryDir()->str: #(returns const char *)
+	# Q2PORT: the "executable" is main.py, so this is the directory it is in
+
+	global _exeDir
+
+	if _exeDir != "":
+		return _exeDir
+
+	_exeDir = os.path.dirname(os.path.abspath(sys.argv[0] if sys.argv and sys.argv[0] else ".")) + "/"
+	return _exeDir
+
 def Sys_GetClipboardData(): #(returns char *)
 
 	return None
@@ -324,7 +411,66 @@ def main (): #int argc, char **argv
 	#saved_euid = geteuid()
 	#seteuid(getuid())
 
-	common.Qcommon_Init() #argc, argv
+	# Q2PORT: from Yamagi's backends/unix/main.c, until the platform layer (group 14)
+	# Implement command line options that the rather
+	# crappy argument parser can't parse.
+	argv = sys.argv
+	argc = len(argv)
+	for i in range(argc):
+
+		# Are we portable?
+		if argv[i] == "-portable":
+
+			frame.is_portable = True
+
+
+		# Inject a custom data dir.
+		if argv[i] == "-datadir":
+
+			# Mkay, did the user give us an argument?
+			if i != (argc - 1):
+
+				# Check if it exists.
+				if os.path.exists(argv[i + 1]):
+
+					if not os.path.isdir(argv[i + 1]):
+
+						print("-datadir {} is not a directory".format(argv[i + 1]))
+						return 1
+
+
+					filesystem.datadir = os.path.realpath(argv[i + 1])
+
+				else:
+
+					print("-datadir {} could not be found".format(argv[i + 1]))
+					return 1
+
+
+			else:
+
+				print("-datadir needs an argument")
+				return 1
+
+
+
+		# Inject a custom config dir.
+		if argv[i] == "-cfgdir":
+
+			# We need an argument.
+			if i != (argc - 1):
+
+				setCustomCfgDir(argv[i + 1])
+
+			else:
+
+				print("-cfgdir needs an argument")
+				return 1
+
+
+
+
+	frame.Qcommon_Init() #argc, argv
 
 	#fcntl(0, F_SETFL, fcntl (0, F_GETFL, 0) | FNDELAY)
 
@@ -346,7 +492,7 @@ def main (): #int argc, char **argv
 			if elapse_time < 1.0:
 				time.sleep((1.0 - elapse_time) / 1000.0)
 
-		common.Qcommon_Frame (elapse_time)
+		frame.Qcommon_Frame (elapse_time)
 		oldtime = newtime
 
 """

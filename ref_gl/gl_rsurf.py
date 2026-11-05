@@ -27,9 +27,12 @@ import numpy as np
 import OpenGL.GL as GL
 from ref_gl import gl_warp, gl_image, gl_rmain, gl_model, gl_model_h, gl_light
 from linux import qgl_linux
-from game import q_shared
-from qcommon import qfiles
+pass
+pass
 from client import ref
+from common.header import files as files_h
+from common.header import shared
+from common.shared import shared as shared_c
 
 modelorg = np.zeros((3,), dtype=np.float32) #static vec3_t, relative to viewpoint
 
@@ -428,7 +431,7 @@ def R_BlendLightmaps ():
 				ok, surf.dlight_s, surf.dlight_t = LM_AllocBlock( smax, tmax )
 				if not ok:
 
-					gl_rmain.ri.Sys_Error( q_shared.ERR_FATAL, "Consecutive calls to LM_AllocBlock({},{}) failed (dynamic)\n".format(smax, tmax) )
+					gl_rmain.ri.Sys_Error( shared.ERR_FATAL, "Consecutive calls to LM_AllocBlock({},{}) failed (dynamic)\n".format(smax, tmax) )
 
 				base = ( surf.dlight_t * BLOCK_WIDTH + surf.dlight_s ) * LIGHTMAP_BYTES
 
@@ -493,7 +496,7 @@ def R_RenderBrushPoly (fa): #msurface_t *
 
 #======
 #PGM
-	if fa.texinfo.flags & q_shared.SURF_FLOWING:
+	if fa.texinfo.flags & shared.SURF_FLOWING:
 		DrawGLFlowingPoly (fa)
 	else:
 		DrawGLPoly (fa.polys[0])
@@ -505,7 +508,7 @@ def R_RenderBrushPoly (fa): #msurface_t *
 	#
 	dynamic = False
 	maps = 0
-	while maps < qfiles.MAXLIGHTMAPS and fa.styles[maps] != 255:
+	while maps < files_h.MAXLIGHTMAPS and fa.styles[maps] != 255:
 
 		if gl_rmain.r_newrefdef.lightstyles[fa.styles[maps]].white != fa.cached_light[maps]:
 			dynamic = True
@@ -518,14 +521,14 @@ def R_RenderBrushPoly (fa): #msurface_t *
 	#dynamic:
 		if gl_rmain.gl_dynamic.value:
 
-			if not ( fa.texinfo.flags & (q_shared.SURF_SKY|q_shared.SURF_TRANS33|q_shared.SURF_TRANS66|q_shared.SURF_WARP ) ):
+			if not ( fa.texinfo.flags & (shared.SURF_SKY|shared.SURF_TRANS33|shared.SURF_TRANS66|shared.SURF_WARP ) ):
 
 				is_dynamic = True
 
 	if is_dynamic:
 
 		# C reads styles[maps] even when maps == MAXLIGHTMAPS, treat that as no style
-		style = fa.styles[maps] if maps < qfiles.MAXLIGHTMAPS else 255
+		style = fa.styles[maps] if maps < files_h.MAXLIGHTMAPS else 255
 		if ( style >= 32 or style == 0 ) and ( fa.dlightframe != gl_rmain.r_framecount ):
 
 			#unsigned	temp[34*34];
@@ -588,15 +591,15 @@ def R_DrawAlphaSurfaces ():
 
 		gl_image.GL_Bind(s.texinfo.image.texnum)
 		gl_rmain.c_brush_polys += 1
-		if s.texinfo.flags & q_shared.SURF_TRANS33:
+		if s.texinfo.flags & shared.SURF_TRANS33:
 			GL.glColor4f (intens,intens,intens,0.33)
-		elif s.texinfo.flags & q_shared.SURF_TRANS66:
+		elif s.texinfo.flags & shared.SURF_TRANS66:
 			GL.glColor4f (intens,intens,intens,0.66)
 		else:
 			GL.glColor4f (intens,intens,intens,1)
 		if s.flags & gl_model_h.SURF_DRAWTURB:
 			gl_warp.EmitWaterPolys (s)
-		elif s.texinfo.flags & q_shared.SURF_FLOWING:			# PGM	9/16/98
+		elif s.texinfo.flags & shared.SURF_FLOWING:			# PGM	9/16/98
 			DrawGLFlowingPoly (s)							# PGM
 		else:
 			DrawGLPoly (s.polys[0])
@@ -694,7 +697,7 @@ def GL_RenderLightmappedPoly( surf ): #msurface_t *
 
 	dynamic = False
 	map = 0
-	while map < qfiles.MAXLIGHTMAPS and surf.styles[map] != 255:
+	while map < files_h.MAXLIGHTMAPS and surf.styles[map] != 255:
 
 		if gl_rmain.r_newrefdef.lightstyles[surf.styles[map]].white != surf.cached_light[map]:
 			dynamic = True
@@ -707,7 +710,7 @@ def GL_RenderLightmappedPoly( surf ): #msurface_t *
 	#dynamic:
 		if gl_rmain.gl_dynamic.value:
 
-			if not (surf.texinfo.flags & (q_shared.SURF_SKY|q_shared.SURF_TRANS33|q_shared.SURF_TRANS66|q_shared.SURF_WARP ) ):
+			if not (surf.texinfo.flags & (shared.SURF_SKY|shared.SURF_TRANS33|shared.SURF_TRANS66|shared.SURF_WARP ) ):
 
 				is_dynamic = True
 
@@ -717,7 +720,7 @@ def GL_RenderLightmappedPoly( surf ): #msurface_t *
 		#int			smax, tmax;
 
 		# C reads styles[map] even when map == MAXLIGHTMAPS, treat that as no style
-		style = surf.styles[map] if map < qfiles.MAXLIGHTMAPS else 255
+		style = surf.styles[map] if map < files_h.MAXLIGHTMAPS else 255
 		if ( style >= 32 or style == 0 ) and ( surf.dlightframe != gl_rmain.r_framecount ):
 
 			smax = (surf.extents[0]>>4)+1
@@ -763,7 +766,7 @@ def GL_RenderLightmappedPoly( surf ): #msurface_t *
 
 #==========
 #PGM
-		if surf.texinfo.flags & q_shared.SURF_FLOWING:
+		if surf.texinfo.flags & shared.SURF_FLOWING:
 
 			#float scroll;
 
@@ -807,7 +810,7 @@ def GL_RenderLightmappedPoly( surf ): #msurface_t *
 
 #==========
 #PGM
-		if surf.texinfo.flags & q_shared.SURF_FLOWING:
+		if surf.texinfo.flags & shared.SURF_FLOWING:
 
 			#float scroll;
 
@@ -873,7 +876,7 @@ def R_DrawInlineBModel ():
 			lt = gl_rmain.r_newrefdef.dlights[k]
 			gl_light.R_MarkLights (lt, 1<<k, currentmodel.nodes[currentmodel.firstnode])
 
-	if currententity.flags & q_shared.RF_TRANSLUCENT:
+	if currententity.flags & shared.RF_TRANSLUCENT:
 
 		GL.glEnable (GL.GL_BLEND)
 		GL.glColor4f (1,1,1,0.25)
@@ -889,13 +892,13 @@ def R_DrawInlineBModel ():
 		# find which side of the node we are on
 		pplane = psurf.plane
 
-		dot = q_shared.DotProduct (modelorg, pplane.normal) - pplane.dist
+		dot = shared.DotProduct (modelorg, pplane.normal) - pplane.dist
 
 		# draw the polygon
 		if (((psurf.flags & gl_model_h.SURF_PLANEBACK) and (dot < -BACKFACE_EPSILON)) or
 			(not (psurf.flags & gl_model_h.SURF_PLANEBACK) and (dot > BACKFACE_EPSILON))):
 
-			if psurf.texinfo.flags & (q_shared.SURF_TRANS33|q_shared.SURF_TRANS66):
+			if psurf.texinfo.flags & (shared.SURF_TRANS33|shared.SURF_TRANS66):
 				# add to the translucent chain
 				r_alpha_surfaces.append(psurf)
 
@@ -909,7 +912,7 @@ def R_DrawInlineBModel ():
 				R_RenderBrushPoly( psurf )
 				gl_image.GL_EnableMultitexture( True )
 
-	if not (currententity.flags & q_shared.RF_TRANSLUCENT):
+	if not (currententity.flags & shared.RF_TRANSLUCENT):
 
 		if not qgl_linux.qglMTexCoord2fSGIS:
 			R_BlendLightmaps ()
@@ -954,8 +957,8 @@ def R_DrawBrushModel (e): #entity_t *
 	else:
 
 		rotated = False
-		q_shared.VectorAdd (e.origin, currentmodel.mins, mins)
-		q_shared.VectorAdd (e.origin, currentmodel.maxs, maxs)
+		shared.VectorAdd (e.origin, currentmodel.mins, mins)
+		shared.VectorAdd (e.origin, currentmodel.maxs, maxs)
 
 	if gl_rmain.R_CullBox (mins, maxs):
 		return
@@ -963,7 +966,7 @@ def R_DrawBrushModel (e): #entity_t *
 	GL.glColor3f (1,1,1)
 	gl_lms.lightmap_surfaces = [[] for _ in range(MAX_LIGHTMAPS)] # memset (gl_lms.lightmap_surfaces, 0, sizeof(gl_lms.lightmap_surfaces));
 
-	q_shared.VectorSubtract (gl_rmain.r_newrefdef.vieworg, e.origin, modelorg)
+	shared.VectorSubtract (gl_rmain.r_newrefdef.vieworg, e.origin, modelorg)
 	if rotated:
 
 		#vec3_t	temp;
@@ -973,10 +976,10 @@ def R_DrawBrushModel (e): #entity_t *
 		up = np.zeros((3,), dtype=np.float32)
 
 		temp = modelorg.copy() # VectorCopy (modelorg, temp);
-		q_shared.AngleVectors (e.angles, forward, right, up)
-		modelorg[0] = q_shared.DotProduct (temp, forward)
-		modelorg[1] = -q_shared.DotProduct (temp, right)
-		modelorg[2] = q_shared.DotProduct (temp, up)
+		shared_c.AngleVectors (e.angles, forward, right, up)
+		modelorg[0] = shared.DotProduct (temp, forward)
+		modelorg[1] = -shared.DotProduct (temp, right)
+		modelorg[2] = shared.DotProduct (temp, up)
 
 	GL.glPushMatrix ()
 	e.angles[0] = -e.angles[0]	# stupid quake bug
@@ -1025,7 +1028,7 @@ def R_RecursiveWorldNode (node): #mnode_t *
 	image_t		*image;
 	"""
 
-	if node.contents == q_shared.CONTENTS_SOLID:
+	if node.contents == shared.CONTENTS_SOLID:
 		return		# solid
 
 	if node.visframe != gl_rmain.r_visframecount:
@@ -1059,14 +1062,14 @@ def R_RecursiveWorldNode (node): #mnode_t *
 	# find which side of the node we are on
 	plane = node.plane
 
-	if plane.type == qfiles.PLANE_X:
+	if plane.type == files_h.PLANE_X:
 		dot = modelorg[0] - plane.dist
-	elif plane.type == qfiles.PLANE_Y:
+	elif plane.type == files_h.PLANE_Y:
 		dot = modelorg[1] - plane.dist
-	elif plane.type == qfiles.PLANE_Z:
+	elif plane.type == files_h.PLANE_Z:
 		dot = modelorg[2] - plane.dist
 	else:
-		dot = q_shared.DotProduct (modelorg, plane.normal) - plane.dist
+		dot = shared.DotProduct (modelorg, plane.normal) - plane.dist
 
 	if dot >= 0:
 
@@ -1091,11 +1094,11 @@ def R_RecursiveWorldNode (node): #mnode_t *
 		if (surf.flags & gl_model_h.SURF_PLANEBACK) != sidebit:
 			continue		# wrong side
 
-		if surf.texinfo.flags & q_shared.SURF_SKY:
+		if surf.texinfo.flags & shared.SURF_SKY:
 			# just adds to visible sky bounds
 			gl_warp.R_AddSkySurface (surf)
 
-		elif surf.texinfo.flags & (q_shared.SURF_TRANS33|q_shared.SURF_TRANS66):
+		elif surf.texinfo.flags & (shared.SURF_TRANS33|shared.SURF_TRANS66):
 			# add to the translucent chain
 			r_alpha_surfaces.append(surf)
 
@@ -1165,12 +1168,12 @@ def R_DrawWorld ():
 	if not gl_rmain.r_drawworld.value:
 		return
 
-	if gl_rmain.r_newrefdef.rdflags & q_shared.RDF_NOWORLDMODEL:
+	if gl_rmain.r_newrefdef.rdflags & shared.RDF_NOWORLDMODEL:
 		return
 
 	gl_rmain.currentmodel = gl_rmain.r_worldmodel
 
-	q_shared.VectorCopy (gl_rmain.r_newrefdef.vieworg, modelorg)
+	shared.VectorCopy (gl_rmain.r_newrefdef.vieworg, modelorg)
 
 	# auto cycle the world frame for texture animation
 	ent = ref.entity_t() # memset (&ent, 0, sizeof(ent));
@@ -1261,7 +1264,7 @@ def R_MarkLeaves ():
 	# may have to combine two clusters because of solid water boundaries
 	if gl_rmain.r_viewcluster2 != gl_rmain.r_viewcluster:
 
-		fatvis = bytearray(qfiles.MAX_MAP_LEAFS//8)
+		fatvis = bytearray(files_h.MAX_MAP_LEAFS//8)
 		n = min((r_worldmodel.numleafs+7)//8, len(vis))
 		fatvis[:n] = vis[:n] # memcpy (fatvis, vis, (r_worldmodel->numleafs+7)/8);
 		vis = gl_model.Mod_ClusterPVS (gl_rmain.r_viewcluster2, r_worldmodel)
@@ -1368,7 +1371,7 @@ def LM_UploadBlock( dynamic ): #qboolean
 					   bytes(gl_lms.lightmap_buffer) )
 		gl_lms.current_lightmap_texture += 1
 		if gl_lms.current_lightmap_texture == MAX_LIGHTMAPS:
-			gl_rmain.ri.Sys_Error( q_shared.ERR_DROP, "LM_UploadBlock() - MAX_LIGHTMAPS exceeded\n" )
+			gl_rmain.ri.Sys_Error( shared.ERR_DROP, "LM_UploadBlock() - MAX_LIGHTMAPS exceeded\n" )
 
 
 # returns a texture number and the position inside it
@@ -1428,7 +1431,7 @@ def GL_BuildPolygonFromSurface(fa): #msurface_t *
 	lnumverts = fa.numedges
 	vertpage = 0
 
-	q_shared.VectorClear (total)
+	shared.VectorClear (total)
 	#
 	# draw texture
 	#
@@ -1456,13 +1459,13 @@ def GL_BuildPolygonFromSurface(fa): #msurface_t *
 			r_pedge = pedges[-lindex]
 			vec = currentmodel.vertexes[r_pedge[1]]
 
-		s = q_shared.DotProduct (vec, fa.texinfo.vecs[0]) + fa.texinfo.vecs[0][3]
+		s = shared.DotProduct (vec, fa.texinfo.vecs[0]) + fa.texinfo.vecs[0][3]
 		s /= image_width
 
-		t = q_shared.DotProduct (vec, fa.texinfo.vecs[1]) + fa.texinfo.vecs[1][3]
+		t = shared.DotProduct (vec, fa.texinfo.vecs[1]) + fa.texinfo.vecs[1][3]
 		t /= image_height
 
-		q_shared.VectorAdd (total, vec, total)
+		shared.VectorAdd (total, vec, total)
 		poly.verts[i][:3] = vec # VectorCopy (vec, poly->verts[i]);
 		poly.verts[i][3] = s
 		poly.verts[i][4] = t
@@ -1470,13 +1473,13 @@ def GL_BuildPolygonFromSurface(fa): #msurface_t *
 		#
 		# lightmap texture coordinates
 		#
-		s = q_shared.DotProduct (vec, fa.texinfo.vecs[0]) + fa.texinfo.vecs[0][3]
+		s = shared.DotProduct (vec, fa.texinfo.vecs[0]) + fa.texinfo.vecs[0][3]
 		s -= fa.texturemins[0]
 		s += fa.light_s*16
 		s += 8
 		s /= BLOCK_WIDTH*16 #fa->texinfo->texture->width;
 
-		t = q_shared.DotProduct (vec, fa.texinfo.vecs[1]) + fa.texinfo.vecs[1][3]
+		t = shared.DotProduct (vec, fa.texinfo.vecs[1]) + fa.texinfo.vecs[1][3]
 		t -= fa.texturemins[1]
 		t += fa.light_t*16
 		t += 8
@@ -1511,7 +1514,7 @@ def GL_CreateSurfaceLightmap (surf): #msurface_t *
 		ok, surf.light_s, surf.light_t = LM_AllocBlock( smax, tmax )
 		if not ok:
 
-			gl_rmain.ri.Sys_Error( q_shared.ERR_FATAL, "Consecutive calls to LM_AllocBlock({},{}) failed\n".format(smax, tmax) )
+			gl_rmain.ri.Sys_Error( shared.ERR_FATAL, "Consecutive calls to LM_AllocBlock({},{}) failed\n".format(smax, tmax) )
 
 	surf.lightmaptexturenum = gl_lms.current_lightmap_texture
 
@@ -1547,7 +1550,7 @@ def GL_BeginBuildingLightmaps (m): #model_t *
 	# the first time they're seen
 	#
 	lightstyles = []
-	for i in range(q_shared.MAX_LIGHTSTYLES):
+	for i in range(shared.MAX_LIGHTSTYLES):
 
 		ls = ref.lightstyle_t()
 		ls.rgb[0] = 1

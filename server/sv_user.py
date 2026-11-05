@@ -20,8 +20,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 from server import sv_main, sv_init, sv_game
-from qcommon import cvar, qcommon, common, net_chan, cmd, files
-from game import q_shared
+from qcommon import net_chan
+pass
+from common.header import common as common_h
+from common.header import shared
+from common import argproc
+from common import clientserver
+from common import cmdparser
+from common import crc
+from common import cvar
+from common import filesystem
+from common import movemsg
+from common import szone
 """
 // sv_user.c -- server code for moving users
 
@@ -47,9 +57,9 @@ def SV_BeginDemoserver ():
 	#char		name[MAX_OSPATH];
 
 	name = "demos/{}".format(sv_init.sv.name)
-	length, sv_init.sv.demofile = files.FS_FOpenFile (name)
-	if sv_init.sv.demofile is None:
-		common.Com_Error (qcommon.ERR_DROP, "Couldn't open %s\n", name)
+	length, sv_init.sv.demofile = filesystem.FS_FOpenFile (name)
+	if not sv_init.sv.demofile:
+		clientserver.Com_Error (common_h.ERR_DROP, "Couldn't open %s\n", name)
 
 """
 ================
@@ -69,11 +79,11 @@ def SV_New_f (): #void
 
 	#int playernum = 0
 
-	common.Com_DPrintf ("New() from {}\n".format(sv_main.sv_client.name))
+	clientserver.Com_DPrintf ("New() from {}\n".format(sv_main.sv_client.name))
 
 	if sv_main.sv_client.state != sv_init.client_state_t.cs_connected:
 
-		common.Com_Printf ("New not valid -- already spawned\n")
+		clientserver.Com_Printf ("New not valid -- already spawned\n")
 		return
 
 	# demo servers just dump the file message
@@ -89,20 +99,20 @@ def SV_New_f (): #void
 	gamedir = cvar.Cvar_VariableString ("gamedir")
 
 	# send the serverdata
-	common.MSG_WriteByte (sv_main.sv_client.netchan.message, qcommon.svc_ops_e.svc_serverdata.value)
-	common.MSG_WriteLong (sv_main.sv_client.netchan.message, qcommon.PROTOCOL_VERSION)
-	common.MSG_WriteLong (sv_main.sv_client.netchan.message, sv_init.svs.spawncount)
-	common.MSG_WriteByte (sv_main.sv_client.netchan.message, sv_init.sv.attractloop)
-	common.MSG_WriteString (sv_main.sv_client.netchan.message, gamedir)
+	movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, common_h.svc_ops_e.svc_serverdata.value)
+	movemsg.MSG_WriteLong (sv_main.sv_client.netchan.message, common_h.PROTOCOL_VERSION)
+	movemsg.MSG_WriteLong (sv_main.sv_client.netchan.message, sv_init.svs.spawncount)
+	movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, sv_init.sv.attractloop)
+	movemsg.MSG_WriteString (sv_main.sv_client.netchan.message, gamedir)
 
 	if sv_init.sv.state == sv_init.server_state_t.ss_cinematic or sv_init.sv.state == sv_init.server_state_t.ss_pic:
 		playernum = -1
 	else:
 		playernum = sv_init.svs.clients.index(sv_main.sv_client)
-	common.MSG_WriteShort (sv_main.sv_client.netchan.message, playernum)
+	movemsg.MSG_WriteShort (sv_main.sv_client.netchan.message, playernum)
 
 	# send full levelname
-	common.MSG_WriteString (sv_main.sv_client.netchan.message, sv_init.sv.configstrings[q_shared.CS_NAME])
+	movemsg.MSG_WriteString (sv_main.sv_client.netchan.message, sv_init.sv.configstrings[shared.CS_NAME])
 
 	#
 	# game server
@@ -113,11 +123,11 @@ def SV_New_f (): #void
 		ent = sv_init.EDICT_NUM(playernum+1)
 		ent.s.number = playernum+1
 		sv_main.sv_client.edict = ent
-		sv_main.sv_client.lastcmd = q_shared.usercmd_t()
+		sv_main.sv_client.lastcmd = shared.usercmd_t()
 
 		# begin fetching configstrings
-		common.MSG_WriteByte (sv_main.sv_client.netchan.message, qcommon.svc_ops_e.svc_stufftext.value)
-		common.MSG_WriteString (sv_main.sv_client.netchan.message, "cmd configstrings {:d} 0\n".format(sv_init.svs.spawncount))
+		movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, common_h.svc_ops_e.svc_stufftext.value)
+		movemsg.MSG_WriteString (sv_main.sv_client.netchan.message, "cmd configstrings {:d} 0\n".format(sv_init.svs.spawncount))
 
 
 """
@@ -129,46 +139,46 @@ def SV_Configstrings_f ():
 
 	#int start
 
-	common.Com_DPrintf ("Configstrings() from {}\n".format(sv_main.sv_client.name))
+	clientserver.Com_DPrintf ("Configstrings() from {}\n".format(sv_main.sv_client.name))
 
 	if sv_main.sv_client.state != sv_init.client_state_t.cs_connected:
 
-		common.Com_Printf ("configstrings not valid -- already spawned\n")
+		clientserver.Com_Printf ("configstrings not valid -- already spawned\n")
 		return
 
 	# handle the case of a level changing while a client was connecting
-	if int(cmd.Cmd_Argv(1)) != sv_init.svs.spawncount:
+	if int(cmdparser.Cmd_Argv(1)) != sv_init.svs.spawncount:
 
-		common.Com_Printf ("SV_Configstrings_f from different level\n")
+		clientserver.Com_Printf ("SV_Configstrings_f from different level\n")
 		SV_New_f ()
 		return
 
-	start = int(cmd.Cmd_Argv(2))
+	start = int(cmdparser.Cmd_Argv(2))
 
 	# write a packet full of data
 
-	while sv_main.sv_client.netchan.message.cursize < qcommon.MAX_MSGLEN//2 \
-		and start < q_shared.MAX_CONFIGSTRINGS:
+	while sv_main.sv_client.netchan.message.cursize < common_h.MAX_MSGLEN//2 \
+		and start < shared.MAX_CONFIGSTRINGS:
 
 		if sv_init.sv.configstrings[start]:  # C: empty string has [0]=='\0'
 
-			common.MSG_WriteByte (sv_main.sv_client.netchan.message, qcommon.svc_ops_e.svc_configstring.value)
-			common.MSG_WriteShort (sv_main.sv_client.netchan.message, start)
-			common.MSG_WriteString (sv_main.sv_client.netchan.message, sv_init.sv.configstrings[start])
+			movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, common_h.svc_ops_e.svc_configstring.value)
+			movemsg.MSG_WriteShort (sv_main.sv_client.netchan.message, start)
+			movemsg.MSG_WriteString (sv_main.sv_client.netchan.message, sv_init.sv.configstrings[start])
 
 		start+=1
 
 	# send next command
 
-	if start == q_shared.MAX_CONFIGSTRINGS:
+	if start == shared.MAX_CONFIGSTRINGS:
 
-		common.MSG_WriteByte (sv_main.sv_client.netchan.message, qcommon.svc_ops_e.svc_stufftext.value)
-		common.MSG_WriteString (sv_main.sv_client.netchan.message, "cmd baselines {:d} 0\n".format(sv_init.svs.spawncount))
+		movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, common_h.svc_ops_e.svc_stufftext.value)
+		movemsg.MSG_WriteString (sv_main.sv_client.netchan.message, "cmd baselines {:d} 0\n".format(sv_init.svs.spawncount))
 
 	else:
 
-		common.MSG_WriteByte (sv_main.sv_client.netchan.message, qcommon.svc_ops_e.svc_stufftext.value)
-		common.MSG_WriteString (sv_main.sv_client.netchan.message, "cmd configstrings {:d} {:d}\n".format(sv_init.svs.spawncount, start))
+		movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, common_h.svc_ops_e.svc_stufftext.value)
+		movemsg.MSG_WriteString (sv_main.sv_client.netchan.message, "cmd configstrings {:d} {:d}\n".format(sv_init.svs.spawncount, start))
 
 
 """
@@ -185,48 +195,48 @@ def SV_Baselines_f ():
 	"""
 	#int start = 0
 
-	common.Com_DPrintf ("Baselines() from {}\n".format(sv_main.sv_client.name))
+	clientserver.Com_DPrintf ("Baselines() from {}\n".format(sv_main.sv_client.name))
 
 	if sv_main.sv_client.state != sv_init.client_state_t.cs_connected:
 
-		common.Com_Printf ("baselines not valid -- already spawned\n")
+		clientserver.Com_Printf ("baselines not valid -- already spawned\n")
 		return
 
 	# handle the case of a level changing while a client was connecting
-	if int(cmd.Cmd_Argv(1)) != sv_init.svs.spawncount:
+	if int(cmdparser.Cmd_Argv(1)) != sv_init.svs.spawncount:
 
-		common.Com_Printf ("SV_Baselines_f from different level\n")
+		clientserver.Com_Printf ("SV_Baselines_f from different level\n")
 		SV_New_f ()
 		return
 
-	start = int(cmd.Cmd_Argv(2))
+	start = int(cmdparser.Cmd_Argv(2))
 
-	nullstate = q_shared.entity_state_t()
+	nullstate = shared.entity_state_t()
 
 	# write a packet full of data
 
-	while sv_main.sv_client.netchan.message.cursize < qcommon.MAX_MSGLEN//2 \
-		and start < q_shared.MAX_EDICTS:
+	while sv_main.sv_client.netchan.message.cursize < common_h.MAX_MSGLEN//2 \
+		and start < shared.MAX_EDICTS:
 
 		base = sv_init.sv.baselines[start]
 		if base.modelindex or base.sound or base.effects:
 
-			common.MSG_WriteByte (sv_main.sv_client.netchan.message, qcommon.svc_ops_e.svc_spawnbaseline.value)
-			common.MSG_WriteDeltaEntity (nullstate, base, sv_main.sv_client.netchan.message, True, True)
+			movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, common_h.svc_ops_e.svc_spawnbaseline.value)
+			movemsg.MSG_WriteDeltaEntity (nullstate, base, sv_main.sv_client.netchan.message, True, True)
 
 		start+=1
 
 	# send next command
 
-	if start == q_shared.MAX_EDICTS:
+	if start == shared.MAX_EDICTS:
 
-		common.MSG_WriteByte (sv_main.sv_client.netchan.message, qcommon.svc_ops_e.svc_stufftext.value)
-		common.MSG_WriteString (sv_main.sv_client.netchan.message, "precache {:d}\n".format(sv_init.svs.spawncount))
+		movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, common_h.svc_ops_e.svc_stufftext.value)
+		movemsg.MSG_WriteString (sv_main.sv_client.netchan.message, "precache {:d}\n".format(sv_init.svs.spawncount))
 
 	else:
 
-		common.MSG_WriteByte (sv_main.sv_client.netchan.message, qcommon.svc_ops_e.svc_stufftext.value)
-		common.MSG_WriteString (sv_main.sv_client.netchan.message, "cmd baselines {:d} {:d}\n".format(sv_init.svs.spawncount, start))
+		movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, common_h.svc_ops_e.svc_stufftext.value)
+		movemsg.MSG_WriteString (sv_main.sv_client.netchan.message, "cmd baselines {:d} {:d}\n".format(sv_init.svs.spawncount, start))
 
 
 """
@@ -236,12 +246,12 @@ SV_Begin_f
 """
 def SV_Begin_f ():
 
-	common.Com_DPrintf ("Begin() from {}\n".format(sv_main.sv_client.name))
+	clientserver.Com_DPrintf ("Begin() from {}\n".format(sv_main.sv_client.name))
 
 	# handle the case of a level changing while a client was connecting
-	if int(cmd.Cmd_Argv(1)) != sv_init.svs.spawncount:
+	if int(cmdparser.Cmd_Argv(1)) != sv_init.svs.spawncount:
 
-		common.Com_Printf ("SV_Begin_f from different level\n")
+		clientserver.Com_Printf ("SV_Begin_f from different level\n")
 		SV_New_f ()
 		return
 
@@ -250,7 +260,7 @@ def SV_Begin_f ():
 	# call the game begin function
 	sv_game.ge.ClientBegin (sv_player)
 
-	cmd.Cbuf_InsertFromDefer ()
+	cmdparser.Cbuf_InsertFromDefer ()
 
 """
 //=============================================================================
@@ -275,22 +285,22 @@ def SV_NextDownload_f ():
 	if r > 1024:
 		r = 1024
 
-	common.MSG_WriteByte (sv_main.sv_client.netchan.message, qcommon.svc_ops_e.svc_download.value)
-	common.MSG_WriteShort (sv_main.sv_client.netchan.message, r)
+	movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, common_h.svc_ops_e.svc_download.value)
+	movemsg.MSG_WriteShort (sv_main.sv_client.netchan.message, r)
 
 	sv_main.sv_client.downloadcount += r
 	size = sv_main.sv_client.downloadsize
 	if not size:
 		size = 1
 	percent = sv_main.sv_client.downloadcount*100//size
-	common.MSG_WriteByte (sv_main.sv_client.netchan.message, percent)
-	common.SZ_Write (sv_main.sv_client.netchan.message,
+	movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, percent)
+	szone.SZ_Write (sv_main.sv_client.netchan.message,
 		sv_main.sv_client.download[sv_main.sv_client.downloadcount - r : sv_main.sv_client.downloadcount])
 
 	if sv_main.sv_client.downloadcount != sv_main.sv_client.downloadsize:
 		return
 
-	files.FS_FreeFile (sv_main.sv_client.download)
+	filesystem.FS_FreeFile (sv_main.sv_client.download)
 	sv_main.sv_client.download = None
 
 
@@ -313,11 +323,11 @@ def SV_BeginDownload_f():
 	#char *name
 	#int offset = 0
 
-	name = cmd.Cmd_Argv(1)
+	name = cmdparser.Cmd_Argv(1)
 	offset = 0
 
-	if cmd.Cmd_Argc() > 2:
-		offset = int(cmd.Cmd_Argv(2)) # downloaded offset
+	if cmdparser.Cmd_Argc() > 2:
+		offset = int(cmdparser.Cmd_Argv(2)) # downloaded offset
 
 	# hacked by zoid to allow more conrol over download
 	# first off, no .. or global allow check
@@ -341,16 +351,16 @@ def SV_BeginDownload_f():
 	):
 
 		# don't allow anything with .. path
-		common.MSG_WriteByte (sv_main.sv_client.netchan.message, qcommon.svc_ops_e.svc_download.value)
-		common.MSG_WriteShort (sv_main.sv_client.netchan.message, -1)
-		common.MSG_WriteByte (sv_main.sv_client.netchan.message, 0)
+		movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, common_h.svc_ops_e.svc_download.value)
+		movemsg.MSG_WriteShort (sv_main.sv_client.netchan.message, -1)
+		movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, 0)
 		return
 
 
 	if sv_main.sv_client.download:
-		files.FS_FreeFile (sv_main.sv_client.download)
+		filesystem.FS_FreeFile (sv_main.sv_client.download)
 
-	sv_main.sv_client.downloadsize, sv_main.sv_client.download = files.FS_LoadFile (name)
+	sv_main.sv_client.downloadsize, sv_main.sv_client.download = filesystem.FS_LoadFile (name)
 	sv_main.sv_client.downloadcount = offset
 
 	if offset > sv_main.sv_client.downloadsize:
@@ -359,20 +369,20 @@ def SV_BeginDownload_f():
 	if (
 		(not sv_main.sv_client.download)
 		# special check for maps, if it came from a pak file, don't allow download ZOID
-		or (name.startswith('maps/') and files.file_from_pak)
+		or (name.startswith('maps/') and filesystem.file_from_protected_pak)
 	):
-		common.Com_DPrintf ("Couldn't download %s to %s\n" % (name, sv_main.sv_client.name))
+		clientserver.Com_DPrintf ("Couldn't download %s to %s\n" % (name, sv_main.sv_client.name))
 		if sv_main.sv_client.download:
-			files.FS_FreeFile (sv_main.sv_client.download)
+			filesystem.FS_FreeFile (sv_main.sv_client.download)
 			sv_main.sv_client.download = None
 
-		common.MSG_WriteByte (sv_main.sv_client.netchan.message, qcommon.svc_ops_e.svc_download.value)
-		common.MSG_WriteShort (sv_main.sv_client.netchan.message, -1)
-		common.MSG_WriteByte (sv_main.sv_client.netchan.message, 0)
+		movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, common_h.svc_ops_e.svc_download.value)
+		movemsg.MSG_WriteShort (sv_main.sv_client.netchan.message, -1)
+		movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, 0)
 		return
 
 	SV_NextDownload_f ()
-	common.Com_DPrintf ("Downloading %s to %s\n" % (name, sv_main.sv_client.name))
+	clientserver.Com_DPrintf ("Downloading %s to %s\n" % (name, sv_main.sv_client.name))
 
 """
 //============================================================================
@@ -399,7 +409,7 @@ Dumps the serverinfo info string
 """
 def SV_ShowServerinfo_f ():
 
-	common.Info_Print (cvar.Cvar_Serverinfo())
+	argproc.Info_Print (cvar.Cvar_Serverinfo())
 
 
 """
@@ -416,10 +426,10 @@ def SV_Nextserver ():
 	sv_init.svs.spawncount+=1	# make sure another doesn't sneak in
 	v = cvar.Cvar_VariableString ("nextserver")
 	if len(v) == 0:
-		cmd.Cbuf_AddText ("killserver\n")
+		cmdparser.Cbuf_AddText ("killserver\n")
 	else:
-		cmd.Cbuf_AddText (v)
-		cmd.Cbuf_AddText ("\n")
+		cmdparser.Cbuf_AddText (v)
+		cmdparser.Cbuf_AddText ("\n")
 
 	cvar.Cvar_Set ("nextserver","")
 
@@ -434,11 +444,11 @@ to the next server,
 """
 def SV_Nextserver_f ():
 
-	if int(cmd.Cmd_Argv(1)) != sv_init.svs.spawncount :
-		common.Com_DPrintf ("Nextserver() from wrong level, from {}\n".format(sv_main.sv_client.name))
+	if int(cmdparser.Cmd_Argv(1)) != sv_init.svs.spawncount :
+		clientserver.Com_DPrintf ("Nextserver() from wrong level, from {}\n".format(sv_main.sv_client.name))
 		return		# leftover from last server
 
-	common.Com_DPrintf ("Nextserver() from {}\n".format(sv_main.sv_client.name))
+	clientserver.Com_DPrintf ("Nextserver() from {}\n".format(sv_main.sv_client.name))
 
 	SV_Nextserver ()
 
@@ -477,13 +487,13 @@ def SV_ExecuteUserCommand (s): #char *
 
 	global sv_player
 
-	cmd.Cmd_TokenizeString (s, True)
+	cmdparser.Cmd_TokenizeString (s, True)
 	sv_player = sv_main.sv_client.edict
 
 #	SV_BeginRedirect (RD_CLIENT)
 
-	if cmd.Cmd_Argv(0) in ucmds:
-		ucmds[cmd.Cmd_Argv(0)]()
+	if cmdparser.Cmd_Argv(0) in ucmds:
+		ucmds[cmdparser.Cmd_Argv(0)]()
 	elif sv_init.sv.state == sv_init.server_state_t.ss_game:
 		sv_game.ge.ClientCommand (sv_player)
 
@@ -504,7 +514,7 @@ def SV_ClientThink (cl, cmd_): #client_t *, usercmd_t *
 	cl.commandMsec -= cmd_.msec
 
 	if cl.commandMsec < 0 and sv_main.sv_enforcetime.value:
-		common.Com_DPrintf ("commandMsec underflow from %s\n" % cl.name)
+		clientserver.Com_DPrintf ("commandMsec underflow from %s\n" % cl.name)
 		return
 
 	sv_game.ge.ClientThink (cl.edict, cmd_)
@@ -553,59 +563,59 @@ def SV_ExecuteClientMessage (cl): #client_t *
 
 		if net_chan.net_message.readcount > net_chan.net_message.cursize:
 
-			common.Com_Printf ("SV_ReadClientMessage: badread\n")
+			clientserver.Com_Printf ("SV_ReadClientMessage: badread\n")
 			sv_main.SV_DropClient (cl)
 			return
 
-		c = common.MSG_ReadByte (net_chan.net_message)
+		c = movemsg.MSG_ReadByte (net_chan.net_message)
 		if c == -1:
 			break # nothing to read
 
-		if c == qcommon.clc_ops_e.clc_nop.value:
+		if c == common_h.clc_ops_e.clc_nop.value:
 			pass
 
-		elif c == qcommon.clc_ops_e.clc_userinfo.value:
-			cl.userinfo = common.MSG_ReadString (net_chan.net_message)
+		elif c == common_h.clc_ops_e.clc_userinfo.value:
+			cl.userinfo = movemsg.MSG_ReadString (net_chan.net_message)
 			sv_main.SV_UserinfoChanged (cl)
 			break
 
-		elif c == qcommon.clc_ops_e.clc_move.value:
+		elif c == common_h.clc_ops_e.clc_move.value:
 
 			if move_issued:
 				return		# someone is trying to cheat...
 
 			move_issued = True
 			checksumIndex = net_chan.net_message.readcount
-			checksum = common.MSG_ReadByte (net_chan.net_message)
-			lastframe = common.MSG_ReadLong (net_chan.net_message)
+			checksum = movemsg.MSG_ReadByte (net_chan.net_message)
+			lastframe = movemsg.MSG_ReadLong (net_chan.net_message)
 			if lastframe != cl.lastframe:
 				cl.lastframe = lastframe
 				if cl.lastframe > 0:
 					cl.frame_latency[cl.lastframe & (sv_init.LATENCY_COUNTS-1)] = \
-						sv_init.svs.realtime - cl.frames[cl.lastframe & qcommon.UPDATE_MASK].senttime
+						sv_init.svs.realtime - cl.frames[cl.lastframe & common_h.UPDATE_MASK].senttime
 
-			nullcmd = q_shared.usercmd_t()
-			oldest = q_shared.usercmd_t()
-			oldcmd = q_shared.usercmd_t()
-			newcmd = q_shared.usercmd_t()
+			nullcmd = shared.usercmd_t()
+			oldest = shared.usercmd_t()
+			oldcmd = shared.usercmd_t()
+			newcmd = shared.usercmd_t()
 
-			common.MSG_ReadDeltaUsercmd (net_chan.net_message, nullcmd, oldest)
-			common.MSG_ReadDeltaUsercmd (net_chan.net_message, oldest, oldcmd)
-			common.MSG_ReadDeltaUsercmd (net_chan.net_message, oldcmd, newcmd)
+			movemsg.MSG_ReadDeltaUsercmd (net_chan.net_message, nullcmd, oldest)
+			movemsg.MSG_ReadDeltaUsercmd (net_chan.net_message, oldest, oldcmd)
+			movemsg.MSG_ReadDeltaUsercmd (net_chan.net_message, oldcmd, newcmd)
 
 			if cl.state != sv_init.client_state_t.cs_spawned:
 				cl.lastframe = -1
 				break
 
 			# if the checksum fails, ignore the rest of the packet
-			calculatedChecksum = common.COM_BlockSequenceCRCByte (
+			calculatedChecksum = crc.COM_BlockSequenceCRCByte (
 				net_chan.net_message.data,
 				checksumIndex + 1,
 				net_chan.net_message.readcount - checksumIndex - 1,
 				cl.netchan.incoming_sequence)
 
 			if calculatedChecksum[0] != checksum:
-				common.Com_DPrintf ("Failed command checksum for %s (%d != %d)/%d\n" % (
+				clientserver.Com_DPrintf ("Failed command checksum for %s (%d != %d)/%d\n" % (
 					cl.name, calculatedChecksum[0], checksum, cl.netchan.incoming_sequence))
 				return
 
@@ -624,9 +634,9 @@ def SV_ExecuteClientMessage (cl): #client_t *
 			cl.lastcmd = newcmd
 			break
 
-		elif c == qcommon.clc_ops_e.clc_stringcmd.value:
+		elif c == common_h.clc_ops_e.clc_stringcmd.value:
 
-			s = common.MSG_ReadString (net_chan.net_message)
+			s = movemsg.MSG_ReadString (net_chan.net_message)
 
 			# malicious users may try using too many string commands
 			stringCmdCount += 1
@@ -638,6 +648,6 @@ def SV_ExecuteClientMessage (cl): #client_t *
 
 		else:
 
-			common.Com_Printf ("SV_ReadClientMessage: unknown command char\n")
+			clientserver.Com_Printf ("SV_ReadClientMessage: unknown command char\n")
 			sv_main.SV_DropClient (cl)
 			return

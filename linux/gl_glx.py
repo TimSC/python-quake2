@@ -22,7 +22,8 @@ from __future__ import annotations
 import pygame
 import OpenGL.GL as GL
 from ref_gl import gl_rmain
-from game import q_shared
+pass
+from common.header import shared
 
 screen = None
 """
@@ -188,7 +189,7 @@ def uninstall_grabs():
 
 def Force_CenterView_f ():
 
-	in_state.viewangles[q_shared.PITCH] = 0
+	in_state.viewangles[shared.PITCH] = 0
 
 
 def RW_IN_MLookDown (): 
@@ -218,8 +219,8 @@ def RW_IN_Init(in_state_p): #in_state_t *
 
 	# mouse variables
 	m_filter = gl_rmain.ri.Cvar_Get ("m_filter", "0", 0)
-	in_mouse = gl_rmain.ri.Cvar_Get ("in_mouse", "1", q_shared.CVAR_ARCHIVE)
-	in_dgamouse = gl_rmain.ri.Cvar_Get ("in_dgamouse", "1", q_shared.CVAR_ARCHIVE)
+	in_mouse = gl_rmain.ri.Cvar_Get ("in_mouse", "1", shared.CVAR_ARCHIVE)
+	in_dgamouse = gl_rmain.ri.Cvar_Get ("in_dgamouse", "1", shared.CVAR_ARCHIVE)
 	freelook = gl_rmain.ri.Cvar_Get( "freelook", "0", 0 )
 	lookstrafe = gl_rmain.ri.Cvar_Get ("lookstrafe", "0", 0)
 	sensitivity = gl_rmain.ri.Cvar_Get ("sensitivity", "3", 0)
@@ -282,12 +283,12 @@ def RW_IN_Move (cmd): #usercmd_t *
 		(lookstrafe.value and mlooking )):
 		cmd.sidemove += m_side.value * mx
 	else:
-		in_state.viewangles[q_shared.YAW] -= m_yaw.value * mx
+		in_state.viewangles[shared.YAW] -= m_yaw.value * mx
 
 	if ( (mlooking or freelook.value) and 
 		not (in_state.in_strafe_state.state & 1)):
 	
-		in_state.viewangles[q_shared.PITCH] += m_pitch.value * my
+		in_state.viewangles[shared.PITCH] += m_pitch.value * my
 	
 	else:
 	
@@ -579,22 +580,22 @@ def GLimp_SetMode( pwidth, pheight, mode, fullscreen ): # int *, int *, int, qbo
 
 	r_fakeFullscreen = gl_rmain.ri.Cvar_Get( "r_fakeFullscreen", "0", CVAR_ARCHIVE);
 	"""
-	gl_rmain.ri.Con_Printf( q_shared.PRINT_ALL, "Initializing OpenGL display\n")
+	gl_rmain.ri.Con_Printf( shared.PRINT_ALL, "Initializing OpenGL display\n")
 	
 	mode = int(mode)
 
 	if fullscreen:
-		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "...setting fullscreen mode {}:".format(mode) )
+		gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "...setting fullscreen mode {}:".format(mode) )
 	else:
-		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "...setting mode {}:".format(mode) )
+		gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "...setting mode {}:".format(mode) )
 
 	ok, width, height = gl_rmain.ri.Vid_GetModeInfo( mode )
 	if not ok:
 	
-		gl_rmain.ri.Con_Printf( q_shared.PRINT_ALL, " invalid mode\n" )
+		gl_rmain.ri.Con_Printf( shared.PRINT_ALL, " invalid mode\n" )
 		return gl_rmain.rserr_t.rserr_invalid_mode, pwidth, pheight
 	
-	gl_rmain.ri.Con_Printf( q_shared.PRINT_ALL, " {} {}\n".format(width, height) )
+	gl_rmain.ri.Con_Printf( shared.PRINT_ALL, " {} {}\n".format(width, height) )
 	
 	# destroy the existing window
 	GLimp_Shutdown ()
@@ -696,7 +697,7 @@ def GLimp_SetMode( pwidth, pheight, mode, fullscreen ): # int *, int *, int, qbo
 	try:
 		screen = pygame.display.set_mode((width, height), flags)
 	except pygame.error as err:
-		gl_rmain.ri.Con_Printf( q_shared.PRINT_ALL, "Error couldn't set the video mode: {}\n".format(err) )
+		gl_rmain.ri.Con_Printf( shared.PRINT_ALL, "Error couldn't set the video mode: {}\n".format(err) )
 		screen = None
 		if fullscreen:
 			return gl_rmain.rserr_t.rserr_invalid_fullscreen, pwidth, pheight

@@ -19,7 +19,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from __future__ import annotations
 
-from game import q_shared, g_main, g_utils, g_ai
+from game import g_main, g_utils, g_ai
+from common.header import shared
 
 TRAIL_LENGTH = 8
 
@@ -69,7 +70,7 @@ def PlayerTrail_Add (spot): #vec3_t
 	if not trail_active:
 		return
 
-	q_shared.VectorCopy (spot, trail[trail_head].s.origin)
+	shared.VectorCopy (spot, trail[trail_head].s.origin)
 
 	trail[trail_head].timestamp = g_main.level.time
 

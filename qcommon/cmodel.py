@@ -21,8 +21,15 @@ from __future__ import annotations
 
 import struct
 import numpy as np
-from game import q_shared
-from qcommon import qfiles, files, common, cvar, md4
+pass
+pass
+from common.header import files as files_h
+from common.header import shared
+from common.shared import shared as shared_c
+from common import clientserver
+from common import cvar
+from common import filesystem
+from common import md4
 """
 // cmodel.c -- model loading
 
@@ -75,72 +82,72 @@ map_name: str = None # char		[MAX_QPATH];
 
 numbrushsides: int = None
 map_brushsides = []
-for i in range(qfiles.MAX_MAP_BRUSHSIDES):
+for i in range(files_h.MAX_MAP_BRUSHSIDES):
 	map_brushsides.append(cbrushside_t())
 
 numtexinfo: int = None
 map_surfaces = []
-for i in range(qfiles.MAX_MAP_TEXINFO):
-	map_surfaces.append(q_shared.mapsurface_t())
+for i in range(files_h.MAX_MAP_TEXINFO):
+	map_surfaces.append(shared.mapsurface_t())
 
 numplanes: int = None
 map_planes = []
-for i in range(qfiles.MAX_MAP_PLANES+6): # extra for box hull
-	map_planes.append(q_shared.cplane_t())
+for i in range(files_h.MAX_MAP_PLANES+6): # extra for box hull
+	map_planes.append(shared.cplane_t())
 
 numnodes: int = None
 map_nodes = []
-for i in range(qfiles.MAX_MAP_NODES+6): # extra for box hull
+for i in range(files_h.MAX_MAP_NODES+6): # extra for box hull
 	map_nodes.append(cnode_t())
 
 numleafs: int = 1	# allow leaf funcs to be called without a map
 map_leafs = []
-for i in range(qfiles.MAX_MAP_LEAFS):
+for i in range(files_h.MAX_MAP_LEAFS):
 	map_leafs.append(cleaf_t())
 emptyleaf: int = None
 solidleaf: int = None
 
 numleafbrushes: int = None
 map_leafbrushes = []
-for i in range(qfiles.MAX_MAP_LEAFBRUSHES):
+for i in range(files_h.MAX_MAP_LEAFBRUSHES):
 	map_leafbrushes.append(None) # unsigned short
 
 numcmodels: int = None
 map_cmodels = []
-for i in range(qfiles.MAX_MAP_MODELS):
-	map_cmodels.append(q_shared.cmodel_t())
+for i in range(files_h.MAX_MAP_MODELS):
+	map_cmodels.append(shared.cmodel_t())
 
 numbrushes: int = None
 map_brushes = []
-for i in range(qfiles.MAX_MAP_BRUSHES):
+for i in range(files_h.MAX_MAP_BRUSHES):
 	map_brushes.append(cbrush_t())
 
 numvisibility: int = None
 map_visibility = None
 
-map_vis = qfiles.dvis_t()
+map_vis = files_h.dvis_t()
 
 numentitychars: int = None
 map_entitystring = None
 
 numareas: int = 1
 map_areas = []
-for i in range(qfiles.MAX_MAP_AREAS):
+for i in range(files_h.MAX_MAP_AREAS):
 	map_areas.append(carea_t())
 
 numareaportals: int = None
 map_areaportals = []
-for i in range(qfiles.MAX_MAP_AREAPORTALS):
-	map_areaportals.append(qfiles.dareaportal_t())
+for i in range(files_h.MAX_MAP_AREAPORTALS):
+	map_areaportals.append(files_h.dareaportal_t())
 
 numclusters: int = 1
 
-nullsurface = q_shared.mapsurface_t()
+nullsurface = shared.mapsurface_t()
 
 floodvalid = 0
 
 portalopen = [] #qboolean[MAX_MAP_AREAPORTALS];
-for i in range(qfiles.MAX_MAP_AREAPORTALS):
+for i in range(files_h.MAX_MAP_AREAPORTALS):
 	portalopen.append(False)
 
 map_noareas = None # cvar_t	*
@@ -175,22 +182,22 @@ def CMod_LoadSubmodels (l): #lump_t *
 	"""
 
 	#in = (void *)(cmod_base + l->fileofs);
-	if l.filelen % qfiles.dmodel_t.packed_size():
-		common.Com_Error (q_shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
-	count = l.filelen // qfiles.dmodel_t.packed_size()
+	if l.filelen % files_h.dmodel_t.packed_size():
+		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
+	count = l.filelen // files_h.dmodel_t.packed_size()
 
 	if count < 1:
-		common.Com_Error (q_shared.ERR_DROP, "Map with no models")
-	if count > qfiles.MAX_MAP_MODELS:
-		common.Com_Error (q_shared.ERR_DROP, "Map has too many models")
+		clientserver.Com_Error (shared.ERR_DROP, "Map with no models")
+	if count > files_h.MAX_MAP_MODELS:
+		clientserver.Com_Error (shared.ERR_DROP, "Map has too many models")
 
 	numcmodels = count
-	in_obj = qfiles.dmodel_t()
+	in_obj = files_h.dmodel_t()
 
 	for i in range(count):
 	
-		in_offset = l.fileofs + i * qfiles.dmodel_t.packed_size()
-		in_offset2 = in_offset + qfiles.dmodel_t.packed_size()
+		in_offset = l.fileofs + i * files_h.dmodel_t.packed_size()
+		in_offset2 = in_offset + files_h.dmodel_t.packed_size()
 		in_obj.load(cmod_base[in_offset:in_offset2])
 
 		out = map_cmodels[i]
@@ -208,7 +215,7 @@ def CMod_LoadSubmodels (l): #lump_t *
 CMod_LoadSurfaces
 =================
 """
-def CMod_LoadSurfaces (l: qfiles.lump_t):
+def CMod_LoadSurfaces (l: files_h.lump_t):
 
 	global numtexinfo, map_surfaces, cmod_base
 	"""
@@ -218,21 +225,21 @@ def CMod_LoadSurfaces (l: qfiles.lump_t):
 	"""
 
 	#in = (void *)(cmod_base + l->fileofs);
-	if l.filelen % qfiles.texinfo_t.packed_size():
-		common.Com_Error (q_shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
-	count = l.filelen // qfiles.texinfo_t.packed_size()
+	if l.filelen % files_h.texinfo_t.packed_size():
+		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
+	count = l.filelen // files_h.texinfo_t.packed_size()
 	if count < 1:
-		common.Com_Error (q_shared.ERR_DROP, "Map with no surfaces")
-	if count > qfiles.MAX_MAP_TEXINFO:
-		common.Com_Error (q_shared.ERR_DROP, "Map has too many surfaces")
+		clientserver.Com_Error (shared.ERR_DROP, "Map with no surfaces")
+	if count > files_h.MAX_MAP_TEXINFO:
+		clientserver.Com_Error (shared.ERR_DROP, "Map has too many surfaces")
 
 	numtexinfo = count
-	in_obj = qfiles.texinfo_t()
+	in_obj = files_h.texinfo_t()
 
 	for i in range(count):
 	
-		in_offset = l.fileofs + i * qfiles.texinfo_t.packed_size()
-		in_offset2 = in_offset + qfiles.texinfo_t.packed_size()
+		in_offset = l.fileofs + i * files_h.texinfo_t.packed_size()
+		in_offset2 = in_offset + files_h.texinfo_t.packed_size()
 		in_obj.load(cmod_base[in_offset:in_offset2])
 
 		out = map_surfaces[i]
@@ -261,16 +268,16 @@ def CMod_LoadNodes (l): #lump_t *
 	
 	#in = (void *)(cmod_base + l->fileofs);
 	in_offset = 0
-	if l.filelen % qfiles.dnode_t.packed_size():
-		common.Com_Error (q_shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
-	count = l.filelen // qfiles.dnode_t.packed_size()
+	if l.filelen % files_h.dnode_t.packed_size():
+		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
+	count = l.filelen // files_h.dnode_t.packed_size()
 
 	if count < 1:
-		common.Com_Error (q_shared.ERR_DROP, "Map has no nodes")
-	if count > qfiles.MAX_MAP_NODES:
-		common.Com_Error (q_shared.ERR_DROP, "Map has too many nodes")
+		clientserver.Com_Error (shared.ERR_DROP, "Map has no nodes")
+	if count > files_h.MAX_MAP_NODES:
+		clientserver.Com_Error (shared.ERR_DROP, "Map has too many nodes")
 
-	in_obj = qfiles.dnode_t()
+	in_obj = files_h.dnode_t()
 
 	#out = map_nodes
 
@@ -278,8 +285,8 @@ def CMod_LoadNodes (l): #lump_t *
 
 	for i in range(count):
 
-		in_offset = l.fileofs + i * qfiles.dnode_t.packed_size()
-		in_offset2 = in_offset + qfiles.dnode_t.packed_size()
+		in_offset = l.fileofs + i * files_h.dnode_t.packed_size()
+		in_offset2 = in_offset + files_h.dnode_t.packed_size()
 		in_obj.load(cmod_base[in_offset:in_offset2])
 
 		out = map_nodes[i]
@@ -304,22 +311,22 @@ def CMod_LoadBrushes (l): #lump_t *
 	"""
 	
 	#in = (void *)(cmod_base + l->fileofs);
-	if l.filelen % qfiles.dbrush_t.packed_size():
-		common.Com_Error (q_shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
-	count = l.filelen // qfiles.dbrush_t.packed_size()
+	if l.filelen % files_h.dbrush_t.packed_size():
+		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
+	count = l.filelen // files_h.dbrush_t.packed_size()
 
-	if count > qfiles.MAX_MAP_BRUSHES:
-		common.Com_Error (q_shared.ERR_DROP, "Map has too many brushes")
+	if count > files_h.MAX_MAP_BRUSHES:
+		clientserver.Com_Error (shared.ERR_DROP, "Map has too many brushes")
 
 	out = map_brushes
 
 	numbrushes = count
-	in_obj = qfiles.dbrush_t()
+	in_obj = files_h.dbrush_t()
 
 	for i in range(count):
 	
-		in_offset = l.fileofs + i * qfiles.dbrush_t.packed_size()
-		in_offset2 = in_offset + qfiles.dbrush_t.packed_size()
+		in_offset = l.fileofs + i * files_h.dbrush_t.packed_size()
+		in_offset2 = in_offset + files_h.dbrush_t.packed_size()
 		in_obj.load(cmod_base[in_offset:in_offset2])
 
 		out = map_brushes[i]
@@ -347,25 +354,25 @@ def CMod_LoadLeafs (l): #lump_t *
 	"""
 	
 	#in = (void *)(cmod_base + l->fileofs);
-	if l.filelen % qfiles.dleaf_t.packed_size():
-		common.Com_Error (q_shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
-	count = l.filelen // qfiles.dleaf_t.packed_size()
+	if l.filelen % files_h.dleaf_t.packed_size():
+		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
+	count = l.filelen // files_h.dleaf_t.packed_size()
 
 	if count < 1:
-		common.Com_Error (q_shared.ERR_DROP, "Map with no leafs")
+		clientserver.Com_Error (shared.ERR_DROP, "Map with no leafs")
 	# need to save space for box planes
-	if count > qfiles.MAX_MAP_PLANES:
-		common.Com_Error (q_shared.ERR_DROP, "Map has too many planes")
+	if count > files_h.MAX_MAP_PLANES:
+		clientserver.Com_Error (shared.ERR_DROP, "Map has too many planes")
 
 	out = map_leafs
 	numleafs = count
 	numclusters = 0
-	in_obj = qfiles.dleaf_t()
+	in_obj = files_h.dleaf_t()
 
 	for i in range(count):
 
-		in_offset = l.fileofs + i * qfiles.dleaf_t.packed_size()
-		in_offset2 = in_offset + qfiles.dleaf_t.packed_size()
+		in_offset = l.fileofs + i * files_h.dleaf_t.packed_size()
+		in_offset2 = in_offset + files_h.dleaf_t.packed_size()
 		in_obj.load(cmod_base[in_offset:in_offset2])
 
 		out = map_leafs[i]
@@ -378,8 +385,8 @@ def CMod_LoadLeafs (l): #lump_t *
 		if out.cluster >= numclusters:
 			numclusters = out.cluster + 1
 
-	if map_leafs[0].contents != qfiles.CONTENTS_SOLID:
-		common.Com_Error (q_shared.ERR_DROP, "Map leaf 0 is not CONTENTS_SOLID")
+	if map_leafs[0].contents != files_h.CONTENTS_SOLID:
+		clientserver.Com_Error (shared.ERR_DROP, "Map leaf 0 is not CONTENTS_SOLID")
 	solidleaf = 0
 	emptyleaf = -1
 	for i in range(1, numleafs):
@@ -390,7 +397,7 @@ def CMod_LoadLeafs (l): #lump_t *
 			break
 		
 	if emptyleaf == -1:
-		common.Com_Error (q_shared.ERR_DROP, "Map does not have an empty leaf")
+		clientserver.Com_Error (shared.ERR_DROP, "Map does not have an empty leaf")
 	
 """
 =================
@@ -409,24 +416,24 @@ def CMod_LoadPlanes (l): #lump_t *
 	"""
 	
 	#in = (void *)(cmod_base + l->fileofs);
-	if l.filelen % qfiles.dplane_t.packed_size():
-		common.Com_Error (q_shared.ERR_DROP, "MOD_LoadBmodel: funny lump size");
-	count = l.filelen // qfiles.dplane_t.packed_size()
+	if l.filelen % files_h.dplane_t.packed_size():
+		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size");
+	count = l.filelen // files_h.dplane_t.packed_size()
 
 	
 	if count < 1:
-		common.Com_Error (q_shared.ERR_DROP, "Map with no planes")
+		clientserver.Com_Error (shared.ERR_DROP, "Map with no planes")
 	# need to save space for box planes
-	if count > qfiles.MAX_MAP_PLANES:
-		common.Com_Error (q_shared.ERR_DROP, "Map has too many planes")
+	if count > files_h.MAX_MAP_PLANES:
+		clientserver.Com_Error (shared.ERR_DROP, "Map has too many planes")
 
 	numplanes = count
-	in_obj = qfiles.dplane_t()
+	in_obj = files_h.dplane_t()
 
 	for i in range(count):
 	
-		in_offset = l.fileofs + i * qfiles.dplane_t.packed_size()
-		in_offset2 = in_offset + qfiles.dplane_t.packed_size()
+		in_offset = l.fileofs + i * files_h.dplane_t.packed_size()
+		in_offset2 = in_offset + files_h.dplane_t.packed_size()
 		in_obj.load(cmod_base[in_offset:in_offset2])
 
 		out = map_planes[i]
@@ -459,14 +466,14 @@ def CMod_LoadLeafBrushes (l): #lump_t *
 	
 	#in = (void *)(cmod_base + l->fileofs)
 	if l.filelen % 2:
-		common.Com_Error (q_shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
+		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
 	count = l.filelen // 2
 
 	if count < 1:
-		common.Com_Error (q_shared.ERR_DROP, "Map with no planes")
+		clientserver.Com_Error (shared.ERR_DROP, "Map with no planes")
 	# need to save space for box planes
-	if count > qfiles.MAX_MAP_LEAFBRUSHES:
-		common.Com_Error (q_shared.ERR_DROP, "Map has too many leafbrushes")
+	if count > files_h.MAX_MAP_LEAFBRUSHES:
+		clientserver.Com_Error (shared.ERR_DROP, "Map has too many leafbrushes")
 
 	out = map_leafbrushes
 	numleafbrushes = count
@@ -475,7 +482,7 @@ def CMod_LoadLeafBrushes (l): #lump_t *
 		in_offset = l.fileofs + i * 2
 		in_offset2 = in_offset + 2
 
-		map_leafbrushes[i] = q_shared.LittleShort (cmod_base[in_offset:in_offset2])
+		map_leafbrushes[i] = shared_c.LittleShort (cmod_base[in_offset:in_offset2])
 
 
 """
@@ -495,22 +502,22 @@ def CMod_LoadBrushSides (l): #lump_t *
 	"""
 
 	#in = (void *)(cmod_base + l->fileofs);
-	if l.filelen % qfiles.dbrushside_t.packed_size():
-		common.Com_Error (q_shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
-	count = l.filelen // qfiles.dbrushside_t.packed_size()
+	if l.filelen % files_h.dbrushside_t.packed_size():
+		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
+	count = l.filelen // files_h.dbrushside_t.packed_size()
 
 	# need to save space for box planes
-	if count > qfiles.MAX_MAP_BRUSHSIDES:
-		common.Com_Error (q_shared.ERR_DROP, "Map has too many planes")
+	if count > files_h.MAX_MAP_BRUSHSIDES:
+		clientserver.Com_Error (shared.ERR_DROP, "Map has too many planes")
 
 	#out = map_brushsides
 	numbrushsides = count
-	in_obj = qfiles.dbrushside_t()
+	in_obj = files_h.dbrushside_t()
 
 	for i in range(count):
 
-		in_offset = l.fileofs + i * qfiles.dbrushside_t.packed_size()
-		in_offset2 = in_offset + qfiles.dbrushside_t.packed_size()
+		in_offset = l.fileofs + i * files_h.dbrushside_t.packed_size()
+		in_offset2 = in_offset + files_h.dbrushside_t.packed_size()
 		in_obj.load(cmod_base[in_offset:in_offset2])
 	
 		out = map_brushsides[i]
@@ -519,7 +526,7 @@ def CMod_LoadBrushSides (l): #lump_t *
 		out.plane = map_planes[num]
 		j = in_obj.texinfo
 		if j >= numtexinfo:
-			common.Com_Error (q_shared.ERR_DROP, "Bad brushside texinfo")
+			clientserver.Com_Error (shared.ERR_DROP, "Bad brushside texinfo")
 		out.surface = map_surfaces[j]
 	
 
@@ -541,20 +548,20 @@ def CMod_LoadAreas (l): #lump_t *
 	"""
 
 	#in = (void *)(cmod_base + l->fileofs);
-	if l.filelen % qfiles.darea_t.packed_size():
-		common.Com_Error (q_shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
-	count = l.filelen // qfiles.darea_t.packed_size()
+	if l.filelen % files_h.darea_t.packed_size():
+		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
+	count = l.filelen // files_h.darea_t.packed_size()
 
-	if count > qfiles.MAX_MAP_AREAS:
-		common.Com_Error (q_shared.ERR_DROP, "Map has too many areas")
+	if count > files_h.MAX_MAP_AREAS:
+		clientserver.Com_Error (shared.ERR_DROP, "Map has too many areas")
 
 	numareas = count
-	in_obj = qfiles.darea_t()
+	in_obj = files_h.darea_t()
 
 	for i in range(count):
 
-		in_offset = l.fileofs + i * qfiles.darea_t.packed_size()
-		in_offset2 = in_offset + qfiles.darea_t.packed_size()
+		in_offset = l.fileofs + i * files_h.darea_t.packed_size()
+		in_offset2 = in_offset + files_h.darea_t.packed_size()
 		in_obj.load(cmod_base[in_offset:in_offset2])
 
 		out = map_areas[i]
@@ -580,20 +587,20 @@ def CMod_LoadAreaPortals (l): #lump_t *
 	"""
 
 	#in = (void *)(cmod_base + l->fileofs)
-	if l.filelen % qfiles.dareaportal_t.packed_size():
-		common.Com_Error (q_shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
-	count = l.filelen // qfiles.dareaportal_t.packed_size()
+	if l.filelen % files_h.dareaportal_t.packed_size():
+		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
+	count = l.filelen // files_h.dareaportal_t.packed_size()
 
-	if count > qfiles.MAX_MAP_AREAS:
-		common.Com_Error (q_shared.ERR_DROP, "Map has too many areas")
+	if count > files_h.MAX_MAP_AREAS:
+		clientserver.Com_Error (shared.ERR_DROP, "Map has too many areas")
 
 	numareaportals = count
-	in_obj = qfiles.dareaportal_t()
+	in_obj = files_h.dareaportal_t()
 
 	for i in range(count):
 
-		in_offset = l.fileofs + i * qfiles.dareaportal_t.packed_size()
-		in_offset2 = in_offset + qfiles.dareaportal_t.packed_size()
+		in_offset = l.fileofs + i * files_h.dareaportal_t.packed_size()
+		in_offset2 = in_offset + files_h.dareaportal_t.packed_size()
 		in_obj.load(cmod_base[in_offset:in_offset2])
 
 		out = map_areaportals[i]
@@ -612,8 +619,8 @@ def CMod_LoadVisibility (l): #lump_t *
 	global map_vis, map_visibility, numvisibility, cmod_base
 
 	numvisibility = l.filelen
-	if l.filelen > qfiles.MAX_MAP_VISIBILITY:
-		common.Com_Error (q_shared.ERR_DROP, "Map has too large visibility lump")
+	if l.filelen > files_h.MAX_MAP_VISIBILITY:
+		clientserver.Com_Error (shared.ERR_DROP, "Map has too large visibility lump")
 
 	map_visibility = cmod_base[l.fileofs:l.fileofs+l.filelen]
 
@@ -629,8 +636,8 @@ def CMod_LoadEntityString (l): #lump_t *
 	global map_entitystring, numentitychars
 	
 	numentitychars = l.filelen
-	if l.filelen > qfiles.MAX_MAP_ENTSTRING:
-		common.Com_Error (q_shared.ERR_DROP, "Map has too large entity lump")
+	if l.filelen > files_h.MAX_MAP_ENTSTRING:
+		clientserver.Com_Error (shared.ERR_DROP, "Map has too large entity lump")
 
 	map_entitystring = cmod_base[l.fileofs: l.fileofs+l.filelen].decode('ascii')
 	
@@ -695,35 +702,35 @@ def CM_LoadMap (name, clientload): #char *, qboolean (returns cmodel_t *, unsign
 	#
 	# load the file
 	#
-	length, buf = files.FS_LoadFile (name)
+	length, buf = filesystem.FS_LoadFile (name)
 	if buf is None:
-		common.Com_Error (q_shared.ERR_DROP, "Couldn't load {}".format(name))
+		clientserver.Com_Error (shared.ERR_DROP, "Couldn't load {}".format(name))
 
 	last_checksum = md4.Com_BlockChecksum (buf, length) # LittleLong (Com_BlockChecksum (buf, length)); Q2PORT: already a host int
 	checksum = last_checksum
 
-	header = qfiles.dheader_t()
+	header = files_h.dheader_t()
 	header.parse(buf)
 
-	if header.version != qfiles.BSPVERSION:
-		common.Com_Error (q_shared.ERR_DROP, "CMod_LoadBrushModel: {} has wrong version number ({} should be {})".format( \
-			name, header.version, qfiles.BSPVERSION))
+	if header.version != files_h.BSPVERSION:
+		clientserver.Com_Error (shared.ERR_DROP, "CMod_LoadBrushModel: {} has wrong version number ({} should be {})".format( \
+			name, header.version, files_h.BSPVERSION))
 
 	cmod_base = buf
 
 	# load into heap
-	CMod_LoadSurfaces (header.lumps[qfiles.LUMP_TEXINFO])
-	CMod_LoadLeafs (header.lumps[qfiles.LUMP_LEAFS])
-	CMod_LoadLeafBrushes (header.lumps[qfiles.LUMP_LEAFBRUSHES])
-	CMod_LoadPlanes (header.lumps[qfiles.LUMP_PLANES])
-	CMod_LoadBrushes (header.lumps[qfiles.LUMP_BRUSHES])
-	CMod_LoadBrushSides (header.lumps[qfiles.LUMP_BRUSHSIDES])
-	CMod_LoadSubmodels (header.lumps[qfiles.LUMP_MODELS])
-	CMod_LoadNodes (header.lumps[qfiles.LUMP_NODES])
-	CMod_LoadAreas (header.lumps[qfiles.LUMP_AREAS])
-	CMod_LoadAreaPortals (header.lumps[qfiles.LUMP_AREAPORTALS])
-	CMod_LoadVisibility (header.lumps[qfiles.LUMP_VISIBILITY])
-	CMod_LoadEntityString (header.lumps[qfiles.LUMP_ENTITIES])
+	CMod_LoadSurfaces (header.lumps[files_h.LUMP_TEXINFO])
+	CMod_LoadLeafs (header.lumps[files_h.LUMP_LEAFS])
+	CMod_LoadLeafBrushes (header.lumps[files_h.LUMP_LEAFBRUSHES])
+	CMod_LoadPlanes (header.lumps[files_h.LUMP_PLANES])
+	CMod_LoadBrushes (header.lumps[files_h.LUMP_BRUSHES])
+	CMod_LoadBrushSides (header.lumps[files_h.LUMP_BRUSHSIDES])
+	CMod_LoadSubmodels (header.lumps[files_h.LUMP_MODELS])
+	CMod_LoadNodes (header.lumps[files_h.LUMP_NODES])
+	CMod_LoadAreas (header.lumps[files_h.LUMP_AREAS])
+	CMod_LoadAreaPortals (header.lumps[files_h.LUMP_AREAPORTALS])
+	CMod_LoadVisibility (header.lumps[files_h.LUMP_VISIBILITY])
+	CMod_LoadEntityString (header.lumps[files_h.LUMP_ENTITIES])
 
 	del buf, cmod_base
 
@@ -747,15 +754,15 @@ def CM_InlineModel(name):
 	"""Return the inline model identified by *<number>."""
 
 	if not name or not name.startswith('*'):
-		common.Com_Error(q_shared.ERR_DROP, "CM_InlineModel: bad name")
+		clientserver.Com_Error(shared.ERR_DROP, "CM_InlineModel: bad name")
 
 	try:
 		num = int(name[1:])
 	except (ValueError, TypeError):
-		common.Com_Error(q_shared.ERR_DROP, "CM_InlineModel: bad number")
+		clientserver.Com_Error(shared.ERR_DROP, "CM_InlineModel: bad number")
 
 	if num < 1 or num >= numcmodels:
-		common.Com_Error(q_shared.ERR_DROP, "CM_InlineModel: bad number")
+		clientserver.Com_Error(shared.ERR_DROP, "CM_InlineModel: bad number")
 
 	return map_cmodels[num]
 def CM_NumClusters ():
@@ -774,19 +781,19 @@ def CM_EntityString ():
 
 def CM_LeafContents(leafnum: int):
     if leafnum < 0 or leafnum >= numleafs:
-        common.Com_Error(q_shared.ERR_DROP, "CM_LeafContents: bad number")
+        clientserver.Com_Error(shared.ERR_DROP, "CM_LeafContents: bad number")
     return map_leafs[leafnum].contents
 
 
 def CM_LeafCluster(leafnum: int):
     if leafnum < 0 or leafnum >= numleafs:
-        common.Com_Error(q_shared.ERR_DROP, "CM_LeafCluster: bad number")
+        clientserver.Com_Error(shared.ERR_DROP, "CM_LeafCluster: bad number")
     return map_leafs[leafnum].cluster
 
 
 def CM_LeafArea(leafnum: int):
     if leafnum < 0 or leafnum >= numleafs:
-        common.Com_Error(q_shared.ERR_DROP, "CM_LeafArea: bad number")
+        clientserver.Com_Error(shared.ERR_DROP, "CM_LeafArea: bad number")
     return map_leafs[leafnum].area
 
 
@@ -814,10 +821,10 @@ def CM_InitBoxHull():
 	box_brush = map_brushes[numbrushes]
 	box_brush.numsides = 6
 	box_brush.firstbrushside = numbrushsides
-	box_brush.contents = q_shared.CONTENTS_MONSTER
+	box_brush.contents = shared.CONTENTS_MONSTER
 
 	box_leaf = map_leafs[numleafs]
-	box_leaf.contents = q_shared.CONTENTS_MONSTER
+	box_leaf.contents = shared.CONTENTS_MONSTER
 	box_leaf.firstleafbrush = numleafbrushes
 	box_leaf.numleafbrushes = 1
 
@@ -841,13 +848,13 @@ def CM_InitBoxHull():
 		p = box_planes[i * 2]
 		p.type = i >> 1
 		p.signbits = 0
-		q_shared.VectorClear(p.normal)
+		shared.VectorClear(p.normal)
 		p.normal[i >> 1] = 1
 
 		p = box_planes[i * 2 + 1]
 		p.type = 3 + (i >> 1)
 		p.signbits = 0
-		q_shared.VectorClear(p.normal)
+		shared.VectorClear(p.normal)
 		p.normal[i >> 1] = -1
 def CM_HeadnodeForBox(mins, maxs):
 
@@ -879,7 +886,7 @@ def CM_PointLeafnum_r(p, num):
 		if plane.type < 3:
 			d = p[plane.type] - plane.dist
 		else:
-			d = q_shared.DotProduct(plane.normal, p) - plane.dist
+			d = shared.DotProduct(plane.normal, p) - plane.dist
 		if d < 0:
 			num = node.children[1]
 		else:
@@ -915,7 +922,7 @@ def CM_BoxLeafnums_r(nodenum):
 
 		node = map_nodes[nodenum]
 		plane = node.plane
-		s = q_shared.BoxOnPlaneSide(leaf_mins, leaf_maxs, plane)
+		s = shared_c.BoxOnPlaneSide(leaf_mins, leaf_maxs, plane)
 		if s == 1:
 			nodenum = node.children[0]
 		elif s == 2:
@@ -964,8 +971,8 @@ def CM_PointContents(p, headnode):
 	return map_leafs[l].contents
 
 
-pvsrow = bytearray((qfiles.MAX_MAP_LEAFS + 7) // 8)
-phsrow = bytearray((qfiles.MAX_MAP_LEAFS + 7) // 8)
+pvsrow = bytearray((files_h.MAX_MAP_LEAFS + 7) // 8)
+phsrow = bytearray((files_h.MAX_MAP_LEAFS + 7) // 8)
 
 
 def CM_TransformedPointContents(p, headnode, origin, angles):
@@ -975,14 +982,14 @@ def CM_TransformedPointContents(p, headnode, origin, angles):
 	right = np.zeros((3,), dtype=np.float32)
 	up = np.zeros((3,), dtype=np.float32)
 
-	q_shared.VectorSubtract(p, origin, pt)
+	shared.VectorSubtract(p, origin, pt)
 
 	if headnode != box_headnode and (angles[0] or angles[1] or angles[2]):
-		q_shared.AngleVectors(angles, forward, right, up)
-		q_shared.VectorCopy(pt, temp)
-		pt[0] = q_shared.DotProduct(temp, forward)
-		pt[1] = -q_shared.DotProduct(temp, right)
-		pt[2] = q_shared.DotProduct(temp, up)
+		shared_c.AngleVectors(angles, forward, right, up)
+		shared.VectorCopy(pt, temp)
+		pt[0] = shared.DotProduct(temp, forward)
+		pt[1] = -shared.DotProduct(temp, right)
+		pt[2] = shared.DotProduct(temp, up)
 
 	l = CM_PointLeafnum_r(pt, headnode)
 	return map_leafs[l].contents
@@ -1017,7 +1024,7 @@ def CM_DecompressVis(data, out):
 		in_index += 1
 		if out_index + c > row:
 			c = row - out_index
-			common.Com_DPrintf("warning: Vis decompression overrun\n")
+			clientserver.Com_DPrintf("warning: Vis decompression overrun\n")
 		while c and out_index < row:
 			out[out_index] = 0
 			out_index += 1
@@ -1036,7 +1043,7 @@ def CM_ClusterPVS(cluster):
 	if map_vis is None or map_visibility is None:
 		return pvsrow
 
-	offset = map_vis.bitofs[cluster][qfiles.DVIS_PVS]
+	offset = map_vis.bitofs[cluster][files_h.DVIS_PVS]
 	CM_DecompressVis(map_visibility[offset:], pvsrow)
 	return pvsrow
 
@@ -1053,7 +1060,7 @@ def CM_ClusterPHS(cluster):
 	if map_vis is None or map_visibility is None:
 		return phsrow
 
-	offset = map_vis.bitofs[cluster][qfiles.DVIS_PHS]
+	offset = map_vis.bitofs[cluster][files_h.DVIS_PHS]
 	CM_DecompressVis(map_visibility[offset:], phsrow)
 	return phsrow
 
@@ -1062,7 +1069,7 @@ def FloodArea_r(area: carea_t, floodnum: int):
 	if area.floodvalid == floodvalid:
 		if area.floodnum == floodnum:
 			return
-		common.Com_Error(q_shared.ERR_DROP, "FloodArea_r: reflooded")
+		clientserver.Com_Error(shared.ERR_DROP, "FloodArea_r: reflooded")
 
 	area.floodnum = floodnum
 	area.floodvalid = floodvalid
@@ -1091,7 +1098,7 @@ def FloodAreaConnections():
 
 def CM_SetAreaPortalState(portalnum, open_):
 	if portalnum > numareaportals:
-		common.Com_Error(q_shared.ERR_DROP, "areaportal > numareaportals")
+		clientserver.Com_Error(shared.ERR_DROP, "areaportal > numareaportals")
 
 	portalopen[portalnum] = bool(open_)
 	FloodAreaConnections()
@@ -1102,7 +1109,7 @@ def CM_AreasConnected(area1, area2):
 		return True
 
 	if area1 > numareas or area2 > numareas:
-		common.Com_Error(q_shared.ERR_DROP, "area > numareas")
+		clientserver.Com_Error(shared.ERR_DROP, "area > numareas")
 
 	return map_areas[area1].floodnum == map_areas[area2].floodnum
 
@@ -1137,9 +1144,9 @@ def CM_ReadPortalState(f):
 	if f is None:
 		return
 
-	data = files.FS_Read(len(portalopen), f)
+	data = filesystem.FS_Read(len(portalopen), f)
 	if len(data) != len(portalopen):
-		common.Com_Error(q_shared.ERR_DROP, "CM_ReadPortalState: short read")
+		clientserver.Com_Error(shared.ERR_DROP, "CM_ReadPortalState: short read")
 	for i, value in enumerate(data):
 		portalopen[i] = bool(value)
 	FloodAreaConnections()
@@ -1166,7 +1173,7 @@ trace_mins = np.zeros((3,), dtype=np.float32)
 trace_maxs = np.zeros((3,), dtype=np.float32)
 trace_extents = np.zeros((3,), dtype=np.float32)
 
-trace_trace = q_shared.trace_t()
+trace_trace = shared.trace_t()
 trace_contents = 0
 trace_ispoint = False
 
@@ -1200,13 +1207,13 @@ def CM_ClipBoxToBrush(mins, maxs, p1, p2, trace, brush):
         if not trace_ispoint:
             for j in range(3):
                 ofs[j] = maxs[j] if plane.normal[j] < 0 else mins[j]
-            dist = q_shared.DotProduct(ofs, plane.normal)
+            dist = shared.DotProduct(ofs, plane.normal)
             dist = plane.dist - dist
         else:
             dist = plane.dist
 
-        d1 = q_shared.DotProduct(p1, plane.normal) - dist
-        d2 = q_shared.DotProduct(p2, plane.normal) - dist
+        d1 = shared.DotProduct(p1, plane.normal) - dist
+        d2 = shared.DotProduct(p2, plane.normal) - dist
 
         if d2 > 0:
             getout = True
@@ -1254,10 +1261,10 @@ def CM_TestBoxInBrush(mins, maxs, p1, trace, brush):
         plane = side.plane
         for j in range(3):
             ofs[j] = maxs[j] if plane.normal[j] < 0 else mins[j]
-        dist = q_shared.DotProduct(ofs, plane.normal)
+        dist = shared.DotProduct(ofs, plane.normal)
         dist = plane.dist - dist
 
-        d1 = q_shared.DotProduct(p1, plane.normal) - dist
+        d1 = shared.DotProduct(p1, plane.normal) - dist
         if d1 > 0:
             return
 
@@ -1321,8 +1328,8 @@ def CM_RecursiveHullCheck(num, p1f, p2f, p1, p2):
         t2 = p2[plane.type] - plane.dist
         offset = trace_extents[plane.type]
     else:
-        t1 = q_shared.DotProduct(plane.normal, p1) - plane.dist
-        t2 = q_shared.DotProduct(plane.normal, p2) - plane.dist
+        t1 = shared.DotProduct(plane.normal, p1) - plane.dist
+        t2 = shared.DotProduct(plane.normal, p2) - plane.dist
         if trace_ispoint:
             offset = 0.0
         else:
@@ -1380,7 +1387,7 @@ def CM_BoxTrace(start, end, mins, maxs, headnode, brushmask):
     trace_trace.fraction = 1.0
     trace_trace.contents = 0
     trace_trace.surface = nullsurface.c
-    q_shared.VectorClear(trace_trace.plane.normal)
+    shared.VectorClear(trace_trace.plane.normal)
     trace_trace.plane.dist = 0.0
     trace_trace.plane.type = 0
     trace_trace.plane.signbits = 0
@@ -1392,18 +1399,18 @@ def CM_BoxTrace(start, end, mins, maxs, headnode, brushmask):
         return trace_trace.copy()	# trace_t is returned by value
 
     trace_contents = brushmask
-    q_shared.VectorCopy(start, trace_start)
-    q_shared.VectorCopy(end, trace_end)
-    q_shared.VectorCopy(mins, trace_mins)
-    q_shared.VectorCopy(maxs, trace_maxs)
+    shared.VectorCopy(start, trace_start)
+    shared.VectorCopy(end, trace_end)
+    shared.VectorCopy(mins, trace_mins)
+    shared.VectorCopy(maxs, trace_maxs)
 
     if start[0] == end[0] and start[1] == end[1] and start[2] == end[2]:
         leafs = [0] * 1024
         topnode = [0]
         c1 = np.zeros((3,), dtype=np.float32)
         c2 = np.zeros((3,), dtype=np.float32)
-        q_shared.VectorAdd(start, mins, c1)
-        q_shared.VectorAdd(start, maxs, c2)
+        shared.VectorAdd(start, mins, c1)
+        shared.VectorAdd(start, maxs, c2)
         for i in range(3):
             c1[i] -= 1
             c2[i] += 1
@@ -1412,13 +1419,13 @@ def CM_BoxTrace(start, end, mins, maxs, headnode, brushmask):
             CM_TestInLeaf(leafs[i])
             if trace_trace.allsolid:
                 break
-        q_shared.VectorCopy(start, trace_trace.endpos)
+        shared.VectorCopy(start, trace_trace.endpos)
         return trace_trace.copy()	# trace_t is returned by value
 
     if (mins[0] == 0 and mins[1] == 0 and mins[2] == 0
             and maxs[0] == 0 and maxs[1] == 0 and maxs[2] == 0):
         trace_ispoint = True
-        q_shared.VectorClear(trace_extents)
+        shared.VectorClear(trace_extents)
     else:
         trace_ispoint = False
         trace_extents[0] = -mins[0] if -mins[0] > maxs[0] else maxs[0]
@@ -1428,7 +1435,7 @@ def CM_BoxTrace(start, end, mins, maxs, headnode, brushmask):
     CM_RecursiveHullCheck(headnode, 0.0, 1.0, start, end)
 
     if trace_trace.fraction == 1.0:
-        q_shared.VectorCopy(end, trace_trace.endpos)
+        shared.VectorCopy(end, trace_trace.endpos)
     else:
         for i in range(3):
             trace_trace.endpos[i] = start[i] + trace_trace.fraction * (end[i] - start[i])
@@ -1438,8 +1445,8 @@ def CM_BoxTrace(start, end, mins, maxs, headnode, brushmask):
 def CM_TransformedBoxTrace(start, end, mins, maxs, headnode, brushmask, origin, angles):
     start_l = np.zeros((3,), dtype=np.float32)
     end_l = np.zeros((3,), dtype=np.float32)
-    q_shared.VectorSubtract(start, origin, start_l)
-    q_shared.VectorSubtract(end, origin, end_l)
+    shared.VectorSubtract(start, origin, start_l)
+    shared.VectorSubtract(end, origin, end_l)
 
     rotated = headnode != box_headnode and (angles[0] or angles[1] or angles[2])
 
@@ -1450,28 +1457,28 @@ def CM_TransformedBoxTrace(start, end, mins, maxs, headnode, brushmask, origin, 
     neg_angles = np.zeros((3,), dtype=np.float32)
 
     if rotated:
-        q_shared.AngleVectors(angles, forward, right, up)
+        shared_c.AngleVectors(angles, forward, right, up)
 
-        q_shared.VectorCopy(start_l, temp)
-        start_l[0] = q_shared.DotProduct(temp, forward)
-        start_l[1] = -q_shared.DotProduct(temp, right)
-        start_l[2] = q_shared.DotProduct(temp, up)
+        shared.VectorCopy(start_l, temp)
+        start_l[0] = shared.DotProduct(temp, forward)
+        start_l[1] = -shared.DotProduct(temp, right)
+        start_l[2] = shared.DotProduct(temp, up)
 
-        q_shared.VectorCopy(end_l, temp)
-        end_l[0] = q_shared.DotProduct(temp, forward)
-        end_l[1] = -q_shared.DotProduct(temp, right)
-        end_l[2] = q_shared.DotProduct(temp, up)
+        shared.VectorCopy(end_l, temp)
+        end_l[0] = shared.DotProduct(temp, forward)
+        end_l[1] = -shared.DotProduct(temp, right)
+        end_l[2] = shared.DotProduct(temp, up)
 
     trace = CM_BoxTrace(start_l, end_l, mins, maxs, headnode, brushmask)
 
     if rotated and trace.fraction != 1.0:
-        q_shared.VectorNegate(angles, neg_angles)
-        q_shared.AngleVectors(neg_angles, forward, right, up)
+        shared.VectorNegate(angles, neg_angles)
+        shared_c.AngleVectors(neg_angles, forward, right, up)
 
-        q_shared.VectorCopy(trace.plane.normal, temp)
-        trace.plane.normal[0] = q_shared.DotProduct(temp, forward)
-        trace.plane.normal[1] = -q_shared.DotProduct(temp, right)
-        trace.plane.normal[2] = q_shared.DotProduct(temp, up)
+        shared.VectorCopy(trace.plane.normal, temp)
+        trace.plane.normal[0] = shared.DotProduct(temp, forward)
+        trace.plane.normal[1] = -shared.DotProduct(temp, right)
+        trace.plane.normal[2] = shared.DotProduct(temp, up)
 
     for i in range(3):
         trace.endpos[i] = start[i] + trace.fraction * (end[i] - start[i])

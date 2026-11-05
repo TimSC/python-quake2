@@ -20,14 +20,17 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, q_shared, m_flash, g_ai
+from game import g_main, g_local, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_local import (AI_STAND_GROUND, DEAD_DEAD, FRAMETIME, GIB_ORGANIC, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t)
 from game.g_misc import (BecomeExplosion1, ThrowGib, ThrowHead)
 from game.g_monster import (flymonster_start, monster_fire_blaster)
 from game.g_utils import (G_FreeEdict, G_ProjectSource)
 from game.game import (SOLID_BBOX)
-from game.q_shared import (ATTN_NORM, CHAN_VOICE, EF_HYPERBLASTER, MZ2_HOVER_BLASTER_1)
+from common.header.shared import ATTN_NORM, CHAN_VOICE, EF_HYPERBLASTER, MZ2_HOVER_BLASTER_1
+from common.header import shared
+from common.shared import flash
+from common.shared import shared as shared_c
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 
 # m_hover.h
@@ -307,12 +310,12 @@ def hover_fire_blaster (self): #edict_t *
 	else:
 		effect = 0
 
-	q_shared.AngleVectors (self.s.angles, forward, right, None)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_HOVER_BLASTER_1], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, None)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[MZ2_HOVER_BLASTER_1], forward, right, start)
 
-	q_shared.VectorCopy (self.enemy.s.origin, end)
+	shared.VectorCopy (self.enemy.s.origin, end)
 	end[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (end, start, dir)
+	shared.VectorSubtract (end, start, dir)
 
 	monster_fire_blaster (self, start, dir, 1, 1000, MZ2_HOVER_BLASTER_1, effect)
 
@@ -380,8 +383,8 @@ def hover_deadthink (self): #edict_t *
 
 def hover_dead (self): #edict_t *
 
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, -8)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, -8)
 	self.movetype = MOVETYPE_TOSS
 	self.think = hover_deadthink
 	self.nextthink = g_main.level.time + FRAMETIME
@@ -441,8 +444,8 @@ def SP_monster_hover (self): #edict_t *
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 	self.s.modelindex = g_main.gi.modelindex("models/monsters/hover/tris.md2")
-	q_shared.VectorSet (self.mins, -24, -24, -24)
-	q_shared.VectorSet (self.maxs, 24, 24, 32)
+	shared.VectorSet (self.mins, -24, -24, -24)
+	shared.VectorSet (self.maxs, 24, 24, 32)
 
 	self.health = 240
 	self.gib_health = -100

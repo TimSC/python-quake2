@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, q_shared, m_flash
+from game import g_main, g_local
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_local import (DEAD_DEAD, GIB_ORGANIC, MELEE_DISTANCE, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t)
 from game.g_misc import (ThrowGib, ThrowHead)
@@ -28,7 +28,8 @@ from game.g_monster import (swimmonster_start)
 from game.g_utils import (G_FreeEdict)
 from game.g_weapon import (fire_hit)
 from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
-from game.q_shared import (ATTN_NORM, CHAN_VOICE, CHAN_WEAPON)
+from common.header.shared import ATTN_NORM, CHAN_VOICE, CHAN_WEAPON
+from common.header import shared
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 
 # m_flipper.h
@@ -256,7 +257,7 @@ def flipper_bite (self): #edict_t *
 
 	aim = np.zeros((3,), dtype=np.float32) #vec3_t
 
-	q_shared.VectorSet (aim, MELEE_DISTANCE, 0, 0)
+	shared.VectorSet (aim, MELEE_DISTANCE, 0, 0)
 	fire_hit (self, aim, 5, 0)
 
 
@@ -296,8 +297,8 @@ def flipper_pain (self, other, kick, damage): #edict_t *, edict_t *, float, int
 
 def flipper_dead (self): #edict_t *
 
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, -8)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, -8)
 	self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	self.nextthink = 0
@@ -355,8 +356,8 @@ def SP_monster_flipper (self): #edict_t *
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 	self.s.modelindex = g_main.gi.modelindex ("models/monsters/flipper/tris.md2")
-	q_shared.VectorSet (self.mins, -16, -16, 0)
-	q_shared.VectorSet (self.maxs, 16, 16, 32)
+	shared.VectorSet (self.mins, -16, -16, 0)
+	shared.VectorSet (self.maxs, 16, 16, 32)
 
 	self.health = 50
 	self.gib_health = -30

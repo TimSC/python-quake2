@@ -21,10 +21,16 @@ from __future__ import annotations
 
 import os
 import functools
-from qcommon import cvar, cmd, common, files
+pass
 from client import cl_main, client, cl_scrn, snd_dma, keys, qmenu, cl_view, ref, console
 from linux import vid_so, q_shlinux, net_udp
-from game import q_shared
+pass
+from common.header import shared
+from common.shared import shared as shared_c
+from common import clientserver
+from common import cmdparser
+from common import cvar
+from common import filesystem
 
 """
 #include <ctype.h>
@@ -185,7 +191,7 @@ def M_PushMenu ( draw, key ): #void (*) (void), const char *(*) (int k)
 	"""
 
 	if cvar.Cvar_VariableValue ("maxclients") == 1 \
-		and common.Com_ServerState ():
+		and clientserver.Com_ServerState ():
 		cvar.Cvar_Set ("paused", "1");
 
 	# if this menu is already present, drop back to that level
@@ -205,7 +211,7 @@ def M_PushMenu ( draw, key ): #void (*) (void), const char *(*) (int k)
 	else:
 	
 		if len(m_layers) >= MAX_MENU_DEPTH: # m_menudepth
-			common.Com_Error (q_shared.ERR_FATAL, "M_PushMenu: MAX_MENU_DEPTH")
+			clientserver.Com_Error (shared.ERR_FATAL, "M_PushMenu: MAX_MENU_DEPTH")
 		
 		m_layers.append(menulayer_t(m_drawfunc, m_keyfunc))
 		#m_menudepth++;
@@ -237,7 +243,7 @@ def M_PopMenu ():
 
 	snd_dma.S_StartLocalSound( menu_out_sound )
 	if len(m_layers) == 0:
-		common.Com_Error (q_shared.ERR_FATAL, "M_PopMenu: depth < 1")
+		clientserver.Com_Error (shared.ERR_FATAL, "M_PopMenu: depth < 1")
 	#m_menudepth--;
 
 	layer = m_layers.pop()
@@ -1044,7 +1050,7 @@ def Keys_MenuKey(key): #int (returns const char *)
 
 	if bind_grab:
 		if key not in (keys.K_ESCAPE, ord("`")):
-			cmd.Cbuf_InsertText(
+			cmdparser.Cbuf_InsertText(
 				"bind \"{}\" \"{}\"\n".format(
 					keys.Key_KeynumToString(key),
 					bindnames[item.localdata[0]][0],
@@ -1175,8 +1181,8 @@ def ControlsSetMenuItemValues( ):
 
 def ControlsResetDefaultsFunc( unused ):
 
-	cmd.Cbuf_AddText ("exec default.cfg\n")
-	cmd.Cbuf_Execute()
+	cmdparser.Cbuf_AddText ("exec default.cfg\n")
+	cmdparser.Cbuf_Execute()
 
 	ControlsSetMenuItemValues()
 
@@ -1214,7 +1220,7 @@ def ConsoleFunc( unused ):
 
 	if cl_main.cl.attractloop :
 	
-		cmd.Cbuf_AddText ("killserver\n")
+		cmdparser.Cbuf_AddText ("killserver\n")
 		return
 	
 	console.Key_ClearTyping ()
@@ -1277,7 +1283,7 @@ def Options_MenuInit( ):
 		"angle",
 	] #static const char *
 
-	win_noalttab = cvar.Cvar_Get( "win_noalttab", "0", q_shared.CVAR_ARCHIVE )
+	win_noalttab = cvar.Cvar_Get( "win_noalttab", "0", shared.CVAR_ARCHIVE )
 
 	#
 	# configure controls menu and menu items
@@ -1835,7 +1841,7 @@ def M_Credits_Key(key): #int (returns const char *)
 	if key == keys.K_ESCAPE:
 		global credits_buffer
 		if credits_buffer is not None:
-			files.FS_FreeFile(credits_buffer)
+			filesystem.FS_FreeFile(credits_buffer)
 			credits_buffer = None
 		M_PopMenu()
 
@@ -1847,14 +1853,14 @@ def M_Menu_Credits_f():
 	global credits_start_time, credits, credits_buffer, credits_index
 
 	credits_buffer = None
-	count, credits_buffer = files.FS_LoadFile("credits")
+	count, credits_buffer = filesystem.FS_LoadFile("credits")
 	if count != -1 and credits_buffer is not None:
 		text = credits_buffer.decode("utf-8", errors="replace")
 		lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
 		credits_index = lines[:255]
 		credits = credits_index
 	else:
-		isdeveloper = files.Developer_searchpath(1)
+		isdeveloper = filesystem.Developer_searchpath(1)
 		if isdeveloper == 1:
 			credits = xatcredits
 		elif isdeveloper == 2:
@@ -1897,7 +1903,7 @@ def StartGame( ):
 
 	cvar.Cvar_SetValue( "gamerules", 0 )		#PGM
 
-	cmd.Cbuf_AddText ("loading ; killserver ; wait ; newgame\n")
+	cmdparser.Cbuf_AddText ("loading ; killserver ; wait ; newgame\n")
 	cl_main.cls.key_dest = client.keydest_t.key_game
 
 
@@ -2036,10 +2042,10 @@ m_savevalid = [False] * MAX_SAVEGAMES
 def Create_Savestrings():
 
 	for i in range(MAX_SAVEGAMES):
-		name = "{}/save/save{}/server.ssv".format(files.FS_Gamedir(), i)
+		name = "{}/save/save{}/server.ssv".format(filesystem.FS_Gamedir(), i)
 		try:
 			with open(name, "rb") as f:
-				data = files.FS_Read(32, f)
+				data = filesystem.FS_Read(32, f)
 			m_savestrings[i] = data.decode("utf-8", errors="replace").split("\x00", 1)[0]
 			m_savevalid[i] = True
 		except FileNotFoundError:
@@ -2050,7 +2056,7 @@ def Create_Savestrings():
 def LoadGameCallback(self):
 
 	if m_savevalid[self.localdata[0]]:
-		cmd.Cbuf_AddText("load save{}\n".format(self.localdata[0]))
+		cmdparser.Cbuf_AddText("load save{}\n".format(self.localdata[0]))
 	M_ForceMenuOff()
 
 
@@ -2109,7 +2115,7 @@ SAVEGAME MENU
 """
 def SaveGameCallback(self):
 
-	cmd.Cbuf_AddText("save save{}\n".format(self.localdata[0]))
+	cmdparser.Cbuf_AddText("save save{}\n".format(self.localdata[0]))
 	M_ForceMenuOff()
 
 
@@ -2154,7 +2160,7 @@ def SaveGame_MenuKey(key): #int (returns const char *)
 
 def M_Menu_SaveGame_f ():
 
-	if not common.Com_ServerState():
+	if not clientserver.Com_ServerState():
 		return
 
 	SaveGame_MenuInit()
@@ -2221,14 +2227,14 @@ def JoinServerFunc( self ): #void *
 
 	index = s_joinserver_server_actions.index(self) # ( menuaction_s * ) self - s_joinserver_server_actions;
 
-	if q_shared.Q_stricmp( local_server_names[index], NO_SERVER_STRING ) == 0:
+	if shared_c.Q_stricmp( local_server_names[index], NO_SERVER_STRING ) == 0:
 		return
 
 	if index >= m_num_servers:
 		return
 
 	buffer = "connect {}\n".format(net_udp.NET_AdrToString (local_server_netadr[index]))
-	cmd.Cbuf_AddText (buffer)
+	cmdparser.Cbuf_AddText (buffer)
 	M_ForceMenuOff ()
 
 
@@ -2375,14 +2381,14 @@ def RulesChangeFunc ( self ): #void *
 	elif s_rules_box.curvalue == 1:		# coop				# PGM
 
 		s_maxclients_field.statusbar = "4 maximum for cooperative"
-		if q_shared.atoi(s_maxclients_field.buffer) > 4:
+		if shared_c.atoi(s_maxclients_field.buffer) > 4:
 			s_maxclients_field.buffer = "4"
 		s_startserver_dmoptions_action.statusbar = "N/A for cooperative"
 
 #=====
 #PGM
 	# ROGUE GAMES
-	elif files.Developer_searchpath(2) == 2:
+	elif filesystem.Developer_searchpath(2) == 2:
 
 		if s_rules_box.curvalue == 2:			# tag
 
@@ -2414,9 +2420,9 @@ def StartServerActionFunc( self ): #void *
 	startmap = mapnames[s_startmap_list.curvalue]
 	startmap = startmap[startmap.index('\n') + 1:] # strcpy( startmap, strchr( mapnames[s_startmap_list.curvalue], '\n' ) + 1 );
 
-	maxclients  = q_shared.atoi( s_maxclients_field.buffer )
-	timelimit	= q_shared.atoi( s_timelimit_field.buffer )
-	fraglimit	= q_shared.atoi( s_fraglimit_field.buffer )
+	maxclients  = shared_c.atoi( s_maxclients_field.buffer )
+	timelimit	= shared_c.atoi( s_timelimit_field.buffer )
+	fraglimit	= shared_c.atoi( s_fraglimit_field.buffer )
 
 	cvar.Cvar_SetValue( "maxclients", ClampCvar( 0, maxclients, maxclients ) )
 	cvar.Cvar_SetValue ("timelimit", ClampCvar( 0, timelimit, timelimit ) )
@@ -2426,7 +2432,7 @@ def StartServerActionFunc( self ): #void *
 #	Cvar_SetValue ("coop", s_rules_box.curvalue );
 
 #PGM
-	if (s_rules_box.curvalue < 2) or (files.Developer_searchpath(2) != 2):
+	if (s_rules_box.curvalue < 2) or (filesystem.Developer_searchpath(2) != 2):
 
 		cvar.Cvar_SetValue ("deathmatch", int(not s_rules_box.curvalue) )
 		cvar.Cvar_SetValue ("coop", s_rules_box.curvalue )
@@ -2443,32 +2449,32 @@ def StartServerActionFunc( self ): #void *
 	spot = None
 	if s_rules_box.curvalue == 1:		# PGM
 
-		if q_shared.Q_stricmp(startmap, "bunk1") == 0:
+		if shared_c.Q_stricmp(startmap, "bunk1") == 0:
 			spot = "start"
-		elif q_shared.Q_stricmp(startmap, "mintro") == 0:
+		elif shared_c.Q_stricmp(startmap, "mintro") == 0:
 			spot = "start"
-		elif q_shared.Q_stricmp(startmap, "fact1") == 0:
+		elif shared_c.Q_stricmp(startmap, "fact1") == 0:
 			spot = "start"
-		elif q_shared.Q_stricmp(startmap, "power1") == 0:
+		elif shared_c.Q_stricmp(startmap, "power1") == 0:
 			spot = "pstart"
-		elif q_shared.Q_stricmp(startmap, "biggun") == 0:
+		elif shared_c.Q_stricmp(startmap, "biggun") == 0:
 			spot = "bstart"
-		elif q_shared.Q_stricmp(startmap, "hangar1") == 0:
+		elif shared_c.Q_stricmp(startmap, "hangar1") == 0:
 			spot = "unitstart"
-		elif q_shared.Q_stricmp(startmap, "city1") == 0:
+		elif shared_c.Q_stricmp(startmap, "city1") == 0:
 			spot = "unitstart"
-		elif q_shared.Q_stricmp(startmap, "boss1") == 0:
+		elif shared_c.Q_stricmp(startmap, "boss1") == 0:
 			spot = "bosstart"
 
 	if spot is not None:
 
-		if common.Com_ServerState():
-			cmd.Cbuf_AddText ("disconnect\n")
-		cmd.Cbuf_AddText ("gamemap \"*{}${}\"\n".format(startmap, spot))
+		if clientserver.Com_ServerState():
+			cmdparser.Cbuf_AddText ("disconnect\n")
+		cmdparser.Cbuf_AddText ("gamemap \"*{}${}\"\n".format(startmap, spot))
 
 	else:
 
-		cmd.Cbuf_AddText ("map {}\n".format(startmap))
+		cmdparser.Cbuf_AddText ("map {}\n".format(startmap))
 
 	M_ForceMenuOff ()
 
@@ -2503,16 +2509,16 @@ def StartServer_MenuInit():
 	#
 	# load the list of map names
 	#
-	mapsname = "{}/maps.lst".format(files.FS_Gamedir())
+	mapsname = "{}/maps.lst".format(filesystem.FS_Gamedir())
 	try:
 		fp = open( mapsname, "rb" )
 	except OSError:
 		fp = None
 	if fp is None:
 
-		length, buffer = files.FS_LoadFile( "maps.lst" )
+		length, buffer = filesystem.FS_LoadFile( "maps.lst" )
 		if length == -1 or buffer is None:
-			common.Com_Error( q_shared.ERR_DROP, "couldn't find maps.lst\n" )
+			clientserver.Com_Error( shared.ERR_DROP, "couldn't find maps.lst\n" )
 
 	else:
 
@@ -2529,7 +2535,7 @@ def StartServer_MenuInit():
 		i += 1
 
 	if nummaps == 0:
-		common.Com_Error( q_shared.ERR_DROP, "no maps in maps.lst\n" )
+		clientserver.Com_Error( shared.ERR_DROP, "no maps in maps.lst\n" )
 
 	mapnames = [] # malloc( sizeof( char * ) * ( nummaps + 1 ) );
 
@@ -2542,9 +2548,9 @@ def StartServer_MenuInit():
 		#char  scratch[200];
 		#int		j, l;
 
-		shortname, cursor = q_shared.COM_Parse( s, cursor )
+		shortname, cursor = shared_c.COM_Parse( s, cursor )
 		shortname = shortname.upper() # for (j=0 ; j<l ; j++) shortname[j] = toupper(shortname[j]);
-		longname, cursor = q_shared.COM_Parse( s, cursor )
+		longname, cursor = shared_c.COM_Parse( s, cursor )
 		scratch = "{}\n{}".format(longname, shortname)[:200-1]
 
 		mapnames.append(scratch)
@@ -2572,7 +2578,7 @@ def StartServer_MenuInit():
 	s_rules_box.name	= "rules"
 
 #PGM - rogue games only available with rogue DLL.
-	if files.Developer_searchpath(2) == 2:
+	if filesystem.Developer_searchpath(2) == 2:
 		s_rules_box.itemnames = dm_coop_names_rogue
 	else:
 		s_rules_box.itemnames = dm_coop_names
@@ -2734,116 +2740,116 @@ def DMFlagCallback( self ): #void *
 	if f is s_friendlyfire_box:
 
 		if f.curvalue:
-			flags &= ~q_shared.DF_NO_FRIENDLY_FIRE
+			flags &= ~shared.DF_NO_FRIENDLY_FIRE
 		else:
-			flags |= q_shared.DF_NO_FRIENDLY_FIRE
+			flags |= shared.DF_NO_FRIENDLY_FIRE
 		goto_setvalue = True
 
 	elif f is s_falls_box:
 
 		if f.curvalue:
-			flags &= ~q_shared.DF_NO_FALLING
+			flags &= ~shared.DF_NO_FALLING
 		else:
-			flags |= q_shared.DF_NO_FALLING
+			flags |= shared.DF_NO_FALLING
 		goto_setvalue = True
 
 	elif f is s_weapons_stay_box:
 
-		bit = q_shared.DF_WEAPONS_STAY
+		bit = shared.DF_WEAPONS_STAY
 
 	elif f is s_instant_powerups_box:
 
-		bit = q_shared.DF_INSTANT_ITEMS
+		bit = shared.DF_INSTANT_ITEMS
 
 	elif f is s_allow_exit_box:
 
-		bit = q_shared.DF_ALLOW_EXIT
+		bit = shared.DF_ALLOW_EXIT
 
 	elif f is s_powerups_box:
 
 		if f.curvalue:
-			flags &= ~q_shared.DF_NO_ITEMS
+			flags &= ~shared.DF_NO_ITEMS
 		else:
-			flags |= q_shared.DF_NO_ITEMS
+			flags |= shared.DF_NO_ITEMS
 		goto_setvalue = True
 
 	elif f is s_health_box:
 
 		if f.curvalue:
-			flags &= ~q_shared.DF_NO_HEALTH
+			flags &= ~shared.DF_NO_HEALTH
 		else:
-			flags |= q_shared.DF_NO_HEALTH
+			flags |= shared.DF_NO_HEALTH
 		goto_setvalue = True
 
 	elif f is s_spawn_farthest_box:
 
-		bit = q_shared.DF_SPAWN_FARTHEST
+		bit = shared.DF_SPAWN_FARTHEST
 
 	elif f is s_teamplay_box:
 
 		if f.curvalue == 1:
 
-			flags |=  q_shared.DF_SKINTEAMS
-			flags &= ~q_shared.DF_MODELTEAMS
+			flags |=  shared.DF_SKINTEAMS
+			flags &= ~shared.DF_MODELTEAMS
 
 		elif f.curvalue == 2:
 
-			flags |=  q_shared.DF_MODELTEAMS
-			flags &= ~q_shared.DF_SKINTEAMS
+			flags |=  shared.DF_MODELTEAMS
+			flags &= ~shared.DF_SKINTEAMS
 
 		else:
 
-			flags &= ~( q_shared.DF_MODELTEAMS | q_shared.DF_SKINTEAMS )
+			flags &= ~( shared.DF_MODELTEAMS | shared.DF_SKINTEAMS )
 
 		goto_setvalue = True
 
 	elif f is s_samelevel_box:
 
-		bit = q_shared.DF_SAME_LEVEL
+		bit = shared.DF_SAME_LEVEL
 
 	elif f is s_force_respawn_box:
 
-		bit = q_shared.DF_FORCE_RESPAWN
+		bit = shared.DF_FORCE_RESPAWN
 
 	elif f is s_armor_box:
 
 		if f.curvalue:
-			flags &= ~q_shared.DF_NO_ARMOR
+			flags &= ~shared.DF_NO_ARMOR
 		else:
-			flags |= q_shared.DF_NO_ARMOR
+			flags |= shared.DF_NO_ARMOR
 		goto_setvalue = True
 
 	elif f is s_infinite_ammo_box:
 
-		bit = q_shared.DF_INFINITE_AMMO
+		bit = shared.DF_INFINITE_AMMO
 
 	elif f is s_fixed_fov_box:
 
-		bit = q_shared.DF_FIXED_FOV
+		bit = shared.DF_FIXED_FOV
 
 	elif f is s_quad_drop_box:
 
-		bit = q_shared.DF_QUAD_DROP
+		bit = shared.DF_QUAD_DROP
 
 #=======
 #ROGUE
-	elif files.Developer_searchpath(2) == 2:
+	elif filesystem.Developer_searchpath(2) == 2:
 
 		if f is s_no_mines_box:
 
-			bit = q_shared.DF_NO_MINES
+			bit = shared.DF_NO_MINES
 
 		elif f is s_no_nukes_box:
 
-			bit = q_shared.DF_NO_NUKES
+			bit = shared.DF_NO_NUKES
 
 		elif f is s_stack_double_box:
 
-			bit = q_shared.DF_NO_STACK_DOUBLE
+			bit = shared.DF_NO_STACK_DOUBLE
 
 		elif f is s_no_spheres_box:
 
-			bit = q_shared.DF_NO_SPHERES
+			bit = shared.DF_NO_SPHERES
 
 #ROGUE
 #=======
@@ -2884,7 +2890,7 @@ def DMOptions_MenuInit():
 	s_falls_box.name	= "falling damage"
 	s_falls_box.callback = DMFlagCallback
 	s_falls_box.itemnames = yes_no_names
-	s_falls_box.curvalue = int(( dmflags & q_shared.DF_NO_FALLING ) == 0)
+	s_falls_box.curvalue = int(( dmflags & shared.DF_NO_FALLING ) == 0)
 
 	s_weapons_stay_box.type = MTYPE_SPINCONTROL
 	s_weapons_stay_box.x	= 0
@@ -2893,7 +2899,7 @@ def DMOptions_MenuInit():
 	s_weapons_stay_box.name	= "weapons stay"
 	s_weapons_stay_box.callback = DMFlagCallback
 	s_weapons_stay_box.itemnames = yes_no_names
-	s_weapons_stay_box.curvalue = int(( dmflags & q_shared.DF_WEAPONS_STAY ) != 0)
+	s_weapons_stay_box.curvalue = int(( dmflags & shared.DF_WEAPONS_STAY ) != 0)
 
 	s_instant_powerups_box.type = MTYPE_SPINCONTROL
 	s_instant_powerups_box.x	= 0
@@ -2902,7 +2908,7 @@ def DMOptions_MenuInit():
 	s_instant_powerups_box.name	= "instant powerups"
 	s_instant_powerups_box.callback = DMFlagCallback
 	s_instant_powerups_box.itemnames = yes_no_names
-	s_instant_powerups_box.curvalue = int(( dmflags & q_shared.DF_INSTANT_ITEMS ) != 0)
+	s_instant_powerups_box.curvalue = int(( dmflags & shared.DF_INSTANT_ITEMS ) != 0)
 
 	s_powerups_box.type = MTYPE_SPINCONTROL
 	s_powerups_box.x	= 0
@@ -2911,7 +2917,7 @@ def DMOptions_MenuInit():
 	s_powerups_box.name	= "allow powerups"
 	s_powerups_box.callback = DMFlagCallback
 	s_powerups_box.itemnames = yes_no_names
-	s_powerups_box.curvalue = int(( dmflags & q_shared.DF_NO_ITEMS ) == 0)
+	s_powerups_box.curvalue = int(( dmflags & shared.DF_NO_ITEMS ) == 0)
 
 	s_health_box.type = MTYPE_SPINCONTROL
 	s_health_box.x	= 0
@@ -2920,7 +2926,7 @@ def DMOptions_MenuInit():
 	s_health_box.callback = DMFlagCallback
 	s_health_box.name	= "allow health"
 	s_health_box.itemnames = yes_no_names
-	s_health_box.curvalue = int(( dmflags & q_shared.DF_NO_HEALTH ) == 0)
+	s_health_box.curvalue = int(( dmflags & shared.DF_NO_HEALTH ) == 0)
 
 	s_armor_box.type = MTYPE_SPINCONTROL
 	s_armor_box.x	= 0
@@ -2929,7 +2935,7 @@ def DMOptions_MenuInit():
 	s_armor_box.name	= "allow armor"
 	s_armor_box.callback = DMFlagCallback
 	s_armor_box.itemnames = yes_no_names
-	s_armor_box.curvalue = int(( dmflags & q_shared.DF_NO_ARMOR ) == 0)
+	s_armor_box.curvalue = int(( dmflags & shared.DF_NO_ARMOR ) == 0)
 
 	s_spawn_farthest_box.type = MTYPE_SPINCONTROL
 	s_spawn_farthest_box.x	= 0
@@ -2938,7 +2944,7 @@ def DMOptions_MenuInit():
 	s_spawn_farthest_box.name	= "spawn farthest"
 	s_spawn_farthest_box.callback = DMFlagCallback
 	s_spawn_farthest_box.itemnames = yes_no_names
-	s_spawn_farthest_box.curvalue = int(( dmflags & q_shared.DF_SPAWN_FARTHEST ) != 0)
+	s_spawn_farthest_box.curvalue = int(( dmflags & shared.DF_SPAWN_FARTHEST ) != 0)
 
 	s_samelevel_box.type = MTYPE_SPINCONTROL
 	s_samelevel_box.x	= 0
@@ -2947,7 +2953,7 @@ def DMOptions_MenuInit():
 	s_samelevel_box.name	= "same map"
 	s_samelevel_box.callback = DMFlagCallback
 	s_samelevel_box.itemnames = yes_no_names
-	s_samelevel_box.curvalue = int(( dmflags & q_shared.DF_SAME_LEVEL ) != 0)
+	s_samelevel_box.curvalue = int(( dmflags & shared.DF_SAME_LEVEL ) != 0)
 
 	s_force_respawn_box.type = MTYPE_SPINCONTROL
 	s_force_respawn_box.x	= 0
@@ -2956,7 +2962,7 @@ def DMOptions_MenuInit():
 	s_force_respawn_box.name	= "force respawn"
 	s_force_respawn_box.callback = DMFlagCallback
 	s_force_respawn_box.itemnames = yes_no_names
-	s_force_respawn_box.curvalue = int(( dmflags & q_shared.DF_FORCE_RESPAWN ) != 0)
+	s_force_respawn_box.curvalue = int(( dmflags & shared.DF_FORCE_RESPAWN ) != 0)
 
 	s_teamplay_box.type = MTYPE_SPINCONTROL
 	s_teamplay_box.x	= 0
@@ -2973,7 +2979,7 @@ def DMOptions_MenuInit():
 	s_allow_exit_box.name	= "allow exit"
 	s_allow_exit_box.callback = DMFlagCallback
 	s_allow_exit_box.itemnames = yes_no_names
-	s_allow_exit_box.curvalue = int(( dmflags & q_shared.DF_ALLOW_EXIT ) != 0)
+	s_allow_exit_box.curvalue = int(( dmflags & shared.DF_ALLOW_EXIT ) != 0)
 
 	s_infinite_ammo_box.type = MTYPE_SPINCONTROL
 	s_infinite_ammo_box.x	= 0
@@ -2982,7 +2988,7 @@ def DMOptions_MenuInit():
 	s_infinite_ammo_box.name	= "infinite ammo"
 	s_infinite_ammo_box.callback = DMFlagCallback
 	s_infinite_ammo_box.itemnames = yes_no_names
-	s_infinite_ammo_box.curvalue = int(( dmflags & q_shared.DF_INFINITE_AMMO ) != 0)
+	s_infinite_ammo_box.curvalue = int(( dmflags & shared.DF_INFINITE_AMMO ) != 0)
 
 	s_fixed_fov_box.type = MTYPE_SPINCONTROL
 	s_fixed_fov_box.x	= 0
@@ -2991,7 +2997,7 @@ def DMOptions_MenuInit():
 	s_fixed_fov_box.name	= "fixed FOV"
 	s_fixed_fov_box.callback = DMFlagCallback
 	s_fixed_fov_box.itemnames = yes_no_names
-	s_fixed_fov_box.curvalue = int(( dmflags & q_shared.DF_FIXED_FOV ) != 0)
+	s_fixed_fov_box.curvalue = int(( dmflags & shared.DF_FIXED_FOV ) != 0)
 
 	s_quad_drop_box.type = MTYPE_SPINCONTROL
 	s_quad_drop_box.x	= 0
@@ -3000,7 +3006,7 @@ def DMOptions_MenuInit():
 	s_quad_drop_box.name	= "quad drop"
 	s_quad_drop_box.callback = DMFlagCallback
 	s_quad_drop_box.itemnames = yes_no_names
-	s_quad_drop_box.curvalue = int(( dmflags & q_shared.DF_QUAD_DROP ) != 0)
+	s_quad_drop_box.curvalue = int(( dmflags & shared.DF_QUAD_DROP ) != 0)
 
 	s_friendlyfire_box.type = MTYPE_SPINCONTROL
 	s_friendlyfire_box.x	= 0
@@ -3009,11 +3015,11 @@ def DMOptions_MenuInit():
 	s_friendlyfire_box.name	= "friendly fire"
 	s_friendlyfire_box.callback = DMFlagCallback
 	s_friendlyfire_box.itemnames = yes_no_names
-	s_friendlyfire_box.curvalue = int(( dmflags & q_shared.DF_NO_FRIENDLY_FIRE ) == 0)
+	s_friendlyfire_box.curvalue = int(( dmflags & shared.DF_NO_FRIENDLY_FIRE ) == 0)
 
 #============
 #ROGUE
-	if files.Developer_searchpath(2) == 2:
+	if filesystem.Developer_searchpath(2) == 2:
 
 		s_no_mines_box.type = MTYPE_SPINCONTROL
 		s_no_mines_box.x	= 0
@@ -3022,7 +3028,7 @@ def DMOptions_MenuInit():
 		s_no_mines_box.name	= "remove mines"
 		s_no_mines_box.callback = DMFlagCallback
 		s_no_mines_box.itemnames = yes_no_names
-		s_no_mines_box.curvalue = int(( dmflags & q_shared.DF_NO_MINES ) != 0)
+		s_no_mines_box.curvalue = int(( dmflags & shared.DF_NO_MINES ) != 0)
 
 		s_no_nukes_box.type = MTYPE_SPINCONTROL
 		s_no_nukes_box.x	= 0
@@ -3031,7 +3037,7 @@ def DMOptions_MenuInit():
 		s_no_nukes_box.name	= "remove nukes"
 		s_no_nukes_box.callback = DMFlagCallback
 		s_no_nukes_box.itemnames = yes_no_names
-		s_no_nukes_box.curvalue = int(( dmflags & q_shared.DF_NO_NUKES ) != 0)
+		s_no_nukes_box.curvalue = int(( dmflags & shared.DF_NO_NUKES ) != 0)
 
 		s_stack_double_box.type = MTYPE_SPINCONTROL
 		s_stack_double_box.x	= 0
@@ -3040,7 +3046,7 @@ def DMOptions_MenuInit():
 		s_stack_double_box.name	= "2x/4x stacking off"
 		s_stack_double_box.callback = DMFlagCallback
 		s_stack_double_box.itemnames = yes_no_names
-		s_stack_double_box.curvalue = int(( dmflags & q_shared.DF_NO_STACK_DOUBLE ) != 0)
+		s_stack_double_box.curvalue = int(( dmflags & shared.DF_NO_STACK_DOUBLE ) != 0)
 
 		s_no_spheres_box.type = MTYPE_SPINCONTROL
 		s_no_spheres_box.x	= 0
@@ -3049,7 +3055,7 @@ def DMOptions_MenuInit():
 		s_no_spheres_box.name	= "remove spheres"
 		s_no_spheres_box.callback = DMFlagCallback
 		s_no_spheres_box.itemnames = yes_no_names
-		s_no_spheres_box.curvalue = int(( dmflags & q_shared.DF_NO_SPHERES ) != 0)
+		s_no_spheres_box.curvalue = int(( dmflags & shared.DF_NO_SPHERES ) != 0)
 
 #ROGUE
 #============
@@ -3072,7 +3078,7 @@ def DMOptions_MenuInit():
 
 #=======
 #ROGUE
-	if files.Developer_searchpath(2) == 2:
+	if filesystem.Developer_searchpath(2) == 2:
 
 		qmenu.Menu_AddItem( s_dmoptions_menu, s_no_mines_box )
 		qmenu.Menu_AddItem( s_dmoptions_menu, s_no_nukes_box )
@@ -3264,7 +3270,7 @@ def AddressBook_MenuInit():
 
 		buffer = "adr{}".format(i)
 
-		adr = cvar.Cvar_Get( buffer, "", q_shared.CVAR_ARCHIVE )
+		adr = cvar.Cvar_Get( buffer, "", shared.CVAR_ARCHIVE )
 
 		s_addressbook_fields[i].type = MTYPE_FIELD
 		s_addressbook_fields[i].name = None
@@ -3422,16 +3428,16 @@ def PlayerConfig_ScanDirectories(): #(returns qboolean)
 	#
 	while True:
 
-		path = files.FS_NextPath( path )
+		path = filesystem.FS_NextPath( path )
 		findname = "{}/players/*.*".format(path)
 
-		dirnames = files.FS_ListFiles( findname, q_shared.SFF_SUBDIR, 0 )
-		if dirnames is not None:
+		dirnames = filesystem.FS_ListFiles( findname, shared.SFF_SUBDIR, 0 )
+		if dirnames:
 			break
 		if not path:
 			break
 
-	if dirnames is None:
+	if not dirnames:
 		return False
 
 	ndirs = len(dirnames) # python lists have no trailing NULL guard entry
@@ -3460,7 +3466,7 @@ def PlayerConfig_ScanDirectories(): #(returns qboolean)
 		# verify the existence of tris.md2
 		scratch = dirnames[i]
 		scratch += "/tris.md2"
-		if not q_shlinux.Sys_FindFirst( scratch, 0, q_shared.SFF_SUBDIR | q_shared.SFF_HIDDEN | q_shared.SFF_SYSTEM ):
+		if not q_shlinux.Sys_FindFirst( scratch, 0, shared.SFF_SUBDIR | shared.SFF_HIDDEN | shared.SFF_SYSTEM ):
 
 			dirnames[i] = None
 			q_shlinux.Sys_FindClose()
@@ -3471,9 +3477,9 @@ def PlayerConfig_ScanDirectories(): #(returns qboolean)
 		# verify the existence of at least one pcx skin
 		scratch = dirnames[i]
 		scratch += "/*.pcx"
-		pcxnames = files.FS_ListFiles( scratch, 0, q_shared.SFF_SUBDIR | q_shared.SFF_HIDDEN | q_shared.SFF_SYSTEM )
+		pcxnames = filesystem.FS_ListFiles( scratch, 0, shared.SFF_SUBDIR | shared.SFF_HIDDEN | shared.SFF_SYSTEM )
 
-		if pcxnames is None:
+		if not pcxnames:
 
 			dirnames[i] = None
 			continue
@@ -3583,7 +3589,7 @@ def PlayerConfig_MenuInit(): #(returns qboolean)
 	currentdirectoryindex = 0
 	currentskinindex = 0
 
-	hand = cvar.Cvar_Get( "hand", "0", q_shared.CVAR_USERINFO | q_shared.CVAR_ARCHIVE )
+	hand = cvar.Cvar_Get( "hand", "0", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE )
 
 	handedness = [ "right", "left", "center" ] #static const char *[]
 
@@ -3618,7 +3624,7 @@ def PlayerConfig_MenuInit(): #(returns qboolean)
 	for i in range(s_numplayermodels):
 
 		s_pmnames.append(s_pmi[i].displayname)
-		if q_shared.Q_stricmp( s_pmi[i].directory, currentdirectory ) == 0:
+		if shared_c.Q_stricmp( s_pmi[i].directory, currentdirectory ) == 0:
 
 			#int j;
 
@@ -3626,7 +3632,7 @@ def PlayerConfig_MenuInit(): #(returns qboolean)
 
 			for j in range(s_pmi[i].nskins):
 
-				if q_shared.Q_stricmp( s_pmi[i].skindisplaynames[j], currentskin ) == 0:
+				if shared_c.Q_stricmp( s_pmi[i].skindisplaynames[j], currentskin ) == 0:
 
 					currentskinindex = j
 					break
@@ -3763,11 +3769,11 @@ def PlayerConfig_MenuDraw():
 		entity.model = vid_so.re.RegisterModel( scratch )
 		scratch = "players/{}/{}.pcx".format(s_pmi[s_player_model_box.curvalue].directory, s_pmi[s_player_model_box.curvalue].skindisplaynames[s_player_skin_box.curvalue])
 		entity.skin = vid_so.re.RegisterSkin( scratch )
-		entity.flags = q_shared.RF_FULLBRIGHT
+		entity.flags = shared.RF_FULLBRIGHT
 		entity.origin[0] = 80
 		entity.origin[1] = 0
 		entity.origin[2] = 0
-		q_shared.VectorCopy( entity.origin, entity.oldorigin )
+		shared.VectorCopy( entity.origin, entity.oldorigin )
 		entity.frame = 0
 		entity.oldframe = 0
 		entity.backlerp = 0.0
@@ -3781,7 +3787,7 @@ def PlayerConfig_MenuDraw():
 		refdef.num_entities = 1
 		refdef.entities = [entity] # &entity
 		refdef.lightstyles = None
-		refdef.rdflags = q_shared.RDF_NOWORLDMODEL
+		refdef.rdflags = shared.RDF_NOWORLDMODEL
 
 		qmenu.Menu_Draw( s_player_config_menu )
 
@@ -3897,27 +3903,27 @@ M_Init
 """
 def M_Init ():
 
-	cmd.Cmd_AddCommand ("menu_main", M_Menu_Main_f)
-	cmd.Cmd_AddCommand ("menu_game", M_Menu_Game_f)
+	cmdparser.Cmd_AddCommand ("menu_main", M_Menu_Main_f)
+	cmdparser.Cmd_AddCommand ("menu_game", M_Menu_Game_f)
 	if 1: #Keep indent as in original c code
-		cmd.Cmd_AddCommand ("menu_loadgame", M_Menu_LoadGame_f)
-		cmd.Cmd_AddCommand ("menu_savegame", M_Menu_SaveGame_f)
-		cmd.Cmd_AddCommand ("menu_joinserver", M_Menu_JoinServer_f)
+		cmdparser.Cmd_AddCommand ("menu_loadgame", M_Menu_LoadGame_f)
+		cmdparser.Cmd_AddCommand ("menu_savegame", M_Menu_SaveGame_f)
+		cmdparser.Cmd_AddCommand ("menu_joinserver", M_Menu_JoinServer_f)
 		if 1:
-			cmd.Cmd_AddCommand ("menu_addressbook", M_Menu_AddressBook_f)
-		cmd.Cmd_AddCommand ("menu_startserver", M_Menu_StartServer_f)
+			cmdparser.Cmd_AddCommand ("menu_addressbook", M_Menu_AddressBook_f)
+		cmdparser.Cmd_AddCommand ("menu_startserver", M_Menu_StartServer_f)
 		if 1:
-			cmd.Cmd_AddCommand ("menu_dmoptions", M_Menu_DMOptions_f)
-		cmd.Cmd_AddCommand ("menu_playerconfig", M_Menu_PlayerConfig_f)
+			cmdparser.Cmd_AddCommand ("menu_dmoptions", M_Menu_DMOptions_f)
+		cmdparser.Cmd_AddCommand ("menu_playerconfig", M_Menu_PlayerConfig_f)
 		if 1:
-			cmd.Cmd_AddCommand ("menu_downloadoptions", M_Menu_DownloadOptions_f)
-		cmd.Cmd_AddCommand ("menu_credits", M_Menu_Credits_f )
-	cmd.Cmd_AddCommand ("menu_multiplayer", M_Menu_Multiplayer_f )
-	cmd.Cmd_AddCommand ("menu_video", M_Menu_Video_f)
-	cmd.Cmd_AddCommand ("menu_options", M_Menu_Options_f)
+			cmdparser.Cmd_AddCommand ("menu_downloadoptions", M_Menu_DownloadOptions_f)
+		cmdparser.Cmd_AddCommand ("menu_credits", M_Menu_Credits_f )
+	cmdparser.Cmd_AddCommand ("menu_multiplayer", M_Menu_Multiplayer_f )
+	cmdparser.Cmd_AddCommand ("menu_video", M_Menu_Video_f)
+	cmdparser.Cmd_AddCommand ("menu_options", M_Menu_Options_f)
 	if 1:
-		cmd.Cmd_AddCommand ("menu_keys", M_Menu_Keys_f)
-	cmd.Cmd_AddCommand ("menu_quit", M_Menu_Quit_f)
+		cmdparser.Cmd_AddCommand ("menu_keys", M_Menu_Keys_f)
+	cmdparser.Cmd_AddCommand ("menu_quit", M_Menu_Quit_f)
 
 
 

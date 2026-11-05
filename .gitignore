@@ -43,3 +43,6 @@ out/
 *.so
 *.pyd
 *.dll
+
+# Yamagi Quake II checkout (its own git repository), used as the C reference
+yquake2/

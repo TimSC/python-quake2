@@ -22,8 +22,14 @@ from __future__ import annotations
 import copy
 import numpy as np
 from server import sv_init, sv_main, sv_game
-from qcommon import qcommon, common, cmodel
-from game import q_shared, game
+from qcommon import cmodel
+from game import game
+from common.header import common as common_h
+from common.header import shared
+from common.shared import shared as shared_c
+from common import clientserver
+from common import movemsg
+from common import szone
 """
 #include "server.h"
 
@@ -66,7 +72,7 @@ def SV_EmitPacketEntities (frm, to, msg): #client_frame_t *, client_frame_t *, s
 	newnum = 0
 	bits = 0
 
-	common.MSG_WriteByte (msg, qcommon.svc_ops_e.svc_packetentities.value)
+	movemsg.MSG_WriteByte (msg, common_h.svc_ops_e.svc_packetentities.value)
 
 	if not frm:
 		from_num_entities = 0
@@ -94,36 +100,36 @@ def SV_EmitPacketEntities (frm, to, msg): #client_frame_t *, client_frame_t *, s
 			# in any bytes being emited if the entity has not changed at all
 			# note that players are always 'newentities', this updates their oldorigin always
 			# and prevents warping
-			common.MSG_WriteDeltaEntity (oldent, newent, msg, False, newent.number <= int(sv_main.maxclients.value))
+			movemsg.MSG_WriteDeltaEntity (oldent, newent, msg, False, newent.number <= int(sv_main.maxclients.value))
 			oldindex += 1
 			newindex += 1
 			continue
 
 		if newnum < oldnum:
 			# this is a new entity, send it from the baseline
-			common.MSG_WriteDeltaEntity (sv_init.sv.baselines[newnum], newent, msg, True, True)
+			movemsg.MSG_WriteDeltaEntity (sv_init.sv.baselines[newnum], newent, msg, True, True)
 			newindex += 1
 			continue
 
 		if newnum > oldnum:
 			# the old entity isn't present in the new message
-			bits = qcommon.U_REMOVE
+			bits = common_h.U_REMOVE
 			if oldnum >= 256:
-				bits |= qcommon.U_NUMBER16 | qcommon.U_MOREBITS1
+				bits |= common_h.U_NUMBER16 | common_h.U_MOREBITS1
 
-			common.MSG_WriteByte (msg, bits&255)
+			movemsg.MSG_WriteByte (msg, bits&255)
 			if bits & 0x0000ff00:
-				common.MSG_WriteByte (msg, (bits>>8)&255)
+				movemsg.MSG_WriteByte (msg, (bits>>8)&255)
 
-			if bits & qcommon.U_NUMBER16:
-				common.MSG_WriteShort (msg, oldnum)
+			if bits & common_h.U_NUMBER16:
+				movemsg.MSG_WriteShort (msg, oldnum)
 			else:
-				common.MSG_WriteByte (msg, oldnum)
+				movemsg.MSG_WriteByte (msg, oldnum)
 
 			oldindex += 1
 			continue
 
-	common.MSG_WriteShort (msg, 0)	# end of packetentities
+	movemsg.MSG_WriteShort (msg, 0)	# end of packetentities
 
 
 """
@@ -145,7 +151,7 @@ def SV_WritePlayerstateToClient (frm, to, msg): #client_frame_t *, client_frame_
 
 	ps = to.ps
 	if not frm:
-		dummy = q_shared.player_state_t()
+		dummy = shared.player_state_t()
 		ops = dummy
 	else:
 		ops = frm.ps
@@ -156,149 +162,149 @@ def SV_WritePlayerstateToClient (frm, to, msg): #client_frame_t *, client_frame_
 	pflags = 0
 
 	if ps.pmove.pm_type != ops.pmove.pm_type:
-		pflags |= qcommon.PS_M_TYPE
+		pflags |= common_h.PS_M_TYPE
 
 	if (ps.pmove.origin[0] != ops.pmove.origin[0]
 		or ps.pmove.origin[1] != ops.pmove.origin[1]
 		or ps.pmove.origin[2] != ops.pmove.origin[2]):
-		pflags |= qcommon.PS_M_ORIGIN
+		pflags |= common_h.PS_M_ORIGIN
 
 	if (ps.pmove.velocity[0] != ops.pmove.velocity[0]
 		or ps.pmove.velocity[1] != ops.pmove.velocity[1]
 		or ps.pmove.velocity[2] != ops.pmove.velocity[2]):
-		pflags |= qcommon.PS_M_VELOCITY
+		pflags |= common_h.PS_M_VELOCITY
 
 	if ps.pmove.pm_time != ops.pmove.pm_time:
-		pflags |= qcommon.PS_M_TIME
+		pflags |= common_h.PS_M_TIME
 
 	if ps.pmove.pm_flags != ops.pmove.pm_flags:
-		pflags |= qcommon.PS_M_FLAGS
+		pflags |= common_h.PS_M_FLAGS
 
 	if ps.pmove.gravity != ops.pmove.gravity:
-		pflags |= qcommon.PS_M_GRAVITY
+		pflags |= common_h.PS_M_GRAVITY
 
 	if (ps.pmove.delta_angles[0] != ops.pmove.delta_angles[0]
 		or ps.pmove.delta_angles[1] != ops.pmove.delta_angles[1]
 		or ps.pmove.delta_angles[2] != ops.pmove.delta_angles[2]):
-		pflags |= qcommon.PS_M_DELTA_ANGLES
+		pflags |= common_h.PS_M_DELTA_ANGLES
 
 	if (ps.viewoffset[0] != ops.viewoffset[0]
 		or ps.viewoffset[1] != ops.viewoffset[1]
 		or ps.viewoffset[2] != ops.viewoffset[2]):
-		pflags |= qcommon.PS_VIEWOFFSET
+		pflags |= common_h.PS_VIEWOFFSET
 
 	if (ps.viewangles[0] != ops.viewangles[0]
 		or ps.viewangles[1] != ops.viewangles[1]
 		or ps.viewangles[2] != ops.viewangles[2]):
-		pflags |= qcommon.PS_VIEWANGLES
+		pflags |= common_h.PS_VIEWANGLES
 
 	if (ps.kick_angles[0] != ops.kick_angles[0]
 		or ps.kick_angles[1] != ops.kick_angles[1]
 		or ps.kick_angles[2] != ops.kick_angles[2]):
-		pflags |= qcommon.PS_KICKANGLES
+		pflags |= common_h.PS_KICKANGLES
 
 	if (ps.blend[0] != ops.blend[0]
 		or ps.blend[1] != ops.blend[1]
 		or ps.blend[2] != ops.blend[2]
 		or ps.blend[3] != ops.blend[3]):
-		pflags |= qcommon.PS_BLEND
+		pflags |= common_h.PS_BLEND
 
 	if ps.fov != ops.fov:
-		pflags |= qcommon.PS_FOV
+		pflags |= common_h.PS_FOV
 
 	if ps.rdflags != ops.rdflags:
-		pflags |= qcommon.PS_RDFLAGS
+		pflags |= common_h.PS_RDFLAGS
 
 	if ps.gunframe != ops.gunframe:
-		pflags |= qcommon.PS_WEAPONFRAME
+		pflags |= common_h.PS_WEAPONFRAME
 
-	pflags |= qcommon.PS_WEAPONINDEX
+	pflags |= common_h.PS_WEAPONINDEX
 
 	#
 	# write it
 	#
-	common.MSG_WriteByte (msg, qcommon.svc_ops_e.svc_playerinfo.value)
-	common.MSG_WriteShort (msg, pflags)
+	movemsg.MSG_WriteByte (msg, common_h.svc_ops_e.svc_playerinfo.value)
+	movemsg.MSG_WriteShort (msg, pflags)
 
 	#
 	# write the pmove_state_t
 	#
-	if pflags & qcommon.PS_M_TYPE:
-		common.MSG_WriteByte (msg, ps.pmove.pm_type)
+	if pflags & common_h.PS_M_TYPE:
+		movemsg.MSG_WriteByte (msg, ps.pmove.pm_type)
 
-	if pflags & qcommon.PS_M_ORIGIN:
-		common.MSG_WriteShort (msg, int(ps.pmove.origin[0]))
-		common.MSG_WriteShort (msg, int(ps.pmove.origin[1]))
-		common.MSG_WriteShort (msg, int(ps.pmove.origin[2]))
+	if pflags & common_h.PS_M_ORIGIN:
+		movemsg.MSG_WriteShort (msg, int(ps.pmove.origin[0]))
+		movemsg.MSG_WriteShort (msg, int(ps.pmove.origin[1]))
+		movemsg.MSG_WriteShort (msg, int(ps.pmove.origin[2]))
 
-	if pflags & qcommon.PS_M_VELOCITY:
-		common.MSG_WriteShort (msg, int(ps.pmove.velocity[0]))
-		common.MSG_WriteShort (msg, int(ps.pmove.velocity[1]))
-		common.MSG_WriteShort (msg, int(ps.pmove.velocity[2]))
+	if pflags & common_h.PS_M_VELOCITY:
+		movemsg.MSG_WriteShort (msg, int(ps.pmove.velocity[0]))
+		movemsg.MSG_WriteShort (msg, int(ps.pmove.velocity[1]))
+		movemsg.MSG_WriteShort (msg, int(ps.pmove.velocity[2]))
 
-	if pflags & qcommon.PS_M_TIME:
-		common.MSG_WriteByte (msg, ps.pmove.pm_time)
+	if pflags & common_h.PS_M_TIME:
+		movemsg.MSG_WriteByte (msg, ps.pmove.pm_time)
 
-	if pflags & qcommon.PS_M_FLAGS:
-		common.MSG_WriteByte (msg, ps.pmove.pm_flags)
+	if pflags & common_h.PS_M_FLAGS:
+		movemsg.MSG_WriteByte (msg, ps.pmove.pm_flags)
 
-	if pflags & qcommon.PS_M_GRAVITY:
-		common.MSG_WriteShort (msg, int(ps.pmove.gravity))
+	if pflags & common_h.PS_M_GRAVITY:
+		movemsg.MSG_WriteShort (msg, int(ps.pmove.gravity))
 
-	if pflags & qcommon.PS_M_DELTA_ANGLES:
-		common.MSG_WriteShort (msg, int(ps.pmove.delta_angles[0]))
-		common.MSG_WriteShort (msg, int(ps.pmove.delta_angles[1]))
-		common.MSG_WriteShort (msg, int(ps.pmove.delta_angles[2]))
+	if pflags & common_h.PS_M_DELTA_ANGLES:
+		movemsg.MSG_WriteShort (msg, int(ps.pmove.delta_angles[0]))
+		movemsg.MSG_WriteShort (msg, int(ps.pmove.delta_angles[1]))
+		movemsg.MSG_WriteShort (msg, int(ps.pmove.delta_angles[2]))
 
 	#
 	# write the rest of the player_state_t
 	#
-	if pflags & qcommon.PS_VIEWOFFSET:
-		common.MSG_WriteChar (msg, int(ps.viewoffset[0]*4))
-		common.MSG_WriteChar (msg, int(ps.viewoffset[1]*4))
-		common.MSG_WriteChar (msg, int(ps.viewoffset[2]*4))
+	if pflags & common_h.PS_VIEWOFFSET:
+		movemsg.MSG_WriteChar (msg, int(ps.viewoffset[0]*4))
+		movemsg.MSG_WriteChar (msg, int(ps.viewoffset[1]*4))
+		movemsg.MSG_WriteChar (msg, int(ps.viewoffset[2]*4))
 
-	if pflags & qcommon.PS_VIEWANGLES:
-		common.MSG_WriteAngle16 (msg, ps.viewangles[0])
-		common.MSG_WriteAngle16 (msg, ps.viewangles[1])
-		common.MSG_WriteAngle16 (msg, ps.viewangles[2])
+	if pflags & common_h.PS_VIEWANGLES:
+		movemsg.MSG_WriteAngle16 (msg, ps.viewangles[0])
+		movemsg.MSG_WriteAngle16 (msg, ps.viewangles[1])
+		movemsg.MSG_WriteAngle16 (msg, ps.viewangles[2])
 
-	if pflags & qcommon.PS_KICKANGLES:
-		common.MSG_WriteChar (msg, int(ps.kick_angles[0]*4))
-		common.MSG_WriteChar (msg, int(ps.kick_angles[1]*4))
-		common.MSG_WriteChar (msg, int(ps.kick_angles[2]*4))
+	if pflags & common_h.PS_KICKANGLES:
+		movemsg.MSG_WriteChar (msg, int(ps.kick_angles[0]*4))
+		movemsg.MSG_WriteChar (msg, int(ps.kick_angles[1]*4))
+		movemsg.MSG_WriteChar (msg, int(ps.kick_angles[2]*4))
 
-	if pflags & qcommon.PS_WEAPONINDEX:
-		common.MSG_WriteByte (msg, ps.gunindex)
+	if pflags & common_h.PS_WEAPONINDEX:
+		movemsg.MSG_WriteByte (msg, ps.gunindex)
 
-	if pflags & qcommon.PS_WEAPONFRAME:
-		common.MSG_WriteByte (msg, ps.gunframe)
-		common.MSG_WriteChar (msg, int(ps.gunoffset[0]*4))
-		common.MSG_WriteChar (msg, int(ps.gunoffset[1]*4))
-		common.MSG_WriteChar (msg, int(ps.gunoffset[2]*4))
-		common.MSG_WriteChar (msg, int(ps.gunangles[0]*4))
-		common.MSG_WriteChar (msg, int(ps.gunangles[1]*4))
-		common.MSG_WriteChar (msg, int(ps.gunangles[2]*4))
+	if pflags & common_h.PS_WEAPONFRAME:
+		movemsg.MSG_WriteByte (msg, ps.gunframe)
+		movemsg.MSG_WriteChar (msg, int(ps.gunoffset[0]*4))
+		movemsg.MSG_WriteChar (msg, int(ps.gunoffset[1]*4))
+		movemsg.MSG_WriteChar (msg, int(ps.gunoffset[2]*4))
+		movemsg.MSG_WriteChar (msg, int(ps.gunangles[0]*4))
+		movemsg.MSG_WriteChar (msg, int(ps.gunangles[1]*4))
+		movemsg.MSG_WriteChar (msg, int(ps.gunangles[2]*4))
 
-	if pflags & qcommon.PS_BLEND:
-		common.MSG_WriteByte (msg, int(ps.blend[0]*255))
-		common.MSG_WriteByte (msg, int(ps.blend[1]*255))
-		common.MSG_WriteByte (msg, int(ps.blend[2]*255))
-		common.MSG_WriteByte (msg, int(ps.blend[3]*255))
-	if pflags & qcommon.PS_FOV:
-		common.MSG_WriteByte (msg, int(ps.fov))
-	if pflags & qcommon.PS_RDFLAGS:
-		common.MSG_WriteByte (msg, ps.rdflags)
+	if pflags & common_h.PS_BLEND:
+		movemsg.MSG_WriteByte (msg, int(ps.blend[0]*255))
+		movemsg.MSG_WriteByte (msg, int(ps.blend[1]*255))
+		movemsg.MSG_WriteByte (msg, int(ps.blend[2]*255))
+		movemsg.MSG_WriteByte (msg, int(ps.blend[3]*255))
+	if pflags & common_h.PS_FOV:
+		movemsg.MSG_WriteByte (msg, int(ps.fov))
+	if pflags & common_h.PS_RDFLAGS:
+		movemsg.MSG_WriteByte (msg, ps.rdflags)
 
 	# send stats
 	statbits = 0
-	for i in range(q_shared.MAX_STATS):
+	for i in range(shared.MAX_STATS):
 		if ps.stats[i] != ops.stats[i]:
 			statbits |= 1<<i
-	common.MSG_WriteLong (msg, statbits)
-	for i in range(q_shared.MAX_STATS):
+	movemsg.MSG_WriteLong (msg, statbits)
+	for i in range(shared.MAX_STATS):
 		if statbits & (1<<i):
-			common.MSG_WriteShort (msg, ps.stats[i])
+			movemsg.MSG_WriteShort (msg, ps.stats[i])
 
 
 """
@@ -316,30 +322,30 @@ def SV_WriteFrameToClient (client, msg): #client_t *, sizebuf_t *
 	#int lastframe
 
 	# this is the frame we are creating
-	frame = client.frames[sv_init.sv.framenum & qcommon.UPDATE_MASK]
+	frame = client.frames[sv_init.sv.framenum & common_h.UPDATE_MASK]
 
 	if client.lastframe <= 0:
 		# client is asking for a retransmit
 		oldframe = None
 		lastframe = -1
-	elif sv_init.sv.framenum - client.lastframe >= (qcommon.UPDATE_BACKUP - 3):
+	elif sv_init.sv.framenum - client.lastframe >= (common_h.UPDATE_BACKUP - 3):
 		# client hasn't gotten a good message through in a long time
 		oldframe = None
 		lastframe = -1
 	else:
 		# we have a valid message to delta from
-		oldframe = client.frames[client.lastframe & qcommon.UPDATE_MASK]
+		oldframe = client.frames[client.lastframe & common_h.UPDATE_MASK]
 		lastframe = client.lastframe
 
-	common.MSG_WriteByte (msg, qcommon.svc_ops_e.svc_frame.value)
-	common.MSG_WriteLong (msg, sv_init.sv.framenum)
-	common.MSG_WriteLong (msg, lastframe)	# what we are delta'ing from
-	common.MSG_WriteByte (msg, client.surpressCount)	# rate dropped packets
+	movemsg.MSG_WriteByte (msg, common_h.svc_ops_e.svc_frame.value)
+	movemsg.MSG_WriteLong (msg, sv_init.sv.framenum)
+	movemsg.MSG_WriteLong (msg, lastframe)	# what we are delta'ing from
+	movemsg.MSG_WriteByte (msg, client.surpressCount)	# rate dropped packets
 	client.surpressCount = 0
 
 	# send over the areabits
-	common.MSG_WriteByte (msg, frame.areabytes)
-	common.SZ_Write (msg, bytes(frame.areabits[:frame.areabytes]))
+	movemsg.MSG_WriteByte (msg, frame.areabytes)
+	szone.SZ_Write (msg, bytes(frame.areabits[:frame.areabytes]))
 
 	# delta encode the playerstate
 	SV_WritePlayerstateToClient (oldframe, frame, msg)
@@ -377,7 +383,7 @@ def SV_FatPVS (org): #vec3_t
 	topnode = [0]
 	count = cmodel.CM_BoxLeafnums (mins, maxs, leafs, 64, topnode)
 	if count < 1:
-		common.Com_Error (qcommon.ERR_FATAL, "SV_FatPVS: count < 1")
+		clientserver.Com_Error (common_h.ERR_FATAL, "SV_FatPVS: count < 1")
 	longs = (cmodel.CM_NumClusters()+31)>>5
 	n = longs<<2
 
@@ -433,7 +439,7 @@ def SV_BuildClientFrame (client): #client_t *
 		return		# not in game yet
 
 	# this is the frame we are creating
-	frame = client.frames[sv_init.sv.framenum & qcommon.UPDATE_MASK]
+	frame = client.frames[sv_init.sv.framenum & common_h.UPDATE_MASK]
 
 	frame.senttime = sv_init.svs.realtime # save it for ping calc later
 
@@ -484,7 +490,7 @@ def SV_BuildClientFrame (client): #client_t *
 					continue		# blocked by a door
 
 			# beams just check one point for PHS
-			if ent.s.renderfx & q_shared.RF_BEAM:
+			if ent.s.renderfx & shared.RF_BEAM:
 				l = ent.clusternums[0]
 				if not (clientphs[l>>3] & (1<<(l&7))):
 					continue
@@ -515,15 +521,15 @@ def SV_BuildClientFrame (client): #client_t *
 				if not ent.s.modelindex:
 					# don't send sounds if they will be attenuated away
 					delta = np.zeros((3,), dtype=np.float32)
-					q_shared.VectorSubtract (org, ent.s.origin, delta)
-					length = q_shared.VectorLength (delta)
+					shared.VectorSubtract (org, ent.s.origin, delta)
+					length = shared_c.VectorLength (delta)
 					if length > 400:
 						continue
 
 		# add it to the circular client_entities array
 		state = sv_init.svs.client_entities[sv_init.svs.next_client_entities%sv_init.svs.num_client_entities]
 		if ent.s.number != e:
-			common.Com_DPrintf ("FIXING ENT->S.NUMBER!!!\n")
+			clientserver.Com_DPrintf ("FIXING ENT->S.NUMBER!!!\n")
 			ent.s.number = e
 		state.copy (ent.s)
 
@@ -558,15 +564,15 @@ def SV_RecordDemoMessage ():
 	if not sv_init.svs.demofile:
 		return
 
-	nostate = q_shared.entity_state_t()
-	buf = qcommon.sizebuf_t()
-	common.SZ_Init (buf, 32768)
+	nostate = shared.entity_state_t()
+	buf = common_h.sizebuf_t()
+	szone.SZ_Init (buf, 32768)
 
 	# write a frame message that doesn't contain a player_state_t
-	common.MSG_WriteByte (buf, qcommon.svc_ops_e.svc_frame.value)
-	common.MSG_WriteLong (buf, sv_init.sv.framenum)
+	movemsg.MSG_WriteByte (buf, common_h.svc_ops_e.svc_frame.value)
+	movemsg.MSG_WriteLong (buf, sv_init.sv.framenum)
 
-	common.MSG_WriteByte (buf, qcommon.svc_ops_e.svc_packetentities.value)
+	movemsg.MSG_WriteByte (buf, common_h.svc_ops_e.svc_packetentities.value)
 
 	e = 1
 	ent = sv_init.EDICT_NUM(e)
@@ -576,18 +582,18 @@ def SV_RecordDemoMessage ():
 			and ent.s.number \
 			and (ent.s.modelindex or ent.s.effects or ent.s.sound or ent.s.event) \
 			and not (ent.svflags & game.SVF_NOCLIENT):
-			common.MSG_WriteDeltaEntity (nostate, ent.s, buf, False, True)
+			movemsg.MSG_WriteDeltaEntity (nostate, ent.s, buf, False, True)
 
 		e += 1
 		ent = sv_init.EDICT_NUM(e)
 
-	common.MSG_WriteShort (buf, 0)		# end of packetentities
+	movemsg.MSG_WriteShort (buf, 0)		# end of packetentities
 
 	# now add the accumulated multicast information
-	common.SZ_Write (buf, bytes(sv_init.svs.demo_multicast.data[:sv_init.svs.demo_multicast.cursize]))
-	common.SZ_Clear (sv_init.svs.demo_multicast)
+	szone.SZ_Write (buf, bytes(sv_init.svs.demo_multicast.data[:sv_init.svs.demo_multicast.cursize]))
+	szone.SZ_Clear (sv_init.svs.demo_multicast)
 
 	# now write the entire message to the file, prefixed by the length
-	length = q_shared.LittleLong (buf.cursize)
+	length = shared_c.LittleLong (buf.cursize)
 	sv_init.svs.demofile.write(length.to_bytes(4, 'little'))
 	sv_init.svs.demofile.write(bytes(buf.data[:buf.cursize]))

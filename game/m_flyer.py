@@ -20,16 +20,18 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import q_shared, g_local, g_main, g_ai, m_flash
+from game import g_local, g_main, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_utils import G_ProjectSource, G_FreeEdict
 from game.g_weapon import fire_hit
 from game.g_monster import monster_fire_blaster, flymonster_start
 from game.g_misc import BecomeExplosion1
-from game.q_shared import (CHAN_VOICE, CHAN_WEAPON, ATTN_NORM, ATTN_IDLE, EF_HYPERBLASTER,
-	MZ2_FLYER_BLASTER_1, MZ2_FLYER_BLASTER_2)
+from common.header.shared import CHAN_VOICE, CHAN_WEAPON, ATTN_NORM, ATTN_IDLE, EF_HYPERBLASTER, MZ2_FLYER_BLASTER_1, MZ2_FLYER_BLASTER_2
 from game.g_local import (MELEE_DISTANCE, MOVETYPE_STEP, AI_STAND_GROUND, RANGE_MELEE)
 from game.game import SOLID_BBOX
+from common.header import shared
+from common.shared import flash
+from common.shared import shared as shared_c
 
 # m_flyer.h
 ACTION_nothing = 0
@@ -281,12 +283,12 @@ def flyer_fire (self, flash_number): #edict_t *, int
 		effect = EF_HYPERBLASTER
 	else:
 		effect = 0
-	q_shared.AngleVectors (self.s.angles, forward, right, None)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[flash_number], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, None)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[flash_number], forward, right, start)
 
-	q_shared.VectorCopy (self.enemy.s.origin, end)
+	shared.VectorCopy (self.enemy.s.origin, end)
 	end[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (end, start, dir)
+	shared.VectorSubtract (end, start, dir)
 
 	monster_fire_blaster (self, start, dir, 1, 1000, flash_number, effect)
 
@@ -305,7 +307,7 @@ def flyer_slash_left (self): #edict_t *
 
 	aim = np.zeros((3,), dtype=np.float32) #vec3_t
 
-	q_shared.VectorSet (aim, MELEE_DISTANCE, self.mins[0], 0)
+	shared.VectorSet (aim, MELEE_DISTANCE, self.mins[0], 0)
 	fire_hit (self, aim, 5, 0)
 	g_main.gi.sound (self, CHAN_WEAPON, sound_slash, 1, ATTN_NORM, 0)
 
@@ -314,7 +316,7 @@ def flyer_slash_right (self): #edict_t *
 
 	aim = np.zeros((3,), dtype=np.float32) #vec3_t
 
-	q_shared.VectorSet (aim, MELEE_DISTANCE, self.maxs[0], 0)
+	shared.VectorSet (aim, MELEE_DISTANCE, self.maxs[0], 0)
 	fire_hit (self, aim, 5, 0)
 	g_main.gi.sound (self, CHAN_WEAPON, sound_slash, 1, ATTN_NORM, 0)
 
@@ -414,7 +416,7 @@ def SP_monster_flyer (self): #edict_t *
 		return
 
 	# fix a map bug in jail5.bsp
-	if not q_shared.Q_stricmp(g_main.level.mapname, "jail5") and (self.s.origin[2] == -104):
+	if not shared_c.Q_stricmp(g_main.level.mapname, "jail5") and (self.s.origin[2] == -104):
 		self.targetname = self.target
 		self.target = None
 
@@ -429,8 +431,8 @@ def SP_monster_flyer (self): #edict_t *
 	g_main.gi.soundindex ("flyer/flyatck3.wav")
 
 	self.s.modelindex = g_main.gi.modelindex ("models/monsters/flyer/tris.md2")
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, 32)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, 32)
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 

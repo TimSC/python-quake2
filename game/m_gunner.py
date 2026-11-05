@@ -20,19 +20,21 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import q_shared, g_local, g_main, g_ai, m_flash
+from game import g_local, g_main, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_utils import G_ProjectSource, G_FreeEdict
 from game.g_monster import monster_fire_bullet, monster_fire_grenade, walkmonster_start
 from game.g_misc import ThrowGib, ThrowHead
-from game.q_shared import (CHAN_VOICE, ATTN_NORM, ATTN_IDLE,
-	MZ2_GUNNER_MACHINEGUN_1, MZ2_GUNNER_GRENADE_1, MZ2_GUNNER_GRENADE_2, MZ2_GUNNER_GRENADE_3, MZ2_GUNNER_GRENADE_4)
+from common.header.shared import CHAN_VOICE, ATTN_NORM, ATTN_IDLE, MZ2_GUNNER_MACHINEGUN_1, MZ2_GUNNER_GRENADE_1, MZ2_GUNNER_GRENADE_2, MZ2_GUNNER_GRENADE_3, MZ2_GUNNER_GRENADE_4
 from game.g_local import (GIB_ORGANIC, DEAD_DEAD, MOVETYPE_TOSS, MOVETYPE_STEP,
 	AI_STAND_GROUND, AI_HOLD_FRAME, AI_DUCKED, RANGE_MELEE,
 	DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, damage_t)
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 DAMAGE_AIM = damage_t.DAMAGE_AIM.value
 from game.game import SOLID_BBOX, SVF_DEADMONSTER
+from common.header import shared
+from common.shared import flash
+from common.shared import shared as shared_c
 
 # m_gunner.h
 FRAME_stand01 = 0
@@ -353,8 +355,8 @@ def gunner_pain (self, other, kick, damage): #edict_t *, edict_t *, float, int
 
 def gunner_dead (self): #edict_t *
 
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, -8)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, -8)
 	self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	self.nextthink = 0
@@ -444,16 +446,16 @@ def GunnerFire (self): #edict_t *
 
 	flash_number = MZ2_GUNNER_MACHINEGUN_1 + (self.s.frame - FRAME_attak216)
 
-	q_shared.AngleVectors (self.s.angles, forward, right, None)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[flash_number], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, None)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[flash_number], forward, right, start)
 
 	# project enemy back a bit and target there
-	q_shared.VectorCopy (self.enemy.s.origin, target)
-	q_shared.VectorMA (target, -0.2, self.enemy.velocity, target)
+	shared.VectorCopy (self.enemy.s.origin, target)
+	shared_c.VectorMA (target, -0.2, self.enemy.velocity, target)
 	target[2] += self.enemy.viewheight
 
-	q_shared.VectorSubtract (target, start, aim)
-	q_shared.VectorNormalize (aim)
+	shared.VectorSubtract (target, start, aim)
+	shared_c.VectorNormalize (aim)
 	monster_fire_bullet (self, start, aim, 3, 4, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, flash_number)
 
 
@@ -474,11 +476,11 @@ def GunnerGrenade (self): #edict_t *
 	else: # (self->s.frame == FRAME_attak114)
 		flash_number = MZ2_GUNNER_GRENADE_4
 
-	q_shared.AngleVectors (self.s.angles, forward, right, None)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[flash_number], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, None)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[flash_number], forward, right, start)
 
 	#FIXME : do a spread -225 -75 75 225 degrees around forward
-	q_shared.VectorCopy (forward, aim)
+	shared.VectorCopy (forward, aim)
 
 	monster_fire_grenade (self, start, aim, 50, 600, flash_number)
 
@@ -533,8 +535,8 @@ def SP_monster_gunner (self): #edict_t *
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 	self.s.modelindex = g_main.gi.modelindex ("models/monsters/gunner/tris.md2")
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, 32)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, 32)
 
 	self.health = 175
 	self.gib_health = -70

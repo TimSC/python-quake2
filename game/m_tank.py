@@ -20,14 +20,17 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, q_shared, m_flash, g_ai
+from game import g_main, g_local, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_local import (AI_BRUTAL, AI_STAND_GROUND, DEAD_DEAD, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, GIB_METALLIC, GIB_ORGANIC, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t)
 from game.g_misc import (ThrowGib, ThrowHead)
 from game.g_monster import (monster_fire_blaster, monster_fire_bullet, monster_fire_rocket, walkmonster_start)
 from game.g_utils import (G_FreeEdict, G_ProjectSource, vectoangles)
 from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
-from game.q_shared import (ATTN_IDLE, ATTN_NORM, CHAN_BODY, CHAN_VOICE, CHAN_WEAPON, EF_BLASTER, MZ2_TANK_BLASTER_1, MZ2_TANK_BLASTER_2, MZ2_TANK_BLASTER_3, MZ2_TANK_MACHINEGUN_1, MZ2_TANK_ROCKET_1, MZ2_TANK_ROCKET_2, MZ2_TANK_ROCKET_3)
+from common.header.shared import ATTN_IDLE, ATTN_NORM, CHAN_BODY, CHAN_VOICE, CHAN_WEAPON, EF_BLASTER, MZ2_TANK_BLASTER_1, MZ2_TANK_BLASTER_2, MZ2_TANK_BLASTER_3, MZ2_TANK_MACHINEGUN_1, MZ2_TANK_ROCKET_1, MZ2_TANK_ROCKET_2, MZ2_TANK_ROCKET_3
+from common.header import shared
+from common.shared import flash
+from common.shared import shared as shared_c
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 
 # m_tank.h
@@ -465,12 +468,12 @@ def TankBlaster (self): #edict_t *
 		# (self->s.frame == FRAME_attak116)
 		flash_number = MZ2_TANK_BLASTER_3
 
-	q_shared.AngleVectors (self.s.angles, forward, right, None)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[flash_number], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, None)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[flash_number], forward, right, start)
 
-	q_shared.VectorCopy (self.enemy.s.origin, end)
+	shared.VectorCopy (self.enemy.s.origin, end)
 	end[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (end, start, dir)
+	shared.VectorSubtract (end, start, dir)
 
 	monster_fire_blaster (self, start, dir, 30, 800, flash_number, EF_BLASTER)
 
@@ -497,13 +500,13 @@ def TankRocket (self): #edict_t *
 		# (self->s.frame == FRAME_attak330)
 		flash_number = MZ2_TANK_ROCKET_3
 
-	q_shared.AngleVectors (self.s.angles, forward, right, None)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[flash_number], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, None)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[flash_number], forward, right, start)
 
-	q_shared.VectorCopy (self.enemy.s.origin, vec)
+	shared.VectorCopy (self.enemy.s.origin, vec)
 	vec[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (vec, start, dir)
-	q_shared.VectorNormalize (dir)
+	shared.VectorSubtract (vec, start, dir)
+	shared_c.VectorNormalize (dir)
 
 	monster_fire_rocket (self, start, dir, 50, 550, flash_number)
 
@@ -519,13 +522,13 @@ def TankMachineGun (self): #edict_t *
 
 	flash_number = MZ2_TANK_MACHINEGUN_1 + (self.s.frame - FRAME_attak406)
 
-	q_shared.AngleVectors (self.s.angles, forward, right, None)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[flash_number], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, None)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[flash_number], forward, right, start)
 
 	if self.enemy:
-		q_shared.VectorCopy (self.enemy.s.origin, vec)
+		shared.VectorCopy (self.enemy.s.origin, vec)
 		vec[2] += self.enemy.viewheight
-		q_shared.VectorSubtract (vec, start, vec)
+		shared.VectorSubtract (vec, start, vec)
 		vectoangles (vec, vec)
 		dir[0] = vec[0]
 	else:
@@ -536,7 +539,7 @@ def TankMachineGun (self): #edict_t *
 		dir[1] = self.s.angles[1] + 8 * (self.s.frame - FRAME_attak419)
 	dir[2] = 0
 
-	q_shared.AngleVectors (dir, forward, None, None)
+	shared_c.AngleVectors (dir, forward, None, None)
 
 	monster_fire_bullet (self, start, forward, 20, 4, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, flash_number)
 
@@ -586,8 +589,8 @@ def tank_attack (self): #edict_t *
 		self.monsterinfo.aiflags &= ~AI_BRUTAL
 		return
 
-	q_shared.VectorSubtract (self.enemy.s.origin, self.s.origin, vec)
-	range = q_shared.VectorLength (vec)
+	shared.VectorSubtract (self.enemy.s.origin, self.s.origin, vec)
+	range = shared_c.VectorLength (vec)
 
 	r = g_local.random()
 
@@ -613,8 +616,8 @@ def tank_attack (self): #edict_t *
 
 def tank_dead (self): #edict_t *
 
-	q_shared.VectorSet (self.mins, -16, -16, -16)
-	q_shared.VectorSet (self.maxs, 16, 16, -0)
+	shared.VectorSet (self.mins, -16, -16, -16)
+	shared.VectorSet (self.maxs, 16, 16, -0)
 	self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	self.nextthink = 0
@@ -660,8 +663,8 @@ def SP_monster_tank (self): #edict_t *
 		return
 
 	self.s.modelindex = g_main.gi.modelindex ("models/monsters/tank/tris.md2")
-	q_shared.VectorSet (self.mins, -32, -32, -16)
-	q_shared.VectorSet (self.maxs, 32, 32, 72)
+	shared.VectorSet (self.mins, -32, -32, -16)
+	shared.VectorSet (self.maxs, 32, 32, 72)
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 

@@ -19,13 +19,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from __future__ import annotations
 
-from game import q_shared, g_local, g_main, g_utils
+from game import g_local, g_main, g_utils
 from game.g_utils import G_FreeEdict
-from game.q_shared import temp_event_t, multicast_t
+from common.header.shared import temp_event_t, multicast_t
 TE_BOSSTPORT = temp_event_t.TE_BOSSTPORT.value
 MULTICAST_PVS = multicast_t.MULTICAST_PVS.value
 from game.g_local import FRAMETIME, MOVETYPE_STEP, svc_temp_entity
 from game.game import solid_t
+from common.header import shared
 
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 
@@ -97,8 +98,8 @@ def SP_monster_boss3_stand (self):
 
 	g_main.gi.soundindex ("misc/bigtele.wav")
 
-	q_shared.VectorSet (self.mins, -32, -32, 0)
-	q_shared.VectorSet (self.maxs, 32, 32, 90)
+	shared.VectorSet (self.mins, -32, -32, 0)
+	shared.VectorSet (self.maxs, 32, 32, 90)
 
 	self.use = Use_Boss3
 	self.think = Think_Boss3Stand

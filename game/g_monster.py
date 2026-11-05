@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import math
 import random as _r
-from game import q_shared
+pass
 from game import g_local
 from game import g_main
 from game import g_utils
@@ -31,10 +31,7 @@ from game import g_items
 from game import g_weapon
 from game import g_combat
 from game.game import SVF_MONSTER, SVF_DEADMONSTER, SVF_NOCLIENT
-from game.q_shared import (MASK_MONSTERSOLID, MASK_WATER, EF_FLIES,
-	EF_COLOR_SHELL, EF_POWERSCREEN, RF_SHELL_RED, RF_SHELL_GREEN,
-	RF_SHELL_BLUE, RF_FRAMELERP, CONTENTS_LAVA, CONTENTS_SLIME,
-	CONTENTS_WATER, CHAN_BODY, ATTN_NORM, YAW)
+from common.header.shared import MASK_MONSTERSOLID, MASK_WATER, EF_FLIES, EF_COLOR_SHELL, EF_POWERSCREEN, RF_SHELL_RED, RF_SHELL_GREEN, RF_SHELL_BLUE, RF_FRAMELERP, CONTENTS_LAVA, CONTENTS_SLIME, CONTENTS_WATER, CHAN_BODY, ATTN_NORM, YAW
 from game.g_local import (MOD_UNKNOWN, MOD_WATER, MOD_LAVA, MOD_SLIME, FRAMETIME,
 	DAMAGE_NO_ARMOR, POWER_ARMOR_SCREEN,
 	POWER_ARMOR_SHIELD, FL_SWIM, FL_FLY, FL_INWATER, FL_IMMUNE_LAVA,
@@ -45,6 +42,8 @@ from game.game import solid_t
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 SOLID_NOT = solid_t.SOLID_NOT.value
 from game.g_local import damage_t
+from common.header import shared
+from common.shared import shared as shared_c
 DAMAGE_AIM = damage_t.DAMAGE_AIM.value
 
 """
@@ -62,7 +61,7 @@ def monster_fire_bullet (self, start, dir, damage, kick, hspread, vspread, flash
 	g_main.gi.WriteByte (g_local.svc_muzzleflash2)
 	g_main.gi.WriteShort (g_main.g_edicts.index(self))
 	g_main.gi.WriteByte (flashtype)
-	g_main.gi.multicast (start, q_shared.multicast_t.MULTICAST_PVS.value)
+	g_main.gi.multicast (start, shared.multicast_t.MULTICAST_PVS.value)
 
 
 def monster_fire_shotgun (self, start, aimdir, damage, kick, hspread, vspread, count, flashtype):
@@ -71,7 +70,7 @@ def monster_fire_shotgun (self, start, aimdir, damage, kick, hspread, vspread, c
 	g_main.gi.WriteByte (g_local.svc_muzzleflash2)
 	g_main.gi.WriteShort (g_main.g_edicts.index(self))
 	g_main.gi.WriteByte (flashtype)
-	g_main.gi.multicast (start, q_shared.multicast_t.MULTICAST_PVS.value)
+	g_main.gi.multicast (start, shared.multicast_t.MULTICAST_PVS.value)
 
 
 def monster_fire_blaster (self, start, dir, damage, speed, flashtype, effect):
@@ -80,7 +79,7 @@ def monster_fire_blaster (self, start, dir, damage, speed, flashtype, effect):
 	g_main.gi.WriteByte (g_local.svc_muzzleflash2)
 	g_main.gi.WriteShort (g_main.g_edicts.index(self))
 	g_main.gi.WriteByte (flashtype)
-	g_main.gi.multicast (start, q_shared.multicast_t.MULTICAST_PVS.value)
+	g_main.gi.multicast (start, shared.multicast_t.MULTICAST_PVS.value)
 
 
 def monster_fire_grenade (self, start, aimdir, damage, speed, flashtype):
@@ -89,7 +88,7 @@ def monster_fire_grenade (self, start, aimdir, damage, speed, flashtype):
 	g_main.gi.WriteByte (g_local.svc_muzzleflash2)
 	g_main.gi.WriteShort (g_main.g_edicts.index(self))
 	g_main.gi.WriteByte (flashtype)
-	g_main.gi.multicast (start, q_shared.multicast_t.MULTICAST_PVS.value)
+	g_main.gi.multicast (start, shared.multicast_t.MULTICAST_PVS.value)
 
 
 def monster_fire_rocket (self, start, dir, damage, speed, flashtype):
@@ -98,7 +97,7 @@ def monster_fire_rocket (self, start, dir, damage, speed, flashtype):
 	g_main.gi.WriteByte (g_local.svc_muzzleflash2)
 	g_main.gi.WriteShort (g_main.g_edicts.index(self))
 	g_main.gi.WriteByte (flashtype)
-	g_main.gi.multicast (start, q_shared.multicast_t.MULTICAST_PVS.value)
+	g_main.gi.multicast (start, shared.multicast_t.MULTICAST_PVS.value)
 
 
 def monster_fire_railgun (self, start, aimdir, damage, kick, flashtype):
@@ -107,7 +106,7 @@ def monster_fire_railgun (self, start, aimdir, damage, kick, flashtype):
 	g_main.gi.WriteByte (g_local.svc_muzzleflash2)
 	g_main.gi.WriteShort (g_main.g_edicts.index(self))
 	g_main.gi.WriteByte (flashtype)
-	g_main.gi.multicast (start, q_shared.multicast_t.MULTICAST_PVS.value)
+	g_main.gi.multicast (start, shared.multicast_t.MULTICAST_PVS.value)
 
 
 def monster_fire_bfg (self, start, aimdir, damage, speed, kick, damage_radius, flashtype):
@@ -116,7 +115,7 @@ def monster_fire_bfg (self, start, aimdir, damage, speed, kick, damage_radius, f
 	g_main.gi.WriteByte (g_local.svc_muzzleflash2)
 	g_main.gi.WriteShort (g_main.g_edicts.index(self))
 	g_main.gi.WriteByte (flashtype)
-	g_main.gi.multicast (start, q_shared.multicast_t.MULTICAST_PVS.value)
+	g_main.gi.multicast (start, shared.multicast_t.MULTICAST_PVS.value)
 
 
 """
@@ -177,7 +176,7 @@ def M_CheckGround (ent):
 		return
 
 	if not trace.startsolid and not trace.allsolid:
-		q_shared.VectorCopy (trace.endpos, ent.s.origin)
+		shared.VectorCopy (trace.endpos, ent.s.origin)
 		ent.groundentity = trace.ent
 		ent.groundentity_linkcount = trace.ent.linkcount
 		ent.velocity[2] = 0
@@ -227,7 +226,7 @@ def M_WorldEffects (ent):
 					dmg = 2 + 2 * int(math.floor(g_main.level.time - ent.air_finished))
 					if dmg > 15:
 						dmg = 15
-					g_combat.T_Damage (ent, g_main.g_edicts[0], g_main.g_edicts[0], q_shared.vec3_origin, ent.s.origin, q_shared.vec3_origin, dmg, 0, DAMAGE_NO_ARMOR, MOD_WATER)
+					g_combat.T_Damage (ent, g_main.g_edicts[0], g_main.g_edicts[0], shared_c.vec3_origin, ent.s.origin, shared_c.vec3_origin, dmg, 0, DAMAGE_NO_ARMOR, MOD_WATER)
 					ent.pain_debounce_time = g_main.level.time + 1
 		else:
 			if ent.waterlevel > 0:
@@ -238,7 +237,7 @@ def M_WorldEffects (ent):
 					dmg = 2 + 2 * int(math.floor(g_main.level.time - ent.air_finished))
 					if dmg > 15:
 						dmg = 15
-					g_combat.T_Damage (ent, g_main.g_edicts[0], g_main.g_edicts[0], q_shared.vec3_origin, ent.s.origin, q_shared.vec3_origin, dmg, 0, DAMAGE_NO_ARMOR, MOD_WATER)
+					g_combat.T_Damage (ent, g_main.g_edicts[0], g_main.g_edicts[0], shared_c.vec3_origin, ent.s.origin, shared_c.vec3_origin, dmg, 0, DAMAGE_NO_ARMOR, MOD_WATER)
 					ent.pain_debounce_time = g_main.level.time + 1
 
 	if ent.waterlevel == 0:
@@ -250,11 +249,11 @@ def M_WorldEffects (ent):
 	if (ent.watertype & CONTENTS_LAVA) and not (ent.flags & FL_IMMUNE_LAVA):
 		if ent.damage_debounce_time < g_main.level.time:
 			ent.damage_debounce_time = g_main.level.time + 0.2
-			g_combat.T_Damage (ent, g_main.g_edicts[0], g_main.g_edicts[0], q_shared.vec3_origin, ent.s.origin, q_shared.vec3_origin, 10*ent.waterlevel, 0, 0, MOD_LAVA)
+			g_combat.T_Damage (ent, g_main.g_edicts[0], g_main.g_edicts[0], shared_c.vec3_origin, ent.s.origin, shared_c.vec3_origin, 10*ent.waterlevel, 0, 0, MOD_LAVA)
 	if (ent.watertype & CONTENTS_SLIME) and not (ent.flags & FL_IMMUNE_SLIME):
 		if ent.damage_debounce_time < g_main.level.time:
 			ent.damage_debounce_time = g_main.level.time + 1
-			g_combat.T_Damage (ent, g_main.g_edicts[0], g_main.g_edicts[0], q_shared.vec3_origin, ent.s.origin, q_shared.vec3_origin, 4*ent.waterlevel, 0, 0, MOD_SLIME)
+			g_combat.T_Damage (ent, g_main.g_edicts[0], g_main.g_edicts[0], shared_c.vec3_origin, ent.s.origin, shared_c.vec3_origin, 4*ent.waterlevel, 0, 0, MOD_SLIME)
 
 	if not (ent.flags & FL_INWATER) :
 		if not (ent.svflags & SVF_DEADMONSTER):
@@ -277,7 +276,7 @@ def M_droptofloor (ent):
 	end = [0, 0, 0]
 
 	ent.s.origin[2] += 1
-	q_shared.VectorCopy (ent.s.origin, end)
+	shared.VectorCopy (ent.s.origin, end)
 	end[2] -= 256
 
 	trace = g_main.gi.trace (ent.s.origin, ent.mins, ent.maxs, end, ent, MASK_MONSTERSOLID)
@@ -285,7 +284,7 @@ def M_droptofloor (ent):
 	if trace.fraction == 1 or trace.allsolid:
 		return
 
-	q_shared.VectorCopy (trace.endpos, ent.s.origin)
+	shared.VectorCopy (trace.endpos, ent.s.origin)
 
 	g_main.gi.linkentity (ent)
 	M_CheckGround (ent)
@@ -475,7 +474,7 @@ def monster_start (self):
 
 	if not self.monsterinfo.checkattack:
 		self.monsterinfo.checkattack = g_ai.M_CheckAttack
-	q_shared.VectorCopy (self.s.origin, self.s.old_origin)
+	shared.VectorCopy (self.s.origin, self.s.old_origin)
 
 	if g_main.st.item:
 		self.item = g_items.FindItemByClassname (g_main.st.item)
@@ -538,7 +537,7 @@ def monster_start_go (self):
 			self.monsterinfo.pausetime = 100000000
 			self.monsterinfo.stand (self)
 		elif self.movetarget.classname == "path_corner":
-			q_shared.VectorSubtract (self.goalentity.s.origin, self.s.origin, v)
+			shared.VectorSubtract (self.goalentity.s.origin, self.s.origin, v)
 			self.ideal_yaw = self.s.angles[YAW] = g_utils.vectoyaw(v)
 			self.monsterinfo.walk (self)
 			self.target = None

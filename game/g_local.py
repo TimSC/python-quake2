@@ -22,7 +22,7 @@ from __future__ import annotations
 from enum import Enum
 import math
 import numpy as np
-from game import q_shared, game
+from game import game
 
 """
 // g_local.h -- local definitions for game module
@@ -771,6 +771,7 @@ class monsterinfo_t(object):
 #define crandom()	(2.0 * (random() - 0.5))
 """
 import random as _pyrandom
+from common.header import shared
 
 
 def random():
@@ -894,7 +895,7 @@ class client_persistant_t(object):
 		self.max_health = 0
 		self.savedFlags = 0
 		self.selected_item = 0
-		self.inventory = [0 for _ in range(q_shared.MAX_ITEMS)]
+		self.inventory = [0 for _ in range(shared.MAX_ITEMS)]
 		self.max_bullets = 0
 		self.max_shells = 0
 		self.max_rockets = 0

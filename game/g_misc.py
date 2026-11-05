@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import random as _r
-from game import q_shared
+pass
 from game import g_local
 from game import g_main
 from game import g_utils
@@ -35,12 +35,10 @@ SOLID_TRIGGER = solid_t.SOLID_TRIGGER.value
 SOLID_BSP = solid_t.SOLID_BSP.value
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 SOLID_NOT = solid_t.SOLID_NOT.value
-from game.q_shared import CS_LIGHTS
-from game.q_shared import (EF_GIB, EF_FLIES, EF_ROCKET, EF_TELEPORTER,
-	EF_ANIM_ALL, EF_ANIM_ALLFAST, EV_OTHER_TELEPORT, EV_PLAYER_TELEPORT,
-	PMF_TIME_TELEPORT, RF_FRAMELERP, RF_TRANSLUCENT, MASK_MONSTERSOLID,
-	ANGLE2SHORT, TO_SHORT, ATTN_NORM, CHAN_VOICE, CHAN_BODY, YAW, PITCH, ROLL)
-from game.q_shared import temp_event_t
+from common.header.shared import CS_LIGHTS
+from common.header.shared import EF_GIB, EF_FLIES, EF_ROCKET, EF_TELEPORTER, EF_ANIM_ALL, EF_ANIM_ALLFAST, EV_OTHER_TELEPORT, EV_PLAYER_TELEPORT, PMF_TIME_TELEPORT, RF_FRAMELERP, RF_TRANSLUCENT, MASK_MONSTERSOLID, ANGLE2SHORT, ATTN_NORM, CHAN_VOICE, CHAN_BODY, YAW, PITCH, ROLL
+from common.shared.shared import TO_SHORT
+from common.header.shared import temp_event_t
 TE_EXPLOSION1 = temp_event_t.TE_EXPLOSION1.value
 TE_EXPLOSION2 = temp_event_t.TE_EXPLOSION2.value
 from game.g_local import (GIB_ORGANIC, ANIM_DEATH,
@@ -88,9 +86,9 @@ def VelocityForDamage (damage, v):
 	v[2] = 200.0 + 100.0 * g_local.random()
 
 	if damage < 50:
-		q_shared.VectorScale (v, 0.7, v)
+		shared_c.VectorScale (v, 0.7, v)
 	else:
-		q_shared.VectorScale (v, 1.2, v)
+		shared_c.VectorScale (v, 1.2, v)
 
 
 def ClipGibVelocity (ent):
@@ -136,7 +134,7 @@ def gib_touch (self, other, plane, surf):
 		g_main.gi.sound (self, CHAN_VOICE, g_main.gi.soundindex ("misc/fhit3.wav"), 1, ATTN_NORM, 0)
 
 		g_utils.vectoangles (plane.normal, normal_angles)
-		q_shared.AngleVectors (normal_angles, None, right, None)
+		shared_c.AngleVectors (normal_angles, None, right, None)
 		g_utils.vectoangles (right, self.s.angles)
 
 		if self.s.modelindex == g_main.sm_meat_index:
@@ -159,8 +157,8 @@ def ThrowGib (self, gibname, damage, type):
 
 	gib = g_utils.G_Spawn()
 
-	q_shared.VectorScale (self.size, 0.5, size)
-	q_shared.VectorAdd (self.absmin, size, origin)
+	shared_c.VectorScale (self.size, 0.5, size)
+	shared.VectorAdd (self.absmin, size, origin)
 	gib.s.origin[0] = origin[0] + g_local.crandom() * size[0]
 	gib.s.origin[1] = origin[1] + g_local.crandom() * size[1]
 	gib.s.origin[2] = origin[2] + g_local.crandom() * size[2]
@@ -181,7 +179,7 @@ def ThrowGib (self, gibname, damage, type):
 		vscale = 1.0
 
 	VelocityForDamage (damage, vd)
-	q_shared.VectorMA (self.velocity, vscale, vd, gib.velocity)
+	shared_c.VectorMA (self.velocity, vscale, vd, gib.velocity)
 	ClipGibVelocity (gib)
 	gib.avelocity[0] = g_local.random()*600
 	gib.avelocity[1] = g_local.random()*600
@@ -200,8 +198,8 @@ def ThrowHead (self, gibname, damage, type):
 
 	self.s.skinnum = 0
 	self.s.frame = 0
-	q_shared.VectorClear (self.mins)
-	q_shared.VectorClear (self.maxs)
+	shared.VectorClear (self.mins)
+	shared.VectorClear (self.maxs)
 
 	self.s.modelindex2 = 0
 	g_main.gi.setmodel (self, gibname)
@@ -223,7 +221,7 @@ def ThrowHead (self, gibname, damage, type):
 		vscale = 1.0
 
 	VelocityForDamage (damage, vd)
-	q_shared.VectorMA (self.velocity, vscale, vd, self.velocity)
+	shared_c.VectorMA (self.velocity, vscale, vd, self.velocity)
 	ClipGibVelocity (self)
 
 	self.avelocity[YAW] = g_local.crandom()*600
@@ -248,8 +246,8 @@ def ThrowClientHead (self, damage):
 	self.s.origin[2] += 32
 	self.s.frame = 0
 	g_main.gi.setmodel (self, gibname)
-	q_shared.VectorSet (self.mins, -16, -16, 0)
-	q_shared.VectorSet (self.maxs, 16, 16, 16)
+	shared.VectorSet (self.mins, -16, -16, 0)
+	shared.VectorSet (self.maxs, 16, 16, 16)
 
 	self.takedamage = DAMAGE_NO
 	self.solid = SOLID_NOT
@@ -259,7 +257,7 @@ def ThrowClientHead (self, damage):
 
 	self.movetype = MOVETYPE_BOUNCE
 	VelocityForDamage (damage, vd)
-	q_shared.VectorAdd (self.velocity, vd, self.velocity)
+	shared.VectorAdd (self.velocity, vd, self.velocity)
 
 	if self.client:	# bodies in the queue don't have a client anymore
 		self.client.anim_priority = ANIM_DEATH
@@ -286,12 +284,12 @@ def ThrowDebris (self, modelname, speed, origin):
 	v = [0, 0, 0]
 
 	chunk = g_utils.G_Spawn()
-	q_shared.VectorCopy (origin, chunk.s.origin)
+	shared.VectorCopy (origin, chunk.s.origin)
 	g_main.gi.setmodel (chunk, modelname)
 	v[0] = 100 * g_local.crandom()
 	v[1] = 100 * g_local.crandom()
 	v[2] = 100 + 100 * g_local.crandom()
-	q_shared.VectorMA (self.velocity, speed, v, chunk.velocity)
+	shared_c.VectorMA (self.velocity, speed, v, chunk.velocity)
 	chunk.movetype = MOVETYPE_BOUNCE
 	chunk.solid = SOLID_NOT
 	chunk.avelocity[0] = g_local.random()*600
@@ -311,7 +309,7 @@ def BecomeExplosion1 (self):
 	g_main.gi.WriteByte (svc_temp_entity)
 	g_main.gi.WriteByte (TE_EXPLOSION1)
 	g_main.gi.WritePosition (self.s.origin)
-	g_main.gi.multicast (self.s.origin, q_shared.multicast_t.MULTICAST_PVS.value)
+	g_main.gi.multicast (self.s.origin, shared.multicast_t.MULTICAST_PVS.value)
 
 	g_utils.G_FreeEdict (self)
 
@@ -320,7 +318,7 @@ def BecomeExplosion2 (self):
 	g_main.gi.WriteByte (svc_temp_entity)
 	g_main.gi.WriteByte (TE_EXPLOSION2)
 	g_main.gi.WritePosition (self.s.origin)
-	g_main.gi.multicast (self.s.origin, q_shared.multicast_t.MULTICAST_PVS.value)
+	g_main.gi.multicast (self.s.origin, shared.multicast_t.MULTICAST_PVS.value)
 
 	g_utils.G_FreeEdict (self)
 
@@ -354,10 +352,10 @@ def path_corner_touch (self, other, plane, surf):
 		next = None
 
 	if (next) and (next.spawnflags & 1):
-		q_shared.VectorCopy (next.s.origin, v)
+		shared.VectorCopy (next.s.origin, v)
 		v[2] += next.mins[2]
 		v[2] -= other.mins[2]
-		q_shared.VectorCopy (v, other.s.origin)
+		shared.VectorCopy (v, other.s.origin)
 		next = g_utils.G_PickTarget(next.target)
 		other.s.event = EV_OTHER_TELEPORT
 
@@ -372,7 +370,7 @@ def path_corner_touch (self, other, plane, surf):
 		other.monsterinfo.pausetime = g_main.level.time + 100000000
 		other.monsterinfo.stand (other)
 	else:
-		q_shared.VectorSubtract (other.goalentity.s.origin, other.s.origin, v)
+		shared.VectorSubtract (other.goalentity.s.origin, other.s.origin, v)
 		other.ideal_yaw = g_utils.vectoyaw (v)
 
 
@@ -384,8 +382,8 @@ def SP_path_corner (self):
 
 	self.solid = SOLID_TRIGGER
 	self.touch = path_corner_touch
-	q_shared.VectorSet (self.mins, -8, -8, -8)
-	q_shared.VectorSet (self.maxs, 8, 8, 8)
+	shared.VectorSet (self.mins, -8, -8, -8)
+	shared.VectorSet (self.maxs, 8, 8, 8)
 	self.svflags |= SVF_NOCLIENT
 	g_main.gi.linkentity (self)
 
@@ -440,8 +438,8 @@ def SP_point_combat (self):
 		return
 	self.solid = SOLID_TRIGGER
 	self.touch = point_combat_touch
-	q_shared.VectorSet (self.mins, -8, -8, -16)
-	q_shared.VectorSet (self.maxs, 8, 8, 16)
+	shared.VectorSet (self.mins, -8, -8, -16)
+	shared.VectorSet (self.maxs, 8, 8, 16)
 	self.svflags = SVF_NOCLIENT
 	g_main.gi.linkentity (self)
 
@@ -460,8 +458,8 @@ def SP_viewthing(ent):
 	ent.movetype = MOVETYPE_NONE
 	ent.solid = SOLID_BBOX
 	ent.s.renderfx = RF_FRAMELERP
-	q_shared.VectorSet (ent.mins, -16, -16, -24)
-	q_shared.VectorSet (ent.maxs, 16, 16, 32)
+	shared.VectorSet (ent.mins, -16, -16, -24)
+	shared.VectorSet (ent.maxs, 16, 16, 32)
 	ent.s.modelindex = g_main.gi.modelindex ("models/objects/banner/tris.md2")
 	g_main.gi.linkentity (ent)
 	ent.nextthink = g_main.level.time + 0.5
@@ -480,8 +478,8 @@ def SP_info_null (self):
 Used as a positional target for lightning.
 """
 def SP_info_notnull (self):
-	q_shared.VectorCopy (self.s.origin, self.absmin)
-	q_shared.VectorCopy (self.s.origin, self.absmax)
+	shared.VectorCopy (self.s.origin, self.absmin)
+	shared.VectorCopy (self.s.origin, self.absmax)
 
 
 """QUAKED light (0 1 0) (-8 -8 -8) (8 8 8) START_OFF
@@ -574,7 +572,7 @@ def func_object_touch (self, other, plane, surf):
 		return
 	if other.takedamage == DAMAGE_NO:
 		return
-	g_combat.T_Damage (other, self, self, q_shared.vec3_origin, self.s.origin, q_shared.vec3_origin, self.dmg, 1, 0, MOD_CRUSH)
+	g_combat.T_Damage (other, self, self, shared_c.vec3_origin, self.s.origin, shared_c.vec3_origin, self.dmg, 1, 0, MOD_CRUSH)
 
 
 def func_object_release (self):
@@ -635,21 +633,21 @@ def func_explosive_explode (self, inflictor, attacker, damage, point):
 	size = [0, 0, 0]
 
 	# bmodel origins are (0 0 0), we need to adjust that here
-	q_shared.VectorScale (self.size, 0.5, size)
-	q_shared.VectorAdd (self.absmin, size, origin)
-	q_shared.VectorCopy (origin, self.s.origin)
+	shared_c.VectorScale (self.size, 0.5, size)
+	shared.VectorAdd (self.absmin, size, origin)
+	shared.VectorCopy (origin, self.s.origin)
 
 	self.takedamage = DAMAGE_NO
 
 	if self.dmg:
 		g_combat.T_RadiusDamage (self, attacker, self.dmg, None, self.dmg+40, MOD_EXPLOSIVE)
 
-	q_shared.VectorSubtract (self.s.origin, inflictor.s.origin, self.velocity)
-	q_shared.VectorNormalize (self.velocity)
-	q_shared.VectorScale (self.velocity, 150, self.velocity)
+	shared.VectorSubtract (self.s.origin, inflictor.s.origin, self.velocity)
+	shared_c.VectorNormalize (self.velocity)
+	shared_c.VectorScale (self.velocity, 150, self.velocity)
 
 	# start chunks towards the center
-	q_shared.VectorScale (size, 0.5, size)
+	shared_c.VectorScale (size, 0.5, size)
 
 	mass = self.mass
 	if not mass:
@@ -687,7 +685,7 @@ def func_explosive_explode (self, inflictor, attacker, damage, point):
 
 
 def func_explosive_use(self, other, activator):
-	func_explosive_explode (self, self, other, self.health, q_shared.vec3_origin)
+	func_explosive_explode (self, self, other, self.health, shared_c.vec3_origin)
 
 
 def func_explosive_spawn (self, other, activator):
@@ -746,7 +744,7 @@ def barrel_touch (self, other, plane, surf):
 		return
 
 	ratio = float(other.mass) / float(self.mass)
-	q_shared.VectorSubtract (self.s.origin, other.s.origin, v)
+	shared.VectorSubtract (self.s.origin, other.s.origin, v)
 	m_move.M_walkmove (self, g_utils.vectoyaw(v), 20 * ratio * FRAMETIME)
 
 
@@ -758,8 +756,8 @@ def barrel_explode (self):
 
 	g_combat.T_RadiusDamage (self, self.activator, self.dmg, None, self.dmg+40, MOD_BARREL)
 
-	q_shared.VectorCopy (self.s.origin, save)
-	q_shared.VectorMA (self.absmin, 0.5, self.size, self.s.origin)
+	shared.VectorCopy (self.s.origin, save)
+	shared_c.VectorMA (self.absmin, 0.5, self.size, self.s.origin)
 
 	# a few big chunks
 	spd = 1.5 * float(self.dmg) / 200.0
@@ -774,15 +772,15 @@ def barrel_explode (self):
 
 	# bottom corners
 	spd = 1.75 * float(self.dmg) / 200.0
-	q_shared.VectorCopy (self.absmin, org)
+	shared.VectorCopy (self.absmin, org)
 	ThrowDebris (self, "models/objects/debris3/tris.md2", spd, org)
-	q_shared.VectorCopy (self.absmin, org)
+	shared.VectorCopy (self.absmin, org)
 	org[0] += self.size[0]
 	ThrowDebris (self, "models/objects/debris3/tris.md2", spd, org)
-	q_shared.VectorCopy (self.absmin, org)
+	shared.VectorCopy (self.absmin, org)
 	org[1] += self.size[1]
 	ThrowDebris (self, "models/objects/debris3/tris.md2", spd, org)
-	q_shared.VectorCopy (self.absmin, org)
+	shared.VectorCopy (self.absmin, org)
 	org[0] += self.size[0]
 	org[1] += self.size[1]
 	ThrowDebris (self, "models/objects/debris3/tris.md2", spd, org)
@@ -795,7 +793,7 @@ def barrel_explode (self):
 		org[2] = self.s.origin[2] + g_local.crandom() * self.size[2]
 		ThrowDebris (self, "models/objects/debris2/tris.md2", spd, org)
 
-	q_shared.VectorCopy (save, self.s.origin)
+	shared.VectorCopy (save, self.s.origin)
 	if self.groundentity:
 		BecomeExplosion2 (self)
 	else:
@@ -824,8 +822,8 @@ def SP_misc_explobox (self):
 
 	self.model = "models/objects/barrels/tris.md2"
 	self.s.modelindex = g_main.gi.modelindex (self.model)
-	q_shared.VectorSet (self.mins, -16, -16, 0)
-	q_shared.VectorSet (self.maxs, 16, 16, 40)
+	shared.VectorSet (self.mins, -16, -16, 0)
+	shared.VectorSet (self.maxs, 16, 16, 40)
 
 	if not self.mass:
 		self.mass = 400
@@ -864,8 +862,8 @@ def misc_blackhole_think (self):
 def SP_misc_blackhole (ent):
 	ent.movetype = MOVETYPE_NONE
 	ent.solid = SOLID_NOT
-	q_shared.VectorSet (ent.mins, -64, -64, 0)
-	q_shared.VectorSet (ent.maxs, 64, 64, 8)
+	shared.VectorSet (ent.mins, -64, -64, 0)
+	shared.VectorSet (ent.maxs, 64, 64, 8)
 	ent.s.modelindex = g_main.gi.modelindex ("models/objects/black/tris.md2")
 	ent.s.renderfx = RF_TRANSLUCENT
 	ent.use = misc_blackhole_use
@@ -888,8 +886,8 @@ def misc_eastertank_think (self):
 def SP_misc_eastertank (ent):
 	ent.movetype = MOVETYPE_NONE
 	ent.solid = SOLID_BBOX
-	q_shared.VectorSet (ent.mins, -32, -32, -16)
-	q_shared.VectorSet (ent.maxs, 32, 32, 32)
+	shared.VectorSet (ent.mins, -32, -32, -16)
+	shared.VectorSet (ent.maxs, 32, 32, 32)
 	ent.s.modelindex = g_main.gi.modelindex ("models/monsters/tank/tris.md2")
 	ent.s.frame = 254
 	ent.think = misc_eastertank_think
@@ -911,8 +909,8 @@ def misc_easterchick_think (self):
 def SP_misc_easterchick (ent):
 	ent.movetype = MOVETYPE_NONE
 	ent.solid = SOLID_BBOX
-	q_shared.VectorSet (ent.mins, -32, -32, 0)
-	q_shared.VectorSet (ent.maxs, 32, 32, 32)
+	shared.VectorSet (ent.mins, -32, -32, 0)
+	shared.VectorSet (ent.maxs, 32, 32, 32)
 	ent.s.modelindex = g_main.gi.modelindex ("models/monsters/bitch/tris.md2")
 	ent.s.frame = 208
 	ent.think = misc_easterchick_think
@@ -934,8 +932,8 @@ def misc_easterchick2_think (self):
 def SP_misc_easterchick2 (ent):
 	ent.movetype = MOVETYPE_NONE
 	ent.solid = SOLID_BBOX
-	q_shared.VectorSet (ent.mins, -32, -32, 0)
-	q_shared.VectorSet (ent.maxs, 32, 32, 32)
+	shared.VectorSet (ent.mins, -32, -32, 0)
+	shared.VectorSet (ent.maxs, 32, 32, 32)
 	ent.s.modelindex = g_main.gi.modelindex ("models/monsters/bitch/tris.md2")
 	ent.s.frame = 248
 	ent.think = misc_easterchick2_think
@@ -973,8 +971,8 @@ def SP_monster_commander_body (self):
 	self.solid = SOLID_BBOX
 	self.model = "models/monsters/commandr/tris.md2"
 	self.s.modelindex = g_main.gi.modelindex (self.model)
-	q_shared.VectorSet (self.mins, -32, -32, 0)
-	q_shared.VectorSet (self.maxs, 32, 32, 48)
+	shared.VectorSet (self.mins, -32, -32, 0)
+	shared.VectorSet (self.maxs, 32, 32, 48)
 	self.use = commander_body_use
 	self.takedamage = DAMAGE_YES
 	self.flags = FL_GODMODE
@@ -1046,8 +1044,8 @@ def SP_misc_deadsoldier (ent):
 	else:
 		ent.s.frame = 0
 
-	q_shared.VectorSet (ent.mins, -16, -16, 0)
-	q_shared.VectorSet (ent.maxs, 16, 16, 16)
+	shared.VectorSet (ent.mins, -16, -16, 0)
+	shared.VectorSet (ent.maxs, 16, 16, 16)
 	ent.deadflag = DEAD_DEAD
 	ent.takedamage = DAMAGE_YES
 	ent.svflags |= SVF_MONSTER|SVF_DEADMONSTER
@@ -1078,8 +1076,8 @@ def SP_misc_viper (ent):
 	ent.movetype = MOVETYPE_PUSH
 	ent.solid = SOLID_NOT
 	ent.s.modelindex = g_main.gi.modelindex ("models/ships/viper/tris.md2")
-	q_shared.VectorSet (ent.mins, -16, -16, 0)
-	q_shared.VectorSet (ent.maxs, 16, 16, 32)
+	shared.VectorSet (ent.mins, -16, -16, 0)
+	shared.VectorSet (ent.maxs, 16, 16, 32)
 
 	ent.think = g_func.func_train_find
 	ent.nextthink = g_main.level.time + FRAMETIME
@@ -1096,8 +1094,8 @@ This is a large stationary viper as seen in Paul's intro
 def SP_misc_bigviper (ent):
 	ent.movetype = MOVETYPE_NONE
 	ent.solid = SOLID_BBOX
-	q_shared.VectorSet (ent.mins, -176, -120, -24)
-	q_shared.VectorSet (ent.maxs, 176, 120, 72)
+	shared.VectorSet (ent.mins, -176, -120, -24)
+	shared.VectorSet (ent.maxs, 176, 120, 72)
 	ent.s.modelindex = g_main.gi.modelindex ("models/ships/bigviper/tris.md2")
 	g_main.gi.linkentity (ent)
 
@@ -1124,7 +1122,7 @@ def misc_viper_bomb_prethink (self):
 	if diff < -1.0:
 		diff = -1.0
 
-	q_shared.VectorScale (self.moveinfo.dir, 1.0 + diff, v)
+	shared_c.VectorScale (self.moveinfo.dir, 1.0 + diff, v)
 	v[2] = diff
 
 	diff = self.s.angles[2]
@@ -1145,17 +1143,17 @@ def misc_viper_bomb_use (self, other, activator):
 	self.activator = activator
 
 	viper = g_utils.G_Find (None, "classname", "misc_viper")
-	q_shared.VectorScale (viper.moveinfo.dir, viper.moveinfo.speed, self.velocity)
+	shared_c.VectorScale (viper.moveinfo.dir, viper.moveinfo.speed, self.velocity)
 
 	self.timestamp = g_main.level.time
-	q_shared.VectorCopy (viper.moveinfo.dir, self.moveinfo.dir)
+	shared.VectorCopy (viper.moveinfo.dir, self.moveinfo.dir)
 
 
 def SP_misc_viper_bomb (self):
 	self.movetype = MOVETYPE_NONE
 	self.solid = SOLID_NOT
-	q_shared.VectorSet (self.mins, -8, -8, -8)
-	q_shared.VectorSet (self.maxs, 8, 8, 8)
+	shared.VectorSet (self.mins, -8, -8, -8)
+	shared.VectorSet (self.maxs, 8, 8, 8)
 
 	self.s.modelindex = g_main.gi.modelindex ("models/objects/bomb/tris.md2")
 
@@ -1189,8 +1187,8 @@ def SP_misc_strogg_ship (ent):
 	ent.movetype = MOVETYPE_PUSH
 	ent.solid = SOLID_NOT
 	ent.s.modelindex = g_main.gi.modelindex ("models/ships/strogg1/tris.md2")
-	q_shared.VectorSet (ent.mins, -16, -16, 0)
-	q_shared.VectorSet (ent.maxs, 16, 16, 32)
+	shared.VectorSet (ent.mins, -16, -16, 0)
+	shared.VectorSet (ent.maxs, 16, 16, 32)
 
 	ent.think = g_func.func_train_find
 	ent.nextthink = g_main.level.time + FRAMETIME
@@ -1218,8 +1216,8 @@ def misc_satellite_dish_use (self, other, activator):
 def SP_misc_satellite_dish (ent):
 	ent.movetype = MOVETYPE_NONE
 	ent.solid = SOLID_BBOX
-	q_shared.VectorSet (ent.mins, -64, -64, 0)
-	q_shared.VectorSet (ent.maxs, 64, 64, 128)
+	shared.VectorSet (ent.mins, -64, -64, 0)
+	shared.VectorSet (ent.maxs, 64, 64, 128)
 	ent.s.modelindex = g_main.gi.modelindex ("models/objects/satellite/tris.md2")
 	ent.use = misc_satellite_dish_use
 	g_main.gi.linkentity (ent)
@@ -1357,6 +1355,8 @@ def SP_target_string (self):
 target a target_string with this
 """
 import time as _time
+from common.header import shared
+from common.shared import shared as shared_c
 CLOCK_MESSAGE_SIZE = 16
 
 def func_clock_reset (self):
@@ -1483,12 +1483,12 @@ def teleporter_touch (self, other, plane, surf):
 	# unlink to make sure it can't possibly interfere with KillBox
 	g_main.gi.unlinkentity (other)
 
-	q_shared.VectorCopy (dest.s.origin, other.s.origin)
-	q_shared.VectorCopy (dest.s.origin, other.s.old_origin)
+	shared.VectorCopy (dest.s.origin, other.s.origin)
+	shared.VectorCopy (dest.s.origin, other.s.old_origin)
 	other.s.origin[2] += 10
 
 	# clear the velocity and hold them in place briefly
-	q_shared.VectorClear (other.velocity)
+	shared.VectorClear (other.velocity)
 	other.client.ps.pmove.pm_time = 160>>3		# hold time
 	other.client.ps.pmove.pm_flags |= PMF_TIME_TELEPORT
 
@@ -1500,9 +1500,9 @@ def teleporter_touch (self, other, plane, surf):
 	for i in range(3):
 		other.client.ps.pmove.delta_angles[i] = TO_SHORT(ANGLE2SHORT(dest.s.angles[i] - other.client.resp.cmd_angles[i]))
 
-	q_shared.VectorClear (other.s.angles)
-	q_shared.VectorClear (other.client.ps.viewangles)
-	q_shared.VectorClear (other.client.v_angle)
+	shared.VectorClear (other.s.angles)
+	shared.VectorClear (other.client.ps.viewangles)
+	shared.VectorClear (other.client.v_angle)
 
 	# kill anything at the destination
 	g_utils.KillBox (other)
@@ -1527,8 +1527,8 @@ def SP_misc_teleporter (ent):
 	ent.s.sound = g_main.gi.soundindex ("world/amb10.wav")
 	ent.solid = SOLID_BBOX
 
-	q_shared.VectorSet (ent.mins, -32, -32, -24)
-	q_shared.VectorSet (ent.maxs, 32, 32, -16)
+	shared.VectorSet (ent.mins, -32, -32, -24)
+	shared.VectorSet (ent.maxs, 32, 32, -16)
 	g_main.gi.linkentity (ent)
 
 	trig = g_utils.G_Spawn ()
@@ -1536,9 +1536,9 @@ def SP_misc_teleporter (ent):
 	trig.solid = SOLID_TRIGGER
 	trig.target = ent.target
 	trig.owner = ent
-	q_shared.VectorCopy (ent.s.origin, trig.s.origin)
-	q_shared.VectorSet (trig.mins, -8, -8, 8)
-	q_shared.VectorSet (trig.maxs, 8, 8, 24)
+	shared.VectorCopy (ent.s.origin, trig.s.origin)
+	shared.VectorSet (trig.mins, -8, -8, 8)
+	shared.VectorSet (trig.maxs, 8, 8, 24)
 	g_main.gi.linkentity (trig)
 
 
@@ -1549,6 +1549,6 @@ def SP_misc_teleporter_dest (ent):
 	g_main.gi.setmodel (ent, "models/objects/dmspot/tris.md2")
 	ent.s.skinnum = 0
 	ent.solid = SOLID_BBOX
-	q_shared.VectorSet (ent.mins, -32, -32, -24)
-	q_shared.VectorSet (ent.maxs, 32, 32, -16)
+	shared.VectorSet (ent.mins, -32, -32, -24)
+	shared.VectorSet (ent.maxs, 32, 32, -16)
 	g_main.gi.linkentity (ent)

@@ -20,15 +20,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import random as _r
-from game import q_shared, g_main, g_utils, g_items, p_client
+from game import g_main, g_utils, g_items, p_client
 from game.game import solid_t
-from game.q_shared import pmtype_t
+from common.header.shared import pmtype_t
 from game.g_local import FL_POWER_ARMOR, IT_KEY, CENTER_HANDED, svc_layout
-from game.q_shared import (RDF_UNDERWATER, MAX_ITEMS, CHAN_ITEM, ATTN_NORM,
-	STAT_HEALTH_ICON, STAT_HEALTH, STAT_AMMO_ICON, STAT_AMMO, STAT_ARMOR_ICON,
-	STAT_ARMOR, STAT_PICKUP_ICON, STAT_PICKUP_STRING, STAT_TIMER_ICON,
-	STAT_TIMER, STAT_SELECTED_ICON, STAT_SELECTED_ITEM, STAT_LAYOUTS,
-	STAT_FRAGS, STAT_HELPICON, STAT_SPECTATOR, STAT_CHASE, CS_PLAYERSKINS)
+from common.header.shared import RDF_UNDERWATER, MAX_ITEMS, CHAN_ITEM, ATTN_NORM, STAT_HEALTH_ICON, STAT_HEALTH, STAT_AMMO_ICON, STAT_AMMO, STAT_ARMOR_ICON, STAT_ARMOR, STAT_PICKUP_ICON, STAT_PICKUP_STRING, STAT_TIMER_ICON, STAT_TIMER, STAT_SELECTED_ICON, STAT_SELECTED_ITEM, STAT_LAYOUTS, STAT_FRAGS, STAT_HELPICON, STAT_SPECTATOR, STAT_CHASE, CS_PLAYERSKINS
+from common.header import shared
 """
 #include "g_local.h"
 """
@@ -45,11 +42,11 @@ INTERMISSION
 def MoveClientToIntermission (ent): #edict_t *
 	if int(g_main.deathmatch.value) or int(g_main.coop.value):
 		ent.client.showscores = True
-	q_shared.VectorCopy (g_main.level.intermission_origin, ent.s.origin)
+	shared.VectorCopy (g_main.level.intermission_origin, ent.s.origin)
 	ent.client.ps.pmove.origin[0] = g_main.level.intermission_origin[0]*8
 	ent.client.ps.pmove.origin[1] = g_main.level.intermission_origin[1]*8
 	ent.client.ps.pmove.origin[2] = g_main.level.intermission_origin[2]*8
-	q_shared.VectorCopy (g_main.level.intermission_angle, ent.client.ps.viewangles)
+	shared.VectorCopy (g_main.level.intermission_angle, ent.client.ps.viewangles)
 	ent.client.ps.pmove.pm_type = pmtype_t.PM_FREEZE.value
 	ent.client.ps.gunindex = 0
 	ent.client.ps.blend[3] = 0
@@ -167,8 +164,8 @@ def BeginIntermission (targ): #edict_t *
 				ent = g_utils.G_Find (ent, "classname", "info_player_intermission")
 			i -= 1
 
-	q_shared.VectorCopy (ent.s.origin, g_main.level.intermission_origin)
-	q_shared.VectorCopy (ent.s.angles, g_main.level.intermission_angle)
+	shared.VectorCopy (ent.s.origin, g_main.level.intermission_origin)
+	shared.VectorCopy (ent.s.angles, g_main.level.intermission_angle)
 
 	# move all clients to the intermission point
 	for i in range(int(g_main.maxclients.value)):

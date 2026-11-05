@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, q_shared, m_flash
+from game import g_main, g_local
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_local import (AI_DUCKED, AI_HOLD_FRAME, AI_STAND_GROUND, DEAD_DEAD, GIB_ORGANIC, MELEE_DISTANCE, MOVETYPE_STEP, MOVETYPE_TOSS, POWER_ARMOR_NONE, POWER_ARMOR_SCREEN, damage_t)
 from game.g_misc import (ThrowGib, ThrowHead)
@@ -28,7 +28,8 @@ from game.g_monster import (walkmonster_start)
 from game.g_utils import (G_FreeEdict)
 from game.g_weapon import (fire_hit)
 from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
-from game.q_shared import (ATTN_IDLE, ATTN_NORM, CHAN_AUTO, CHAN_BODY, CHAN_VOICE, CHAN_WEAPON)
+from common.header.shared import ATTN_IDLE, ATTN_NORM, CHAN_AUTO, CHAN_BODY, CHAN_VOICE, CHAN_WEAPON
+from common.header import shared
 DAMAGE_AIM = damage_t.DAMAGE_AIM.value
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 
@@ -372,7 +373,7 @@ def brain_hit_right (self): #edict_t *
 
 	aim = np.zeros((3,), dtype=np.float32) #vec3_t
 
-	q_shared.VectorSet (aim, MELEE_DISTANCE, self.maxs[0], 8)
+	shared.VectorSet (aim, MELEE_DISTANCE, self.maxs[0], 8)
 	if fire_hit (self, aim, (15 + (_r.randint(0, 2147483647) %5)), 40):
 		g_main.gi.sound (self, CHAN_WEAPON, sound_melee3, 1, ATTN_NORM, 0)
 
@@ -386,7 +387,7 @@ def brain_hit_left (self): #edict_t *
 
 	aim = np.zeros((3,), dtype=np.float32) #vec3_t
 
-	q_shared.VectorSet (aim, MELEE_DISTANCE, self.mins[0], 8)
+	shared.VectorSet (aim, MELEE_DISTANCE, self.mins[0], 8)
 	if fire_hit (self, aim, (15 + (_r.randint(0, 2147483647) %5)), 40):
 		g_main.gi.sound (self, CHAN_WEAPON, sound_melee3, 1, ATTN_NORM, 0)
 
@@ -402,7 +403,7 @@ def brain_tentacle_attack (self): #edict_t *
 
 	aim = np.zeros((3,), dtype=np.float32) #vec3_t
 
-	q_shared.VectorSet (aim, MELEE_DISTANCE, 0, 8)
+	shared.VectorSet (aim, MELEE_DISTANCE, 0, 8)
 	if fire_hit (self, aim, (10 + (_r.randint(0, 2147483647) %5)), -600) and g_main.skill.value > 0:
 		self.spawnflags |= 65536
 	g_main.gi.sound (self, CHAN_WEAPON, sound_tentacles_retract, 1, ATTN_NORM, 0)
@@ -461,8 +462,8 @@ def brain_pain (self, other, kick, damage): #edict_t *, edict_t *, float, int
 
 def brain_dead (self): #edict_t *
 
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, -8)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, -8)
 	self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	self.nextthink = 0
@@ -527,8 +528,8 @@ def SP_monster_brain (self): #edict_t *
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 	self.s.modelindex = g_main.gi.modelindex ("models/monsters/brain/tris.md2")
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, 32)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, 32)
 
 	self.health = 300
 	self.gib_health = -150

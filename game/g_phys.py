@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import math
 import qcommon
-from game import q_shared
+pass
 from game import g_local
 from game import g_main
 from game import g_utils
@@ -31,12 +31,14 @@ from game import game
 from game.game import solid_t
 SOLID_BSP = solid_t.SOLID_BSP.value
 SOLID_NOT = solid_t.SOLID_NOT.value
-from game.q_shared import (vec3_origin, YAW, CHAN_AUTO, MASK_SOLID,
-	MASK_WATER, MASK_MONSTERSOLID, MAX_EDICTS)
+from common.shared.shared import vec3_origin
+from common.header.shared import YAW, CHAN_AUTO, MASK_SOLID, MASK_WATER, MASK_MONSTERSOLID, MAX_EDICTS
 from game.g_local import (FRAMETIME, MOVETYPE_PUSH, MOVETYPE_STOP,
 	MOVETYPE_NONE, MOVETYPE_NOCLIP, MOVETYPE_STEP, MOVETYPE_TOSS,
 	MOVETYPE_BOUNCE, MOVETYPE_FLY, MOVETYPE_FLYMISSILE, FL_TEAMSLAVE,
 	FL_FLY, FL_SWIM)
+from common.header import shared
+from common.shared import shared as shared_c
 
 """
 // g_phys.c
@@ -154,7 +156,7 @@ def ClipVelocity (in_, normal, out, overbounce):
 	if not normal[2]:
 		blocked |= 2		# step
 
-	backoff = q_shared.DotProduct (in_, normal) * overbounce
+	backoff = shared.DotProduct (in_, normal) * overbounce
 
 	for i in range(3):
 		change = normal[i]*backoff
@@ -188,8 +190,8 @@ def SV_FlyMove (ent, time, mask):
 	numbumps = 4
 
 	blocked = 0
-	q_shared.VectorCopy (ent.velocity, original_velocity)
-	q_shared.VectorCopy (ent.velocity, primal_velocity)
+	shared.VectorCopy (ent.velocity, original_velocity)
+	shared.VectorCopy (ent.velocity, primal_velocity)
 	numplanes = 0
 
 	time_left = time
@@ -203,13 +205,13 @@ def SV_FlyMove (ent, time, mask):
 
 		if trace.allsolid:
 			# entity is trapped in another solid
-			q_shared.VectorCopy (vec3_origin, ent.velocity)
+			shared.VectorCopy (vec3_origin, ent.velocity)
 			return 3
 
 		if trace.fraction > 0:
 			# actually covered some distance
-			q_shared.VectorCopy (trace.endpos, ent.s.origin)
-			q_shared.VectorCopy (ent.velocity, original_velocity)
+			shared.VectorCopy (trace.endpos, ent.s.origin)
+			shared.VectorCopy (ent.velocity, original_velocity)
 			numplanes = 0
 
 		if trace.fraction == 1:
@@ -237,10 +239,10 @@ def SV_FlyMove (ent, time, mask):
 		# cliped to another plane
 		if numplanes >= MAX_CLIP_PLANES:
 			# this shouldn't really happen
-			q_shared.VectorCopy (vec3_origin, ent.velocity)
+			shared.VectorCopy (vec3_origin, ent.velocity)
 			return 3
 
-		q_shared.VectorCopy (trace.plane.normal, planes[numplanes])
+		shared.VectorCopy (trace.plane.normal, planes[numplanes])
 		numplanes += 1
 
 		#
@@ -252,8 +254,8 @@ def SV_FlyMove (ent, time, mask):
 
 			j = 0
 			while j < numplanes:
-				if (j != i) and not q_shared.VectorCompare (planes[i], planes[j]):
-					if q_shared.DotProduct (new_velocity, planes[j]) < 0:
+				if (j != i) and not shared_c.VectorCompare (planes[i], planes[j]):
+					if shared.DotProduct (new_velocity, planes[j]) < 0:
 						break	# not ok
 				j += 1
 			if j == numplanes:
@@ -262,23 +264,23 @@ def SV_FlyMove (ent, time, mask):
 
 		if i != numplanes:
 			# go along this plane
-			q_shared.VectorCopy (new_velocity, ent.velocity)
+			shared.VectorCopy (new_velocity, ent.velocity)
 		else:
 			# go along the crease
 			if numplanes != 2:
-				q_shared.VectorCopy (vec3_origin, ent.velocity)
+				shared.VectorCopy (vec3_origin, ent.velocity)
 				return 7
-			q_shared.CrossProduct (planes[0], planes[1], dir)
-			d = q_shared.DotProduct (dir, ent.velocity)
-			q_shared.VectorScale (dir, d, ent.velocity)
+			shared_c.CrossProduct (planes[0], planes[1], dir)
+			d = shared.DotProduct (dir, ent.velocity)
+			shared_c.VectorScale (dir, d, ent.velocity)
 
 		#
 		# if original velocity is against the original velocity, stop dead
 		# to avoid tiny occilations in sloping corners
 		#
-		if q_shared.DotProduct (ent.velocity, primal_velocity) <= 0:
+		if shared.DotProduct (ent.velocity, primal_velocity) <= 0:
 
-			q_shared.VectorCopy (vec3_origin, ent.velocity)
+			shared.VectorCopy (vec3_origin, ent.velocity)
 			return blocked
 
 	return blocked
@@ -315,8 +317,8 @@ def SV_PushEntity (ent, push):
 	start = [0, 0, 0]
 	end = [0, 0, 0]
 
-	q_shared.VectorCopy (ent.s.origin, start)
-	q_shared.VectorAdd (start, push, end)
+	shared.VectorCopy (ent.s.origin, start)
+	shared.VectorAdd (start, push, end)
 
 	while True:
 		if ent.clipmask:
@@ -326,7 +328,7 @@ def SV_PushEntity (ent, push):
 
 		trace = g_main.gi.trace (start, ent.mins, ent.maxs, end, ent, mask)
 
-		q_shared.VectorCopy (trace.endpos, ent.s.origin)
+		shared.VectorCopy (trace.endpos, ent.s.origin)
 		g_main.gi.linkentity (ent)
 
 		if trace.fraction != 1.0:
@@ -335,7 +337,7 @@ def SV_PushEntity (ent, push):
 			# if the pushed entity went away and the pusher is still there
 			if not trace.ent.inuse and ent.inuse:
 				# move the pusher back and try again
-				q_shared.VectorCopy (start, ent.s.origin)
+				shared.VectorCopy (start, ent.s.origin)
 				g_main.gi.linkentity (ent)
 				continue
 		break
@@ -385,20 +387,20 @@ def SV_Push (pusher, move, amove):
 		maxs[i] = pusher.absmax[i] + move[i]
 
 	# we need this for pushing things later
-	q_shared.VectorSubtract (vec3_origin, amove, org)
-	q_shared.AngleVectors (org, forward, right, up)
+	shared.VectorSubtract (vec3_origin, amove, org)
+	shared_c.AngleVectors (org, forward, right, up)
 
 	# save the pusher's original position
 	pushed[pushed_p].ent = pusher
-	q_shared.VectorCopy (pusher.s.origin, pushed[pushed_p].origin)
-	q_shared.VectorCopy (pusher.s.angles, pushed[pushed_p].angles)
+	shared.VectorCopy (pusher.s.origin, pushed[pushed_p].origin)
+	shared.VectorCopy (pusher.s.angles, pushed[pushed_p].angles)
 	if pusher.client:
 		pushed[pushed_p].deltayaw = pusher.client.ps.pmove.delta_angles[YAW]
 	pushed_p += 1
 
 	# move the pusher to it's final position
-	q_shared.VectorAdd (pusher.s.origin, move, pusher.s.origin)
-	q_shared.VectorAdd (pusher.s.angles, amove, pusher.s.angles)
+	shared.VectorAdd (pusher.s.origin, move, pusher.s.origin)
+	shared.VectorAdd (pusher.s.angles, amove, pusher.s.angles)
 	g_main.gi.linkentity (pusher)
 
 	# see if any solid entities are inside the final position
@@ -434,23 +436,23 @@ def SV_Push (pusher, move, amove):
 		if (pusher.movetype == MOVETYPE_PUSH) or (check.groundentity == pusher):
 			# move this entity
 			pushed[pushed_p].ent = check
-			q_shared.VectorCopy (check.s.origin, pushed[pushed_p].origin)
-			q_shared.VectorCopy (check.s.angles, pushed[pushed_p].angles)
+			shared.VectorCopy (check.s.origin, pushed[pushed_p].origin)
+			shared.VectorCopy (check.s.angles, pushed[pushed_p].angles)
 			pushed_p += 1
 
 			# try moving the contacted entity
-			q_shared.VectorAdd (check.s.origin, move, check.s.origin)
+			shared.VectorAdd (check.s.origin, move, check.s.origin)
 			if check.client:
 				# FIXME: doesn't rotate monsters?
 				check.client.ps.pmove.delta_angles[YAW] += amove[YAW]
 
 			# figure movement due to the pusher's amove
-			q_shared.VectorSubtract (check.s.origin, pusher.s.origin, org)
-			org2[0] = q_shared.DotProduct (org, forward)
-			org2[1] = -q_shared.DotProduct (org, right)
-			org2[2] = q_shared.DotProduct (org, up)
-			q_shared.VectorSubtract (org2, org, move2)
-			q_shared.VectorAdd (check.s.origin, move2, check.s.origin)
+			shared.VectorSubtract (check.s.origin, pusher.s.origin, org)
+			org2[0] = shared.DotProduct (org, forward)
+			org2[1] = -shared.DotProduct (org, right)
+			org2[2] = shared.DotProduct (org, up)
+			shared.VectorSubtract (org2, org, move2)
+			shared.VectorAdd (check.s.origin, move2, check.s.origin)
 
 			# may have pushed them off an edge
 			if check.groundentity != pusher:
@@ -466,7 +468,7 @@ def SV_Push (pusher, move, amove):
 			# if it is ok to leave in the old position, do it
 			# this is only relevent for riding entities, not pushed
 			# FIXME: this doesn't acount for rotation
-			q_shared.VectorSubtract (check.s.origin, move, check.s.origin)
+			shared.VectorSubtract (check.s.origin, move, check.s.origin)
 			block = SV_TestEntityPosition (check)
 			if not block:
 				pushed_p -= 1
@@ -480,8 +482,8 @@ def SV_Push (pusher, move, amove):
 		# go backwards, so if the same entity was pushed
 		# twice, it goes back to the original position
 		for p in range(pushed_p-1, -1, -1):
-			q_shared.VectorCopy (pushed[p].origin, pushed[p].ent.s.origin)
-			q_shared.VectorCopy (pushed[p].angles, pushed[p].ent.s.angles)
+			shared.VectorCopy (pushed[p].origin, pushed[p].ent.s.origin)
+			shared.VectorCopy (pushed[p].angles, pushed[p].ent.s.angles)
 			if pushed[p].ent.client:
 				pushed[p].ent.client.ps.pmove.delta_angles[YAW] = pushed[p].deltayaw
 			g_main.gi.linkentity (pushed[p].ent)
@@ -523,8 +525,8 @@ def SV_Physics_Pusher (ent):
 		if (part.velocity[0] or part.velocity[1] or part.velocity[2] or
 			part.avelocity[0] or part.avelocity[1] or part.avelocity[2]):
 			# object is moving
-			q_shared.VectorScale (part.velocity, FRAMETIME, move)
-			q_shared.VectorScale (part.avelocity, FRAMETIME, amove)
+			shared_c.VectorScale (part.velocity, FRAMETIME, move)
+			shared_c.VectorScale (part.avelocity, FRAMETIME, amove)
 
 			if not SV_Push (part, move, amove):
 				break	# move was blocked
@@ -566,8 +568,8 @@ def SV_Physics_Noclip (ent):
 	if not SV_RunThink (ent):
 		return
 
-	q_shared.VectorMA (ent.s.angles, FRAMETIME, ent.avelocity, ent.s.angles)
-	q_shared.VectorMA (ent.s.origin, FRAMETIME, ent.velocity, ent.s.origin)
+	shared_c.VectorMA (ent.s.angles, FRAMETIME, ent.avelocity, ent.s.angles)
+	shared_c.VectorMA (ent.s.origin, FRAMETIME, ent.velocity, ent.s.origin)
 
 	g_main.gi.linkentity (ent)
 
@@ -607,7 +609,7 @@ def SV_Physics_Toss (ent):
 	if ent.groundentity:
 		return
 
-	q_shared.VectorCopy (ent.s.origin, old_origin)
+	shared.VectorCopy (ent.s.origin, old_origin)
 
 	SV_CheckVelocity (ent)
 
@@ -616,10 +618,10 @@ def SV_Physics_Toss (ent):
 		SV_AddGravity (ent)
 
 	# move angles
-	q_shared.VectorMA (ent.s.angles, FRAMETIME, ent.avelocity, ent.s.angles)
+	shared_c.VectorMA (ent.s.angles, FRAMETIME, ent.avelocity, ent.s.angles)
 
 	# move origin
-	q_shared.VectorScale (ent.velocity, FRAMETIME, move)
+	shared_c.VectorScale (ent.velocity, FRAMETIME, move)
 	trace = SV_PushEntity (ent, move)
 	if not ent.inuse:
 		return
@@ -637,8 +639,8 @@ def SV_Physics_Toss (ent):
 			if ent.velocity[2] < 60 or ent.movetype != MOVETYPE_BOUNCE:
 				ent.groundentity = trace.ent
 				ent.groundentity_linkcount = trace.ent.linkcount
-				q_shared.VectorCopy (vec3_origin, ent.velocity)
-				q_shared.VectorCopy (vec3_origin, ent.avelocity)
+				shared.VectorCopy (vec3_origin, ent.velocity)
+				shared.VectorCopy (vec3_origin, ent.avelocity)
 
 	# check for water transition
 	wasinwater = (ent.watertype & MASK_WATER)
@@ -658,7 +660,7 @@ def SV_Physics_Toss (ent):
 	# move teamslaves
 	slave = ent.teamchain
 	while slave:
-		q_shared.VectorCopy (ent.s.origin, slave.s.origin)
+		shared.VectorCopy (ent.s.origin, slave.s.origin)
 		g_main.gi.linkentity (slave)
 		slave = slave.teamchain
 
@@ -673,7 +675,7 @@ STEPPING MOVEMENT
 def SV_AddRotationalFriction (ent):
 	#int n
 	#float adjustment
-	q_shared.VectorMA (ent.s.angles, FRAMETIME, ent.avelocity, ent.s.angles)
+	shared_c.VectorMA (ent.s.angles, FRAMETIME, ent.avelocity, ent.s.angles)
 	adjustment = FRAMETIME * sv_stopspeed * sv_friction
 	for n in range(3):
 		if ent.avelocity[n] > 0:

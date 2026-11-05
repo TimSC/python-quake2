@@ -21,25 +21,26 @@ from __future__ import annotations
 
 import math
 import numpy as np
-from game import q_shared
+pass
 from game import g_local
 from game import g_main
 from game import g_items
 from game import g_ai
 from game import g_cmds
 from game import g_monster
-from game.q_shared import CHAN_ITEM, CHAN_AUTO, ATTN_NORM
-from game.q_shared import multicast_t
+from common.header.shared import CHAN_ITEM, CHAN_AUTO, ATTN_NORM
+from common.header.shared import multicast_t
 MULTICAST_PVS = multicast_t.MULTICAST_PVS.value
 from game.g_local import svc_temp_entity
-from game.q_shared import temp_event_t
+from common.header.shared import temp_event_t
 TE_BLOOD = temp_event_t.TE_BLOOD.value
 TE_SPARKS = temp_event_t.TE_SPARKS.value
 TE_SCREEN_SPARKS = temp_event_t.TE_SCREEN_SPARKS.value
 TE_SHIELD_SPARKS = temp_event_t.TE_SHIELD_SPARKS.value
 TE_BULLET_SPARKS = temp_event_t.TE_BULLET_SPARKS.value
-from game.q_shared import DF_SKINTEAMS, DF_MODELTEAMS, DF_NO_FRIENDLY_FIRE
-from game.q_shared import MASK_SOLID, vec3_origin
+from common.header.shared import DF_SKINTEAMS, DF_MODELTEAMS, DF_NO_FRIENDLY_FIRE
+from common.header.shared import MASK_SOLID
+from common.shared.shared import vec3_origin
 from game.g_local import (MOD_FRIENDLY_FIRE, POWER_ARMOR_NONE, POWER_ARMOR_SCREEN,
 	FL_FLY, FL_SWIM, FL_NO_KNOCKBACK, FL_GODMODE,
 	MOVETYPE_PUSH, MOVETYPE_STOP, MOVETYPE_NONE, MOVETYPE_BOUNCE,
@@ -47,6 +48,8 @@ from game.g_local import (MOD_FRIENDLY_FIRE, POWER_ARMOR_NONE, POWER_ARMOR_SCREE
 from game.game import SVF_MONSTER, SOLID_NOT
 from game.g_local import (DAMAGE_RADIUS, DAMAGE_NO_ARMOR, DAMAGE_ENERGY,
 	DAMAGE_NO_KNOCKBACK, DAMAGE_BULLET, DAMAGE_NO_PROTECTION)
+from common.header import shared
+from common.shared import shared as shared_c
 
 """
 // g_combat.c
@@ -70,8 +73,8 @@ def CanDamage (targ, inflictor):
 
 	# bmodels need special checking because their origin is 0,0,0
 	if targ.movetype == MOVETYPE_PUSH:
-		q_shared.VectorAdd (targ.absmin, targ.absmax, dest)
-		q_shared.VectorScale (dest, 0.5, dest)
+		shared.VectorAdd (targ.absmin, targ.absmax, dest)
+		shared_c.VectorScale (dest, 0.5, dest)
 		trace = g_main.gi.trace (inflictor.s.origin, vec3_origin, vec3_origin, dest, inflictor, MASK_SOLID)
 		if trace.fraction == 1.0:
 			return True
@@ -83,28 +86,28 @@ def CanDamage (targ, inflictor):
 	if trace.fraction == 1.0:
 		return True
 
-	q_shared.VectorCopy (targ.s.origin, dest)
+	shared.VectorCopy (targ.s.origin, dest)
 	dest[0] += 15.0
 	dest[1] += 15.0
 	trace = g_main.gi.trace (inflictor.s.origin, vec3_origin, vec3_origin, dest, inflictor, MASK_SOLID)
 	if trace.fraction == 1.0:
 		return True
 
-	q_shared.VectorCopy (targ.s.origin, dest)
+	shared.VectorCopy (targ.s.origin, dest)
 	dest[0] += 15.0
 	dest[1] -= 15.0
 	trace = g_main.gi.trace (inflictor.s.origin, vec3_origin, vec3_origin, dest, inflictor, MASK_SOLID)
 	if trace.fraction == 1.0:
 		return True
 
-	q_shared.VectorCopy (targ.s.origin, dest)
+	shared.VectorCopy (targ.s.origin, dest)
 	dest[0] -= 15.0
 	dest[1] += 15.0
 	trace = g_main.gi.trace (inflictor.s.origin, vec3_origin, vec3_origin, dest, inflictor, MASK_SOLID)
 	if trace.fraction == 1.0:
 		return True
 
-	q_shared.VectorCopy (targ.s.origin, dest)
+	shared.VectorCopy (targ.s.origin, dest)
 	dest[0] -= 15.0
 	dest[1] -= 15.0
 	trace = g_main.gi.trace (inflictor.s.origin, vec3_origin, vec3_origin, dest, inflictor, MASK_SOLID)
@@ -226,10 +229,10 @@ def CheckPowerArmor (ent, point, normal, damage, dflags):
 		forward = np.zeros((3,), dtype=np.float32)
 
 		# only works if damage point is in front
-		q_shared.AngleVectors (ent.s.angles, forward, None, None)
-		q_shared.VectorSubtract (point, ent.s.origin, vec)
-		q_shared.VectorNormalize (vec)
-		dot = q_shared.DotProduct (vec, forward)
+		shared_c.AngleVectors (ent.s.angles, forward, None, None)
+		shared.VectorSubtract (point, ent.s.origin, vec)
+		shared_c.VectorNormalize (vec)
+		dot = shared.DotProduct (vec, forward)
 		if dot <= 0.3:
 			return 0
 
@@ -397,7 +400,7 @@ def T_Damage (targ, inflictor, attacker, dir, point, normal, damage, knockback, 
 	else:
 		te_sparks = TE_SPARKS
 
-	q_shared.VectorNormalize(dir)
+	shared_c.VectorNormalize(dir)
 
 	# bonus damage for suprising a monster
 	if not (dflags & DAMAGE_RADIUS) and (targ.svflags & SVF_MONSTER) and (attacker.client) and (not targ.enemy) and (targ.health > 0):
@@ -418,11 +421,11 @@ def T_Damage (targ, inflictor, attacker, dir, point, normal, damage, knockback, 
 				mass = targ.mass
 
 			if targ.client and attacker == targ:
-				q_shared.VectorScale (dir, 1600.0 * float(knockback) / mass, kvel)	# the rocket jump hack...
+				shared_c.VectorScale (dir, 1600.0 * float(knockback) / mass, kvel)	# the rocket jump hack...
 			else:
-				q_shared.VectorScale (dir, 500.0 * float(knockback) / mass, kvel)
+				shared_c.VectorScale (dir, 500.0 * float(knockback) / mass, kvel)
 
-			q_shared.VectorAdd (targ.velocity, kvel, targ.velocity)
+			shared.VectorAdd (targ.velocity, kvel, targ.velocity)
 
 	take = damage
 	save = 0
@@ -491,7 +494,7 @@ def T_Damage (targ, inflictor, attacker, dir, point, normal, damage, knockback, 
 		client.damage_armor += asave
 		client.damage_blood += take
 		client.damage_knockback += knockback
-		q_shared.VectorCopy (point, client.damage_from)
+		shared.VectorCopy (point, client.damage_from)
 
 
 """
@@ -514,7 +517,7 @@ def T_RadiusDamage (inflictor, attacker, damage, ignore, radius, mod):
 		eorg = np.zeros((3,), dtype=np.float32)
 		for j in range(3):
 			eorg[j] = inflictor.s.origin[j] - (ent.s.origin[j] + (ent.mins[j] + ent.maxs[j])*0.5)
-		if q_shared.VectorLength(eorg) > radius:
+		if shared_c.VectorLength(eorg) > radius:
 			continue
 
 		if ent == ignore:
@@ -522,13 +525,13 @@ def T_RadiusDamage (inflictor, attacker, damage, ignore, radius, mod):
 		if not ent.takedamage:
 			continue
 
-		q_shared.VectorAdd (ent.mins, ent.maxs, v)
-		q_shared.VectorMA (ent.s.origin, 0.5, v, v)
-		q_shared.VectorSubtract (inflictor.s.origin, v, v)
-		points = damage - 0.5 * q_shared.VectorLength (v)
+		shared.VectorAdd (ent.mins, ent.maxs, v)
+		shared_c.VectorMA (ent.s.origin, 0.5, v, v)
+		shared.VectorSubtract (inflictor.s.origin, v, v)
+		points = damage - 0.5 * shared_c.VectorLength (v)
 		if ent == attacker:
 			points = points * 0.5
 		if points > 0:
 			if CanDamage (ent, inflictor):
-				q_shared.VectorSubtract (ent.s.origin, inflictor.s.origin, dir)
+				shared.VectorSubtract (ent.s.origin, inflictor.s.origin, dir)
 				T_Damage (ent, inflictor, attacker, dir, inflictor.s.origin, vec3_origin, int(points), int(points), DAMAGE_RADIUS, mod)

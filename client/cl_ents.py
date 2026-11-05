@@ -22,12 +22,18 @@ from __future__ import annotations
 import copy
 import random
 import numpy as np
-from qcommon import common, net_chan, qcommon
-from game import q_shared
+from qcommon import net_chan
+pass
 import math
-from qcommon import files
+pass
 from client import cl_main, cl_parse, client, cl_pred, cl_scrn, cl_tent, cl_fx, cl_newfx, cl_view, ref
 from linux import vid_so
+from common.header import common as common_h
+from common.header import shared
+from common.shared import shared as shared_c
+from common import clientserver
+from common import filesystem
+from common import movemsg
 """
 // cl_ents.c -- entity parsing and management
 
@@ -37,7 +43,7 @@ from linux import vid_so
 extern	struct model_s	*cl_mod_powerscreen;
 """
 # PGM
-vidref_val = q_shared.VIDREF_GL # int
+vidref_val = shared.VIDREF_GL # int
 cl_mod_powerscreen = None # struct model_s *
 """
 /*
@@ -91,39 +97,39 @@ Flechettes are passed as efficient temporary entities
 =====================
 """
 def CL_ParseProjectiles():
-	count = common.MSG_ReadByte(net_chan.net_message)
+	count = movemsg.MSG_ReadByte(net_chan.net_message)
 	for _ in range(count):
-		bits = [common.MSG_ReadByte(net_chan.net_message) for _ in range(5)]
+		bits = [movemsg.MSG_ReadByte(net_chan.net_message) for _ in range(5)]
 
 		pr_proj = projectile_t()
 		pr_proj.origin[0] = ((bits[0] + ((bits[1] & 15) << 8)) << 1) - 4096
 		pr_proj.origin[1] = (((bits[1] >> 4) + (bits[2] << 4)) << 1) - 4096
 		pr_proj.origin[2] = ((bits[3] + ((bits[4] & 15) << 8)) << 1) - 4096
-		q_shared.VectorCopy(pr_proj.origin, pr_proj.oldorigin)
+		shared.VectorCopy(pr_proj.origin, pr_proj.oldorigin)
 
-		if bits[4] & q_shared.EF_BLASTER:
-			pr_proj.effects = q_shared.EF_BLASTER
+		if bits[4] & shared.EF_BLASTER:
+			pr_proj.effects = shared.EF_BLASTER
 		else:
 			pr_proj.effects = 0
 
 		old = False
 		if bits[4] & 128:
 			old = True
-			bits = [common.MSG_ReadByte(net_chan.net_message) for _ in range(5)]
+			bits = [movemsg.MSG_ReadByte(net_chan.net_message) for _ in range(5)]
 			pr_proj.oldorigin[0] = ((bits[0] + ((bits[1] & 15) << 8)) << 1) - 4096
 			pr_proj.oldorigin[1] = (((bits[1] >> 4) + (bits[2] << 4)) << 1) - 4096
 			pr_proj.oldorigin[2] = ((bits[3] + ((bits[4] & 15) << 8)) << 1) - 4096
 
-		bits = [common.MSG_ReadByte(net_chan.net_message) for _ in range(3)]
+		bits = [movemsg.MSG_ReadByte(net_chan.net_message) for _ in range(3)]
 
 		pr_proj.angles[0] = 360.0 * bits[0] / 256.0
 		pr_proj.angles[1] = 360.0 * bits[1] / 256.0
 		pr_proj.modelindex = bits[2]
 
-		b = common.MSG_ReadByte(net_chan.net_message)
+		b = movemsg.MSG_ReadByte(net_chan.net_message)
 		pr_proj.num = (b & 0x7f)
 		if b & 128:
-			pr_proj.num |= common.MSG_ReadByte(net_chan.net_message) << 7
+			pr_proj.num |= movemsg.MSG_ReadByte(net_chan.net_message) << 7
 
 		pr_proj.present = True
 
@@ -133,7 +139,7 @@ def CL_ParseProjectiles():
 			if slot.modelindex:
 				if slot.num == pr_proj.num:
 					if not old:
-						q_shared.VectorCopy(slot.origin, pr_proj.oldorigin)
+						shared.VectorCopy(slot.origin, pr_proj.oldorigin)
 					cl_projectiles[j] = pr_proj
 					break
 			else:
@@ -160,13 +166,13 @@ def CL_AddProjectiles():
 			ent.origin[i] = ent.oldorigin[i] = (
 				pr.oldorigin[i] + cl_main.cl.lerpfrac * (pr.origin[i] - pr.oldorigin[i])
 			)
-		if pr.effects & q_shared.EF_BLASTER and hasattr(cl_fx, "CL_BlasterTrail"):
+		if pr.effects & shared.EF_BLASTER and hasattr(cl_fx, "CL_BlasterTrail"):
 			cl_fx.CL_BlasterTrail(pr.oldorigin, ent.origin)
 			cl_view.V_AddLight(ent.origin, 200, 1, 1, 0)
-		if pr.effects & q_shared.EF_BLASTER and not hasattr(cl_fx, "CL_BlasterTrail"):
+		if pr.effects & shared.EF_BLASTER and not hasattr(cl_fx, "CL_BlasterTrail"):
 			cl_view.V_AddLight(ent.origin, 200, 1, 1, 0)
 
-		q_shared.VectorCopy(pr.angles, ent.angles)
+		shared.VectorCopy(pr.angles, ent.angles)
 		cl_view.V_AddEntity(ent)
 
 bitcounts = [] #int[32], just for protocol profilingf
@@ -179,20 +185,20 @@ def CL_ParseEntityBits (): # (unsigned *bits)
 	# int			i;
 	# int			number;
 
-	total = common.MSG_ReadByte (net_chan.net_message)
-	if total & qcommon.U_MOREBITS1:
+	total = movemsg.MSG_ReadByte (net_chan.net_message)
+	if total & common_h.U_MOREBITS1:
 	
-		b = common.MSG_ReadByte (net_chan.net_message)
+		b = movemsg.MSG_ReadByte (net_chan.net_message)
 		total |= b<<8
 	
-	if total & qcommon.U_MOREBITS2:
+	if total & common_h.U_MOREBITS2:
 	
-		b = common.MSG_ReadByte (net_chan.net_message)
+		b = movemsg.MSG_ReadByte (net_chan.net_message)
 		total |= b<<16
 	
-	if total & qcommon.U_MOREBITS3:
+	if total & common_h.U_MOREBITS3:
 	
-		b = common.MSG_ReadByte (net_chan.net_message)
+		b = movemsg.MSG_ReadByte (net_chan.net_message)
 		total |= b<<24
 	
 
@@ -201,10 +207,10 @@ def CL_ParseEntityBits (): # (unsigned *bits)
 		if total&(1<<i):
 			bitcounts[i]+=1
 
-	if total & qcommon.U_NUMBER16:
-		number = common.MSG_ReadShort (net_chan.net_message)
+	if total & common_h.U_NUMBER16:
+		number = movemsg.MSG_ReadShort (net_chan.net_message)
 	else:
-		number = common.MSG_ReadByte (net_chan.net_message)
+		number = movemsg.MSG_ReadByte (net_chan.net_message)
 
 	return number, total
 
@@ -220,71 +226,71 @@ def CL_ParseDelta (fromEnt, toEnt, number, bits): #entity_state_t *from, entity_
 	
 	toEnt.copy(fromEnt)
 
-	q_shared.VectorCopy (fromEnt.origin, toEnt.old_origin)
+	shared.VectorCopy (fromEnt.origin, toEnt.old_origin)
 	toEnt.number = number
 
-	if bits & qcommon.U_MODEL:
-		toEnt.modelindex = common.MSG_ReadByte (net_chan.net_message)
-	if bits & qcommon.U_MODEL2:
-		toEnt.modelindex2 = common.MSG_ReadByte (net_chan.net_message)
-	if bits & qcommon.U_MODEL3:
-		toEnt.modelindex3 = common.MSG_ReadByte (net_chan.net_message)
-	if bits & qcommon.U_MODEL4:
-		toEnt.modelindex4 = common.MSG_ReadByte (net_chan.net_message)
+	if bits & common_h.U_MODEL:
+		toEnt.modelindex = movemsg.MSG_ReadByte (net_chan.net_message)
+	if bits & common_h.U_MODEL2:
+		toEnt.modelindex2 = movemsg.MSG_ReadByte (net_chan.net_message)
+	if bits & common_h.U_MODEL3:
+		toEnt.modelindex3 = movemsg.MSG_ReadByte (net_chan.net_message)
+	if bits & common_h.U_MODEL4:
+		toEnt.modelindex4 = movemsg.MSG_ReadByte (net_chan.net_message)
 		
-	if bits & qcommon.U_FRAME8:
-		toEnt.frame = common.MSG_ReadByte (net_chan.net_message)
-	if bits & qcommon.U_FRAME16:
-		toEnt.frame = common.MSG_ReadShort (net_chan.net_message)
+	if bits & common_h.U_FRAME8:
+		toEnt.frame = movemsg.MSG_ReadByte (net_chan.net_message)
+	if bits & common_h.U_FRAME16:
+		toEnt.frame = movemsg.MSG_ReadShort (net_chan.net_message)
 
-	if (bits & qcommon.U_SKIN8) and (bits & qcommon.U_SKIN16):		# used for laser colors
-		toEnt.skinnum = common.MSG_ReadLong(net_chan.net_message)
-	elif bits & qcommon.U_SKIN8:
-		toEnt.skinnum = common.MSG_ReadByte(net_chan.net_message)
-	elif bits & qcommon.U_SKIN16:
-		toEnt.skinnum = common.MSG_ReadShort(net_chan.net_message)
+	if (bits & common_h.U_SKIN8) and (bits & common_h.U_SKIN16):		# used for laser colors
+		toEnt.skinnum = movemsg.MSG_ReadLong(net_chan.net_message)
+	elif bits & common_h.U_SKIN8:
+		toEnt.skinnum = movemsg.MSG_ReadByte(net_chan.net_message)
+	elif bits & common_h.U_SKIN16:
+		toEnt.skinnum = movemsg.MSG_ReadShort(net_chan.net_message)
 
-	if (bits & (qcommon.U_EFFECTS8|qcommon.U_EFFECTS16)) == (qcommon.U_EFFECTS8|qcommon.U_EFFECTS16):
-		toEnt.effects = common.MSG_ReadLong(net_chan.net_message)
-	elif bits & qcommon.U_EFFECTS8:
-		toEnt.effects = common.MSG_ReadByte(net_chan.net_message)
-	elif bits & qcommon.U_EFFECTS16:
-		toEnt.effects = common.MSG_ReadShort(net_chan.net_message)
+	if (bits & (common_h.U_EFFECTS8|common_h.U_EFFECTS16)) == (common_h.U_EFFECTS8|common_h.U_EFFECTS16):
+		toEnt.effects = movemsg.MSG_ReadLong(net_chan.net_message)
+	elif bits & common_h.U_EFFECTS8:
+		toEnt.effects = movemsg.MSG_ReadByte(net_chan.net_message)
+	elif bits & common_h.U_EFFECTS16:
+		toEnt.effects = movemsg.MSG_ReadShort(net_chan.net_message)
 
-	if (bits & (qcommon.U_RENDERFX8|qcommon.U_RENDERFX16)) == (qcommon.U_RENDERFX8|qcommon.U_RENDERFX16):
-		toEnt.renderfx = common.MSG_ReadLong(net_chan.net_message)
-	elif bits & qcommon.U_RENDERFX8:
-		toEnt.renderfx = common.MSG_ReadByte(net_chan.net_message)
-	elif bits & qcommon.U_RENDERFX16:
-		toEnt.renderfx = common.MSG_ReadShort(net_chan.net_message)
+	if (bits & (common_h.U_RENDERFX8|common_h.U_RENDERFX16)) == (common_h.U_RENDERFX8|common_h.U_RENDERFX16):
+		toEnt.renderfx = movemsg.MSG_ReadLong(net_chan.net_message)
+	elif bits & common_h.U_RENDERFX8:
+		toEnt.renderfx = movemsg.MSG_ReadByte(net_chan.net_message)
+	elif bits & common_h.U_RENDERFX16:
+		toEnt.renderfx = movemsg.MSG_ReadShort(net_chan.net_message)
 
-	if bits & qcommon.U_ORIGIN1:
-		toEnt.origin[0] = common.MSG_ReadCoord (net_chan.net_message)
-	if bits & qcommon.U_ORIGIN2:
-		toEnt.origin[1] = common.MSG_ReadCoord (net_chan.net_message)
-	if bits & qcommon.U_ORIGIN3:
-		toEnt.origin[2] = common.MSG_ReadCoord (net_chan.net_message)
+	if bits & common_h.U_ORIGIN1:
+		toEnt.origin[0] = movemsg.MSG_ReadCoord (net_chan.net_message)
+	if bits & common_h.U_ORIGIN2:
+		toEnt.origin[1] = movemsg.MSG_ReadCoord (net_chan.net_message)
+	if bits & common_h.U_ORIGIN3:
+		toEnt.origin[2] = movemsg.MSG_ReadCoord (net_chan.net_message)
 		
-	if bits & qcommon.U_ANGLE1:
-		toEnt.angles[0] = common.MSG_ReadAngle(net_chan.net_message)
-	if bits & qcommon.U_ANGLE2:
-		toEnt.angles[1] = common.MSG_ReadAngle(net_chan.net_message)
-	if bits & qcommon.U_ANGLE3:
-		toEnt.angles[2] = common.MSG_ReadAngle(net_chan.net_message)
+	if bits & common_h.U_ANGLE1:
+		toEnt.angles[0] = movemsg.MSG_ReadAngle(net_chan.net_message)
+	if bits & common_h.U_ANGLE2:
+		toEnt.angles[1] = movemsg.MSG_ReadAngle(net_chan.net_message)
+	if bits & common_h.U_ANGLE3:
+		toEnt.angles[2] = movemsg.MSG_ReadAngle(net_chan.net_message)
 
-	if bits & qcommon.U_OLDORIGIN:
-		toEnt.old_origin = common.MSG_ReadPos (net_chan.net_message)
+	if bits & common_h.U_OLDORIGIN:
+		toEnt.old_origin = movemsg.MSG_ReadPos (net_chan.net_message)
 
-	if bits & qcommon.U_SOUND:
-		toEnt.sound = common.MSG_ReadByte (net_chan.net_message)
+	if bits & common_h.U_SOUND:
+		toEnt.sound = movemsg.MSG_ReadByte (net_chan.net_message)
 
-	if bits & qcommon.U_EVENT:
-		toEnt.event = common.MSG_ReadByte (net_chan.net_message)
+	if bits & common_h.U_EVENT:
+		toEnt.event = movemsg.MSG_ReadByte (net_chan.net_message)
 	else:
 		toEnt.event = 0
 
-	if bits & qcommon.U_SOLID:
-		toEnt.solid = common.MSG_ReadShort (net_chan.net_message)
+	if bits & common_h.U_SOLID:
+		toEnt.solid = movemsg.MSG_ReadShort (net_chan.net_message)
 
 
 	# ==================
@@ -314,8 +320,8 @@ def CL_DeltaEntity (frame, newnum, old, bits): #frame_t *, int, entity_state_t *
 		or abs(state.origin[0] - ent.current.origin[0]) > 512
 		or abs(state.origin[1] - ent.current.origin[1]) > 512
 		or abs(state.origin[2] - ent.current.origin[2]) > 512
-		or state.event == q_shared.EV_PLAYER_TELEPORT
-		or state.event == q_shared.EV_OTHER_TELEPORT
+		or state.event == shared.EV_PLAYER_TELEPORT
+		or state.event == shared.EV_OTHER_TELEPORT
 		):
 	
 		ent.serverframe = -99
@@ -326,15 +332,15 @@ def CL_DeltaEntity (frame, newnum, old, bits): #frame_t *, int, entity_state_t *
 		ent.trailcount = 1024		# for diminishing rocket / grenade trails
 		# duplicate the current state so lerping doesn't hurt anything
 		ent.prev = copy.deepcopy(state) # ent->prev = *state;
-		if state.event == q_shared.EV_OTHER_TELEPORT:
+		if state.event == shared.EV_OTHER_TELEPORT:
 		
-			q_shared.VectorCopy (state.origin, ent.prev.origin)
-			q_shared.VectorCopy (state.origin, ent.lerp_origin)
+			shared.VectorCopy (state.origin, ent.prev.origin)
+			shared.VectorCopy (state.origin, ent.lerp_origin)
 		
 		else:
 		
-			q_shared.VectorCopy (state.old_origin, ent.prev.origin)
-			q_shared.VectorCopy (state.old_origin, ent.lerp_origin)
+			shared.VectorCopy (state.old_origin, ent.prev.origin)
+			shared.VectorCopy (state.old_origin, ent.lerp_origin)
 		
 	
 	else:
@@ -380,11 +386,11 @@ def CL_ParsePacketEntities (oldframe, newframe): #frame_t *, frame_t *
 
 		newnum, bits = CL_ParseEntityBits ()
 
-		if newnum >= q_shared.MAX_EDICTS:
-			common.Com_Error (q_shared.ERR_DROP,"CL_ParsePacketEntities: bad number:{}".format(newnum))
+		if newnum >= shared.MAX_EDICTS:
+			clientserver.Com_Error (shared.ERR_DROP,"CL_ParsePacketEntities: bad number:{}".format(newnum))
 
 		if net_chan.net_message.readcount > net_chan.net_message.cursize:
-			common.Com_Error (q_shared.ERR_DROP,"CL_ParsePacketEntities: end of message")
+			clientserver.Com_Error (shared.ERR_DROP,"CL_ParsePacketEntities: end of message")
 
 		if newnum==0:
 			break
@@ -393,7 +399,7 @@ def CL_ParsePacketEntities (oldframe, newframe): #frame_t *, frame_t *
 
 			# one or more entities from the old packet are unchanged
 			if cl_main.cl_shownet.value == 3:
-				common.Com_Printf ("   unchanged: {}\n".format(oldnum))
+				clientserver.Com_Printf ("   unchanged: {}\n".format(oldnum))
 
 			CL_DeltaEntity (newframe, oldnum, oldstate, 0)
 			
@@ -407,13 +413,13 @@ def CL_ParsePacketEntities (oldframe, newframe): #frame_t *, frame_t *
 				oldnum = oldstate.number
 		
 
-		if bits & qcommon.U_REMOVE:
+		if bits & common_h.U_REMOVE:
 			# the entity present in oldframe is not in the current frame
 			if cl_main.cl_shownet.value == 3:
-				common.Com_Printf ("   remove: {}\n".format(newnum))
+				clientserver.Com_Printf ("   remove: {}\n".format(newnum))
 
 			if oldnum != newnum:
-				common.Com_Printf ("U_REMOVE: oldnum != newnum\n")
+				clientserver.Com_Printf ("U_REMOVE: oldnum != newnum\n")
 
 			oldindex+=1
 
@@ -430,7 +436,7 @@ def CL_ParsePacketEntities (oldframe, newframe): #frame_t *, frame_t *
 		if oldnum == newnum:
 			# delta from previous state
 			if cl_main.cl_shownet.value == 3:
-				common.Com_Printf ("   delta: {}\n".format(newnum))
+				clientserver.Com_Printf ("   delta: {}\n".format(newnum))
 
 			CL_DeltaEntity (newframe, newnum, oldstate, bits)
 
@@ -449,7 +455,7 @@ def CL_ParsePacketEntities (oldframe, newframe): #frame_t *, frame_t *
 		if oldnum > newnum:
 			# delta from baseline
 			if cl_main.cl_shownet.value == 3:
-				common.Com_Printf ("   baseline: {}\n".format(newnum))
+				clientserver.Com_Printf ("   baseline: {}\n".format(newnum))
 			CL_DeltaEntity (newframe, newnum, cl_main.cl_entities[newnum].baseline, bits)
 			continue
 
@@ -458,7 +464,7 @@ def CL_ParsePacketEntities (oldframe, newframe): #frame_t *, frame_t *
 
 		# one or more entities from the old packet are unchanged
 		if cl_main.cl_shownet.value == 3:
-			common.Com_Printf ("   unchanged: {}\n".format(oldnum))
+			clientserver.Com_Printf ("   unchanged: {}\n".format(oldnum))
 
 		CL_DeltaEntity (newframe, oldnum, oldstate, 0)
 		
@@ -493,107 +499,107 @@ def CL_ParsePlayerstate (oldframe, newframe): #frame_t *, frame_t *
 
 	state = newframe.playerstate
 
-	flags = common.MSG_ReadShort (net_chan.net_message)
+	flags = movemsg.MSG_ReadShort (net_chan.net_message)
 
 	#
 	# parse the pmove_state_t
 	#
-	if flags & qcommon.PS_M_TYPE:
-		state.pmove.pm_type = common.MSG_ReadByte (net_chan.net_message)
+	if flags & common_h.PS_M_TYPE:
+		state.pmove.pm_type = movemsg.MSG_ReadByte (net_chan.net_message)
 
 
-	if flags & qcommon.PS_M_ORIGIN:
+	if flags & common_h.PS_M_ORIGIN:
 
-		state.pmove.origin[0] = common.MSG_ReadShort (net_chan.net_message)
-		state.pmove.origin[1] = common.MSG_ReadShort (net_chan.net_message)
-		state.pmove.origin[2] = common.MSG_ReadShort (net_chan.net_message)
-
-
-	if flags & qcommon.PS_M_VELOCITY:
-
-		state.pmove.velocity[0] = common.MSG_ReadShort (net_chan.net_message)
-		state.pmove.velocity[1] = common.MSG_ReadShort (net_chan.net_message)
-		state.pmove.velocity[2] = common.MSG_ReadShort (net_chan.net_message)
+		state.pmove.origin[0] = movemsg.MSG_ReadShort (net_chan.net_message)
+		state.pmove.origin[1] = movemsg.MSG_ReadShort (net_chan.net_message)
+		state.pmove.origin[2] = movemsg.MSG_ReadShort (net_chan.net_message)
 
 
-	if flags & qcommon.PS_M_TIME:
-		state.pmove.pm_time = common.MSG_ReadByte (net_chan.net_message)
+	if flags & common_h.PS_M_VELOCITY:
 
-	if flags & qcommon.PS_M_FLAGS:
-		state.pmove.pm_flags = common.MSG_ReadByte (net_chan.net_message)
+		state.pmove.velocity[0] = movemsg.MSG_ReadShort (net_chan.net_message)
+		state.pmove.velocity[1] = movemsg.MSG_ReadShort (net_chan.net_message)
+		state.pmove.velocity[2] = movemsg.MSG_ReadShort (net_chan.net_message)
 
-	if flags & qcommon.PS_M_GRAVITY:
-		state.pmove.gravity = common.MSG_ReadShort (net_chan.net_message)
 
-	if flags & qcommon.PS_M_DELTA_ANGLES:
+	if flags & common_h.PS_M_TIME:
+		state.pmove.pm_time = movemsg.MSG_ReadByte (net_chan.net_message)
 
-		state.pmove.delta_angles[0] = common.MSG_ReadShort (net_chan.net_message)
-		state.pmove.delta_angles[1] = common.MSG_ReadShort (net_chan.net_message)
-		state.pmove.delta_angles[2] = common.MSG_ReadShort (net_chan.net_message)
+	if flags & common_h.PS_M_FLAGS:
+		state.pmove.pm_flags = movemsg.MSG_ReadByte (net_chan.net_message)
+
+	if flags & common_h.PS_M_GRAVITY:
+		state.pmove.gravity = movemsg.MSG_ReadShort (net_chan.net_message)
+
+	if flags & common_h.PS_M_DELTA_ANGLES:
+
+		state.pmove.delta_angles[0] = movemsg.MSG_ReadShort (net_chan.net_message)
+		state.pmove.delta_angles[1] = movemsg.MSG_ReadShort (net_chan.net_message)
+		state.pmove.delta_angles[2] = movemsg.MSG_ReadShort (net_chan.net_message)
 
 
 	if cl_main.cl.attractloop:
-		state.pmove.pm_type = q_shared.pmtype_t.PM_FREEZE.value		# demo playback
+		state.pmove.pm_type = shared.pmtype_t.PM_FREEZE.value		# demo playback
 
 	#
 	# parse the rest of the player_state_t
 	#
-	if flags & qcommon.PS_VIEWOFFSET:
+	if flags & common_h.PS_VIEWOFFSET:
 
-		state.viewoffset[0] = common.MSG_ReadChar (net_chan.net_message) * 0.25
-		state.viewoffset[1] = common.MSG_ReadChar (net_chan.net_message) * 0.25
-		state.viewoffset[2] = common.MSG_ReadChar (net_chan.net_message) * 0.25
-
-
-	if flags & qcommon.PS_VIEWANGLES:
-
-		state.viewangles[0] = common.MSG_ReadAngle16 (net_chan.net_message)
-		state.viewangles[1] = common.MSG_ReadAngle16 (net_chan.net_message)
-		state.viewangles[2] = common.MSG_ReadAngle16 (net_chan.net_message)
+		state.viewoffset[0] = movemsg.MSG_ReadChar (net_chan.net_message) * 0.25
+		state.viewoffset[1] = movemsg.MSG_ReadChar (net_chan.net_message) * 0.25
+		state.viewoffset[2] = movemsg.MSG_ReadChar (net_chan.net_message) * 0.25
 
 
-	if flags & qcommon.PS_KICKANGLES:
+	if flags & common_h.PS_VIEWANGLES:
 
-		state.kick_angles[0] = common.MSG_ReadChar (net_chan.net_message) * 0.25
-		state.kick_angles[1] = common.MSG_ReadChar (net_chan.net_message) * 0.25
-		state.kick_angles[2] = common.MSG_ReadChar (net_chan.net_message) * 0.25
-
-
-	if flags & qcommon.PS_WEAPONINDEX:
-
-		state.gunindex = common.MSG_ReadByte (net_chan.net_message)
+		state.viewangles[0] = movemsg.MSG_ReadAngle16 (net_chan.net_message)
+		state.viewangles[1] = movemsg.MSG_ReadAngle16 (net_chan.net_message)
+		state.viewangles[2] = movemsg.MSG_ReadAngle16 (net_chan.net_message)
 
 
-	if flags & qcommon.PS_WEAPONFRAME:
+	if flags & common_h.PS_KICKANGLES:
 
-		state.gunframe = common.MSG_ReadByte (net_chan.net_message)
-		state.gunoffset[0] = common.MSG_ReadChar (net_chan.net_message)*0.25
-		state.gunoffset[1] = common.MSG_ReadChar (net_chan.net_message)*0.25
-		state.gunoffset[2] = common.MSG_ReadChar (net_chan.net_message)*0.25
-		state.gunangles[0] = common.MSG_ReadChar (net_chan.net_message)*0.25
-		state.gunangles[1] = common.MSG_ReadChar (net_chan.net_message)*0.25
-		state.gunangles[2] = common.MSG_ReadChar (net_chan.net_message)*0.25
+		state.kick_angles[0] = movemsg.MSG_ReadChar (net_chan.net_message) * 0.25
+		state.kick_angles[1] = movemsg.MSG_ReadChar (net_chan.net_message) * 0.25
+		state.kick_angles[2] = movemsg.MSG_ReadChar (net_chan.net_message) * 0.25
 
 
-	if flags & qcommon.PS_BLEND:
+	if flags & common_h.PS_WEAPONINDEX:
 
-		state.blend[0] = common.MSG_ReadByte (net_chan.net_message)/255.0
-		state.blend[1] = common.MSG_ReadByte (net_chan.net_message)/255.0
-		state.blend[2] = common.MSG_ReadByte (net_chan.net_message)/255.0
-		state.blend[3] = common.MSG_ReadByte (net_chan.net_message)/255.0
+		state.gunindex = movemsg.MSG_ReadByte (net_chan.net_message)
 
 
-	if flags & qcommon.PS_FOV:
-		state.fov = common.MSG_ReadByte (net_chan.net_message)
+	if flags & common_h.PS_WEAPONFRAME:
 
-	if flags & qcommon.PS_RDFLAGS:
-		state.rdflags = common.MSG_ReadByte (net_chan.net_message)
+		state.gunframe = movemsg.MSG_ReadByte (net_chan.net_message)
+		state.gunoffset[0] = movemsg.MSG_ReadChar (net_chan.net_message)*0.25
+		state.gunoffset[1] = movemsg.MSG_ReadChar (net_chan.net_message)*0.25
+		state.gunoffset[2] = movemsg.MSG_ReadChar (net_chan.net_message)*0.25
+		state.gunangles[0] = movemsg.MSG_ReadChar (net_chan.net_message)*0.25
+		state.gunangles[1] = movemsg.MSG_ReadChar (net_chan.net_message)*0.25
+		state.gunangles[2] = movemsg.MSG_ReadChar (net_chan.net_message)*0.25
+
+
+	if flags & common_h.PS_BLEND:
+
+		state.blend[0] = movemsg.MSG_ReadByte (net_chan.net_message)/255.0
+		state.blend[1] = movemsg.MSG_ReadByte (net_chan.net_message)/255.0
+		state.blend[2] = movemsg.MSG_ReadByte (net_chan.net_message)/255.0
+		state.blend[3] = movemsg.MSG_ReadByte (net_chan.net_message)/255.0
+
+
+	if flags & common_h.PS_FOV:
+		state.fov = movemsg.MSG_ReadByte (net_chan.net_message)
+
+	if flags & common_h.PS_RDFLAGS:
+		state.rdflags = movemsg.MSG_ReadByte (net_chan.net_message)
 
 	# parse stats
-	statbits = common.MSG_ReadLong (net_chan.net_message)
-	for i in range(q_shared.MAX_STATS):
+	statbits = movemsg.MSG_ReadLong (net_chan.net_message)
+	for i in range(shared.MAX_STATS):
 		if statbits & (1<<i):
-			state.stats[i] = common.MSG_ReadShort(net_chan.net_message)
+			state.stats[i] = movemsg.MSG_ReadShort(net_chan.net_message)
 
 
 """
@@ -615,7 +621,7 @@ def CL_FireEntityEvents (frame): #frame_t *
 			cl_fx.CL_EntityEvent (s1)
 
 		# EF_TELEPORTER acts like an event, but is not cleared each frame
-		if s1.effects & q_shared.EF_TELEPORTER:
+		if s1.effects & shared.EF_TELEPORTER:
 			cl_fx.CL_TeleporterParticles (s1)
 	
 
@@ -638,16 +644,16 @@ def CL_ParseFrame ():
 #	CL_ClearProjectiles(); // clear projectiles for new frame
 #endif
 
-	cl_main.cl.frame.serverframe = common.MSG_ReadSLong (net_chan.net_message)
-	cl_main.cl.frame.deltaframe = common.MSG_ReadSLong (net_chan.net_message)
+	cl_main.cl.frame.serverframe = movemsg.MSG_ReadSLong (net_chan.net_message)
+	cl_main.cl.frame.deltaframe = movemsg.MSG_ReadSLong (net_chan.net_message)
 	cl_main.cl.frame.servertime = cl_main.cl.frame.serverframe*100
 
 	# BIG HACK to let old demos continue to work
 	if cl_main.cls.serverProtocol != 26:
-		cl_main.cl.surpressCount = common.MSG_ReadByte (net_chan.net_message)
+		cl_main.cl.surpressCount = movemsg.MSG_ReadByte (net_chan.net_message)
 
 	if cl_main.cl_shownet.value == 3:
-		common.Com_Printf ("   frame:{}  delta:{}\n".format(cl_main.cl.frame.serverframe,
+		clientserver.Com_Printf ("   frame:{}  delta:{}\n".format(cl_main.cl.frame.serverframe,
 			cl_main.cl.frame.deltaframe))
 
 	# If the frame is delta compressed from data that we
@@ -661,20 +667,20 @@ def CL_ParseFrame ():
 		cl_main.cls.demowaiting = False	# we can start recording now
 	
 	else:
-		old = cl_main.cl.frames[cl_main.cl.frame.deltaframe & qcommon.UPDATE_MASK]
+		old = cl_main.cl.frames[cl_main.cl.frame.deltaframe & common_h.UPDATE_MASK]
 
 		if not old.valid:
 			# should never happen
-			common.Com_Printf ("Delta from invalid frame (not supposed to happen!).\n");
+			clientserver.Com_Printf ("Delta from invalid frame (not supposed to happen!).\n");
 		
 		if old.serverframe != cl_main.cl.frame.deltaframe:
 			# The frame that the server did the delta from
 			# is too old, so we can't reconstruct it properly.
-			common.Com_Printf ("Delta frame too old.\n")
+			clientserver.Com_Printf ("Delta frame too old.\n")
 		
 		elif cl_main.cl.parse_entities - old.parse_entities > client.MAX_PARSE_ENTITIES-128:
 		
-			common.Com_Printf ("Delta parse_entities too old.\n")
+			clientserver.Com_Printf ("Delta parse_entities too old.\n")
 		
 		else:
 			cl_main.cl.frame.valid = True	# valid delta parse
@@ -687,25 +693,25 @@ def CL_ParseFrame ():
 		cl_main.cl.time = cl_main.cl.frame.servertime - 100
 
 	# read areabits
-	length = common.MSG_ReadByte (net_chan.net_message)
-	cl_main.cl.frame.areabits = common.MSG_ReadData (net_chan.net_message, length)
+	length = movemsg.MSG_ReadByte (net_chan.net_message)
+	cl_main.cl.frame.areabits = movemsg.MSG_ReadData (net_chan.net_message, length)
 
 	# read playerinfo
-	cmd = common.MSG_ReadByte (net_chan.net_message)
+	cmd = movemsg.MSG_ReadByte (net_chan.net_message)
 	cl_parse.SHOWNET(cl_parse.svc_strings[cmd])
-	if cmd != qcommon.svc_ops_e.svc_playerinfo.value:
-		common.Com_Error (q_shared.ERR_DROP, "CL_ParseFrame: not playerinfo")
+	if cmd != common_h.svc_ops_e.svc_playerinfo.value:
+		clientserver.Com_Error (shared.ERR_DROP, "CL_ParseFrame: not playerinfo")
 	CL_ParsePlayerstate (old, cl_main.cl.frame)
 
 	# read packet entities
-	cmd = common.MSG_ReadByte (net_chan.net_message)
+	cmd = movemsg.MSG_ReadByte (net_chan.net_message)
 	cl_parse.SHOWNET(cl_parse.svc_strings[cmd])
-	if cmd != qcommon.svc_ops_e.svc_packetentities.value:
-		common.Com_Error (q_shared.ERR_DROP, "CL_ParseFrame: not packetentities")
+	if cmd != common_h.svc_ops_e.svc_packetentities.value:
+		clientserver.Com_Error (shared.ERR_DROP, "CL_ParseFrame: not packetentities")
 	CL_ParsePacketEntities (old, cl_main.cl.frame)
 
 	# save the frame off in the backup array for later delta comparisons
-	cl_main.cl.frames[cl_main.cl.frame.serverframe & qcommon.UPDATE_MASK] = copy.copy(cl_main.cl.frame)
+	cl_main.cl.frames[cl_main.cl.frame.serverframe & common_h.UPDATE_MASK] = copy.copy(cl_main.cl.frame)
 
 	if cl_main.cl.frame.valid:
 	
@@ -717,7 +723,7 @@ def CL_ParseFrame ():
 			cl_main.cl.predicted_origin[0] = cl_main.cl.frame.playerstate.pmove.origin[0]*0.125
 			cl_main.cl.predicted_origin[1] = cl_main.cl.frame.playerstate.pmove.origin[1]*0.125
 			cl_main.cl.predicted_origin[2] = cl_main.cl.frame.playerstate.pmove.origin[2]*0.125
-			q_shared.VectorCopy (cl_main.cl.frame.playerstate.viewangles, cl_main.cl.predicted_angles)
+			shared.VectorCopy (cl_main.cl.frame.playerstate.viewangles, cl_main.cl.predicted_angles)
 			if cl_main.cls.disable_servercount != cl_main.cl.servercount \
 				and cl_main.cl.refresh_prepped:
 				cl_scrn.SCR_EndLoadingPlaque ()	# get rid of loading plaque
@@ -741,7 +747,7 @@ INTERPOLATE BETWEEN FRAMES TO GET RENDERING PARMS
 
 def S_RegisterSexedModel (ent, base):
 	model = ""
-	n = q_shared.CS_PLAYERSKINS + ent.number - 1
+	n = shared.CS_PLAYERSKINS + ent.number - 1
 	if 0 <= n < len(cl_main.cl.configstrings):
 		config = cl_main.cl.configstrings[n]
 		if config:
@@ -789,7 +795,7 @@ def CL_AddPacketEntities (frame): #frame_t *
 	cl = cl_main.cl
 
 	# bonus items rotate at a fixed rate
-	autorotate = q_shared.anglemod(cl.time/10)
+	autorotate = shared_c.anglemod(cl.time/10)
 
 	# brush models can auto animate their frames
 	autoanim = int(2*cl.time/1000)
@@ -806,54 +812,54 @@ def CL_AddPacketEntities (frame): #frame_t *
 		renderfx = s1.renderfx
 
 			# set frame
-		if effects & q_shared.EF_ANIM01:
+		if effects & shared.EF_ANIM01:
 			ent.frame = autoanim & 1
-		elif effects & q_shared.EF_ANIM23:
+		elif effects & shared.EF_ANIM23:
 			ent.frame = 2 + (autoanim & 1)
-		elif effects & q_shared.EF_ANIM_ALL:
+		elif effects & shared.EF_ANIM_ALL:
 			ent.frame = autoanim
-		elif effects & q_shared.EF_ANIM_ALLFAST:
+		elif effects & shared.EF_ANIM_ALLFAST:
 			ent.frame = int(cl.time) // 100 # cl.time is int in C
 		else:
 			ent.frame = s1.frame
 
 		# quad and pent can do different things on client
-		if effects & q_shared.EF_PENT:
+		if effects & shared.EF_PENT:
 		
-			effects &= ~q_shared.EF_PENT
-			effects |= q_shared.EF_COLOR_SHELL
-			renderfx |= q_shared.RF_SHELL_RED
+			effects &= ~shared.EF_PENT
+			effects |= shared.EF_COLOR_SHELL
+			renderfx |= shared.RF_SHELL_RED
 		
-		if effects & q_shared.EF_QUAD:
+		if effects & shared.EF_QUAD:
 		
-			effects &= ~q_shared.EF_QUAD
-			effects |= q_shared.EF_COLOR_SHELL
-			renderfx |= q_shared.RF_SHELL_BLUE
+			effects &= ~shared.EF_QUAD
+			effects |= shared.EF_COLOR_SHELL
+			renderfx |= shared.RF_SHELL_BLUE
 		
 #======
 # PMM
-		if effects & q_shared.EF_DOUBLE:
+		if effects & shared.EF_DOUBLE:
 		
-			effects &= ~q_shared.EF_DOUBLE
-			effects |= q_shared.EF_COLOR_SHELL
-			renderfx |= q_shared.RF_SHELL_DOUBLE
+			effects &= ~shared.EF_DOUBLE
+			effects |= shared.EF_COLOR_SHELL
+			renderfx |= shared.RF_SHELL_DOUBLE
 		
-		if effects & q_shared.EF_HALF_DAMAGE:
+		if effects & shared.EF_HALF_DAMAGE:
 		
-			effects &= ~q_shared.EF_HALF_DAMAGE
-			effects |= q_shared.EF_COLOR_SHELL
-			renderfx |= q_shared.RF_SHELL_HALF_DAM
+			effects &= ~shared.EF_HALF_DAMAGE
+			effects |= shared.EF_COLOR_SHELL
+			renderfx |= shared.RF_SHELL_HALF_DAM
 		
 # pmm
 #======
 		ent.oldframe = cent.prev.frame
 		ent.backlerp = 1.0 - cl.lerpfrac
 
-		if renderfx & (q_shared.RF_FRAMELERP|q_shared.RF_BEAM):
+		if renderfx & (shared.RF_FRAMELERP|shared.RF_BEAM):
 			# step origin discretely, because the frames
 			# do the animation properly
-			q_shared.VectorCopy (cent.current.origin, ent.origin)
-			q_shared.VectorCopy (cent.current.old_origin, ent.oldorigin)
+			shared.VectorCopy (cent.current.origin, ent.origin)
+			shared.VectorCopy (cent.current.old_origin, ent.oldorigin)
 		
 		else:
 			# interpolate origin
@@ -865,7 +871,7 @@ def CL_AddPacketEntities (frame): #frame_t *
 		# create a new entity
 	
 		# tweak the color of beams
-		if renderfx & q_shared.RF_BEAM:
+		if renderfx & shared.RF_BEAM:
 			# the four beam colors are encoded in 32 bits of skinnum (hack)
 			ent.alpha = 0.30
 			ent.skinnum = (s1.skinnum >> ((random.getrandbits(15) % 4)*8)) & 0xff
@@ -887,7 +893,7 @@ def CL_AddPacketEntities (frame): #frame_t *
 				
 #============
 #PGM
-				if renderfx & q_shared.RF_USE_DISGUISE:
+				if renderfx & shared.RF_USE_DISGUISE:
 				
 					# strncmp((char *)ent.skin, ...) compares the image name, the first field of image_t
 					skinname = ent.skin.name if ent.skin is not None else ""
@@ -916,27 +922,27 @@ def CL_AddPacketEntities (frame): #frame_t *
 				ent.model = cl.model_draw[s1.modelindex]
 			
 		# only used for black hole model right now, FIXME: do better
-		if renderfx == q_shared.RF_TRANSLUCENT:
+		if renderfx == shared.RF_TRANSLUCENT:
 			ent.alpha = 0.70
 
 		# render effects (fullbright, translucent, etc)
-		if effects & q_shared.EF_COLOR_SHELL:
+		if effects & shared.EF_COLOR_SHELL:
 			ent.flags = 0	# renderfx go on color shell entity
 		else:
 			ent.flags = renderfx
 
 		# calculate angles
-		if effects & q_shared.EF_ROTATE:
+		if effects & shared.EF_ROTATE:
 			# some bonus items auto-rotate
 			ent.angles[0] = 0
 			ent.angles[1] = autorotate
 			ent.angles[2] = 0
 		
 		# RAFAEL
-		elif effects & q_shared.EF_SPINNINGLIGHTS:
+		elif effects & shared.EF_SPINNINGLIGHTS:
 		
 			ent.angles[0] = 0
-			ent.angles[1] = q_shared.anglemod(cl.time/2) + s1.angles[1]
+			ent.angles[1] = shared_c.anglemod(cl.time/2) + s1.angles[1]
 			ent.angles[2] = 180
 			
 			#vec3_t forward;
@@ -944,8 +950,8 @@ def CL_AddPacketEntities (frame): #frame_t *
 			forward = np.zeros((3,), dtype=np.float32)
 			start = np.zeros((3,), dtype=np.float32)
 
-			q_shared.AngleVectors (ent.angles, forward, None, None)
-			q_shared.VectorMA (ent.origin, 64, forward, start)
+			shared_c.AngleVectors (ent.angles, forward, None, None)
+			shared_c.VectorMA (ent.origin, 64, forward, start)
 			cl_view.V_AddLight (start, 100, 1, 0, 0)
 			
 		else:
@@ -956,20 +962,20 @@ def CL_AddPacketEntities (frame): #frame_t *
 			
 				a1 = cent.current.angles[i]
 				a2 = cent.prev.angles[i]
-				ent.angles[i] = q_shared.LerpAngle (a2, a1, cl.lerpfrac)
+				ent.angles[i] = shared_c.LerpAngle (a2, a1, cl.lerpfrac)
 			
 		if s1.number == cl.playernum+1:
 		
-			ent.flags |= q_shared.RF_VIEWERMODEL	# only draw from mirrors
+			ent.flags |= shared.RF_VIEWERMODEL	# only draw from mirrors
 			# FIXME: still pass to refresh
 
-			if effects & q_shared.EF_FLAG1:
+			if effects & shared.EF_FLAG1:
 				cl_view.V_AddLight (ent.origin, 225, 1.0, 0.1, 0.1)
-			elif effects & q_shared.EF_FLAG2:
+			elif effects & shared.EF_FLAG2:
 				cl_view.V_AddLight (ent.origin, 225, 0.1, 0.1, 1.0)
-			elif effects & q_shared.EF_TAGTRAIL:						#PGM
+			elif effects & shared.EF_TAGTRAIL:						#PGM
 				cl_view.V_AddLight (ent.origin, 225, 1.0, 1.0, 0.0)	#PGM
-			elif effects & q_shared.EF_TRACKERTRAIL:					#PGM
+			elif effects & shared.EF_TRACKERTRAIL:					#PGM
 				cl_view.V_AddLight (ent.origin, 225, -1.0, -1.0, -1.0)	#PGM
 
 			continue
@@ -978,22 +984,22 @@ def CL_AddPacketEntities (frame): #frame_t *
 		if not s1.modelindex:
 			continue
 
-		if effects & q_shared.EF_BFG:
+		if effects & shared.EF_BFG:
 		
-			ent.flags |= q_shared.RF_TRANSLUCENT
+			ent.flags |= shared.RF_TRANSLUCENT
 			ent.alpha = 0.30
 		
 		# RAFAEL
-		if effects & q_shared.EF_PLASMA:
+		if effects & shared.EF_PLASMA:
 		
-			ent.flags |= q_shared.RF_TRANSLUCENT
+			ent.flags |= shared.RF_TRANSLUCENT
 			ent.alpha = 0.6
 		
-		if effects & q_shared.EF_SPHERETRANS:
+		if effects & shared.EF_SPHERETRANS:
 		
-			ent.flags |= q_shared.RF_TRANSLUCENT
+			ent.flags |= shared.RF_TRANSLUCENT
 			# PMM - *sigh*  yet more EF overloading
-			if effects & q_shared.EF_TRACKERTRAIL:
+			if effects & shared.EF_TRACKERTRAIL:
 				ent.alpha = 0.6
 			else:
 				ent.alpha = 0.3
@@ -1005,7 +1011,7 @@ def CL_AddPacketEntities (frame): #frame_t *
 
 
 		# color shells generate a seperate entity for the main model
-		if effects & q_shared.EF_COLOR_SHELL:
+		if effects & shared.EF_COLOR_SHELL:
 		
 			# PMM - at this point, all of the shells have been handled
 			# if we're in the rogue pack, set up the custom mixing, otherwise just
@@ -1014,35 +1020,35 @@ def CL_AddPacketEntities (frame): #frame_t *
 #			{
 				# all of the solo colors are fine.  we need to catch any of the combinations that look bad
 				# (double & half) and turn them into the appropriate color, and make double/quad something special
-			if renderfx & q_shared.RF_SHELL_HALF_DAM:
+			if renderfx & shared.RF_SHELL_HALF_DAM:
 			
-				if files.Developer_searchpath(2) == 2:
+				if filesystem.Developer_searchpath(2) == 2:
 				
 					# ditch the half damage shell if any of red, blue, or double are on
-					if renderfx & (q_shared.RF_SHELL_RED|q_shared.RF_SHELL_BLUE|q_shared.RF_SHELL_DOUBLE):
-						renderfx &= ~q_shared.RF_SHELL_HALF_DAM
+					if renderfx & (shared.RF_SHELL_RED|shared.RF_SHELL_BLUE|shared.RF_SHELL_DOUBLE):
+						renderfx &= ~shared.RF_SHELL_HALF_DAM
 				
-			if renderfx & q_shared.RF_SHELL_DOUBLE:
+			if renderfx & shared.RF_SHELL_DOUBLE:
 			
-				if files.Developer_searchpath(2) == 2:
+				if filesystem.Developer_searchpath(2) == 2:
 				
 					# lose the yellow shell if we have a red, blue, or green shell
-					if renderfx & (q_shared.RF_SHELL_RED|q_shared.RF_SHELL_BLUE|q_shared.RF_SHELL_GREEN):
-						renderfx &= ~q_shared.RF_SHELL_DOUBLE
+					if renderfx & (shared.RF_SHELL_RED|shared.RF_SHELL_BLUE|shared.RF_SHELL_GREEN):
+						renderfx &= ~shared.RF_SHELL_DOUBLE
 					# if we have a red shell, turn it to purple by adding blue
-					if renderfx & q_shared.RF_SHELL_RED:
-						renderfx |= q_shared.RF_SHELL_BLUE
+					if renderfx & shared.RF_SHELL_RED:
+						renderfx |= shared.RF_SHELL_BLUE
 					# if we have a blue shell (and not a red shell), turn it to cyan by adding green
-					elif renderfx & q_shared.RF_SHELL_BLUE:
+					elif renderfx & shared.RF_SHELL_BLUE:
 						# go to green if it's on already, otherwise do cyan (flash green)
-						if renderfx & q_shared.RF_SHELL_GREEN:
-							renderfx &= ~q_shared.RF_SHELL_BLUE
+						if renderfx & shared.RF_SHELL_GREEN:
+							renderfx &= ~shared.RF_SHELL_BLUE
 						else:
-							renderfx |= q_shared.RF_SHELL_GREEN
+							renderfx |= shared.RF_SHELL_GREEN
 				
 #			}
 			# pmm
-			ent.flags = renderfx | q_shared.RF_TRANSLUCENT
+			ent.flags = renderfx | shared.RF_TRANSLUCENT
 			ent.alpha = 0.30
 			cl_view.V_AddEntity (ent)
 		
@@ -1072,10 +1078,10 @@ def CL_AddPacketEntities (frame): #frame_t *
 
 			# PMM - check for the defender sphere shell .. make it translucent
 			# replaces the previous version which used the high bit on modelindex2 to determine transparency
-			if not q_shared.Q_strcasecmp (cl.configstrings[q_shared.CS_MODELS+(s1.modelindex2)] or "", "models/items/shell/tris.md2"):
+			if not shared_c.Q_strcasecmp (cl.configstrings[shared.CS_MODELS+(s1.modelindex2)] or "", "models/items/shell/tris.md2"):
 			
 				ent.alpha = 0.32
-				ent.flags = q_shared.RF_TRANSLUCENT
+				ent.flags = shared.RF_TRANSLUCENT
 			
 			# pmm
 
@@ -1096,30 +1102,30 @@ def CL_AddPacketEntities (frame): #frame_t *
 			ent.model = cl.model_draw[s1.modelindex4]
 			cl_view.V_AddEntity (ent)
 		
-		if effects & q_shared.EF_POWERSCREEN:
+		if effects & shared.EF_POWERSCREEN:
 		
 			ent.model = cl_tent.cl_mod_powerscreen
 			ent.oldframe = 0
 			ent.frame = 0
-			ent.flags |= (q_shared.RF_TRANSLUCENT | q_shared.RF_SHELL_GREEN)
+			ent.flags |= (shared.RF_TRANSLUCENT | shared.RF_SHELL_GREEN)
 			ent.alpha = 0.30
 			cl_view.V_AddEntity (ent)
 		
 		# add automatic particle trails
-		if effects&~q_shared.EF_ROTATE:
+		if effects&~shared.EF_ROTATE:
 		
-			if effects & q_shared.EF_ROCKET:
+			if effects & shared.EF_ROCKET:
 			
 				cl_fx.CL_RocketTrail (cent.lerp_origin, ent.origin, cent)
 				cl_view.V_AddLight (ent.origin, 200, 1, 1, 0)
 			
 			# PGM - Do not reorder EF_BLASTER and EF_HYPERBLASTER. 
 			# EF_BLASTER | EF_TRACKER is a special case for EF_BLASTER2... Cheese!
-			elif effects & q_shared.EF_BLASTER:
+			elif effects & shared.EF_BLASTER:
 			
 #				CL_BlasterTrail (cent->lerp_origin, ent.origin);
 #PGM
-				if effects & q_shared.EF_TRACKER:	# lame... problematic?
+				if effects & shared.EF_TRACKER:	# lame... problematic?
 				
 					cl_newfx.CL_BlasterTrail2 (cent.lerp_origin, ent.origin)
 					cl_view.V_AddLight (ent.origin, 200, 0, 1, 0)		
@@ -1131,30 +1137,30 @@ def CL_AddPacketEntities (frame): #frame_t *
 				
 #PGM
 			
-			elif effects & q_shared.EF_HYPERBLASTER:
+			elif effects & shared.EF_HYPERBLASTER:
 			
-				if effects & q_shared.EF_TRACKER:						# PGM	overloaded for blaster2.
+				if effects & shared.EF_TRACKER:						# PGM	overloaded for blaster2.
 					cl_view.V_AddLight (ent.origin, 200, 0, 1, 0)		# PGM
 				else:											# PGM
 					cl_view.V_AddLight (ent.origin, 200, 1, 1, 0)
 			
-			elif effects & q_shared.EF_GIB:
+			elif effects & shared.EF_GIB:
 			
 				cl_fx.CL_DiminishingTrail (cent.lerp_origin, ent.origin, cent, effects)
 			
-			elif effects & q_shared.EF_GRENADE:
+			elif effects & shared.EF_GRENADE:
 			
 				cl_fx.CL_DiminishingTrail (cent.lerp_origin, ent.origin, cent, effects)
 			
-			elif effects & q_shared.EF_FLIES:
+			elif effects & shared.EF_FLIES:
 			
 				cl_fx.CL_FlyEffect (cent, ent.origin)
 			
-			elif effects & q_shared.EF_BFG:
+			elif effects & shared.EF_BFG:
 			
 				#static int bfg_lightramp[6] = {300, 400, 600, 300, 150, 75};
 
-				if effects & q_shared.EF_ANIM_ALLFAST:
+				if effects & shared.EF_ANIM_ALLFAST:
 				
 					cl_fx.CL_BfgParticles (ent)
 					i = 200
@@ -1166,39 +1172,39 @@ def CL_AddPacketEntities (frame): #frame_t *
 				cl_view.V_AddLight (ent.origin, i, 0, 1, 0)
 			
 			# RAFAEL
-			elif effects & q_shared.EF_TRAP:
+			elif effects & shared.EF_TRAP:
 			
 				ent.origin[2] += 32
 				cl_fx.CL_TrapParticles (ent)
 				i = (random.getrandbits(15)%100) + 100
 				cl_view.V_AddLight (ent.origin, i, 1, 0.8, 0.1)
 			
-			elif effects & q_shared.EF_FLAG1:
+			elif effects & shared.EF_FLAG1:
 			
 				cl_fx.CL_FlagTrail (cent.lerp_origin, ent.origin, 242)
 				cl_view.V_AddLight (ent.origin, 225, 1, 0.1, 0.1)
 			
-			elif effects & q_shared.EF_FLAG2:
+			elif effects & shared.EF_FLAG2:
 			
 				cl_fx.CL_FlagTrail (cent.lerp_origin, ent.origin, 115)
 				cl_view.V_AddLight (ent.origin, 225, 0.1, 0.1, 1)
 			
 #======
 #ROGUE
-			elif effects & q_shared.EF_TAGTRAIL:
+			elif effects & shared.EF_TAGTRAIL:
 			
 				cl_newfx.CL_TagTrail (cent.lerp_origin, ent.origin, 220)
 				cl_view.V_AddLight (ent.origin, 225, 1.0, 1.0, 0.0)
 			
-			elif effects & q_shared.EF_TRACKERTRAIL:
+			elif effects & shared.EF_TRACKERTRAIL:
 			
-				if effects & q_shared.EF_TRACKER:
+				if effects & shared.EF_TRACKER:
 				
 					#float intensity;
 
 					intensity = 50 + (500 * (math.sin(cl.time/500.0) + 1.0))
 					# FIXME - check out this effect in rendition
-					if vidref_val == q_shared.VIDREF_GL:
+					if vidref_val == shared.VIDREF_GL:
 						cl_view.V_AddLight (ent.origin, intensity, -1.0, -1.0, -1.0)
 					else:
 						cl_view.V_AddLight (ent.origin, -1.0 * intensity, 1.0, 1.0, 1.0)
@@ -1208,11 +1214,11 @@ def CL_AddPacketEntities (frame): #frame_t *
 					cl_newfx.CL_Tracker_Shell (cent.lerp_origin)
 					cl_view.V_AddLight (ent.origin, 155, -1.0, -1.0, -1.0)
 				
-			elif effects & q_shared.EF_TRACKER:
+			elif effects & shared.EF_TRACKER:
 			
 				cl_newfx.CL_TrackerTrail (cent.lerp_origin, ent.origin, 0)
 				# FIXME - check out this effect in rendition
-				if vidref_val == q_shared.VIDREF_GL:
+				if vidref_val == shared.VIDREF_GL:
 					cl_view.V_AddLight (ent.origin, 200, -1, -1, -1)
 				else:
 					cl_view.V_AddLight (ent.origin, -200, 1, 1, 1)
@@ -1220,31 +1226,31 @@ def CL_AddPacketEntities (frame): #frame_t *
 #ROGUE
 #======
 			# RAFAEL
-			elif effects & q_shared.EF_GREENGIB:
+			elif effects & shared.EF_GREENGIB:
 			
 				cl_fx.CL_DiminishingTrail (cent.lerp_origin, ent.origin, cent, effects)				
 			
 			# RAFAEL
-			elif effects & q_shared.EF_IONRIPPER:
+			elif effects & shared.EF_IONRIPPER:
 			
 				cl_fx.CL_IonripperTrail (cent.lerp_origin, ent.origin)
 				cl_view.V_AddLight (ent.origin, 100, 1, 0.5, 0.5)
 			
 			# RAFAEL
-			elif effects & q_shared.EF_BLUEHYPERBLASTER:
+			elif effects & shared.EF_BLUEHYPERBLASTER:
 			
 				cl_view.V_AddLight (ent.origin, 200, 0, 0, 1)
 			
 			# RAFAEL
-			elif effects & q_shared.EF_PLASMA:
+			elif effects & shared.EF_PLASMA:
 			
-				if effects & q_shared.EF_ANIM_ALLFAST:
+				if effects & shared.EF_ANIM_ALLFAST:
 				
 					cl_fx.CL_BlasterTrail (cent.lerp_origin, ent.origin)
 				
 				cl_view.V_AddLight (ent.origin, 130, 1, 0.5, 0.5)
 			
-		q_shared.VectorCopy (ent.origin, cent.lerp_origin)
+		shared.VectorCopy (ent.origin, cent.lerp_origin)
 	
 
 
@@ -1269,7 +1275,7 @@ def CL_AddViewWeapon (ps, ops):
 	for i in range(3):
 		gun.origin[i] = cl_main.cl.refdef.vieworg[i] + ops.gunoffset[i] + \
 			cl_main.cl.lerpfrac * (ps.gunoffset[i] - ops.gunoffset[i])
-		gun.angles[i] = cl_main.cl.refdef.viewangles[i] + q_shared.LerpAngle(
+		gun.angles[i] = cl_main.cl.refdef.viewangles[i] + shared_c.LerpAngle(
 			ops.gunangles[i], ps.gunangles[i], cl_main.cl.lerpfrac
 		)
 
@@ -1279,9 +1285,9 @@ def CL_AddViewWeapon (ps, ops):
 	else:
 		gun.oldframe = ops.gunframe
 
-	gun.flags = q_shared.RF_MINLIGHT | q_shared.RF_DEPTHHACK | q_shared.RF_WEAPONMODEL
+	gun.flags = shared.RF_MINLIGHT | shared.RF_DEPTHHACK | shared.RF_WEAPONMODEL
 	gun.backlerp = 1.0 - cl_main.cl.lerpfrac
-	q_shared.VectorCopy(gun.origin, gun.oldorigin)
+	shared.VectorCopy(gun.origin, gun.oldorigin)
 	cl_view.V_AddEntity(gun)
 
 
@@ -1299,7 +1305,7 @@ def CL_CalcViewValues ():
 	"""
 
 	ps = cl_main.cl.frame.playerstate
-	frame_index = (cl_main.cl.frame.serverframe - 1) & qcommon.UPDATE_MASK
+	frame_index = (cl_main.cl.frame.serverframe - 1) & common_h.UPDATE_MASK
 	oldframe = cl_main.cl.frames[frame_index]
 	if oldframe.serverframe != cl_main.cl.frame.serverframe - 1 or not oldframe.valid:
 		oldframe = cl_main.cl.frame
@@ -1316,7 +1322,7 @@ def CL_CalcViewValues ():
 	prediction_allowed = (
 		cl_main.cl_predict
 		and cl_main.cl_predict.value
-		and not (cl_main.cl.frame.playerstate.pmove.pm_flags & q_shared.PMF_NO_PREDICTION)
+		and not (cl_main.cl.frame.playerstate.pmove.pm_flags & shared.PMF_NO_PREDICTION)
 	)
 
 	if prediction_allowed:
@@ -1351,21 +1357,21 @@ def CL_CalcViewValues ():
 				)
 			)
 
-	if cl_main.cl.frame.playerstate.pmove.pm_type < q_shared.pmtype_t.PM_DEAD.value:
+	if cl_main.cl.frame.playerstate.pmove.pm_type < shared.pmtype_t.PM_DEAD.value:
 		for i in range(3):
 			cl_main.cl.refdef.viewangles[i] = cl_main.cl.predicted_angles[i]
 	else:
 		for i in range(3):
-			cl_main.cl.refdef.viewangles[i] = q_shared.LerpAngle(
+			cl_main.cl.refdef.viewangles[i] = shared_c.LerpAngle(
 				ops.viewangles[i], ps.viewangles[i], lerp
 			)
 
 	for i in range(3):
-		cl_main.cl.refdef.viewangles[i] += q_shared.LerpAngle(
+		cl_main.cl.refdef.viewangles[i] += shared_c.LerpAngle(
 			ops.kick_angles[i], ps.kick_angles[i], lerp
 		)
 
-	q_shared.AngleVectors(
+	shared_c.AngleVectors(
 		cl_main.cl.refdef.viewangles,
 		cl_main.cl.v_forward,
 		cl_main.cl.v_right,
@@ -1394,14 +1400,14 @@ def CL_AddEntities ():
 	if cl.time > cl.frame.servertime:
 	
 		if cl_main.cl_showclamp.value:
-			common.Com_Printf ("high clamp {}\n".format(cl.time - cl.frame.servertime))
+			clientserver.Com_Printf ("high clamp {}\n".format(cl.time - cl.frame.servertime))
 		cl.time = cl.frame.servertime
 		cl.lerpfrac = 1.0
 	
 	elif cl.time < cl.frame.servertime - 100:
 	
 		if cl_main.cl_showclamp.value:
-			common.Com_Printf ("low clamp {}\n".format(cl.frame.servertime-100 - cl.time))
+			clientserver.Com_Printf ("low clamp {}\n".format(cl.frame.servertime-100 - cl.time))
 		cl.time = cl.frame.servertime - 100
 		cl.lerpfrac = 0
 	
@@ -1442,10 +1448,10 @@ def CL_GetEntitySoundOrigin (ent: int): # vec3_t
 	org = np.zeros((3,), dtype=np.float32)
 	#centity_t	*old;
 
-	if ent < 0 or ent >= q_shared.MAX_EDICTS:
-		common.Com_Error (q_shared.ERR_DROP, "CL_GetEntitySoundOrigin: bad ent")
+	if ent < 0 or ent >= shared.MAX_EDICTS:
+		clientserver.Com_Error (shared.ERR_DROP, "CL_GetEntitySoundOrigin: bad ent")
 	old = cl_main.cl_entities[ent]
-	q_shared.VectorCopy (old.lerp_origin, org)
+	shared.VectorCopy (old.lerp_origin, org)
 
 	# FIXME: bmodel issues...
 

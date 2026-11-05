@@ -24,10 +24,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import os
-from qcommon import cvar, common, cmd, files
+pass
 from client import snd_dma, cl_main, ref, cl_input, keys, client
 from linux import q_shlinux
-from game import q_shared
+pass
+from common.header import shared
+from common import clientserver
+from common import cmdparser
+from common import cvar
+from common import filesystem
 """
 #include <assert.h>
 #include <dlfcn.h> // ELF dl loader
@@ -118,10 +123,10 @@ def VID_Printf (print_level, msg):
 	vsprintf (msg,fmt,argptr);
 	va_end (argptr);
 	"""
-	if print_level == q_shared.PRINT_ALL:
-		common.Com_Printf (str(msg))
+	if print_level == shared.PRINT_ALL:
+		clientserver.Com_Printf (str(msg))
 	else:
-		common.Com_DPrintf (str(msg))
+		clientserver.Com_DPrintf (str(msg))
 
 
 def VID_Error (err_level, msg):
@@ -135,7 +140,7 @@ def VID_Error (err_level, msg):
 	vsprintf (msg,fmt,argptr);
 	va_end (argptr);
 	"""
-	common.Com_Error (err_level, str(msg))
+	clientserver.Com_Error (err_level, str(msg))
 
 """
 //==========================================================================
@@ -258,7 +263,7 @@ def VID_LoadRefresh(name): #char * (returns qboolean)
 		re.Shutdown()
 		VID_FreeReflib ()
 	
-	common.Com_Printf( "------- Loading {} -------\n".format(name) )
+	clientserver.Com_Printf( "------- Loading {} -------\n".format(name) )
 	"""
 	//regain root
 	seteuid(saved_euid);
@@ -305,16 +310,16 @@ def VID_LoadRefresh(name): #char * (returns qboolean)
 
   Com_Printf( "LoadLibrary(\"%s\")\n", fn );
 	"""
-	ri.Cmd_AddCommand = cmd.Cmd_AddCommand
-	ri.Cmd_RemoveCommand = cmd.Cmd_RemoveCommand
-	ri.Cmd_Argc = cmd.Cmd_Argc
-	ri.Cmd_Argv = cmd.Cmd_Argv
-	ri.Cmd_ExecuteText = cmd.Cbuf_ExecuteText
+	ri.Cmd_AddCommand = cmdparser.Cmd_AddCommand
+	ri.Cmd_RemoveCommand = cmdparser.Cmd_RemoveCommand
+	ri.Cmd_Argc = cmdparser.Cmd_Argc
+	ri.Cmd_Argv = cmdparser.Cmd_Argv
+	ri.Cmd_ExecuteText = cmdparser.Cbuf_ExecuteText
 	ri.Con_Printf = VID_Printf
 	ri.Sys_Error = VID_Error
-	ri.FS_LoadFile = files.FS_LoadFile
-	ri.FS_FreeFile = files.FS_FreeFile
-	ri.FS_Gamedir = files.FS_Gamedir
+	ri.FS_LoadFile = filesystem.FS_LoadFile
+	ri.FS_FreeFile = filesystem.FS_FreeFile
+	ri.FS_Gamedir = filesystem.FS_Gamedir
 	ri.Cvar_Get = cvar.Cvar_Get
 	ri.Cvar_Set = cvar.Cvar_Set
 	ri.Cvar_SetValue = cvar.Cvar_SetValue
@@ -381,7 +386,7 @@ def VID_LoadRefresh(name): #char * (returns qboolean)
 	setegid(getgid());
 
 	"""
-	common.Com_Printf( "------------------------------------\n")
+	clientserver.Com_Printf( "------------------------------------\n")
 	reflib_active = True
 
 	return True
@@ -465,16 +470,16 @@ def VID_Init ():
 	# Create the video variables so we know how to start the graphics drivers
 	## if DISPLAY is defined, try X
 	if os.getenv("DISPLAY") is not None:
-		vid_ref = cvar.Cvar_Get ("vid_ref", "softx", q_shared.CVAR_ARCHIVE)
+		vid_ref = cvar.Cvar_Get ("vid_ref", "softx", shared.CVAR_ARCHIVE)
 	else:
-		vid_ref = cvar.Cvar_Get ("vid_ref", "soft", q_shared.CVAR_ARCHIVE)
-	vid_xpos = cvar.Cvar_Get ("vid_xpos", "3", q_shared.CVAR_ARCHIVE)
-	vid_ypos = cvar.Cvar_Get ("vid_ypos", "22", q_shared.CVAR_ARCHIVE)
-	vid_fullscreen = cvar.Cvar_Get ("vid_fullscreen", "0", q_shared.CVAR_ARCHIVE)
-	vid_gamma = cvar.Cvar_Get( "vid_gamma", "1", q_shared.CVAR_ARCHIVE )
+		vid_ref = cvar.Cvar_Get ("vid_ref", "soft", shared.CVAR_ARCHIVE)
+	vid_xpos = cvar.Cvar_Get ("vid_xpos", "3", shared.CVAR_ARCHIVE)
+	vid_ypos = cvar.Cvar_Get ("vid_ypos", "22", shared.CVAR_ARCHIVE)
+	vid_fullscreen = cvar.Cvar_Get ("vid_fullscreen", "0", shared.CVAR_ARCHIVE)
+	vid_gamma = cvar.Cvar_Get( "vid_gamma", "1", shared.CVAR_ARCHIVE )
 
 	# Add some console commands that we want to handle
-	cmd.Cmd_AddCommand ("vid_restart", VID_Restart_f)
+	cmdparser.Cmd_AddCommand ("vid_restart", VID_Restart_f)
 
 	# Disable the 3Dfx splash screen 
 	os.environ['FX_GLIDE_NO_SPLASH'] = "0"
@@ -515,7 +520,7 @@ def IN_Init ():
 
 	global in_joystick
 
-	in_joystick	= cvar.Cvar_Get ("in_joystick", "0", q_shared.CVAR_ARCHIVE)
+	in_joystick	= cvar.Cvar_Get ("in_joystick", "0", shared.CVAR_ARCHIVE)
 
 
 def Real_IN_Init ():

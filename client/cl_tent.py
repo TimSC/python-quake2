@@ -24,10 +24,16 @@ import math
 import random
 import numpy as np
 from enum import Enum
-from qcommon import common, net_chan, qcommon
-from game import q_shared
+from qcommon import net_chan
+pass
 from client import cl_fx, cl_newfx, snd_dma, ref, cl_main, cl_view, client
 from linux import vid_so
+from common.header import common as common_h
+from common.header import shared
+from common.shared import shared as shared_c
+from common import clientserver
+from common import frame
+from common import movemsg
 """
 // cl_tent.c -- client side temporary entities
 
@@ -313,17 +319,17 @@ def CL_SmokeAndFlash(origin): #vec3_t
 	#explosion_t	*ex;
 
 	ex = CL_AllocExplosion ()
-	q_shared.VectorCopy (origin, ex.ent.origin)
+	shared.VectorCopy (origin, ex.ent.origin)
 	ex.typeval = exptype_t.ex_misc
 	ex.frames = 4
-	ex.ent.flags = q_shared.RF_TRANSLUCENT
+	ex.ent.flags = shared.RF_TRANSLUCENT
 	ex.start = cl_main.cl.frame.servertime - 100
 	ex.ent.model = cl_mod_smoke
 
 	ex = CL_AllocExplosion ()
-	q_shared.VectorCopy (origin, ex.ent.origin)
+	shared.VectorCopy (origin, ex.ent.origin)
 	ex.typeval = exptype_t.ex_flash
-	ex.ent.flags = q_shared.RF_FULLBRIGHT
+	ex.ent.flags = shared.RF_FULLBRIGHT
 	ex.frames = 2
 	ex.start = cl_main.cl.frame.servertime - 100
 	ex.ent.model = cl_mod_flash
@@ -338,12 +344,12 @@ def CL_ParseParticles ():
 	#int		color, count;
 	#vec3_t	pos, dir;
 
-	pos = common.MSG_ReadPos (net_chan.net_message)
-	dir = common.MSG_ReadDir (net_chan.net_message)
+	pos = movemsg.MSG_ReadPos (net_chan.net_message)
+	dir = movemsg.MSG_ReadDir (net_chan.net_message)
 
-	color = common.MSG_ReadByte (net_chan.net_message)
+	color = movemsg.MSG_ReadByte (net_chan.net_message)
 
-	count = common.MSG_ReadByte (net_chan.net_message)
+	count = movemsg.MSG_ReadByte (net_chan.net_message)
 
 	cl_fx.CL_ParticleEffect (pos, dir, color, count)
 
@@ -361,10 +367,10 @@ def CL_ParseBeam (model): #struct model_s * (returns int)
 	int		i;
 	"""
 	
-	ent = common.MSG_ReadShort (net_chan.net_message)
+	ent = movemsg.MSG_ReadShort (net_chan.net_message)
 	
-	start = common.MSG_ReadPos (net_chan.net_message)
-	end = common.MSG_ReadPos (net_chan.net_message)
+	start = movemsg.MSG_ReadPos (net_chan.net_message)
+	end = movemsg.MSG_ReadPos (net_chan.net_message)
 
 # override any beam with the same entity
 	for b in cl_beams:
@@ -373,9 +379,9 @@ def CL_ParseBeam (model): #struct model_s * (returns int)
 			b.entity = ent
 			b.model = model
 			b.endtime = cl_main.cl.time + 200
-			q_shared.VectorCopy (start, b.start)
-			q_shared.VectorCopy (end, b.end)
-			q_shared.VectorClear (b.offset)
+			shared.VectorCopy (start, b.start)
+			shared.VectorCopy (end, b.end)
+			shared.VectorClear (b.offset)
 			return ent
 		
 # find a free beam
@@ -386,12 +392,12 @@ def CL_ParseBeam (model): #struct model_s * (returns int)
 			b.entity = ent
 			b.model = model
 			b.endtime = cl_main.cl.time + 200
-			q_shared.VectorCopy (start, b.start)
-			q_shared.VectorCopy (end, b.end)
-			q_shared.VectorClear (b.offset)
+			shared.VectorCopy (start, b.start)
+			shared.VectorCopy (end, b.end)
+			shared.VectorClear (b.offset)
 			return ent
 		
-	common.Com_Printf ("beam list overflow!\n")	
+	clientserver.Com_Printf ("beam list overflow!\n")	
 	return ent
 
 """
@@ -408,11 +414,11 @@ def CL_ParseBeam2 (model): #struct model_s * (returns int)
 	int		i;
 	"""
 	
-	ent = common.MSG_ReadShort (net_chan.net_message)
+	ent = movemsg.MSG_ReadShort (net_chan.net_message)
 	
-	start = common.MSG_ReadPos (net_chan.net_message)
-	end = common.MSG_ReadPos (net_chan.net_message)
-	offset = common.MSG_ReadPos (net_chan.net_message)
+	start = movemsg.MSG_ReadPos (net_chan.net_message)
+	end = movemsg.MSG_ReadPos (net_chan.net_message)
+	offset = movemsg.MSG_ReadPos (net_chan.net_message)
 
 #	Com_Printf ("end- %f %f %f\n", end[0], end[1], end[2]);
 
@@ -424,9 +430,9 @@ def CL_ParseBeam2 (model): #struct model_s * (returns int)
 			b.entity = ent
 			b.model = model
 			b.endtime = cl_main.cl.time + 200
-			q_shared.VectorCopy (start, b.start)
-			q_shared.VectorCopy (end, b.end)
-			q_shared.VectorCopy (offset, b.offset)
+			shared.VectorCopy (start, b.start)
+			shared.VectorCopy (end, b.end)
+			shared.VectorCopy (offset, b.offset)
 			return ent
 		
 # find a free beam
@@ -437,12 +443,12 @@ def CL_ParseBeam2 (model): #struct model_s * (returns int)
 			b.entity = ent
 			b.model = model
 			b.endtime = cl_main.cl.time + 200
-			q_shared.VectorCopy (start, b.start)
-			q_shared.VectorCopy (end, b.end)
-			q_shared.VectorCopy (offset, b.offset)
+			shared.VectorCopy (start, b.start)
+			shared.VectorCopy (end, b.end)
+			shared.VectorCopy (offset, b.offset)
 			return ent
 		
-	common.Com_Printf ("beam list overflow!\n")	
+	clientserver.Com_Printf ("beam list overflow!\n")	
 	return ent
 
 # ROGUE
@@ -462,20 +468,20 @@ def CL_ParsePlayerBeam (model): #struct model_s * (returns int)
 	"""
 	offset = np.zeros((3,), dtype=np.float32)
 	
-	ent = common.MSG_ReadShort (net_chan.net_message)
+	ent = movemsg.MSG_ReadShort (net_chan.net_message)
 	
-	start = common.MSG_ReadPos (net_chan.net_message)
-	end = common.MSG_ReadPos (net_chan.net_message)
+	start = movemsg.MSG_ReadPos (net_chan.net_message)
+	end = movemsg.MSG_ReadPos (net_chan.net_message)
 	# PMM - network optimization
 	if model is cl_mod_heatbeam:
-		q_shared.VectorSet(offset, 2, 7, -3)
+		shared.VectorSet(offset, 2, 7, -3)
 	elif model is cl_mod_monster_heatbeam:
 	
 		model = cl_mod_heatbeam
-		q_shared.VectorSet(offset, 0, 0, 0)
+		shared.VectorSet(offset, 0, 0, 0)
 	
 	else:
-		offset = common.MSG_ReadPos (net_chan.net_message)
+		offset = movemsg.MSG_ReadPos (net_chan.net_message)
 
 #	Com_Printf ("end- %f %f %f\n", end[0], end[1], end[2]);
 
@@ -488,9 +494,9 @@ def CL_ParsePlayerBeam (model): #struct model_s * (returns int)
 			b.entity = ent
 			b.model = model
 			b.endtime = cl_main.cl.time + 200
-			q_shared.VectorCopy (start, b.start)
-			q_shared.VectorCopy (end, b.end)
-			q_shared.VectorCopy (offset, b.offset)
+			shared.VectorCopy (start, b.start)
+			shared.VectorCopy (end, b.end)
+			shared.VectorCopy (offset, b.offset)
 			return ent
 		
 # find a free beam
@@ -501,12 +507,12 @@ def CL_ParsePlayerBeam (model): #struct model_s * (returns int)
 			b.entity = ent
 			b.model = model
 			b.endtime = cl_main.cl.time + 100		# PMM - this needs to be 100 to prevent multiple heatbeams
-			q_shared.VectorCopy (start, b.start)
-			q_shared.VectorCopy (end, b.end)
-			q_shared.VectorCopy (offset, b.offset)
+			shared.VectorCopy (start, b.start)
+			shared.VectorCopy (end, b.end)
+			shared.VectorCopy (offset, b.offset)
 			return ent
 		
-	common.Com_Printf ("beam list overflow!\n")	
+	clientserver.Com_Printf ("beam list overflow!\n")	
 	return ent
 
 #rogue
@@ -525,11 +531,11 @@ def CL_ParseLightning (model): #struct model_s * (returns int)
 	int		i;
 	"""
 	
-	srcEnt = common.MSG_ReadShort (net_chan.net_message)
-	destEnt = common.MSG_ReadShort (net_chan.net_message)
+	srcEnt = movemsg.MSG_ReadShort (net_chan.net_message)
+	destEnt = movemsg.MSG_ReadShort (net_chan.net_message)
 
-	start = common.MSG_ReadPos (net_chan.net_message)
-	end = common.MSG_ReadPos (net_chan.net_message)
+	start = movemsg.MSG_ReadPos (net_chan.net_message)
+	end = movemsg.MSG_ReadPos (net_chan.net_message)
 
 # override any beam with the same source AND destination entities
 	for b in cl_beams:
@@ -540,9 +546,9 @@ def CL_ParseLightning (model): #struct model_s * (returns int)
 			b.dest_entity = destEnt
 			b.model = model
 			b.endtime = cl_main.cl.time + 200
-			q_shared.VectorCopy (start, b.start)
-			q_shared.VectorCopy (end, b.end)
-			q_shared.VectorClear (b.offset)
+			shared.VectorCopy (start, b.start)
+			shared.VectorCopy (end, b.end)
+			shared.VectorClear (b.offset)
 			return srcEnt
 		
 # find a free beam
@@ -555,12 +561,12 @@ def CL_ParseLightning (model): #struct model_s * (returns int)
 			b.dest_entity = destEnt
 			b.model = model
 			b.endtime = cl_main.cl.time + 200
-			q_shared.VectorCopy (start, b.start)
-			q_shared.VectorCopy (end, b.end)
-			q_shared.VectorClear (b.offset)
+			shared.VectorCopy (start, b.start)
+			shared.VectorCopy (end, b.end)
+			shared.VectorClear (b.offset)
 			return srcEnt
 		
-	common.Com_Printf ("beam list overflow!\n")	
+	clientserver.Com_Printf ("beam list overflow!\n")	
 	return srcEnt
 
 """
@@ -577,16 +583,16 @@ def CL_ParseLaser (colors): #int
 	int		i;
 	"""
 
-	start = common.MSG_ReadPos (net_chan.net_message)
-	end = common.MSG_ReadPos (net_chan.net_message)
+	start = movemsg.MSG_ReadPos (net_chan.net_message)
+	end = movemsg.MSG_ReadPos (net_chan.net_message)
 
 	for l in cl_lasers:
 	
 		if l.endtime < cl_main.cl.time:
 		
-			l.ent.flags = q_shared.RF_TRANSLUCENT | q_shared.RF_BEAM
-			q_shared.VectorCopy (start, l.ent.origin)
-			q_shared.VectorCopy (end, l.ent.oldorigin)
+			l.ent.flags = shared.RF_TRANSLUCENT | shared.RF_BEAM
+			shared.VectorCopy (start, l.ent.origin)
+			shared.VectorCopy (end, l.ent.oldorigin)
 			l.ent.alpha = 0.30
 			l.ent.skinnum = (colors >> ((random.getrandbits(15) % 4)*8)) & 0xff
 			l.ent.model = None
@@ -609,7 +615,7 @@ def CL_ParseSteam ():
 	cl_sustain_t	*s, *free_sustain;
 	"""
 
-	id = common.MSG_ReadShort (net_chan.net_message)		# an id of -1 is an instant effect
+	id = movemsg.MSG_ReadShort (net_chan.net_message)		# an id of -1 is an instant effect
 	if id != -1: # sustains
 	
 #			Com_Printf ("Sustain effect id %d\n", id);
@@ -625,13 +631,13 @@ def CL_ParseSteam ():
 		
 			s = free_sustain
 			s.id = id
-			s.count = common.MSG_ReadByte (net_chan.net_message)
-			s.org[:] = common.MSG_ReadPos (net_chan.net_message)
-			s.dir[:] = common.MSG_ReadDir (net_chan.net_message)
-			r = common.MSG_ReadByte (net_chan.net_message)
+			s.count = movemsg.MSG_ReadByte (net_chan.net_message)
+			s.org[:] = movemsg.MSG_ReadPos (net_chan.net_message)
+			s.dir[:] = movemsg.MSG_ReadDir (net_chan.net_message)
+			r = movemsg.MSG_ReadByte (net_chan.net_message)
 			s.color = r & 0xff
-			s.magnitude = common.MSG_ReadShort (net_chan.net_message)
-			s.endtime = cl_main.cl.time + common.MSG_ReadLong (net_chan.net_message)
+			s.magnitude = movemsg.MSG_ReadShort (net_chan.net_message)
+			s.endtime = cl_main.cl.time + movemsg.MSG_ReadLong (net_chan.net_message)
 			s.think = cl_newfx.CL_ParticleSteamEffect2
 			s.thinkinterval = 100
 			s.nextthink = cl_main.cl.time
@@ -640,20 +646,20 @@ def CL_ParseSteam ():
 		
 #				Com_Printf ("No free sustains!\n");
 			# FIXME - read the stuff anyway
-			cnt = common.MSG_ReadByte (net_chan.net_message)
-			pos = common.MSG_ReadPos (net_chan.net_message)
-			dir = common.MSG_ReadDir (net_chan.net_message)
-			r = common.MSG_ReadByte (net_chan.net_message)
-			magnitude = common.MSG_ReadShort (net_chan.net_message)
-			magnitude = common.MSG_ReadLong (net_chan.net_message) # really interval
+			cnt = movemsg.MSG_ReadByte (net_chan.net_message)
+			pos = movemsg.MSG_ReadPos (net_chan.net_message)
+			dir = movemsg.MSG_ReadDir (net_chan.net_message)
+			r = movemsg.MSG_ReadByte (net_chan.net_message)
+			magnitude = movemsg.MSG_ReadShort (net_chan.net_message)
+			magnitude = movemsg.MSG_ReadLong (net_chan.net_message) # really interval
 		
 	else: # instant
 	
-		cnt = common.MSG_ReadByte (net_chan.net_message)
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		dir = common.MSG_ReadDir (net_chan.net_message)
-		r = common.MSG_ReadByte (net_chan.net_message)
-		magnitude = common.MSG_ReadShort (net_chan.net_message)
+		cnt = movemsg.MSG_ReadByte (net_chan.net_message)
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		dir = movemsg.MSG_ReadDir (net_chan.net_message)
+		r = movemsg.MSG_ReadByte (net_chan.net_message)
+		magnitude = movemsg.MSG_ReadShort (net_chan.net_message)
 		color = r & 0xff
 		cl_newfx.CL_ParticleSteamEffect (pos, dir, color, cnt, magnitude)
 #		S_StartSound (pos,  0, 0, cl_sfx_lashit, 1, ATTN_NORM, 0);
@@ -667,7 +673,7 @@ def CL_ParseWidow ():
 	cl_sustain_t	*s, *free_sustain;
 	"""
 
-	id = common.MSG_ReadShort (net_chan.net_message)
+	id = movemsg.MSG_ReadShort (net_chan.net_message)
 
 	free_sustain = None
 	for s in cl_sustains:
@@ -681,7 +687,7 @@ def CL_ParseWidow ():
 	
 		s = free_sustain
 		s.id = id
-		s.org[:] = common.MSG_ReadPos (net_chan.net_message)
+		s.org[:] = movemsg.MSG_ReadPos (net_chan.net_message)
 		s.endtime = cl_main.cl.time + 2100
 		s.think = cl_newfx.CL_Widowbeamout
 		s.thinkinterval = 1
@@ -690,7 +696,7 @@ def CL_ParseWidow ():
 	else: # no free sustains
 	
 		# FIXME - read the stuff anyway
-		pos = common.MSG_ReadPos (net_chan.net_message)
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
 	
 
 def CL_ParseNuke ():
@@ -713,7 +719,7 @@ def CL_ParseNuke ():
 	
 		s = free_sustain
 		s.id = 21000
-		s.org[:] = common.MSG_ReadPos (net_chan.net_message)
+		s.org[:] = movemsg.MSG_ReadPos (net_chan.net_message)
 		s.endtime = cl_main.cl.time + 1000
 		s.think = cl_newfx.CL_Nukeblast
 		s.thinkinterval = 1
@@ -722,7 +728,7 @@ def CL_ParseNuke ():
 	else: # no free sustains
 	
 		# FIXME - read the stuff anyway
-		pos = common.MSG_ReadPos (net_chan.net_message)
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
 	
 
 #ROGUE
@@ -750,92 +756,92 @@ def CL_ParseTEnt ():
 	"""
 	dir = np.zeros((3,), dtype=np.float32)
 
-	type = q_shared.temp_event_t(common.MSG_ReadByte (net_chan.net_message))
+	type = shared.temp_event_t(movemsg.MSG_ReadByte (net_chan.net_message))
 
 	#switch (type)
-	if type == q_shared.temp_event_t.TE_BLOOD:			# bullet hitting flesh
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		dir = common.MSG_ReadDir (net_chan.net_message)
+	if type == shared.temp_event_t.TE_BLOOD:			# bullet hitting flesh
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		dir = movemsg.MSG_ReadDir (net_chan.net_message)
 		cl_fx.CL_ParticleEffect (pos, dir, 0xe8, 60)
 	
-	elif type in (q_shared.temp_event_t.TE_GUNSHOT, q_shared.temp_event_t.TE_SPARKS, q_shared.temp_event_t.TE_BULLET_SPARKS):			# bullet hitting wall
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		dir = common.MSG_ReadDir (net_chan.net_message)
-		if type == q_shared.temp_event_t.TE_GUNSHOT:
+	elif type in (shared.temp_event_t.TE_GUNSHOT, shared.temp_event_t.TE_SPARKS, shared.temp_event_t.TE_BULLET_SPARKS):			# bullet hitting wall
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		dir = movemsg.MSG_ReadDir (net_chan.net_message)
+		if type == shared.temp_event_t.TE_GUNSHOT:
 			cl_fx.CL_ParticleEffect (pos, dir, 0, 40)
 		else:
 			cl_fx.CL_ParticleEffect (pos, dir, 0xe0, 6)
 
-		if type != q_shared.temp_event_t.TE_SPARKS:
+		if type != shared.temp_event_t.TE_SPARKS:
 		
 			CL_SmokeAndFlash(pos)
 			
 			# impact sound
 			cnt = random.getrandbits(15)&15
 			if cnt == 1:
-				snd_dma.S_StartSound (pos, 0, 0, cl_sfx_ric1, 1, q_shared.ATTN_NORM, 0)
+				snd_dma.S_StartSound (pos, 0, 0, cl_sfx_ric1, 1, shared.ATTN_NORM, 0)
 			elif cnt == 2:
-				snd_dma.S_StartSound (pos, 0, 0, cl_sfx_ric2, 1, q_shared.ATTN_NORM, 0)
+				snd_dma.S_StartSound (pos, 0, 0, cl_sfx_ric2, 1, shared.ATTN_NORM, 0)
 			elif cnt == 3:
-				snd_dma.S_StartSound (pos, 0, 0, cl_sfx_ric3, 1, q_shared.ATTN_NORM, 0)
+				snd_dma.S_StartSound (pos, 0, 0, cl_sfx_ric3, 1, shared.ATTN_NORM, 0)
 		
-	elif type in (q_shared.temp_event_t.TE_SCREEN_SPARKS, q_shared.temp_event_t.TE_SHIELD_SPARKS):
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		dir = common.MSG_ReadDir (net_chan.net_message)
-		if type == q_shared.temp_event_t.TE_SCREEN_SPARKS:
+	elif type in (shared.temp_event_t.TE_SCREEN_SPARKS, shared.temp_event_t.TE_SHIELD_SPARKS):
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		dir = movemsg.MSG_ReadDir (net_chan.net_message)
+		if type == shared.temp_event_t.TE_SCREEN_SPARKS:
 			cl_fx.CL_ParticleEffect (pos, dir, 0xd0, 40)
 		else:
 			cl_fx.CL_ParticleEffect (pos, dir, 0xb0, 40)
 		#FIXME : replace or remove this sound
-		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_lashit, 1, q_shared.ATTN_NORM, 0)
+		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
 		
-	elif type == q_shared.temp_event_t.TE_SHOTGUN:			# bullet hitting wall
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		dir = common.MSG_ReadDir (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_SHOTGUN:			# bullet hitting wall
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		dir = movemsg.MSG_ReadDir (net_chan.net_message)
 		cl_fx.CL_ParticleEffect (pos, dir, 0, 20)
 		CL_SmokeAndFlash(pos)
 
-	elif type == q_shared.temp_event_t.TE_SPLASH:			# bullet hitting water
-		cnt = common.MSG_ReadByte (net_chan.net_message)
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		dir = common.MSG_ReadDir (net_chan.net_message)
-		r = common.MSG_ReadByte (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_SPLASH:			# bullet hitting water
+		cnt = movemsg.MSG_ReadByte (net_chan.net_message)
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		dir = movemsg.MSG_ReadDir (net_chan.net_message)
+		r = movemsg.MSG_ReadByte (net_chan.net_message)
 		if r > 6:
 			color = 0x00
 		else:
 			color = splash_color[r]
 		cl_fx.CL_ParticleEffect (pos, dir, color, cnt)
 
-		if r == q_shared.SPLASH_SPARKS:
+		if r == shared.SPLASH_SPARKS:
 		
 			r = random.getrandbits(15) & 3
 			if r == 0:
-				snd_dma.S_StartSound (pos, 0, 0, cl_sfx_spark5, 1, q_shared.ATTN_STATIC, 0)
+				snd_dma.S_StartSound (pos, 0, 0, cl_sfx_spark5, 1, shared.ATTN_STATIC, 0)
 			elif r == 1:
-				snd_dma.S_StartSound (pos, 0, 0, cl_sfx_spark6, 1, q_shared.ATTN_STATIC, 0)
+				snd_dma.S_StartSound (pos, 0, 0, cl_sfx_spark6, 1, shared.ATTN_STATIC, 0)
 			else:
-				snd_dma.S_StartSound (pos, 0, 0, cl_sfx_spark7, 1, q_shared.ATTN_STATIC, 0)
+				snd_dma.S_StartSound (pos, 0, 0, cl_sfx_spark7, 1, shared.ATTN_STATIC, 0)
 		
-	elif type == q_shared.temp_event_t.TE_LASER_SPARKS:
-		cnt = common.MSG_ReadByte (net_chan.net_message)
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		dir = common.MSG_ReadDir (net_chan.net_message)
-		color = common.MSG_ReadByte (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_LASER_SPARKS:
+		cnt = movemsg.MSG_ReadByte (net_chan.net_message)
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		dir = movemsg.MSG_ReadDir (net_chan.net_message)
+		color = movemsg.MSG_ReadByte (net_chan.net_message)
 		cl_fx.CL_ParticleEffect2 (pos, dir, color, cnt)
 
 	# RAFAEL
-	elif type == q_shared.temp_event_t.TE_BLUEHYPERBLASTER:
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		dir = common.MSG_ReadPos (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_BLUEHYPERBLASTER:
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		dir = movemsg.MSG_ReadPos (net_chan.net_message)
 		cl_fx.CL_BlasterParticles (pos, dir)
 
-	elif type == q_shared.temp_event_t.TE_BLASTER:			# blaster hitting wall
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		dir = common.MSG_ReadDir (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_BLASTER:			# blaster hitting wall
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		dir = movemsg.MSG_ReadDir (net_chan.net_message)
 		cl_fx.CL_BlasterParticles (pos, dir)
 
 		ex = CL_AllocExplosion ()
-		q_shared.VectorCopy (pos, ex.ent.origin)
+		shared.VectorCopy (pos, ex.ent.origin)
 		ex.ent.angles[0] = math.acos(dir[2])/math.pi*180
 	# PMM - fixed to correct for pitch of 0
 		if dir[0]:
@@ -848,28 +854,28 @@ def CL_ParseTEnt ():
 			ex.ent.angles[1] = 0
 
 		ex.typeval = exptype_t.ex_misc
-		ex.ent.flags = q_shared.RF_FULLBRIGHT|q_shared.RF_TRANSLUCENT
+		ex.ent.flags = shared.RF_FULLBRIGHT|shared.RF_TRANSLUCENT
 		ex.start = cl_main.cl.frame.servertime - 100
 		ex.light = 150
 		ex.lightcolor[0] = 1
 		ex.lightcolor[1] = 1
 		ex.ent.model = cl_mod_explode
 		ex.frames = 4
-		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_lashit, 1, q_shared.ATTN_NORM, 0)
+		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
 		
-	elif type == q_shared.temp_event_t.TE_RAILTRAIL:			# railgun effect
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		pos2 = common.MSG_ReadPos (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_RAILTRAIL:			# railgun effect
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		pos2 = movemsg.MSG_ReadPos (net_chan.net_message)
 		cl_fx.CL_RailTrail (pos, pos2)
-		snd_dma.S_StartSound (pos2, 0, 0, cl_sfx_railg, 1, q_shared.ATTN_NORM, 0)
+		snd_dma.S_StartSound (pos2, 0, 0, cl_sfx_railg, 1, shared.ATTN_NORM, 0)
 
-	elif type in (q_shared.temp_event_t.TE_EXPLOSION2, q_shared.temp_event_t.TE_GRENADE_EXPLOSION, q_shared.temp_event_t.TE_GRENADE_EXPLOSION_WATER):
-		pos = common.MSG_ReadPos (net_chan.net_message)
+	elif type in (shared.temp_event_t.TE_EXPLOSION2, shared.temp_event_t.TE_GRENADE_EXPLOSION, shared.temp_event_t.TE_GRENADE_EXPLOSION_WATER):
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
 
 		ex = CL_AllocExplosion ()
-		q_shared.VectorCopy (pos, ex.ent.origin)
+		shared.VectorCopy (pos, ex.ent.origin)
 		ex.typeval = exptype_t.ex_poly
-		ex.ent.flags = q_shared.RF_FULLBRIGHT
+		ex.ent.flags = shared.RF_FULLBRIGHT
 		ex.start = cl_main.cl.frame.servertime - 100
 		ex.light = 350
 		ex.lightcolor[0] = 1.0
@@ -880,18 +886,18 @@ def CL_ParseTEnt ():
 		ex.baseframe = 30
 		ex.ent.angles[1] = random.getrandbits(15) % 360
 		cl_fx.CL_ExplosionParticles (pos)
-		if type == q_shared.temp_event_t.TE_GRENADE_EXPLOSION_WATER:
-			snd_dma.S_StartSound (pos, 0, 0, cl_sfx_watrexp, 1, q_shared.ATTN_NORM, 0)
+		if type == shared.temp_event_t.TE_GRENADE_EXPLOSION_WATER:
+			snd_dma.S_StartSound (pos, 0, 0, cl_sfx_watrexp, 1, shared.ATTN_NORM, 0)
 		else:
-			snd_dma.S_StartSound (pos, 0, 0, cl_sfx_grenexp, 1, q_shared.ATTN_NORM, 0)
+			snd_dma.S_StartSound (pos, 0, 0, cl_sfx_grenexp, 1, shared.ATTN_NORM, 0)
 
 	# RAFAEL
-	elif type == q_shared.temp_event_t.TE_PLASMA_EXPLOSION:
-		pos = common.MSG_ReadPos (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_PLASMA_EXPLOSION:
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
 		ex = CL_AllocExplosion ()
-		q_shared.VectorCopy (pos, ex.ent.origin)
+		shared.VectorCopy (pos, ex.ent.origin)
 		ex.typeval = exptype_t.ex_poly
-		ex.ent.flags = q_shared.RF_FULLBRIGHT
+		ex.ent.flags = shared.RF_FULLBRIGHT
 		ex.start = cl_main.cl.frame.servertime - 100
 		ex.light = 350
 		ex.lightcolor[0] = 1.0 
@@ -899,92 +905,92 @@ def CL_ParseTEnt ():
 		ex.lightcolor[2] = 0.5
 		ex.ent.angles[1] = random.getrandbits(15) % 360
 		ex.ent.model = cl_mod_explo4
-		if common.frand() < 0.5:
+		if frame.frand() < 0.5:
 			ex.baseframe = 15
 		ex.frames = 15
 		cl_fx.CL_ExplosionParticles (pos)
-		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_rockexp, 1, q_shared.ATTN_NORM, 0)
+		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_rockexp, 1, shared.ATTN_NORM, 0)
 	
-	elif type in (q_shared.temp_event_t.TE_EXPLOSION1, q_shared.temp_event_t.TE_EXPLOSION1_BIG, q_shared.temp_event_t.TE_ROCKET_EXPLOSION, q_shared.temp_event_t.TE_ROCKET_EXPLOSION_WATER, q_shared.temp_event_t.TE_EXPLOSION1_NP): # PMM
-		pos = common.MSG_ReadPos (net_chan.net_message)
+	elif type in (shared.temp_event_t.TE_EXPLOSION1, shared.temp_event_t.TE_EXPLOSION1_BIG, shared.temp_event_t.TE_ROCKET_EXPLOSION, shared.temp_event_t.TE_ROCKET_EXPLOSION_WATER, shared.temp_event_t.TE_EXPLOSION1_NP): # PMM
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
 
 		ex = CL_AllocExplosion ()
-		q_shared.VectorCopy (pos, ex.ent.origin)
+		shared.VectorCopy (pos, ex.ent.origin)
 		ex.typeval = exptype_t.ex_poly
-		ex.ent.flags = q_shared.RF_FULLBRIGHT
+		ex.ent.flags = shared.RF_FULLBRIGHT
 		ex.start = cl_main.cl.frame.servertime - 100
 		ex.light = 350
 		ex.lightcolor[0] = 1.0
 		ex.lightcolor[1] = 0.5
 		ex.lightcolor[2] = 0.5
 		ex.ent.angles[1] = random.getrandbits(15) % 360
-		if type != q_shared.temp_event_t.TE_EXPLOSION1_BIG:				# PMM
+		if type != shared.temp_event_t.TE_EXPLOSION1_BIG:				# PMM
 			ex.ent.model = cl_mod_explo4			# PMM
 		else:
 			ex.ent.model = cl_mod_explo4_big
-		if common.frand() < 0.5:
+		if frame.frand() < 0.5:
 			ex.baseframe = 15
 		ex.frames = 15
-		if (type != q_shared.temp_event_t.TE_EXPLOSION1_BIG) and (type != q_shared.temp_event_t.TE_EXPLOSION1_NP):		# PMM
+		if (type != shared.temp_event_t.TE_EXPLOSION1_BIG) and (type != shared.temp_event_t.TE_EXPLOSION1_NP):		# PMM
 			cl_fx.CL_ExplosionParticles (pos)									# PMM
-		if type == q_shared.temp_event_t.TE_ROCKET_EXPLOSION_WATER:
-			snd_dma.S_StartSound (pos, 0, 0, cl_sfx_watrexp, 1, q_shared.ATTN_NORM, 0)
+		if type == shared.temp_event_t.TE_ROCKET_EXPLOSION_WATER:
+			snd_dma.S_StartSound (pos, 0, 0, cl_sfx_watrexp, 1, shared.ATTN_NORM, 0)
 		else:
-			snd_dma.S_StartSound (pos, 0, 0, cl_sfx_rockexp, 1, q_shared.ATTN_NORM, 0)
+			snd_dma.S_StartSound (pos, 0, 0, cl_sfx_rockexp, 1, shared.ATTN_NORM, 0)
 
-	elif type == q_shared.temp_event_t.TE_BFG_EXPLOSION:
-		pos = common.MSG_ReadPos (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_BFG_EXPLOSION:
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
 		ex = CL_AllocExplosion ()
-		q_shared.VectorCopy (pos, ex.ent.origin)
+		shared.VectorCopy (pos, ex.ent.origin)
 		ex.typeval = exptype_t.ex_poly
-		ex.ent.flags = q_shared.RF_FULLBRIGHT
+		ex.ent.flags = shared.RF_FULLBRIGHT
 		ex.start = cl_main.cl.frame.servertime - 100
 		ex.light = 350
 		ex.lightcolor[0] = 0.0
 		ex.lightcolor[1] = 1.0
 		ex.lightcolor[2] = 0.0
 		ex.ent.model = cl_mod_bfg_explo
-		ex.ent.flags |= q_shared.RF_TRANSLUCENT
+		ex.ent.flags |= shared.RF_TRANSLUCENT
 		ex.ent.alpha = 0.30
 		ex.frames = 4
 
-	elif type == q_shared.temp_event_t.TE_BFG_BIGEXPLOSION:
-		pos = common.MSG_ReadPos (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_BFG_BIGEXPLOSION:
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
 		cl_fx.CL_BFGExplosionParticles (pos)
 
-	elif type == q_shared.temp_event_t.TE_BFG_LASER:
+	elif type == shared.temp_event_t.TE_BFG_LASER:
 		CL_ParseLaser (0xd0d1d2d3)
 
-	elif type == q_shared.temp_event_t.TE_BUBBLETRAIL:
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		pos2 = common.MSG_ReadPos (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_BUBBLETRAIL:
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		pos2 = movemsg.MSG_ReadPos (net_chan.net_message)
 		cl_fx.CL_BubbleTrail (pos, pos2)
 
-	elif type in (q_shared.temp_event_t.TE_PARASITE_ATTACK, q_shared.temp_event_t.TE_MEDIC_CABLE_ATTACK):
+	elif type in (shared.temp_event_t.TE_PARASITE_ATTACK, shared.temp_event_t.TE_MEDIC_CABLE_ATTACK):
 		ent = CL_ParseBeam (cl_mod_parasite_segment)
 
-	elif type == q_shared.temp_event_t.TE_BOSSTPORT:			# boss teleporting to station
-		pos = common.MSG_ReadPos (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_BOSSTPORT:			# boss teleporting to station
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
 		cl_fx.CL_BigTeleportParticles (pos)
-		snd_dma.S_StartSound (pos, 0, 0, snd_dma.S_RegisterSound ("misc/bigtele.wav"), 1, q_shared.ATTN_NONE, 0)
+		snd_dma.S_StartSound (pos, 0, 0, snd_dma.S_RegisterSound ("misc/bigtele.wav"), 1, shared.ATTN_NONE, 0)
 
-	elif type == q_shared.temp_event_t.TE_GRAPPLE_CABLE:
+	elif type == shared.temp_event_t.TE_GRAPPLE_CABLE:
 		ent = CL_ParseBeam2 (cl_mod_grapple_cable)
 
 	# RAFAEL
-	elif type == q_shared.temp_event_t.TE_WELDING_SPARKS:
-		cnt = common.MSG_ReadByte (net_chan.net_message)
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		dir = common.MSG_ReadDir (net_chan.net_message)
-		color = common.MSG_ReadByte (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_WELDING_SPARKS:
+		cnt = movemsg.MSG_ReadByte (net_chan.net_message)
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		dir = movemsg.MSG_ReadDir (net_chan.net_message)
+		color = movemsg.MSG_ReadByte (net_chan.net_message)
 		cl_fx.CL_ParticleEffect2 (pos, dir, color, cnt)
 
 		ex = CL_AllocExplosion ()
-		q_shared.VectorCopy (pos, ex.ent.origin)
+		shared.VectorCopy (pos, ex.ent.origin)
 		ex.typeval = exptype_t.ex_flash
 		# note to self
 		# we need a better no draw flag
-		ex.ent.flags = q_shared.RF_BEAM
+		ex.ent.flags = shared.RF_BEAM
 		ex.start = cl_main.cl.frame.servertime - 0.1
 		ex.light = 100 + (random.getrandbits(15)%75)
 		ex.lightcolor[0] = 1.0
@@ -993,34 +999,34 @@ def CL_ParseTEnt ():
 		ex.ent.model = cl_mod_flash
 		ex.frames = 2
 
-	elif type == q_shared.temp_event_t.TE_GREENBLOOD:
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		dir = common.MSG_ReadDir (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_GREENBLOOD:
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		dir = movemsg.MSG_ReadDir (net_chan.net_message)
 		cl_fx.CL_ParticleEffect2 (pos, dir, 0xdf, 30)
 
 	# RAFAEL
-	elif type == q_shared.temp_event_t.TE_TUNNEL_SPARKS:
-		cnt = common.MSG_ReadByte (net_chan.net_message)
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		dir = common.MSG_ReadDir (net_chan.net_message)
-		color = common.MSG_ReadByte (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_TUNNEL_SPARKS:
+		cnt = movemsg.MSG_ReadByte (net_chan.net_message)
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		dir = movemsg.MSG_ReadDir (net_chan.net_message)
+		color = movemsg.MSG_ReadByte (net_chan.net_message)
 		cl_fx.CL_ParticleEffect3 (pos, dir, color, cnt)
 
 #=============
 #PGM
 		# PMM -following code integrated for flechette (different color)
-	elif type in (q_shared.temp_event_t.TE_BLASTER2, q_shared.temp_event_t.TE_FLECHETTE):			# green blaster hitting wall / flechette
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		dir = common.MSG_ReadDir (net_chan.net_message)
+	elif type in (shared.temp_event_t.TE_BLASTER2, shared.temp_event_t.TE_FLECHETTE):			# green blaster hitting wall / flechette
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		dir = movemsg.MSG_ReadDir (net_chan.net_message)
 		
 		# PMM
-		if type == q_shared.temp_event_t.TE_BLASTER2:
+		if type == shared.temp_event_t.TE_BLASTER2:
 			cl_newfx.CL_BlasterParticles2 (pos, dir, 0xd0)
 		else:
 			cl_newfx.CL_BlasterParticles2 (pos, dir, 0x6f) # 75
 
 		ex = CL_AllocExplosion ()
-		q_shared.VectorCopy (pos, ex.ent.origin)
+		shared.VectorCopy (pos, ex.ent.origin)
 		ex.ent.angles[0] = math.acos(dir[2])/math.pi*180
 	# PMM - fixed to correct for pitch of 0
 		if dir[0]:
@@ -1033,10 +1039,10 @@ def CL_ParseTEnt ():
 			ex.ent.angles[1] = 0
 
 		ex.typeval = exptype_t.ex_misc
-		ex.ent.flags = q_shared.RF_FULLBRIGHT|q_shared.RF_TRANSLUCENT
+		ex.ent.flags = shared.RF_FULLBRIGHT|shared.RF_TRANSLUCENT
 
 		# PMM
-		if type == q_shared.temp_event_t.TE_BLASTER2:
+		if type == shared.temp_event_t.TE_BLASTER2:
 			ex.ent.skinnum = 1
 		else: # flechette
 			ex.ent.skinnum = 2
@@ -1044,7 +1050,7 @@ def CL_ParseTEnt ():
 		ex.start = cl_main.cl.frame.servertime - 100
 		ex.light = 150
 		# PMM
-		if type == q_shared.temp_event_t.TE_BLASTER2:
+		if type == shared.temp_event_t.TE_BLASTER2:
 			ex.lightcolor[1] = 1
 		else: # flechette
 		
@@ -1054,25 +1060,25 @@ def CL_ParseTEnt ():
 		
 		ex.ent.model = cl_mod_explode
 		ex.frames = 4
-		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_lashit, 1, q_shared.ATTN_NORM, 0)
+		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
 
 
-	elif type == q_shared.temp_event_t.TE_LIGHTNING:
+	elif type == shared.temp_event_t.TE_LIGHTNING:
 		ent = CL_ParseLightning (cl_mod_lightning)
-		snd_dma.S_StartSound (None, ent, q_shared.CHAN_WEAPON, cl_sfx_lightning, 1, q_shared.ATTN_NORM, 0)
+		snd_dma.S_StartSound (None, ent, shared.CHAN_WEAPON, cl_sfx_lightning, 1, shared.ATTN_NORM, 0)
 
-	elif type == q_shared.temp_event_t.TE_DEBUGTRAIL:
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		pos2 = common.MSG_ReadPos (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_DEBUGTRAIL:
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		pos2 = movemsg.MSG_ReadPos (net_chan.net_message)
 		cl_newfx.CL_DebugTrail (pos, pos2)
 
-	elif type == q_shared.temp_event_t.TE_PLAIN_EXPLOSION:
-		pos = common.MSG_ReadPos (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_PLAIN_EXPLOSION:
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
 
 		ex = CL_AllocExplosion ()
-		q_shared.VectorCopy (pos, ex.ent.origin)
+		shared.VectorCopy (pos, ex.ent.origin)
 		ex.typeval = exptype_t.ex_poly
-		ex.ent.flags = q_shared.RF_FULLBRIGHT
+		ex.ent.flags = shared.RF_FULLBRIGHT
 		ex.start = cl_main.cl.frame.servertime - 100
 		ex.light = 350
 		ex.lightcolor[0] = 1.0
@@ -1080,111 +1086,111 @@ def CL_ParseTEnt ():
 		ex.lightcolor[2] = 0.5
 		ex.ent.angles[1] = random.getrandbits(15) % 360
 		ex.ent.model = cl_mod_explo4
-		if common.frand() < 0.5:
+		if frame.frand() < 0.5:
 			ex.baseframe = 15
 		ex.frames = 15
-		if type == q_shared.temp_event_t.TE_ROCKET_EXPLOSION_WATER:
-			snd_dma.S_StartSound (pos, 0, 0, cl_sfx_watrexp, 1, q_shared.ATTN_NORM, 0)
+		if type == shared.temp_event_t.TE_ROCKET_EXPLOSION_WATER:
+			snd_dma.S_StartSound (pos, 0, 0, cl_sfx_watrexp, 1, shared.ATTN_NORM, 0)
 		else:
-			snd_dma.S_StartSound (pos, 0, 0, cl_sfx_rockexp, 1, q_shared.ATTN_NORM, 0)
+			snd_dma.S_StartSound (pos, 0, 0, cl_sfx_rockexp, 1, shared.ATTN_NORM, 0)
 
-	elif type == q_shared.temp_event_t.TE_FLASHLIGHT:
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		ent = common.MSG_ReadShort (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_FLASHLIGHT:
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		ent = movemsg.MSG_ReadShort (net_chan.net_message)
 		cl_newfx.CL_Flashlight(ent, pos)
 
-	elif type == q_shared.temp_event_t.TE_FORCEWALL:
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		pos2 = common.MSG_ReadPos (net_chan.net_message)
-		color = common.MSG_ReadByte (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_FORCEWALL:
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		pos2 = movemsg.MSG_ReadPos (net_chan.net_message)
+		color = movemsg.MSG_ReadByte (net_chan.net_message)
 		cl_newfx.CL_ForceWall(pos, pos2, color)
 
-	elif type == q_shared.temp_event_t.TE_HEATBEAM:
+	elif type == shared.temp_event_t.TE_HEATBEAM:
 		ent = CL_ParsePlayerBeam (cl_mod_heatbeam)
 
-	elif type == q_shared.temp_event_t.TE_MONSTER_HEATBEAM:
+	elif type == shared.temp_event_t.TE_MONSTER_HEATBEAM:
 		ent = CL_ParsePlayerBeam (cl_mod_monster_heatbeam)
 
-	elif type == q_shared.temp_event_t.TE_HEATBEAM_SPARKS:
+	elif type == shared.temp_event_t.TE_HEATBEAM_SPARKS:
 #		cnt = MSG_ReadByte (&net_message);
 		cnt = 50
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		dir = common.MSG_ReadDir (net_chan.net_message)
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		dir = movemsg.MSG_ReadDir (net_chan.net_message)
 #		r = MSG_ReadByte (&net_message);
 #		magnitude = MSG_ReadShort (&net_message);
 		r = 8
 		magnitude = 60
 		color = r & 0xff
 		cl_newfx.CL_ParticleSteamEffect (pos, dir, color, cnt, magnitude)
-		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_lashit, 1, q_shared.ATTN_NORM, 0)
+		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
 	
-	elif type == q_shared.temp_event_t.TE_HEATBEAM_STEAM:
+	elif type == shared.temp_event_t.TE_HEATBEAM_STEAM:
 #		cnt = MSG_ReadByte (&net_message);
 		cnt = 20
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		dir = common.MSG_ReadDir (net_chan.net_message)
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		dir = movemsg.MSG_ReadDir (net_chan.net_message)
 #		r = MSG_ReadByte (&net_message);
 #		magnitude = MSG_ReadShort (&net_message);
 #		color = r & 0xff;
 		color = 0xe0
 		magnitude = 60
 		cl_newfx.CL_ParticleSteamEffect (pos, dir, color, cnt, magnitude)
-		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_lashit, 1, q_shared.ATTN_NORM, 0)
+		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
 
-	elif type == q_shared.temp_event_t.TE_STEAM:
+	elif type == shared.temp_event_t.TE_STEAM:
 		CL_ParseSteam()
 
-	elif type == q_shared.temp_event_t.TE_BUBBLETRAIL2:
+	elif type == shared.temp_event_t.TE_BUBBLETRAIL2:
 #		cnt = MSG_ReadByte (&net_message);
 		cnt = 8
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		pos2 = common.MSG_ReadPos (net_chan.net_message)
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		pos2 = movemsg.MSG_ReadPos (net_chan.net_message)
 		cl_newfx.CL_BubbleTrail2 (pos, pos2, cnt)
-		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_lashit, 1, q_shared.ATTN_NORM, 0)
+		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
 
-	elif type == q_shared.temp_event_t.TE_MOREBLOOD:
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		dir = common.MSG_ReadDir (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_MOREBLOOD:
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		dir = movemsg.MSG_ReadDir (net_chan.net_message)
 		cl_fx.CL_ParticleEffect (pos, dir, 0xe8, 250)
 
-	elif type == q_shared.temp_event_t.TE_CHAINFIST_SMOKE:
+	elif type == shared.temp_event_t.TE_CHAINFIST_SMOKE:
 		dir[0]=0; dir[1]=0; dir[2]=1
-		pos = common.MSG_ReadPos (net_chan.net_message)
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
 		cl_newfx.CL_ParticleSmokeEffect (pos, dir, 0, 20, 20)
 
-	elif type == q_shared.temp_event_t.TE_ELECTRIC_SPARKS:
-		pos = common.MSG_ReadPos (net_chan.net_message)
-		dir = common.MSG_ReadDir (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_ELECTRIC_SPARKS:
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
+		dir = movemsg.MSG_ReadDir (net_chan.net_message)
 #		CL_ParticleEffect (pos, dir, 109, 40);
 		cl_fx.CL_ParticleEffect (pos, dir, 0x75, 40)
 		#FIXME : replace or remove this sound
-		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_lashit, 1, q_shared.ATTN_NORM, 0)
+		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
 
-	elif type == q_shared.temp_event_t.TE_TRACKER_EXPLOSION:
-		pos = common.MSG_ReadPos (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_TRACKER_EXPLOSION:
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
 		cl_newfx.CL_ColorFlash (pos, 0, 150, -1, -1, -1)
 		cl_newfx.CL_ColorExplosionParticles (pos, 0, 1)
 #		CL_Tracker_Explode (pos);
-		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_disrexp, 1, q_shared.ATTN_NORM, 0)
+		snd_dma.S_StartSound (pos, 0, 0, cl_sfx_disrexp, 1, shared.ATTN_NORM, 0)
 
-	elif type in (q_shared.temp_event_t.TE_TELEPORT_EFFECT, q_shared.temp_event_t.TE_DBALL_GOAL):
-		pos = common.MSG_ReadPos (net_chan.net_message)
+	elif type in (shared.temp_event_t.TE_TELEPORT_EFFECT, shared.temp_event_t.TE_DBALL_GOAL):
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
 		cl_fx.CL_TeleportParticles (pos)
 
-	elif type == q_shared.temp_event_t.TE_WIDOWBEAMOUT:
+	elif type == shared.temp_event_t.TE_WIDOWBEAMOUT:
 		CL_ParseWidow ()
 
-	elif type == q_shared.temp_event_t.TE_NUKEBLAST:
+	elif type == shared.temp_event_t.TE_NUKEBLAST:
 		CL_ParseNuke ()
 
-	elif type == q_shared.temp_event_t.TE_WIDOWSPLASH:
-		pos = common.MSG_ReadPos (net_chan.net_message)
+	elif type == shared.temp_event_t.TE_WIDOWSPLASH:
+		pos = movemsg.MSG_ReadPos (net_chan.net_message)
 		cl_newfx.CL_WidowSplash (pos)
 #PGM
 #==============
 
 	else:
-		common.Com_Error (q_shared.ERR_DROP, "CL_ParseTEnt: bad type")
+		clientserver.Com_Error (shared.ERR_DROP, "CL_ParseTEnt: bad type")
 	
 
 """
@@ -1218,13 +1224,13 @@ def CL_AddBeams ():
 		# if coming from the player, update the start position
 		if b.entity == cl.playernum+1:	# entity 0 is the world
 		
-			q_shared.VectorCopy (cl.refdef.vieworg, b.start)
+			shared.VectorCopy (cl.refdef.vieworg, b.start)
 			b.start[2] -= 22	# adjust for view height
 		
-		q_shared.VectorAdd (b.start, b.offset, org)
+		shared.VectorAdd (b.start, b.offset, org)
 
 	# calculate pitch and yaw
-		q_shared.VectorSubtract (b.end, org, dist)
+		shared.VectorSubtract (b.end, org, dist)
 
 		if dist[1] == 0 and dist[0] == 0:
 		
@@ -1253,7 +1259,7 @@ def CL_AddBeams ():
 		
 
 	# add new entities for the beams
-		d = q_shared.VectorNormalize(dist)
+		d = shared_c.VectorNormalize(dist)
 
 		ent = ref.entity_t() # memset (&ent, 0, sizeof(ent));
 		if b.model is cl_mod_lightning:
@@ -1274,13 +1280,13 @@ def CL_AddBeams ():
 		if (b.model is cl_mod_lightning) and (d <= model_length):
 		
 #			Com_Printf ("special case\n");
-			q_shared.VectorCopy (b.end, ent.origin)
+			shared.VectorCopy (b.end, ent.origin)
 			# offset to push beam outside of tesla model (negative because dist is from end to start
 			# for this beam)
 #			for (j=0 ; j<3 ; j++)
 #				ent.origin[j] -= dist[j]*10.0;
 			ent.model = b.model
-			ent.flags = q_shared.RF_FULLBRIGHT
+			ent.flags = shared.RF_FULLBRIGHT
 			ent.angles[0] = pitch
 			ent.angles[1] = yaw
 			ent.angles[2] = random.getrandbits(15)%360
@@ -1289,11 +1295,11 @@ def CL_AddBeams ():
 		
 		while d > 0:
 		
-			q_shared.VectorCopy (org, ent.origin)
+			shared.VectorCopy (org, ent.origin)
 			ent.model = b.model
 			if b.model is cl_mod_lightning:
 			
-				ent.flags = q_shared.RF_FULLBRIGHT
+				ent.flags = shared.RF_FULLBRIGHT
 				ent.angles[0] = -pitch
 				ent.angles[1] = yaw + 180.0
 				ent.angles[2] = random.getrandbits(15)%360
@@ -1391,7 +1397,7 @@ def CL_AddPlayerBeams ():
 				# set up gun position
 				# code straight out of CL_AddViewWeapon
 				ps = cl.frame.playerstate
-				j = (cl.frame.serverframe - 1) & qcommon.UPDATE_MASK
+				j = (cl.frame.serverframe - 1) & common_h.UPDATE_MASK
 				oldframe = cl.frames[j]
 				if oldframe.serverframe != cl.frame.serverframe-1 or not oldframe.valid:
 					oldframe = cl.frame		# previous frame was dropped or involid
@@ -1401,46 +1407,46 @@ def CL_AddPlayerBeams ():
 					b.start[j] = cl.refdef.vieworg[j] + ops.gunoffset[j] \
 						+ cl.lerpfrac * (ps.gunoffset[j] - ops.gunoffset[j])
 				
-				q_shared.VectorMA (b.start, (hand_multiplier * b.offset[0]), cl.v_right, org)
-				q_shared.VectorMA (     org, b.offset[1], cl.v_forward, org)
-				q_shared.VectorMA (     org, b.offset[2], cl.v_up, org)
+				shared_c.VectorMA (b.start, (hand_multiplier * b.offset[0]), cl.v_right, org)
+				shared_c.VectorMA (     org, b.offset[1], cl.v_forward, org)
+				shared_c.VectorMA (     org, b.offset[2], cl.v_up, org)
 				if hand and hand.value == 2:
-					q_shared.VectorMA (org, -1, cl.v_up, org)
+					shared_c.VectorMA (org, -1, cl.v_up, org)
 				
 				# FIXME - take these out when final
-				q_shared.VectorCopy (cl.v_right, r)
-				q_shared.VectorCopy (cl.v_forward, f)
-				q_shared.VectorCopy (cl.v_up, u)
+				shared.VectorCopy (cl.v_right, r)
+				shared.VectorCopy (cl.v_forward, f)
+				shared.VectorCopy (cl.v_up, u)
 
 			
 			else:
-				q_shared.VectorCopy (b.start, org)
+				shared.VectorCopy (b.start, org)
 		
 		else:
 		
 			# if coming from the player, update the start position
 			if b.entity == cl.playernum+1:	# entity 0 is the world
 			
-				q_shared.VectorCopy (cl.refdef.vieworg, b.start)
+				shared.VectorCopy (cl.refdef.vieworg, b.start)
 				b.start[2] -= 22	# adjust for view height
 			
-			q_shared.VectorAdd (b.start, b.offset, org)
+			shared.VectorAdd (b.start, b.offset, org)
 		
 	# calculate pitch and yaw
-		q_shared.VectorSubtract (b.end, org, dist)
+		shared.VectorSubtract (b.end, org, dist)
 
 #PMM
 		if cl_mod_heatbeam and (b.model is cl_mod_heatbeam) and (b.entity == cl.playernum+1):
 		
 			#vec_t len;
 
-			length = q_shared.VectorLength (dist)
-			q_shared.VectorScale (f, length, dist)
-			q_shared.VectorMA (dist, (hand_multiplier * b.offset[0]), r, dist)
-			q_shared.VectorMA (dist, b.offset[1], f, dist)
-			q_shared.VectorMA (dist, b.offset[2], u, dist)
+			length = shared_c.VectorLength (dist)
+			shared_c.VectorScale (f, length, dist)
+			shared_c.VectorMA (dist, (hand_multiplier * b.offset[0]), r, dist)
+			shared_c.VectorMA (dist, b.offset[1], f, dist)
+			shared_c.VectorMA (dist, b.offset[2], u, dist)
 			if hand and hand.value == 2:
-				q_shared.VectorMA (org, -1, cl.v_up, org)
+				shared_c.VectorMA (org, -1, cl.v_up, org)
 			
 #PMM
 
@@ -1480,14 +1486,14 @@ def CL_AddPlayerBeams ():
 				ent.angles[1] = yaw + 180.0
 				ent.angles[2] = 0
 #				Com_Printf ("%f %f - %f %f %f\n", -pitch, yaw+180.0, b->offset[0], b->offset[1], b->offset[2]);
-				q_shared.AngleVectors(ent.angles, f, r, u)
+				shared_c.AngleVectors(ent.angles, f, r, u)
 					
 				# if it's a non-origin offset, it's a player, so use the hardcoded player offset
-				if not q_shared.VectorCompare (b.offset, q_shared.vec3_origin):
+				if not shared_c.VectorCompare (b.offset, shared_c.vec3_origin):
 				
-					q_shared.VectorMA (org, -(b.offset[0])+1, r, org)
-					q_shared.VectorMA (org, -(b.offset[1]), f, org)
-					q_shared.VectorMA (org, -(b.offset[2])-10, u, org)
+					shared_c.VectorMA (org, -(b.offset[0])+1, r, org)
+					shared_c.VectorMA (org, -(b.offset[1]), f, org)
+					shared_c.VectorMA (org, -(b.offset[2])-10, u, org)
 				
 				else:
 				
@@ -1504,7 +1510,7 @@ def CL_AddPlayerBeams ():
 			cl_newfx.CL_Heatbeam (org, dist)
 		
 	# add new entities for the beams
-		d = q_shared.VectorNormalize(dist)
+		d = shared_c.VectorNormalize(dist)
 
 		ent = ref.entity_t() # memset (&ent, 0, sizeof(ent));
 		if b.model is cl_mod_heatbeam:
@@ -1529,13 +1535,13 @@ def CL_AddPlayerBeams ():
 		if (b.model is cl_mod_lightning) and (d <= model_length):
 		
 #			Com_Printf ("special case\n");
-			q_shared.VectorCopy (b.end, ent.origin)
+			shared.VectorCopy (b.end, ent.origin)
 			# offset to push beam outside of tesla model (negative because dist is from end to start
 			# for this beam)
 #			for (j=0 ; j<3 ; j++)
 #				ent.origin[j] -= dist[j]*10.0;
 			ent.model = b.model
-			ent.flags = q_shared.RF_FULLBRIGHT
+			ent.flags = shared.RF_FULLBRIGHT
 			ent.angles[0] = pitch
 			ent.angles[1] = yaw
 			ent.angles[2] = random.getrandbits(15)%360
@@ -1544,13 +1550,13 @@ def CL_AddPlayerBeams ():
 		
 		while d > 0:
 		
-			q_shared.VectorCopy (org, ent.origin)
+			shared.VectorCopy (org, ent.origin)
 			ent.model = b.model
 			if cl_mod_heatbeam and (b.model is cl_mod_heatbeam):
 			
 #				ent.flags = RF_FULLBRIGHT|RF_TRANSLUCENT;
 #				ent.alpha = 0.3;
-				ent.flags = q_shared.RF_FULLBRIGHT
+				ent.flags = shared.RF_FULLBRIGHT
 				ent.angles[0] = -pitch
 				ent.angles[1] = yaw + 180.0
 				ent.angles[2] = (int(cl.time)) % 360
@@ -1559,7 +1565,7 @@ def CL_AddPlayerBeams ():
 			
 			elif b.model is cl_mod_lightning:
 			
-				ent.flags = q_shared.RF_FULLBRIGHT
+				ent.flags = shared.RF_FULLBRIGHT
 				ent.angles[0] = -pitch
 				ent.angles[1] = yaw + 180.0
 				ent.angles[2] = random.getrandbits(15)%360
@@ -1641,7 +1647,7 @@ def CL_AddExplosions ():
 				
 				else:
 				
-					ent.flags |= q_shared.RF_TRANSLUCENT
+					ent.flags |= shared.RF_TRANSLUCENT
 					if f < 13:
 						ent.skinnum = 5
 					else:
@@ -1656,7 +1662,7 @@ def CL_AddExplosions ():
 
 				ent.alpha = (5.0 - float(f))/5.0
 				ent.skinnum = 0
-				ent.flags |= q_shared.RF_TRANSLUCENT
+				ent.flags |= shared.RF_TRANSLUCENT
 			
 		if ex.typeval == exptype_t.ex_free:
 			continue
@@ -1665,7 +1671,7 @@ def CL_AddExplosions ():
 			cl_view.V_AddLight (ent.origin, ex.light*ent.alpha,
 				ex.lightcolor[0], ex.lightcolor[1], ex.lightcolor[2])
 		
-		q_shared.VectorCopy (ent.origin, ent.oldorigin)
+		shared.VectorCopy (ent.origin, ent.oldorigin)
 
 		if f < 0:
 			f = 0

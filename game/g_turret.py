@@ -21,19 +21,22 @@ from __future__ import annotations
 
 import math
 import numpy as np
-from game import q_shared, g_local, g_main, g_utils, g_monster, g_misc, g_ai, g_items, m_infantry
+from game import g_local, g_main, g_utils, g_monster, g_misc, g_ai, g_items, m_infantry
 from game.g_ai import FindTarget, visible
 from game.g_utils import G_PickTarget, G_FreeEdict, vtos, vectoangles
 from game.g_combat import T_Damage
 from game.g_weapon import fire_rocket
 from game.g_monster import monster_use
 from game.g_items import FindItemByClassname
-from game.q_shared import (PITCH, YAW, CHAN_WEAPON, ATTN_NORM, vec3_origin, RF_FRAMELERP, MASK_MONSTERSOLID)
+from common.header.shared import PITCH, YAW, CHAN_WEAPON, ATTN_NORM, RF_FRAMELERP, MASK_MONSTERSOLID
+from common.shared.shared import vec3_origin
 from game.g_local import (FRAMETIME, MOD_CRUSH, FL_TEAMSLAVE, FL_NO_KNOCKBACK,
 	AI_LOST_SIGHT, AI_STAND_GROUND, AI_DUCKED, MOVETYPE_PUSH, MOVETYPE_STEP,
 	damage_t)
 DAMAGE_AIM = damage_t.DAMAGE_AIM.value
 from game.game import solid_t, SVF_MONSTER
+from common.header import shared
+from common.shared import shared as shared_c
 
 SOLID_BSP = solid_t.SOLID_BSP.value
 SOLID_BBOX = solid_t.SOLID_BBOX.value
@@ -114,10 +117,10 @@ def turret_breach_fire (self): #edict_t *
 	damage = 0
 	speed = 0
 
-	q_shared.AngleVectors (self.s.angles, f, r, u)
-	q_shared.VectorMA (self.s.origin, self.move_origin[0], f, start)
-	q_shared.VectorMA (start, self.move_origin[1], r, start)
-	q_shared.VectorMA (start, self.move_origin[2], u, start)
+	shared_c.AngleVectors (self.s.angles, f, r, u)
+	shared_c.VectorMA (self.s.origin, self.move_origin[0], f, start)
+	shared_c.VectorMA (start, self.move_origin[1], r, start)
+	shared_c.VectorMA (start, self.move_origin[2], u, start)
 
 	damage = 100 + g_local.random() * 50
 	speed = 550 + 50 * g_main.skill.value
@@ -153,7 +156,7 @@ def turret_breach_think (self): #edict_t *
 	target = np.zeros((3,), dtype=np.float32)
 	dir = np.zeros((3,), dtype=np.float32)
 
-	q_shared.VectorCopy (self.s.angles, current_angles)
+	shared.VectorCopy (self.s.angles, current_angles)
 	AnglesNormalize(current_angles)
 
 	AnglesNormalize(self.move_angles)
@@ -182,7 +185,7 @@ def turret_breach_think (self): #edict_t *
 		else:
 			self.move_angles[YAW] = self.pos2[YAW]
 
-	q_shared.VectorSubtract (self.move_angles, current_angles, delta)
+	shared.VectorSubtract (self.move_angles, current_angles, delta)
 	if delta[0] < -180:
 		delta[0] += 360
 	elif delta[0] > 180:
@@ -202,7 +205,7 @@ def turret_breach_think (self): #edict_t *
 	if delta[1] < -1 * self.speed * FRAMETIME:
 		delta[1] = -1 * self.speed * FRAMETIME
 
-	q_shared.VectorScale (delta, 1.0/FRAMETIME, self.avelocity)
+	shared_c.VectorScale (delta, 1.0/FRAMETIME, self.avelocity)
 
 	self.nextthink = g_main.level.time + FRAMETIME
 
@@ -224,7 +227,7 @@ def turret_breach_think (self): #edict_t *
 		target[1] = SnapToEights(self.s.origin[1] + math.sin(angle) * self.owner.move_origin[0])
 		target[2] = self.owner.s.origin[2]
 
-		q_shared.VectorSubtract (target, self.owner.s.origin, dir)
+		shared.VectorSubtract (target, self.owner.s.origin, dir)
 		self.owner.velocity[0] = dir[0] * 1.0 / FRAMETIME
 		self.owner.velocity[1] = dir[1] * 1.0 / FRAMETIME
 
@@ -349,7 +352,7 @@ def turret_breach_finish_init (self): #edict_t *
 		g_main.gi.dprintf("%s at %s needs a target\n" % (self.classname, vtos(self.s.origin)))
 	else:
 		self.target_ent = G_PickTarget (self.target)
-		q_shared.VectorSubtract (self.target_ent.s.origin, self.s.origin, self.move_origin)
+		shared.VectorSubtract (self.target_ent.s.origin, self.s.origin, self.move_origin)
 		G_FreeEdict(self.target_ent)
 
 	self.teammaster.dmg = self.dmg
@@ -515,9 +518,9 @@ def turret_driver_think (self): #edict_t *
 			return
 
 	# let the turret know where we want it to aim
-	q_shared.VectorCopy (self.enemy.s.origin, target)
+	shared.VectorCopy (self.enemy.s.origin, target)
 	target[2] += self.enemy.viewheight
-	q_shared.VectorSubtract (target, self.target_ent.s.origin, dir)
+	shared.VectorSubtract (target, self.target_ent.s.origin, dir)
 	vectoangles (dir, self.target_ent.move_angles)
 
 	# decide if we should shoot
@@ -595,14 +598,14 @@ def turret_driver_link (self): #edict_t *
 	self.target_ent = G_PickTarget (self.target)
 	self.target_ent.owner = self
 	self.target_ent.teammaster.owner = self
-	q_shared.VectorCopy (self.target_ent.s.angles, self.s.angles)
+	shared.VectorCopy (self.target_ent.s.angles, self.s.angles)
 
 	vec[0] = self.target_ent.s.origin[0] - self.s.origin[0]
 	vec[1] = self.target_ent.s.origin[1] - self.s.origin[1]
 	vec[2] = 0
-	self.move_origin[0] = q_shared.VectorLength(vec)
+	self.move_origin[0] = shared_c.VectorLength(vec)
 
-	q_shared.VectorSubtract (self.s.origin, self.target_ent.s.origin, vec)
+	shared.VectorSubtract (self.s.origin, self.target_ent.s.origin, vec)
 	vectoangles (vec, vec)
 	AnglesNormalize(vec)
 	self.move_origin[1] = vec[1]
@@ -657,8 +660,8 @@ def SP_turret_driver (self): #edict_t *
 	self.movetype = MOVETYPE_PUSH
 	self.solid = SOLID_BBOX
 	self.s.modelindex = g_main.gi.modelindex("models/monsters/infantry/tris.md2")
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, 32)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, 32)
 
 	self.health = 100
 	self.gib_health = 0
@@ -677,7 +680,7 @@ def SP_turret_driver (self): #edict_t *
 	self.takedamage = DAMAGE_AIM
 	self.use = monster_use
 	self.clipmask = MASK_MONSTERSOLID
-	q_shared.VectorCopy (self.s.origin, self.s.old_origin)
+	shared.VectorCopy (self.s.origin, self.s.old_origin)
 	self.monsterinfo.aiflags |= AI_STAND_GROUND|AI_DUCKED
 
 	if g_main.st.item:

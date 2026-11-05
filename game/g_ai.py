@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import random as _r
-from game import q_shared
+pass
 from game import g_local
 from game import g_main
 from game import g_utils
@@ -28,14 +28,15 @@ from game import g_monster
 from game import m_move
 from game import p_trail
 from game.game import SVF_MONSTER
-from game.q_shared import (MASK_OPAQUE, MASK_PLAYERSOLID, CONTENTS_SOLID,
-	CONTENTS_MONSTER, CONTENTS_SLIME, CONTENTS_LAVA, CONTENTS_WINDOW,
-	vec3_origin, YAW)
+from common.header.shared import MASK_OPAQUE, MASK_PLAYERSOLID, CONTENTS_SOLID, CONTENTS_MONSTER, CONTENTS_SLIME, CONTENTS_LAVA, CONTENTS_WINDOW, YAW
+from common.shared.shared import vec3_origin
 from game.g_local import (FL_NOTARGET, MELEE_DISTANCE, RANGE_MELEE, RANGE_NEAR,
 	RANGE_MID, RANGE_FAR, AI_STAND_GROUND, AI_TEMP_STAND_GROUND, AI_GOOD_GUY,
 	AI_COMBAT_POINT, AI_SOUND_TARGET, AI_MEDIC, AI_BRUTAL, AI_LOST_SIGHT,
 	AI_PURSUE_NEXT, AI_PURSUE_TEMP, AI_PURSUIT_LAST_SEEN,
 	AS_MELEE, AS_MISSILE, AS_SLIDING, AS_STRAIGHT, FL_FLY)
+from common.header import shared
+from common.shared import shared as shared_c
 
 """
 // g_ai.c
@@ -112,7 +113,7 @@ def ai_stand (self, dist):
 
 	if self.monsterinfo.aiflags & AI_STAND_GROUND:
 		if self.enemy:
-			q_shared.VectorSubtract (self.enemy.s.origin, self.s.origin, v)
+			shared.VectorSubtract (self.enemy.s.origin, self.s.origin, v)
 			self.ideal_yaw = g_utils.vectoyaw(v)
 			if self.s.angles[YAW] != self.ideal_yaw and self.monsterinfo.aiflags & AI_TEMP_STAND_GROUND:
 				self.monsterinfo.aiflags &= ~(AI_STAND_GROUND | AI_TEMP_STAND_GROUND)
@@ -171,7 +172,7 @@ def ai_charge (self, dist):
 	#vec3_t v
 	v = [0, 0, 0]
 
-	q_shared.VectorSubtract (self.enemy.s.origin, self.s.origin, v)
+	shared.VectorSubtract (self.enemy.s.origin, self.s.origin, v)
 	self.ideal_yaw = g_utils.vectoyaw(v)
 	m_move.M_ChangeYaw (self)
 
@@ -208,8 +209,8 @@ def range (self, other):
 	#float len
 	v = [0, 0, 0]
 
-	q_shared.VectorSubtract (self.s.origin, other.s.origin, v)
-	length = q_shared.VectorLength (v)
+	shared.VectorSubtract (self.s.origin, other.s.origin, v)
+	length = shared_c.VectorLength (v)
 	if length < MELEE_DISTANCE:
 		return RANGE_MELEE
 	if length < 500:
@@ -231,9 +232,9 @@ def visible (self, other):
 	spot1 = [0, 0, 0]
 	spot2 = [0, 0, 0]
 
-	q_shared.VectorCopy (self.s.origin, spot1)
+	shared.VectorCopy (self.s.origin, spot1)
 	spot1[2] += self.viewheight
-	q_shared.VectorCopy (other.s.origin, spot2)
+	shared.VectorCopy (other.s.origin, spot2)
 	spot2[2] += other.viewheight
 	trace = g_main.gi.trace (spot1, vec3_origin, vec3_origin, spot2, self, MASK_OPAQUE)
 
@@ -255,10 +256,10 @@ def infront (self, other):
 	vec = [0, 0, 0]
 	forward = [0, 0, 0]
 
-	q_shared.AngleVectors (self.s.angles, forward, None, None)
-	q_shared.VectorSubtract (other.s.origin, self.s.origin, vec)
-	q_shared.VectorNormalize (vec)
-	dot = q_shared.DotProduct (vec, forward)
+	shared_c.AngleVectors (self.s.angles, forward, None, None)
+	shared.VectorSubtract (other.s.origin, self.s.origin, vec)
+	shared_c.VectorNormalize (vec)
+	dot = shared.DotProduct (vec, forward)
 
 	if dot > 0.3:
 		return True
@@ -274,7 +275,7 @@ def HuntTarget (self):
 		self.monsterinfo.stand (self)
 	else:
 		self.monsterinfo.run (self)
-	q_shared.VectorSubtract (self.enemy.s.origin, self.s.origin, vec)
+	shared.VectorSubtract (self.enemy.s.origin, self.s.origin, vec)
 	self.ideal_yaw = g_utils.vectoyaw(vec)
 	# wait a while before first attack
 	if not (self.monsterinfo.aiflags & AI_STAND_GROUND):
@@ -290,7 +291,7 @@ def FoundTarget (self):
 
 	self.show_hostile = g_main.level.time + 1		# wake up other monsters
 
-	q_shared.VectorCopy(self.enemy.s.origin, self.monsterinfo.last_sighting)
+	shared.VectorCopy(self.enemy.s.origin, self.monsterinfo.last_sighting)
 	self.monsterinfo.trail_time = g_main.level.time
 
 	if not self.combattarget:
@@ -418,9 +419,9 @@ def FindTarget (self):
 			if not g_main.gi.inPHS(self.s.origin, client.s.origin):
 				return False
 
-		q_shared.VectorSubtract (client.s.origin, self.s.origin, temp)
+		shared.VectorSubtract (client.s.origin, self.s.origin, temp)
 
-		if q_shared.VectorLength(temp) > 1000:	# too far to hear
+		if shared_c.VectorLength(temp) > 1000:	# too far to hear
 			return False
 
 		# check area portals
@@ -451,7 +452,7 @@ def FindTarget (self):
 """
 def FacingIdeal(self):
 	#float delta
-	delta = q_shared.anglemod(self.s.angles[YAW] - self.ideal_yaw)
+	delta = shared_c.anglemod(self.s.angles[YAW] - self.ideal_yaw)
 	if delta > 45 and delta < 315:
 		return False
 	return True
@@ -465,9 +466,9 @@ def M_CheckAttack (self):
 
 	if self.enemy.health > 0:
 		# see if any entities are in the way of the shot
-		q_shared.VectorCopy (self.s.origin, spot1)
+		shared.VectorCopy (self.s.origin, spot1)
 		spot1[2] += self.viewheight
-		q_shared.VectorCopy (self.enemy.s.origin, spot2)
+		shared.VectorCopy (self.enemy.s.origin, spot2)
 		spot2[2] += self.enemy.viewheight
 
 		tr = g_main.gi.trace (spot1, None, None, spot2, self, CONTENTS_SOLID|CONTENTS_MONSTER|CONTENTS_SLIME|CONTENTS_LAVA|CONTENTS_WINDOW)
@@ -652,11 +653,11 @@ def ai_checkattack (self, dist):
 	enemy_vis = visible(self, self.enemy)
 	if enemy_vis:
 		self.monsterinfo.search_time = g_main.level.time + 5
-		q_shared.VectorCopy (self.enemy.s.origin, self.monsterinfo.last_sighting)
+		shared.VectorCopy (self.enemy.s.origin, self.monsterinfo.last_sighting)
 
 	enemy_infront = infront(self, self.enemy)
 	enemy_range = range(self, self.enemy)
-	q_shared.VectorSubtract (self.enemy.s.origin, self.s.origin, temp)
+	shared.VectorSubtract (self.enemy.s.origin, self.s.origin, temp)
 	enemy_yaw = g_utils.vectoyaw(temp)
 
 	if self.monsterinfo.attack_state == AS_MISSILE:
@@ -694,8 +695,8 @@ def ai_run (self, dist):
 		return
 
 	if self.monsterinfo.aiflags & AI_SOUND_TARGET:
-		q_shared.VectorSubtract (self.s.origin, self.enemy.s.origin, v)
-		if q_shared.VectorLength(v) < 64:
+		shared.VectorSubtract (self.s.origin, self.enemy.s.origin, v)
+		if shared_c.VectorLength(v) < 64:
 			self.monsterinfo.aiflags |= (AI_STAND_GROUND | AI_TEMP_STAND_GROUND)
 			self.monsterinfo.stand (self)
 			return
@@ -715,7 +716,7 @@ def ai_run (self, dist):
 	if enemy_vis:
 		m_move.M_MoveToGoal (self, dist)
 		self.monsterinfo.aiflags &= ~AI_LOST_SIGHT
-		q_shared.VectorCopy (self.enemy.s.origin, self.monsterinfo.last_sighting)
+		shared.VectorCopy (self.enemy.s.origin, self.monsterinfo.last_sighting)
 		self.monsterinfo.trail_time = g_main.level.time
 		return
 
@@ -749,7 +750,7 @@ def ai_run (self, dist):
 		if self.monsterinfo.aiflags & AI_PURSUE_TEMP:
 			self.monsterinfo.aiflags &= ~AI_PURSUE_TEMP
 			marker = None
-			q_shared.VectorCopy (self.monsterinfo.saved_goal, self.monsterinfo.last_sighting)
+			shared.VectorCopy (self.monsterinfo.saved_goal, self.monsterinfo.last_sighting)
 			new = True
 		elif self.monsterinfo.aiflags & AI_PURSUIT_LAST_SEEN:
 			self.monsterinfo.aiflags &= ~AI_PURSUIT_LAST_SEEN
@@ -758,18 +759,18 @@ def ai_run (self, dist):
 			marker = p_trail.PlayerTrail_PickNext (self)
 
 		if marker:
-			q_shared.VectorCopy (marker.s.origin, self.monsterinfo.last_sighting)
+			shared.VectorCopy (marker.s.origin, self.monsterinfo.last_sighting)
 			self.monsterinfo.trail_time = marker.timestamp
 			self.s.angles[YAW] = self.ideal_yaw = marker.s.angles[YAW]
 			new = True
 
-	q_shared.VectorSubtract (self.s.origin, self.monsterinfo.last_sighting, v)
-	d1 = q_shared.VectorLength(v)
+	shared.VectorSubtract (self.s.origin, self.monsterinfo.last_sighting, v)
+	d1 = shared_c.VectorLength(v)
 	if d1 <= dist:
 		self.monsterinfo.aiflags |= AI_PURSUE_NEXT
 		dist = d1
 
-	q_shared.VectorCopy (self.monsterinfo.last_sighting, self.goalentity.s.origin)
+	shared.VectorCopy (self.monsterinfo.last_sighting, self.goalentity.s.origin)
 
 	if new:
 		#vec3_t v_forward, v_right, left_target, right_target
@@ -780,19 +781,19 @@ def ai_run (self, dist):
 
 		tr = g_main.gi.trace(self.s.origin, self.mins, self.maxs, self.monsterinfo.last_sighting, self, MASK_PLAYERSOLID)
 		if tr.fraction < 1:
-			q_shared.VectorSubtract (self.goalentity.s.origin, self.s.origin, v)
-			d1 = q_shared.VectorLength(v)
+			shared.VectorSubtract (self.goalentity.s.origin, self.s.origin, v)
+			d1 = shared_c.VectorLength(v)
 			center = tr.fraction
 			d2 = d1 * ((center+1)/2)
 			self.s.angles[YAW] = self.ideal_yaw = g_utils.vectoyaw(v)
-			q_shared.AngleVectors(self.s.angles, v_forward, v_right, None)
+			shared_c.AngleVectors(self.s.angles, v_forward, v_right, None)
 
-			q_shared.VectorSet(v, d2, -16, 0)
+			shared.VectorSet(v, d2, -16, 0)
 			g_utils.G_ProjectSource (self.s.origin, v, v_forward, v_right, left_target)
 			tr = g_main.gi.trace(self.s.origin, self.mins, self.maxs, left_target, self, MASK_PLAYERSOLID)
 			left = tr.fraction
 
-			q_shared.VectorSet(v, d2, 16, 0)
+			shared.VectorSet(v, d2, 16, 0)
 			g_utils.G_ProjectSource (self.s.origin, v, v_forward, v_right, right_target)
 			tr = g_main.gi.trace(self.s.origin, self.mins, self.maxs, right_target, self, MASK_PLAYERSOLID)
 			right = tr.fraction
@@ -800,23 +801,23 @@ def ai_run (self, dist):
 			center = (d1*center)/d2
 			if (left >= center and left > right):
 				if left < 1:
-					q_shared.VectorSet(v, d2 * left * 0.5, -16, 0)
+					shared.VectorSet(v, d2 * left * 0.5, -16, 0)
 					g_utils.G_ProjectSource (self.s.origin, v, v_forward, v_right, left_target)
-				q_shared.VectorCopy (self.monsterinfo.last_sighting, self.monsterinfo.saved_goal)
+				shared.VectorCopy (self.monsterinfo.last_sighting, self.monsterinfo.saved_goal)
 				self.monsterinfo.aiflags |= AI_PURSUE_TEMP
-				q_shared.VectorCopy (left_target, self.goalentity.s.origin)
-				q_shared.VectorCopy (left_target, self.monsterinfo.last_sighting)
-				q_shared.VectorSubtract (self.goalentity.s.origin, self.s.origin, v)
+				shared.VectorCopy (left_target, self.goalentity.s.origin)
+				shared.VectorCopy (left_target, self.monsterinfo.last_sighting)
+				shared.VectorSubtract (self.goalentity.s.origin, self.s.origin, v)
 				self.s.angles[YAW] = self.ideal_yaw = g_utils.vectoyaw(v)
 			elif (right >= center and right > left):
 				if right < 1:
-					q_shared.VectorSet(v, d2 * right * 0.5, 16, 0)
+					shared.VectorSet(v, d2 * right * 0.5, 16, 0)
 					g_utils.G_ProjectSource (self.s.origin, v, v_forward, v_right, right_target)
-				q_shared.VectorCopy (self.monsterinfo.last_sighting, self.monsterinfo.saved_goal)
+				shared.VectorCopy (self.monsterinfo.last_sighting, self.monsterinfo.saved_goal)
 				self.monsterinfo.aiflags |= AI_PURSUE_TEMP
-				q_shared.VectorCopy (right_target, self.goalentity.s.origin)
-				q_shared.VectorCopy (right_target, self.monsterinfo.last_sighting)
-				q_shared.VectorSubtract (self.goalentity.s.origin, self.s.origin, v)
+				shared.VectorCopy (right_target, self.goalentity.s.origin)
+				shared.VectorCopy (right_target, self.monsterinfo.last_sighting)
+				shared.VectorSubtract (self.goalentity.s.origin, self.s.origin, v)
 				self.s.angles[YAW] = self.ideal_yaw = g_utils.vectoyaw(v)
 
 	m_move.M_MoveToGoal (self, dist)

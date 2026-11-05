@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import random as _r
-from game import q_shared
+pass
 from game import g_local
 from game import g_main
 from game import g_utils
@@ -35,16 +35,9 @@ from game import p_hud
 from game import p_weapon
 from game import game
 from qcommon import pmove
-from game.q_shared import (Q_stricmp, Info_ValueForKey, Info_SetValueForKey,
-	MAX_INFO_STRING, PRINT_HIGH, PRINT_MEDIUM, CS_PLAYERSKINS,
-	MASK_PLAYERSOLID, MASK_DEADSOLID, CHAN_VOICE, CHAN_BODY, ATTN_NORM,
-	EV_PLAYER_TELEPORT,
-	PMF_DUCKED, PMF_TIME_TELEPORT, PMF_NO_PREDICTION, PMF_JUMP_HELD,
-	BUTTON_ANY,
-	BUTTON_ATTACK, MZ_LOGIN, MZ_LOGOUT, ANGLE2SHORT, SHORT2ANGLE, TO_SHORT,
-	DF_FIXED_FOV, DF_FORCE_RESPAWN, DF_SPAWN_FARTHEST, DF_QUAD_DROP,
-	DF_MODELTEAMS, YAW, PITCH, ROLL)
-from game.q_shared import multicast_t, pmtype_t
+from common.shared.shared import Q_stricmp, Info_ValueForKey, Info_SetValueForKey, TO_SHORT
+from common.header.shared import MAX_INFO_STRING, PRINT_HIGH, PRINT_MEDIUM, CS_PLAYERSKINS, MASK_PLAYERSOLID, MASK_DEADSOLID, CHAN_VOICE, CHAN_BODY, ATTN_NORM, EV_PLAYER_TELEPORT, PMF_DUCKED, PMF_TIME_TELEPORT, PMF_NO_PREDICTION, PMF_JUMP_HELD, BUTTON_ANY, BUTTON_ATTACK, MZ_LOGIN, MZ_LOGOUT, ANGLE2SHORT, SHORT2ANGLE, DF_FIXED_FOV, DF_FORCE_RESPAWN, DF_SPAWN_FARTHEST, DF_QUAD_DROP, DF_MODELTEAMS, YAW, PITCH, ROLL
+from common.header.shared import multicast_t, pmtype_t
 MULTICAST_PVS = multicast_t.MULTICAST_PVS.value
 PM_FREEZE = pmtype_t.PM_FREEZE.value
 PM_SPECTATOR = pmtype_t.PM_SPECTATOR.value
@@ -91,14 +84,14 @@ def _SV_FilterPacket (value):
 
 def _cvar_string (name):
 	# read a cvar's string value directly from the cvar system
-	from qcommon import cvar
+	from common import cvar
 	v = cvar.Cvar_VariableString (name)
 	return v if v is not None else ""
 
 
 def _cvar_value (name):
 	# read a cvar's numeric value directly from the cvar system
-	from qcommon import cvar
+	from common import cvar
 	return cvar.Cvar_VariableValue (name)
 
 
@@ -108,7 +101,7 @@ def _info_validate (userinfo):
 
 
 def _copy_pmove_state (src):
-	dst = q_shared.pmove_state_t()
+	dst = shared.pmove_state_t()
 	dst.pm_type = src.pm_type
 	dst.origin = src.origin.copy()
 	dst.velocity = src.velocity.copy()
@@ -134,7 +127,7 @@ def SP_FixCoopSpots (self):
 		if not spot.targetname:
 			continue
 		d = self.s.origin - spot.s.origin
-		if q_shared.VectorLength(d) < 384:
+		if shared_c.VectorLength(d) < 384:
 			if (not self.targetname) or Q_stricmp(self.targetname, spot.targetname) != 0:
 				self.targetname = spot.targetname
 			return
@@ -469,7 +462,7 @@ def LookAtKiller (self, inflictor, attacker):
 
 def player_die (self, inflictor, attacker, damage, point):
 	#int n
-	q_shared.VectorClear (self.avelocity)
+	shared.VectorClear (self.avelocity)
 
 	self.takedamage = DAMAGE_YES
 	self.movetype = MOVETYPE_TOSS
@@ -573,7 +566,7 @@ def InitClientResp (client):
 	client.resp = g_local.client_respawn_t()
 	client.resp.enterframe = g_main.level.framenum
 	client.resp.coop_respawn = g_local.client_persistant_t()
-	q_shared.VectorCopy(client.pers.cmd_angles, client.resp.cmd_angles) if False else None
+	shared.VectorCopy(client.pers.cmd_angles, client.resp.cmd_angles) if False else None
 	client.resp.coop_respawn = client.pers
 
 
@@ -617,7 +610,7 @@ def PlayersRangeFromSpot (spot):
 			continue
 
 		v = spot.s.origin - player.s.origin
-		playerdistance = q_shared.VectorLength (v)
+		playerdistance = shared_c.VectorLength (v)
 
 		if playerdistance < bestplayerdistance:
 			bestplayerdistance = playerdistance
@@ -763,9 +756,9 @@ def SelectSpawnPoint (ent, origin, angles):
 			if not spot:
 				g_main.gi.error ("Couldn't find spawn point %s\n" % g_main.game.spawnpoint)
 
-	q_shared.VectorCopy (spot.s.origin, origin)
+	shared.VectorCopy (spot.s.origin, origin)
 	origin[2] += 9
-	q_shared.VectorCopy (spot.s.angles, angles)
+	shared.VectorCopy (spot.s.angles, angles)
 
 
 def InitBodyQue ():
@@ -801,11 +794,11 @@ def CopyToBodyQue (ent):
 	body.s.number = g_main.g_edicts.index(body)
 
 	body.svflags = ent.svflags
-	q_shared.VectorCopy (ent.mins, body.mins)
-	q_shared.VectorCopy (ent.maxs, body.maxs)
-	q_shared.VectorCopy (ent.absmin, body.absmin)
-	q_shared.VectorCopy (ent.absmax, body.absmax)
-	q_shared.VectorCopy (ent.size, body.size)
+	shared.VectorCopy (ent.mins, body.mins)
+	shared.VectorCopy (ent.maxs, body.maxs)
+	shared.VectorCopy (ent.absmin, body.absmin)
+	shared.VectorCopy (ent.absmax, body.absmax)
+	shared.VectorCopy (ent.size, body.size)
 	body.solid = ent.solid
 	body.clipmask = ent.clipmask
 	body.owner = ent.owner
@@ -977,12 +970,12 @@ def PutClientInServer (ent):
 	ent.flags &= ~FL_NO_KNOCKBACK
 	ent.svflags &= ~SVF_DEADMONSTER
 
-	q_shared.VectorCopy (mins, ent.mins)
-	q_shared.VectorCopy (maxs, ent.maxs)
-	q_shared.VectorClear (ent.velocity)
+	shared.VectorCopy (mins, ent.mins)
+	shared.VectorCopy (maxs, ent.maxs)
+	shared.VectorClear (ent.velocity)
 
 	# clear playerstate values
-	client.ps = q_shared.player_state_t()
+	client.ps = shared.player_state_t()
 	client = ent.client
 
 	client.ps.pmove.origin[0] = int(spawn_origin[0]*8)
@@ -992,7 +985,7 @@ def PutClientInServer (ent):
 	if int(g_main.deathmatch.value) and (int(g_main.dmflags.value) & DF_FIXED_FOV):
 		client.ps.fov = 90
 	else:
-		client.ps.fov = q_shared.atoi(Info_ValueForKey(client.pers.userinfo, "fov"))
+		client.ps.fov = shared_c.atoi(Info_ValueForKey(client.pers.userinfo, "fov"))
 		if client.ps.fov < 1:
 			client.ps.fov = 90
 		elif client.ps.fov > 160:
@@ -1009,9 +1002,9 @@ def PutClientInServer (ent):
 	ent.s.skinnum = g_main.g_edicts.index(ent) - 1
 
 	ent.s.frame = 0
-	q_shared.VectorCopy (spawn_origin, ent.s.origin)
+	shared.VectorCopy (spawn_origin, ent.s.origin)
 	ent.s.origin[2] += 1	# make sure off ground
-	q_shared.VectorCopy (ent.s.origin, ent.s.old_origin)
+	shared.VectorCopy (ent.s.origin, ent.s.old_origin)
 
 	# set the delta angle
 	for i in range(3):
@@ -1020,8 +1013,8 @@ def PutClientInServer (ent):
 	ent.s.angles[PITCH] = 0
 	ent.s.angles[YAW] = spawn_angles[YAW]
 	ent.s.angles[ROLL] = 0
-	q_shared.VectorCopy (ent.s.angles, client.ps.viewangles)
-	q_shared.VectorCopy (ent.s.angles, client.v_angle)
+	shared.VectorCopy (ent.s.angles, client.ps.viewangles)
+	shared.VectorCopy (ent.s.angles, client.v_angle)
 
 	# spawn a spectator
 	if client.pers.spectator:
@@ -1143,7 +1136,7 @@ def ClientUserinfoChanged (ent, userinfo):
 	if int(g_main.deathmatch.value) and (int(g_main.dmflags.value) & DF_FIXED_FOV):
 		ent.client.ps.fov = 90
 	else:
-		ent.client.ps.fov = q_shared.atoi(Info_ValueForKey(userinfo, "fov"))
+		ent.client.ps.fov = shared_c.atoi(Info_ValueForKey(userinfo, "fov"))
 		if ent.client.ps.fov < 1:
 			ent.client.ps.fov = 90
 		elif ent.client.ps.fov > 160:
@@ -1311,8 +1304,8 @@ def ClientThink (ent, ucmd):
 			ent.s.origin[i] = pm.s.origin[i]*0.125
 			ent.velocity[i] = pm.s.velocity[i]*0.125
 
-		q_shared.VectorCopy (pm.mins, ent.mins)
-		q_shared.VectorCopy (pm.maxs, ent.maxs)
+		shared.VectorCopy (pm.mins, ent.mins)
+		shared.VectorCopy (pm.maxs, ent.maxs)
 
 		client.resp.cmd_angles[0] = SHORT2ANGLE(ucmd.angles[0])
 		client.resp.cmd_angles[1] = SHORT2ANGLE(ucmd.angles[1])
@@ -1334,8 +1327,8 @@ def ClientThink (ent, ucmd):
 			client.ps.viewangles[PITCH] = -15
 			client.ps.viewangles[YAW] = client.killer_yaw
 		else:
-			q_shared.VectorCopy (pm.viewangles, client.v_angle)
-			q_shared.VectorCopy (pm.viewangles, client.ps.viewangles)
+			shared.VectorCopy (pm.viewangles, client.v_angle)
+			shared.VectorCopy (pm.viewangles, client.ps.viewangles)
 
 		g_main.gi.linkentity (ent)
 
@@ -1442,3 +1435,5 @@ def ClientBeginServerFrame (ent):
 
 # numpy import used above
 import numpy as np
+from common.header import shared
+from common.shared import shared as shared_c

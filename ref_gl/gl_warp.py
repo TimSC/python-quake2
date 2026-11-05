@@ -28,9 +28,11 @@ import os
 import re
 import numpy as np
 import OpenGL.GL as GL
-from game import q_shared
+pass
 from linux import qgl_linux
 from ref_gl import gl_rmain, gl_image, gl_model, gl_model_h
+from common.header import shared
+from common.shared import shared as shared_c
 """
 
 
@@ -83,7 +85,7 @@ def SubdividePolygon (numverts, verts): #int, float * (array [numverts][3])
 	maxs = np.zeros((3,), dtype=np.float32)
 
 	if numverts > 60:
-		gl_rmain.ri.Sys_Error (q_shared.ERR_DROP, "numverts = {}".format(numverts))
+		gl_rmain.ri.Sys_Error (shared.ERR_DROP, "numverts = {}".format(numverts))
 
 	BoundPoly (numverts, verts, mins, maxs)
 
@@ -114,12 +116,12 @@ def SubdividePolygon (numverts, verts): #int, float * (array [numverts][3])
 			vnext = verts[(j+1) % numverts]
 			if dist[j] >= 0:
 			
-				q_shared.VectorCopy (v, front[f])
+				shared.VectorCopy (v, front[f])
 				f += 1
 			
 			if dist[j] <= 0:
 			
-				q_shared.VectorCopy (v, back[b])
+				shared.VectorCopy (v, back[b])
 				b += 1
 			
 			if dist[j] == 0 or dist[j+1] == 0:
@@ -147,18 +149,18 @@ def SubdividePolygon (numverts, verts): #int, float * (array [numverts][3])
 	total_t = 0
 	for i in range(numverts):
 	
-		q_shared.VectorCopy (verts[i], poly.verts[i+1][:3])
-		s = q_shared.DotProduct (verts[i], warpface.texinfo.vecs[0])
-		t = q_shared.DotProduct (verts[i], warpface.texinfo.vecs[1])
+		shared.VectorCopy (verts[i], poly.verts[i+1][:3])
+		s = shared.DotProduct (verts[i], warpface.texinfo.vecs[0])
+		t = shared.DotProduct (verts[i], warpface.texinfo.vecs[1])
 
 		total_s += s
 		total_t += t
-		q_shared.VectorAdd (total, verts[i], total)
+		shared.VectorAdd (total, verts[i], total)
 
 		poly.verts[i+1][3] = s
 		poly.verts[i+1][4] = t
 	
-	q_shared.VectorScale (total, (1.0/numverts), poly.verts[0][:3])
+	shared_c.VectorScale (total, (1.0/numverts), poly.verts[0][:3])
 	poly.verts[0][3] = total_s/numverts
 	poly.verts[0][4] = total_t/numverts
 
@@ -203,7 +205,7 @@ def GL_SubdivideSurface (fa): #msurface_t *
 			vec = loadmodel.vertexes[loadmodel.edges[lindex, 0]]
 		else:
 			vec = loadmodel.vertexes[loadmodel.edges[-lindex, 1]]
-		q_shared.VectorCopy (vec, verts[numverts])
+		shared.VectorCopy (vec, verts[numverts])
 		numverts += 1
 	
 	SubdividePolygon (numverts, verts)
@@ -242,7 +244,7 @@ def EmitWaterPolys (fa): #msurface_t *
 	"""
 	rdt = gl_rmain.r_newrefdef.time
 
-	if fa.texinfo.flags & q_shared.SURF_FLOWING:
+	if fa.texinfo.flags & shared.SURF_FLOWING:
 		scroll = -64 * ( (rdt*0.5) - int(rdt*0.5) )
 	else:
 		scroll = 0
@@ -339,7 +341,7 @@ def DrawSkyPolygon (nump, vecs): # int, vec3_t * (array [nump][3])
 	# decide which face it maps to
 	v = np.zeros((3,), dtype=np.float32) # VectorCopy (vec3_origin, v);
 	for i in range(nump):
-		q_shared.VectorAdd (vecs[i], v, v)
+		shared.VectorAdd (vecs[i], v, v)
 
 	av = np.abs(v)
 	if av[0] > av[1] and av[0] > av[2]:
@@ -421,7 +423,7 @@ def ClipSkyPolygon (nump, vecs, stage): # int, vec3_t * (array [nump][3]), int
 	"""
 
 	if nump > MAX_CLIP_VERTS-2:
-		gl_rmain.ri.Sys_Error (q_shared.ERR_DROP, "ClipSkyPolygon: MAX_CLIP_VERTS")
+		gl_rmain.ri.Sys_Error (shared.ERR_DROP, "ClipSkyPolygon: MAX_CLIP_VERTS")
 	if stage == 6:
 		# fully clipped, so draw it
 		DrawSkyPolygon (nump, vecs)
@@ -434,7 +436,7 @@ def ClipSkyPolygon (nump, vecs, stage): # int, vec3_t * (array [nump][3]), int
 	norm = skyclip[stage]
 	for i in range(nump):
 	
-		d = q_shared.DotProduct (vecs[i], norm)
+		d = shared.DotProduct (vecs[i], norm)
 		if d > ON_EPSILON:
 		
 			front = True
@@ -467,15 +469,15 @@ def ClipSkyPolygon (nump, vecs, stage): # int, vec3_t * (array [nump][3]), int
 		vnext = vecs[(i+1) % nump]
 
 		if sides[i] == SIDE_FRONT:
-			q_shared.VectorCopy (v, newv[0][newc[0]])
+			shared.VectorCopy (v, newv[0][newc[0]])
 			newc[0] += 1
 		elif sides[i] == SIDE_BACK:
-			q_shared.VectorCopy (v, newv[1][newc[1]])
+			shared.VectorCopy (v, newv[1][newc[1]])
 			newc[1] += 1
 		elif sides[i] == SIDE_ON:
-			q_shared.VectorCopy (v, newv[0][newc[0]])
+			shared.VectorCopy (v, newv[0][newc[0]])
 			newc[0] += 1
-			q_shared.VectorCopy (v, newv[1][newc[1]])
+			shared.VectorCopy (v, newv[1][newc[1]])
 			newc[1] += 1
 		
 		if sides[i] == SIDE_ON or sides[i+1] == SIDE_ON or sides[i+1] == sides[i]:
@@ -648,7 +650,7 @@ def R_SetSky (name, rotate, axis): # char *, float, vec3_t
 
 	skyname = name
 	skyrotate = rotate
-	q_shared.VectorCopy (axis, skyaxis)
+	shared.VectorCopy (axis, skyaxis)
 
 	for i in range(6):
 	

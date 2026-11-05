@@ -23,8 +23,9 @@ import struct
 import OpenGL.GL as GL
 from PIL import Image
 from ref_gl import gl_rmain, gl_image
-from game import q_shared
+pass
 from linux import qgl_linux
+from common.header import shared
 """
 // draw.c
 
@@ -137,7 +138,7 @@ def Draw_StretchPic (x, y, w, h, pic): #int, int, int, int, char *
 	gl = Draw_FindPic (pic)
 	if gl is None:
 	
-		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
+		gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
 		return
 	
 
@@ -174,7 +175,7 @@ def Draw_Pic (x, y, pic): #int, int, char *
 	gl = Draw_FindPic (pic)
 	if gl is None:
 	
-		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
+		gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
 		return
 	
 	if gl_image.scrap_dirty:
@@ -214,7 +215,7 @@ def Draw_TileClear (x, y, w, h, pic): #int, int, int, int, char *
 	image = Draw_FindPic (pic)
 	if image is None:
 	
-		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
+		gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
 		return
 	
 	if  ( ( gl_rmain.gl_config.renderer == gl_rmain.GL_RENDERER_MCD ) or ( gl_rmain.gl_config.renderer & gl_rmain.GL_RENDERER_RENDITION ) )  and not image.has_alpha:
@@ -255,7 +256,7 @@ def Draw_Fill (x, y, w, h, c): #int, int, int, int, int
 	"""
 
 	if c > 255:
-		gl_rmain.ri.Sys_Error (q_shared.ERR_FATAL, "Draw_Fill: bad color")
+		gl_rmain.ri.Sys_Error (shared.ERR_FATAL, "Draw_Fill: bad color")
 
 	GL.glDisable (GL.GL_TEXTURE_2D)
 

@@ -19,10 +19,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from __future__ import annotations
 
-from qcommon import cvar
+pass
 from client import menu, qmenu, keys, cl_scrn
 from linux import vid_so, qgl_linux
-from game import q_shared
+pass
+from common.header import shared
+from common.shared import shared as shared_c
+from common import cvar
 """
 #include "../client/client.h"
 #include "../client/qmenu.h"
@@ -107,8 +110,8 @@ def BrightnessCallback( s ): #void *
 	else:
 		s_brightness_slider[0].curvalue = s_brightness_slider[1].curvalue
 
-	if ( q_shared.Q_stricmp( vid_so.vid_ref.string, "soft" ) == 0 or
-		 q_shared.Q_stricmp( vid_so.vid_ref.string, "softx" ) == 0 ):
+	if ( shared_c.Q_stricmp( vid_so.vid_ref.string, "soft" ) == 0 or
+		 shared_c.Q_stricmp( vid_so.vid_ref.string, "softx" ) == 0 ):
 
 		gamma = ( 0.8 - ( slider.curvalue/10.0 - 0.5 ) ) + 0.5
 
@@ -225,19 +228,19 @@ def VID_MenuInit():
 	if sw_mode is None:
 		sw_mode = cvar.Cvar_Get( "sw_mode", "0", 0 )
 	if gl_ext_palettedtexture is None:
-		gl_ext_palettedtexture = cvar.Cvar_Get( "gl_ext_palettedtexture", "1", q_shared.CVAR_ARCHIVE )
+		gl_ext_palettedtexture = cvar.Cvar_Get( "gl_ext_palettedtexture", "1", shared.CVAR_ARCHIVE )
 
 	if sw_stipplealpha is None:
-		sw_stipplealpha = cvar.Cvar_Get( "sw_stipplealpha", "0", q_shared.CVAR_ARCHIVE )
+		sw_stipplealpha = cvar.Cvar_Get( "sw_stipplealpha", "0", shared.CVAR_ARCHIVE )
 
 	if _windowed_mouse is None:
-		_windowed_mouse = cvar.Cvar_Get( "_windowed_mouse", "0", q_shared.CVAR_ARCHIVE )
+		_windowed_mouse = cvar.Cvar_Get( "_windowed_mouse", "0", shared.CVAR_ARCHIVE )
 
 	s_mode_list[SOFTWARE_MENU].curvalue = int(sw_mode.value)
 	s_mode_list[OPENGL_MENU].curvalue = int(gl_mode.value)
 
 	if cl_scrn.scr_viewsize is None:
-		cl_scrn.scr_viewsize = cvar.Cvar_Get ("viewsize", "100", q_shared.CVAR_ARCHIVE)
+		cl_scrn.scr_viewsize = cvar.Cvar_Get ("viewsize", "100", shared.CVAR_ARCHIVE)
 
 	s_screensize_slider[SOFTWARE_MENU].curvalue = cl_scrn.scr_viewsize.value/10
 	s_screensize_slider[OPENGL_MENU].curvalue = cl_scrn.scr_viewsize.value/10

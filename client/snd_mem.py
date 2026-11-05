@@ -20,10 +20,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import io
-from qcommon import files, common
+pass
 from client import snd_loc, snd_dma
-from game import q_shared
+pass
 import pygame
+from common.header import shared
+from common import clientserver
+from common import filesystem
 """
 // snd_mem.c: sound caching
 
@@ -140,17 +143,17 @@ def S_LoadSound (s): #sfx_t * (returns sfxcache_t *)
 
 	#Com_Printf ("loading %s\n",namebuffer);
 
-	size, data = files.FS_LoadFile (namebuffer)
+	size, data = filesystem.FS_LoadFile (namebuffer)
 
 	if data is None:
 	
-		common.Com_DPrintf ("Couldn't load {}\n".format(namebuffer))
+		clientserver.Com_DPrintf ("Couldn't load {}\n".format(namebuffer))
 		return None
 	
 	info = GetWavinfo (s.name, data, size)
 	if info.channels != 1:
 	
-		common.Com_Printf ("{} is a stereo sample\n".format(s.name))
+		clientserver.Com_Printf ("{} is a stereo sample\n".format(s.name))
 		return None
 	
 	stepscale = info.rate / snd_dma.dma.speed
@@ -290,7 +293,7 @@ def DumpChunks():
 		st = iff_buf[data_p:data_p+4].decode('ascii', 'replace')
 		data_p += 4
 		iff_chunk_len = GetLittleLong()
-		common.Com_Printf ("0x{:x} : {} ({:d})\n".format(data_p - 4, st, iff_chunk_len))
+		clientserver.Com_Printf ("0x{:x} : {} ({:d})\n".format(data_p - 4, st, iff_chunk_len))
 		data_p += (iff_chunk_len + 1) & ~1
 		if not (data_p < iff_end):
 			break
@@ -324,7 +327,7 @@ def GetWavinfo (name, wav, wavlength): #char *, byte *, int (returns wavinfo_t)
 	FindChunk(b"RIFF")
 	if not (data_p is not None and iff_buf[data_p+8:data_p+12] == b"WAVE"):
 	
-		common.Com_Printf("Missing RIFF/WAVE chunks\n")
+		clientserver.Com_Printf("Missing RIFF/WAVE chunks\n")
 		return info
 	
 	# get "fmt " chunk
@@ -334,14 +337,14 @@ def GetWavinfo (name, wav, wavlength): #char *, byte *, int (returns wavinfo_t)
 	FindChunk(b"fmt ")
 	if data_p is None:
 	
-		common.Com_Printf("Missing fmt chunk\n")
+		clientserver.Com_Printf("Missing fmt chunk\n")
 		return info
 	
 	data_p += 8
 	format = GetLittleShort()
 	if format != 1:
 	
-		common.Com_Printf("Microsoft PCM format only\n")
+		clientserver.Com_Printf("Microsoft PCM format only\n")
 		return info
 	
 	info.channels = GetLittleShort()
@@ -375,7 +378,7 @@ def GetWavinfo (name, wav, wavlength): #char *, byte *, int (returns wavinfo_t)
 	FindChunk(b"data")
 	if data_p is None:
 	
-		common.Com_Printf("Missing data chunk\n")
+		clientserver.Com_Printf("Missing data chunk\n")
 		return info
 	
 	data_p += 4
@@ -384,7 +387,7 @@ def GetWavinfo (name, wav, wavlength): #char *, byte *, int (returns wavinfo_t)
 	if info.samples:
 	
 		if samples < info.samples:
-			common.Com_Error (q_shared.ERR_DROP, "Sound {} has a bad loop length".format(name))
+			clientserver.Com_Error (shared.ERR_DROP, "Sound {} has a bad loop length".format(name))
 	
 	else:
 		info.samples = samples

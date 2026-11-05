@@ -1,10 +1,11 @@
 
 from __future__ import annotations
 
-from qcommon import common, qcommon, files
+pass
 from client import cl_cin
+from common import filesystem
 
-files.FS_InitFilesystem()
+filesystem.FS_InitFilesystem()
 
 cl_cin.SCR_PlayCinematic("idlog.cin")
 

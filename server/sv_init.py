@@ -25,9 +25,19 @@ import struct
 from enum import Enum
 from server import sv_main, sv_send, sv_game, sv_world, sv_game
 from client import cl_main, cl_scrn
-from qcommon import cvar, common, cmd, qcommon, cmodel, pmove
-from game import q_shared
+from qcommon import cmodel, pmove
+pass
 from linux import net_udp
+from common.header import common as common_h
+from common.header import shared
+from common.shared import shared as shared_c
+from common import clientserver
+from common import filesystem
+from common import cmdparser
+from common import cvar
+from common import frame
+from common import movemsg
+from common import szone
 """
 #include "server.h"
 
@@ -63,23 +73,23 @@ class server_t(object):
 
 		self.name = None # char		[MAX_QPATH];			// map name, or cinematic name
 		self.models = [] # struct cmodel_s		*[q_shared.MAX_MODELS];
-		for i in range(q_shared.MAX_MODELS):
-			self.models.append(q_shared.cmodel_t())
+		for i in range(shared.MAX_MODELS):
+			self.models.append(shared.cmodel_t())
 
 		self.configstrings = [] # char		[MAX_CONFIGSTRINGS][MAX_QPATH];
-		for i in range(q_shared.MAX_CONFIGSTRINGS):
+		for i in range(shared.MAX_CONFIGSTRINGS):
 			self.configstrings.append("")
 		self.baselines = [] # entity_state_t	[MAX_EDICTS];
-		for i in range(q_shared.MAX_EDICTS):
-			self.baselines.append(q_shared.entity_state_t())
+		for i in range(shared.MAX_EDICTS):
+			self.baselines.append(shared.entity_state_t())
 
 		# the multicast buffer is used to send a message to a set of clients
 		# it is only used to marshall data until SV_Multicast is called
-		self.multicast = qcommon.sizebuf_t() # sizebuf_t	;
+		self.multicast = common_h.sizebuf_t() # sizebuf_t	;
 		#self.multicast_buf = None # byte		[MAX_MSGLEN];
 
 		# demo server information
-		self.demofile = None # FILE		*;
+		self.demofile = 0 # fileHandle_t
 		self.timedemo = False # qboolean	;		// don't time sync
 
 		self.timebase = 0 #int, msec base for SV_GiveMsec
@@ -133,7 +143,7 @@ class client_frame_t(object):
 	def __init__(self):
 		self.areabytes = 0 #int
 		self.areabits = bytearray(32) #byte[MAX_MAP_AREAS/8], portalarea visibility bits
-		self.ps = q_shared.player_state_t()
+		self.ps = shared.player_state_t()
 		self.num_entities = 0 #int
 		self.first_entity = 0 #int, into the circular sv_packet_entities[]
 		self.senttime = 0 #int, for ping calculations
@@ -166,7 +176,7 @@ class client_t(object):
 		# The datagram is written to by sound calls, prints, temp ents, etc.
 		# It can be harmlessly overflowed.
 		
-		self.datagram = qcommon.sizebuf_t()
+		self.datagram = common_h.sizebuf_t()
 
 		self.download = None #byte *, file being downloaded
 		self.downloadsize = 0 #int, total bytes (can't use EOF because of paks)
@@ -174,9 +184,9 @@ class client_t(object):
 		self.lastmessage = 0 #int, sv.framenum when packet was last received
 		self.lastconnect = 0 #int
 		self.challenge = 0 #int, challenge of this user, randomly generated
-		self.frames = [client_frame_t() for _ in range(qcommon.UPDATE_BACKUP)] #client_frame_t[UPDATE_BACKUP], updates can be delta'd from here
+		self.frames = [client_frame_t() for _ in range(common_h.UPDATE_BACKUP)] #client_frame_t[UPDATE_BACKUP], updates can be delta'd from here
 
-		self.netchan = qcommon.netchan_t()
+		self.netchan = common_h.netchan_t()
 
 
 """
@@ -207,7 +217,7 @@ class challenge_t(object):
 
 	def __init__(self):
 
-		self.adr = qcommon.netadr_t() #netadr_t
+		self.adr = common_h.netadr_t() #netadr_t
 		self.challenge = 0 #int
 		self.time = 0 #int
 
@@ -240,7 +250,7 @@ class server_static_t(object):
 
 		# serverrecord values
 		self.demofile = None # FILE		*
-		self.demo_multicast = qcommon.sizebuf_t() # sizebuf_t
+		self.demo_multicast = common_h.sizebuf_t() # sizebuf_t
 		self.demo_multicast_buf = None # byte		[MAX_MSGLEN]
 
 
@@ -270,34 +280,34 @@ def SV_FindIndex (name, start, max, create): #char *, int, int, qboolean
 		return 0
 
 	if i == max:
-		common.Com_Error (q_shared.ERR_DROP, "*Index: overflow")
+		clientserver.Com_Error (shared.ERR_DROP, "*Index: overflow")
 
-	sv.configstrings[start+i] = name[:q_shared.MAX_QPATH] # strncpy (sv.configstrings[start+i], name, sizeof(sv.configstrings[i]));
+	sv.configstrings[start+i] = name[:shared.MAX_QPATH] # strncpy (sv.configstrings[start+i], name, sizeof(sv.configstrings[i]));
 
 	if sv.state != server_state_t.ss_loading:
 		# send the update to everyone
-		common.SZ_Clear (sv.multicast)
-		common.MSG_WriteChar (sv.multicast, struct.pack("b", qcommon.svc_ops_e.svc_configstring.value))
-		common.MSG_WriteShort (sv.multicast, start+i)
-		common.MSG_WriteString (sv.multicast, name.encode('ascii'))
-		sv_send.SV_Multicast (q_shared.vec3_origin, q_shared.multicast_t.MULTICAST_ALL_R)
+		szone.SZ_Clear (sv.multicast)
+		movemsg.MSG_WriteChar (sv.multicast, struct.pack("b", common_h.svc_ops_e.svc_configstring.value))
+		movemsg.MSG_WriteShort (sv.multicast, start+i)
+		movemsg.MSG_WriteString (sv.multicast, name.encode('ascii'))
+		sv_send.SV_Multicast (shared_c.vec3_origin, shared.multicast_t.MULTICAST_ALL_R)
 	
 	return i
 
 
 def SV_ModelIndex (name): #char *
 
-	return SV_FindIndex (name, q_shared.CS_MODELS, q_shared.MAX_MODELS, True)
+	return SV_FindIndex (name, shared.CS_MODELS, shared.MAX_MODELS, True)
 
 
 def SV_SoundIndex (name): #char *
 
-	return SV_FindIndex (name, q_shared.CS_SOUNDS, q_shared.MAX_SOUNDS, True)
+	return SV_FindIndex (name, shared.CS_SOUNDS, shared.MAX_SOUNDS, True)
 
 
 def SV_ImageIndex (name): #char *
 
-	return SV_FindIndex (name, q_shared.CS_IMAGES, q_shared.MAX_IMAGES, True)
+	return SV_FindIndex (name, shared.CS_IMAGES, shared.MAX_IMAGES, True)
 
 
 """
@@ -317,7 +327,7 @@ def SV_CreateBaseline ():
 		if getattr(sv_game.ge, "edicts", None) is not None:
 			num_edicts = len(sv_game.ge.edicts)
 		else:
-			num_edicts = q_shared.MAX_EDICTS
+			num_edicts = shared.MAX_EDICTS
 
 	for entnum in range(1, num_edicts):
 		svent = EDICT_NUM(entnum)
@@ -328,7 +338,7 @@ def SV_CreateBaseline ():
 		svent.s.number = entnum
 
 		# take current state as baseline
-		q_shared.VectorCopy(svent.s.origin, svent.s.old_origin)
+		shared.VectorCopy(svent.s.origin, svent.s.old_origin)
 		if entnum >= len(sv.baselines):
 			sv.baselines.extend([None] * (entnum + 1 - len(sv.baselines)))
 		sv.baselines[entnum] = copy.deepcopy(svent.s)
@@ -397,17 +407,18 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 	if attractloop:
 		cvar.Cvar_Set ("paused", "0")
 
-	common.Com_Printf ("------- Server Initialization -------\n")
+	clientserver.Com_Printf ("------- Server Initialization -------\n")
 
-	common.Com_DPrintf ("SpawnServer: {}\n".format(server))
+	clientserver.Com_DPrintf ("SpawnServer: {}\n".format(server))
 
-	if sv.demofile is not None:
-		sv.demofile = None
+	if sv.demofile:
+		filesystem.FS_FCloseFile (sv.demofile)
+		sv.demofile = 0
 
 	svs.spawncount+=1		# any partially connected client will be
 							# restarted
 	sv.state = server_state_t.ss_dead
-	common.Com_SetServerState (sv.state.value)
+	clientserver.Com_SetServerState (sv.state.value)
 
 	# wipe the entire per-level structure
 	#memset (&sv, 0, sizeof(sv));
@@ -418,18 +429,18 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 
 	
 	# save name for levels that don't set message
-	sv.configstrings[q_shared.CS_NAME] = server
+	sv.configstrings[shared.CS_NAME] = server
 	if cvar.Cvar_VariableValue ("deathmatch"):
 	
-		sv.configstrings[q_shared.CS_AIRACCEL] = str(int(sv_main.sv_airaccelerate.value))
+		sv.configstrings[shared.CS_AIRACCEL] = str(int(sv_main.sv_airaccelerate.value))
 		pmove.pm_airaccelerate = sv_main.sv_airaccelerate.value
 	
 	else:
 	
-		sv.configstrings[q_shared.CS_AIRACCEL] = "0"
+		sv.configstrings[shared.CS_AIRACCEL] = "0"
 		pmove.pm_airaccelerate = 0
 	
-	common.SZ_Init (sv.multicast, qcommon.MAX_MSGLEN)
+	szone.SZ_Init (sv.multicast, common_h.MAX_MSGLEN)
 
 	sv.name = server
 
@@ -444,7 +455,7 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 	sv.time = 1000;
 	
 	sv.name = server
-	sv.configstrings[q_shared.CS_NAME] = server
+	sv.configstrings[shared.CS_NAME] = server
 	
 	if serverstate != server_state_t.ss_game:
 
@@ -452,11 +463,11 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 		sv.models[1], checksum = cmodel.CM_LoadMap ("", False)	# no real map
 	
 	else:
-		sv.configstrings[q_shared.CS_MODELS+1] = "maps/{}.bsp".format(server)
+		sv.configstrings[shared.CS_MODELS+1] = "maps/{}.bsp".format(server)
 		while len(sv.models) < 2: sv.models.append(None)
-		sv.models[1], checksum = cmodel.CM_LoadMap (sv.configstrings[q_shared.CS_MODELS+1], False)
+		sv.models[1], checksum = cmodel.CM_LoadMap (sv.configstrings[shared.CS_MODELS+1], False)
 	
-	sv.configstrings[q_shared.CS_MAPCHECKSUM] = "{:d}".format(checksum)
+	sv.configstrings[shared.CS_MAPCHECKSUM] = "{:d}".format(checksum)
 
 	#
 	# clear physics interaction links
@@ -465,8 +476,8 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 	
 	for i in range(1, cmodel.CM_NumInlineModels()):
 	
-		sv.configstrings[q_shared.CS_MODELS+1+i] = "*%i" % i
-		sv.models[i+1] = cmodel.CM_InlineModel (sv.configstrings[q_shared.CS_MODELS+1+i])
+		sv.configstrings[shared.CS_MODELS+1+i] = "*%i" % i
+		sv.models[i+1] = cmodel.CM_InlineModel (sv.configstrings[shared.CS_MODELS+1+i])
 	
 	#
 	# spawn the rest of the entities on the map
@@ -475,7 +486,7 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 	# precache and static commands can be issued during
 	# map initialization
 	sv.state = server_state_t.ss_loading
-	common.Com_SetServerState (sv.state.value)
+	clientserver.Com_SetServerState (sv.state.value)
 
 	# load and spawn all other entities
 	sv_game.ge.SpawnEntities (sv.name, cmodel.CM_EntityString(), spawnpoint)
@@ -494,7 +505,7 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 	"""
 	# all precaches are complete
 	sv.state = serverstate
-	common.Com_SetServerState (sv.state.value)
+	clientserver.Com_SetServerState (sv.state.value)
 	
 	# create a baseline for more efficient communications
 	SV_CreateBaseline ()
@@ -503,9 +514,9 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 	SV_CheckForSavegame ()
 	
 	# set serverinfo variable
-	cvar.Cvar_FullSet ("mapname", sv.name, q_shared.CVAR_SERVERINFO | q_shared.CVAR_NOSET)
+	cvar.Cvar_FullSet ("mapname", sv.name, shared.CVAR_SERVERINFO | shared.CVAR_NOSET)
 
-	common.Com_Printf ("-------------------------------------\n")
+	clientserver.Com_Printf ("-------------------------------------\n")
 
 
 """
@@ -533,7 +544,7 @@ def SV_InitGame ():
 		cl_scrn.SCR_BeginLoadingPlaque ()
 
 	# Hack different from standard quake 2. Why?	
-	common.SZ_Init (sv.multicast, qcommon.MAX_MSGLEN)
+	szone.SZ_Init (sv.multicast, common_h.MAX_MSGLEN)
 
 	# get any latched variable changes (maxclients, etc)
 	cvar.Cvar_GetLatchedVars ()
@@ -542,29 +553,29 @@ def SV_InitGame ():
 
 	if cvar.Cvar_VariableValue ("coop") and cvar.Cvar_VariableValue ("deathmatch"):
 	
-		common.Com_Printf("Deathmatch and Coop both set, disabling Coop\n");
-		cvar.Cvar_FullSet ("coop", "0",  q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH)
+		clientserver.Com_Printf("Deathmatch and Coop both set, disabling Coop\n");
+		cvar.Cvar_FullSet ("coop", "0",  shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
 	
 
 	# dedicated servers are can't be single player and are usually DM
 	# so unless they explicity set coop, force it to deathmatch
-	if common.dedicated.value:
+	if frame.dedicated.value:
 	
 		if cvar.Cvar_VariableValue ("coop") != 0:
-			cvar.Cvar_FullSet ("deathmatch", "1",  q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH);
+			cvar.Cvar_FullSet ("deathmatch", "1",  shared.CVAR_SERVERINFO | shared.CVAR_LATCH);
 	
 	# init clients
 	if cvar.Cvar_VariableValue ("deathmatch"):
 	
 		if sv_main.maxclients.value <= 1:
-			cvar.Cvar_FullSet ("maxclients", "8", q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH)
-		elif sv_main.maxclients.value > q_shared.MAX_CLIENTS:
-			cvar.Cvar_FullSet ("maxclients", "%i" % q_shared.MAX_CLIENTS, q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH)
+			cvar.Cvar_FullSet ("maxclients", "8", shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
+		elif sv_main.maxclients.value > shared.MAX_CLIENTS:
+			cvar.Cvar_FullSet ("maxclients", "%i" % shared.MAX_CLIENTS, shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
 	
 	elif cvar.Cvar_VariableValue ("coop"):
 	
 		if sv_main.maxclients.value <= 1 or sv_main.maxclients.value > 4:
-			cvar.Cvar_FullSet ("maxclients", "4", q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH)
+			cvar.Cvar_FullSet ("maxclients", "4", shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
 		#ifdef COPYPROTECT
 		#if (!sv.attractloop && !common.dedicated->value)
 		#	Sys_CopyProtect ();
@@ -572,7 +583,7 @@ def SV_InitGame ():
 	
 	else:	# non-deathmatch, non-coop is one player
 	
-		cvar.Cvar_FullSet ("maxclients", "1", q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH)
+		cvar.Cvar_FullSet ("maxclients", "1", shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
 		#ifdef COPYPROTECT
 		#if (!sv.attractloop)
 		#	Sys_CopyProtect ();
@@ -582,10 +593,10 @@ def SV_InitGame ():
 	svs.clients = []
 	for i in range(int(sv_main.maxclients.value)):
 		svs.clients.append(client_t())
-	svs.num_client_entities = int(sv_main.maxclients.value*qcommon.UPDATE_BACKUP*64)
+	svs.num_client_entities = int(sv_main.maxclients.value*common_h.UPDATE_BACKUP*64)
 	svs.client_entities = []
 	for i in range(svs.num_client_entities):
-		svs.client_entities.append(q_shared.entity_state_t())
+		svs.client_entities.append(shared.entity_state_t())
 
 	# init network stuff
 	net_udp.NET_Config (sv_main.maxclients.value > 1)
@@ -651,7 +662,7 @@ def SV_Map ( attractloop, levelstring, loadgame): #qboolean, char *, qboolean
 		cvar.Cvar_Set ("nextserver", "");
 
 	#ZOID special hack for end game screen in coop mode
-	if cvar.Cvar_VariableValue ("coop") and not q_shared.Q_stricmp(level, "victory.pcx"):
+	if cvar.Cvar_VariableValue ("coop") and not shared_c.Q_stricmp(level, "victory.pcx"):
 		cvar.Cvar_Set ("nextserver", "gamemap \"*base1\"")
 
 	# if there is a $, use the remainder as a spawnpoint
@@ -693,7 +704,7 @@ def SV_Map ( attractloop, levelstring, loadgame): #qboolean, char *, qboolean
 		sv_send.SV_BroadcastCommand ("changing\n")
 		sv_send.SV_SendClientMessages ()
 		SV_SpawnServer (level, spawnpoint, server_state_t.ss_game, attractloop, loadgame)
-		cmd.Cbuf_CopyToDefer ()
+		cmdparser.Cbuf_CopyToDefer ()
 	
 	sv_send.SV_BroadcastCommand ("reconnect\n")
 

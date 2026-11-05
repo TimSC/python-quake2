@@ -31,7 +31,7 @@
 from __future__ import annotations
 
 import random as _r
-from game import q_shared
+pass
 from game import g_local
 from game import g_main
 from game import g_utils
@@ -43,14 +43,16 @@ SOLID_TRIGGER = solid_t.SOLID_TRIGGER.value
 SOLID_BSP = solid_t.SOLID_BSP.value
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 SOLID_NOT = solid_t.SOLID_NOT.value
-from game.q_shared import ATTN_NORM, CHAN_AUTO, YAW
+from common.header.shared import ATTN_NORM, CHAN_AUTO, YAW
+from common.header import shared
+from common.shared import shared as shared_c
 
 PUSH_ONCE = 1
 windsound = None  # int
 
 def InitTrigger (self):
 	#edict_t *self
-	if not q_shared.VectorCompare(self.s.angles, q_shared.vec3_origin):
+	if not shared_c.VectorCompare(self.s.angles, shared_c.vec3_origin):
 		g_utils.G_SetMovedir (self.s.angles, self.movedir)
 
 	self.solid = SOLID_TRIGGER
@@ -101,10 +103,10 @@ def Touch_Multi (self, other, plane, surf):
 	else:
 		return
 
-	if not q_shared.VectorCompare(self.movedir, q_shared.vec3_origin):
+	if not shared_c.VectorCompare(self.movedir, shared_c.vec3_origin):
 		forward = [0.0, 0.0, 0.0]
-		q_shared.AngleVectors(other.s.angles, forward, None, None)
-		if q_shared.DotProduct(forward, self.movedir) < 0:
+		shared_c.AngleVectors(other.s.angles, forward, None, None)
+		if shared.DotProduct(forward, self.movedir) < 0:
 			return
 
 	self.activator = other
@@ -138,7 +140,7 @@ def SP_trigger_multiple (ent):
 		ent.solid = SOLID_TRIGGER
 		ent.use = Use_Multi
 
-	if not q_shared.VectorCompare(ent.s.angles, q_shared.vec3_origin):
+	if not shared_c.VectorCompare(ent.s.angles, shared_c.vec3_origin):
 		g_utils.G_SetMovedir (ent.s.angles, ent.movedir)
 
 	g_main.gi.setmodel (ent, ent.model)
@@ -150,7 +152,7 @@ def SP_trigger_once (ent):
 	# triggered was on bit 1 when it should have been on bit 4
 	if ent.spawnflags & 1:
 		v = [0.0, 0.0, 0.0]
-		q_shared.VectorMA (ent.mins, 0.5, ent.size, v)
+		shared_c.VectorMA (ent.mins, 0.5, ent.size, v)
 		ent.spawnflags &= ~1
 		ent.spawnflags |= 4
 		g_main.gi.dprintf("fixed TRIGGERED flag on %s at %s\n", ent.classname, g_utils.vtos(v))
@@ -189,7 +191,7 @@ def trigger_key_use (self, other, activator):
 		player = 0
 		ent = None
 
-		if q_shared.Q_stricmp(self.item.classname, "key_power_cube") == 0:
+		if shared_c.Q_stricmp(self.item.classname, "key_power_cube") == 0:
 			cube = 0
 			while cube < 8:
 				if activator.client.pers.power_cubes & (1 << cube):
@@ -277,13 +279,13 @@ def trigger_push_touch (self, other, plane, surf):
 	#edict_t *self, *other; cplane_t *plane; csurface_t *surf
 	global windsound
 	if other.classname == "grenade":
-		q_shared.VectorScale (self.movedir, self.speed * 10, other.velocity)
+		shared_c.VectorScale (self.movedir, self.speed * 10, other.velocity)
 	elif other.health > 0:
-		q_shared.VectorScale (self.movedir, self.speed * 10, other.velocity)
+		shared_c.VectorScale (self.movedir, self.speed * 10, other.velocity)
 
 		if other.client:
 			# don't take falling damage immediately from this
-			q_shared.VectorCopy (other.velocity, other.client.oldvelocity)
+			shared.VectorCopy (other.velocity, other.client.oldvelocity)
 			if other.fly_sound_debounce_time < g_main.level.time:
 				other.fly_sound_debounce_time = g_main.level.time + 1.5
 				g_main.gi.sound (other, CHAN_AUTO, windsound, 1, ATTN_NORM, 0)
@@ -334,7 +336,7 @@ def hurt_touch (self, other, plane, surf):
 		dflags = g_local.DAMAGE_NO_PROTECTION
 	else:
 		dflags = 0
-	g_combat.T_Damage (other, self, self, q_shared.vec3_origin, other.s.origin, q_shared.vec3_origin, self.dmg, self.dmg, dflags, g_local.MOD_TRIGGER_HURT)
+	g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, self.dmg, self.dmg, dflags, g_local.MOD_TRIGGER_HURT)
 
 def SP_trigger_hurt (self):
 	#edict_t *self

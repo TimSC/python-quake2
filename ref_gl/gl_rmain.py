@@ -31,9 +31,12 @@ from OpenGL.GL import glGetString
 from enum import Enum
 from client import ref
 from linux import gl_glx, qgl_linux
-from game import q_shared
-from qcommon import cvar, cmd, files, qcommon, qfiles
+pass
+pass
 from ref_gl import gl_draw, gl_image, gl_rmisc, gl_model, gl_model_h, gl_warp, gl_rsurf, gl_mesh, gl_light
+from common.header import files as files_h
+from common.header import shared
+from common.shared import shared as shared_c
 
 REF_VERSION = "GL 0.01"
 
@@ -133,9 +136,9 @@ ri = ref.refimport_t()
 """
 int GL_TEXTURE0, GL_TEXTURE1;
 """
-frustum = [q_shared.cplane_t() for _ in range(4)]
+frustum = [shared.cplane_t() for _ in range(4)]
 
-frustum = [q_shared.cplane_t() for _ in range(4)]
+frustum = [shared.cplane_t() for _ in range(4)]
 
 r_worldmodel = None #model_t *
 
@@ -197,25 +200,25 @@ def SignbitsForPlane(out):
 
 
 def R_SetFrustum():
-    q_shared.RotatePointAroundVector(
+    shared_c.RotatePointAroundVector(
         frustum[0].normal,
         vup,
         vpn,
         -(90 - r_newrefdef.fov_x / 2.0),
     )
-    q_shared.RotatePointAroundVector(
+    shared_c.RotatePointAroundVector(
         frustum[1].normal,
         vup,
         vpn,
         90 - r_newrefdef.fov_x / 2.0,
     )
-    q_shared.RotatePointAroundVector(
+    shared_c.RotatePointAroundVector(
         frustum[2].normal,
         vright,
         vpn,
         90 - r_newrefdef.fov_y / 2.0,
     )
-    q_shared.RotatePointAroundVector(
+    shared_c.RotatePointAroundVector(
         frustum[3].normal,
         vright,
         vpn,
@@ -223,8 +226,8 @@ def R_SetFrustum():
     )
 
     for i in range(4):
-        frustum[i].type = qfiles.PLANE_ANYZ
-        frustum[i].dist = q_shared.DotProduct(r_origin, frustum[i].normal)
+        frustum[i].type = files_h.PLANE_ANYZ
+        frustum[i].dist = shared.DotProduct(r_origin, frustum[i].normal)
         frustum[i].signbits = SignbitsForPlane(frustum[i])
 """
 =================
@@ -325,7 +328,7 @@ def R_DrawSpriteModel (e): #entity_t *
 	up = vup
 	right = vright
 
-	if e.flags & q_shared.RF_TRANSLUCENT:
+	if e.flags & shared.RF_TRANSLUCENT:
 		alpha = e.alpha
 
 	if alpha != 1.0:
@@ -345,23 +348,23 @@ def R_DrawSpriteModel (e): #entity_t *
 	GL.glBegin (GL.GL_QUADS)
 
 	GL.glTexCoord2f (0, 1)
-	q_shared.VectorMA (e.origin, -frame.origin_y, up, point)
-	q_shared.VectorMA (point, -frame.origin_x, right, point)
+	shared_c.VectorMA (e.origin, -frame.origin_y, up, point)
+	shared_c.VectorMA (point, -frame.origin_x, right, point)
 	GL.glVertex3fv (point)
 
 	GL.glTexCoord2f (0, 0)
-	q_shared.VectorMA (e.origin, frame.height - frame.origin_y, up, point)
-	q_shared.VectorMA (point, -frame.origin_x, right, point)
+	shared_c.VectorMA (e.origin, frame.height - frame.origin_y, up, point)
+	shared_c.VectorMA (point, -frame.origin_x, right, point)
 	GL.glVertex3fv (point)
 
 	GL.glTexCoord2f (1, 0)
-	q_shared.VectorMA (e.origin, frame.height - frame.origin_y, up, point)
-	q_shared.VectorMA (point, frame.width - frame.origin_x, right, point)
+	shared_c.VectorMA (e.origin, frame.height - frame.origin_y, up, point)
+	shared_c.VectorMA (point, frame.width - frame.origin_x, right, point)
 	GL.glVertex3fv (point)
 
 	GL.glTexCoord2f (1, 1)
-	q_shared.VectorMA (e.origin, -frame.origin_y, up, point)
-	q_shared.VectorMA (point, frame.width - frame.origin_x, right, point)
+	shared_c.VectorMA (e.origin, -frame.origin_y, up, point)
+	shared_c.VectorMA (point, frame.width - frame.origin_x, right, point)
 	GL.glVertex3fv (point)
 	
 	GL.glEnd ()
@@ -389,7 +392,7 @@ def R_DrawNullModel ():
 	"""
 	shadelight = np.zeros((3,), dtype=np.float32)
 
-	if currententity.flags & q_shared.RF_FULLBRIGHT:
+	if currententity.flags & shared.RF_FULLBRIGHT:
 		shadelight[0] = shadelight[1] = shadelight[2] = 1.0
 	else:
 		gl_light.R_LightPoint (currententity.origin, shadelight)
@@ -435,10 +438,10 @@ def R_DrawEntitiesOnList ():
 	for i in range(r_newrefdef.num_entities):
 	
 		currententity = r_newrefdef.entities[i]
-		if currententity.flags & q_shared.RF_TRANSLUCENT:
+		if currententity.flags & shared.RF_TRANSLUCENT:
 			continue	# solid
 
-		if currententity.flags & q_shared.RF_BEAM:
+		if currententity.flags & shared.RF_BEAM:
 		
 			R_DrawBeam( currententity )
 		
@@ -457,7 +460,7 @@ def R_DrawEntitiesOnList ():
 			elif currentmodel.type == gl_model_h.modtype_t.mod_sprite:
 				R_DrawSpriteModel (currententity)
 			else:
-				ri.Sys_Error (q_shared.ERR_DROP, "Bad modeltype")
+				ri.Sys_Error (shared.ERR_DROP, "Bad modeltype")
 			
 
 	# draw transparent entities
@@ -466,10 +469,10 @@ def R_DrawEntitiesOnList ():
 	for i in range(r_newrefdef.num_entities):
 	
 		currententity = r_newrefdef.entities[i]
-		if not (currententity.flags & q_shared.RF_TRANSLUCENT):
+		if not (currententity.flags & shared.RF_TRANSLUCENT):
 			continue	# solid
 
-		if currententity.flags & q_shared.RF_BEAM:
+		if currententity.flags & shared.RF_BEAM:
 		
 			R_DrawBeam( currententity )
 		
@@ -488,7 +491,7 @@ def R_DrawEntitiesOnList ():
 			elif currentmodel.type == gl_model_h.modtype_t.mod_sprite:
 				R_DrawSpriteModel (currententity)
 			else:
-				ri.Sys_Error (q_shared.ERR_DROP, "Bad modeltype")
+				ri.Sys_Error (shared.ERR_DROP, "Bad modeltype")
 			
 
 	GL.glDepthMask (1)		# back to writing
@@ -515,8 +518,8 @@ def GL_DrawParticles( num_particles, particles, colortable ): #int, const partic
 	gl_image.GL_TexEnv( GL.GL_MODULATE )
 	GL.glBegin( GL.GL_TRIANGLES )
 
-	q_shared.VectorScale (vup, 1.5, up)
-	q_shared.VectorScale (vright, 1.5, right)
+	shared_c.VectorScale (vup, 1.5, up)
+	shared_c.VectorScale (vright, 1.5, right)
 
 	for i in range(num_particles):
 	
@@ -658,12 +661,12 @@ def R_SetupFrame ():
 	r_framecount += 1
 
 	# build the transformation matrix for the given view angles
-	q_shared.VectorCopy (r_newrefdef.vieworg, r_origin)
+	shared.VectorCopy (r_newrefdef.vieworg, r_origin)
 
-	q_shared.AngleVectors (r_newrefdef.viewangles, vpn, vright, vup)
+	shared_c.AngleVectors (r_newrefdef.viewangles, vpn, vright, vup)
 
 	# current viewcluster
-	if not ( r_newrefdef.rdflags & q_shared.RDF_NOWORLDMODEL ):
+	if not ( r_newrefdef.rdflags & shared.RDF_NOWORLDMODEL ):
 	
 		r_oldviewcluster = r_viewcluster
 		r_oldviewcluster2 = r_viewcluster2
@@ -675,10 +678,10 @@ def R_SetupFrame ():
 			# look down a bit
 			temp = np.zeros((3,), dtype=np.float32) #vec3_t
 
-			q_shared.VectorCopy (r_origin, temp)
+			shared.VectorCopy (r_origin, temp)
 			temp[2] -= 16
 			leaf = gl_model.Mod_PointInLeaf (temp, r_worldmodel)
-			if ( not (leaf.contents & q_shared.CONTENTS_SOLID) and
+			if ( not (leaf.contents & shared.CONTENTS_SOLID) and
 				(leaf.cluster != r_viewcluster2) ):
 				r_viewcluster2 = leaf.cluster
 		
@@ -686,10 +689,10 @@ def R_SetupFrame ():
 			# look up a bit
 			temp = np.zeros((3,), dtype=np.float32) #vec3_t
 
-			q_shared.VectorCopy (r_origin, temp)
+			shared.VectorCopy (r_origin, temp)
 			temp[2] += 16
 			leaf = gl_model.Mod_PointInLeaf (temp, r_worldmodel)
-			if ( not (leaf.contents & q_shared.CONTENTS_SOLID) and
+			if ( not (leaf.contents & shared.CONTENTS_SOLID) and
 				(leaf.cluster != r_viewcluster2) ):
 				r_viewcluster2 = leaf.cluster
 		
@@ -700,7 +703,7 @@ def R_SetupFrame ():
 	c_alias_polys = 0
 
 	# clear out the portion of the screen that the NOWORLDMODEL defines
-	if r_newrefdef.rdflags & q_shared.RDF_NOWORLDMODEL:
+	if r_newrefdef.rdflags & shared.RDF_NOWORLDMODEL:
 	
 		GL.glEnable( GL.GL_SCISSOR_TEST )
 		GL.glClearColor( 0.3, 0.3, 0.3, 1 )
@@ -854,7 +857,7 @@ def R_DebugFrustum ():
 	global dbg_frame
 
 	if not os.environ.get("Q2DBG") or dbg_frame >= 300 \
-		or (r_newrefdef.rdflags & q_shared.RDF_NOWORLDMODEL):
+		or (r_newrefdef.rdflags & shared.RDF_NOWORLDMODEL):
 		return
 
 	dbg_frame += 1
@@ -887,8 +890,8 @@ def R_RenderView (fd): #refdef_t *
 	
 	r_newrefdef = fd.copy() # r_newrefdef = *fd
 	
-	if r_worldmodel is None and not ( r_newrefdef.rdflags & q_shared.RDF_NOWORLDMODEL ):
-		ri.Sys_Error (q_shared.ERR_DROP, "R_RenderView: NULL worldmodel")
+	if r_worldmodel is None and not ( r_newrefdef.rdflags & shared.RDF_NOWORLDMODEL ):
+		ri.Sys_Error (shared.ERR_DROP, "R_RenderView: NULL worldmodel")
 
 	if r_speeds.value:
 	
@@ -927,7 +930,7 @@ def R_RenderView (fd): #refdef_t *
 
 	if r_speeds.value:
 	
-		ri.Con_Printf (q_shared.PRINT_ALL, "{:4d} wpoly {:4d} epoly {} tex {} lmaps\n".format(
+		ri.Con_Printf (shared.PRINT_ALL, "{:4d} wpoly {:4d} epoly {} tex {} lmaps\n".format(
 			c_brush_polys, 
 			c_alias_polys, 
 			gl_rsurf.c_visible_textures, 
@@ -1005,7 +1008,7 @@ def R_SetLightLevel ():
 	#vec3_t		shadelight;
 	shadelight = np.zeros((3,), dtype=np.float32)
 
-	if r_newrefdef.rdflags & q_shared.RDF_NOWORLDMODEL:
+	if r_newrefdef.rdflags & shared.RDF_NOWORLDMODEL:
 		return
 
 	# save off light value for server to look at (BIG HACK!)
@@ -1056,7 +1059,7 @@ def R_Register():
 	gl_saturatelighting, gl_swapinterval, gl_texturemode, gl_texturealphamode, gl_texturesolidmode, gl_lockpvs, \
 	gl_3dlabs_broken, vid_fullscreen, vid_gamma, vid_ref
 
-	r_lefthand = ri.Cvar_Get( "hand", "0", q_shared.CVAR_USERINFO | q_shared.CVAR_ARCHIVE )
+	r_lefthand = ri.Cvar_Get( "hand", "0", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE )
 	r_norefresh = ri.Cvar_Get ("r_norefresh", "0", 0)
 	r_fullbright = ri.Cvar_Get ("r_fullbright", "0", 0)
 	r_drawentities = ri.Cvar_Get ("r_drawentities", "1", 0)
@@ -1071,19 +1074,19 @@ def R_Register():
 	gl_nosubimage = ri.Cvar_Get( "gl_nosubimage", "0", 0 )
 	gl_allow_software = ri.Cvar_Get( "gl_allow_software", "0", 0 )
 
-	gl_particle_min_size = ri.Cvar_Get( "gl_particle_min_size", "2", q_shared.CVAR_ARCHIVE )
-	gl_particle_max_size = ri.Cvar_Get( "gl_particle_max_size", "40", q_shared.CVAR_ARCHIVE )
-	gl_particle_size = ri.Cvar_Get( "gl_particle_size", "40", q_shared.CVAR_ARCHIVE )
-	gl_particle_att_a = ri.Cvar_Get( "gl_particle_att_a", "0.01", q_shared.CVAR_ARCHIVE )
-	gl_particle_att_b = ri.Cvar_Get( "gl_particle_att_b", "0.0", q_shared.CVAR_ARCHIVE )
-	gl_particle_att_c = ri.Cvar_Get( "gl_particle_att_c", "0.01", q_shared.CVAR_ARCHIVE )
+	gl_particle_min_size = ri.Cvar_Get( "gl_particle_min_size", "2", shared.CVAR_ARCHIVE )
+	gl_particle_max_size = ri.Cvar_Get( "gl_particle_max_size", "40", shared.CVAR_ARCHIVE )
+	gl_particle_size = ri.Cvar_Get( "gl_particle_size", "40", shared.CVAR_ARCHIVE )
+	gl_particle_att_a = ri.Cvar_Get( "gl_particle_att_a", "0.01", shared.CVAR_ARCHIVE )
+	gl_particle_att_b = ri.Cvar_Get( "gl_particle_att_b", "0.0", shared.CVAR_ARCHIVE )
+	gl_particle_att_c = ri.Cvar_Get( "gl_particle_att_c", "0.01", shared.CVAR_ARCHIVE )
 
-	gl_modulate = ri.Cvar_Get ("gl_modulate", "1", q_shared.CVAR_ARCHIVE )
+	gl_modulate = ri.Cvar_Get ("gl_modulate", "1", shared.CVAR_ARCHIVE )
 	gl_log = ri.Cvar_Get( "gl_log", "0", 0 )
 	gl_bitdepth = ri.Cvar_Get( "gl_bitdepth", "0", 0 )
-	gl_mode = ri.Cvar_Get( "gl_mode", "3", q_shared.CVAR_ARCHIVE )
+	gl_mode = ri.Cvar_Get( "gl_mode", "3", shared.CVAR_ARCHIVE )
 	gl_lightmap = ri.Cvar_Get ("gl_lightmap", "0", 0)
-	gl_shadows = ri.Cvar_Get ("gl_shadows", "0", q_shared.CVAR_ARCHIVE )
+	gl_shadows = ri.Cvar_Get ("gl_shadows", "0", shared.CVAR_ARCHIVE )
 	gl_dynamic = ri.Cvar_Get ("gl_dynamic", "1", 0)
 	gl_nobind = ri.Cvar_Get ("gl_nobind", "0", 0)
 	gl_round_down = ri.Cvar_Get ("gl_round_down", "1", 0)
@@ -1091,37 +1094,37 @@ def R_Register():
 	gl_skymip = ri.Cvar_Get ("gl_skymip", "0", 0)
 	gl_showtris = ri.Cvar_Get ("gl_showtris", "0", 0)
 	gl_ztrick = ri.Cvar_Get ("gl_ztrick", "0", 0)
-	gl_finish = ri.Cvar_Get ("gl_finish", "0", q_shared.CVAR_ARCHIVE)
+	gl_finish = ri.Cvar_Get ("gl_finish", "0", shared.CVAR_ARCHIVE)
 	gl_clear = ri.Cvar_Get ("gl_clear", "0", 0)
 	gl_cull = ri.Cvar_Get ("gl_cull", "1", 0)
 	gl_polyblend = ri.Cvar_Get ("gl_polyblend", "1", 0)
 	gl_flashblend = ri.Cvar_Get ("gl_flashblend", "0", 0)
 	gl_playermip = ri.Cvar_Get ("gl_playermip", "0", 0)
 	gl_monolightmap = ri.Cvar_Get( "gl_monolightmap", "0", 0 )
-	gl_driver = ri.Cvar_Get( "gl_driver", "opengl32", q_shared.CVAR_ARCHIVE )
-	gl_texturemode = ri.Cvar_Get( "gl_texturemode", "GL_LINEAR_MIPMAP_NEAREST", q_shared.CVAR_ARCHIVE )
-	gl_texturealphamode = ri.Cvar_Get( "gl_texturealphamode", "default", q_shared.CVAR_ARCHIVE )
-	gl_texturesolidmode = ri.Cvar_Get( "gl_texturesolidmode", "default", q_shared.CVAR_ARCHIVE )
+	gl_driver = ri.Cvar_Get( "gl_driver", "opengl32", shared.CVAR_ARCHIVE )
+	gl_texturemode = ri.Cvar_Get( "gl_texturemode", "GL_LINEAR_MIPMAP_NEAREST", shared.CVAR_ARCHIVE )
+	gl_texturealphamode = ri.Cvar_Get( "gl_texturealphamode", "default", shared.CVAR_ARCHIVE )
+	gl_texturesolidmode = ri.Cvar_Get( "gl_texturesolidmode", "default", shared.CVAR_ARCHIVE )
 	gl_lockpvs = ri.Cvar_Get( "gl_lockpvs", "0", 0 )
 
-	gl_vertex_arrays = ri.Cvar_Get( "gl_vertex_arrays", "0", q_shared.CVAR_ARCHIVE )
+	gl_vertex_arrays = ri.Cvar_Get( "gl_vertex_arrays", "0", shared.CVAR_ARCHIVE )
 
-	gl_ext_swapinterval = ri.Cvar_Get( "gl_ext_swapinterval", "1", q_shared.CVAR_ARCHIVE )
-	gl_ext_palettedtexture = ri.Cvar_Get( "gl_ext_palettedtexture", "1", q_shared.CVAR_ARCHIVE )
-	gl_ext_multitexture = ri.Cvar_Get( "gl_ext_multitexture", "1", q_shared.CVAR_ARCHIVE )
-	gl_ext_pointparameters = ri.Cvar_Get( "gl_ext_pointparameters", "1", q_shared.CVAR_ARCHIVE )
-	gl_ext_compiled_vertex_array = ri.Cvar_Get( "gl_ext_compiled_vertex_array", "1", q_shared.CVAR_ARCHIVE )
+	gl_ext_swapinterval = ri.Cvar_Get( "gl_ext_swapinterval", "1", shared.CVAR_ARCHIVE )
+	gl_ext_palettedtexture = ri.Cvar_Get( "gl_ext_palettedtexture", "1", shared.CVAR_ARCHIVE )
+	gl_ext_multitexture = ri.Cvar_Get( "gl_ext_multitexture", "1", shared.CVAR_ARCHIVE )
+	gl_ext_pointparameters = ri.Cvar_Get( "gl_ext_pointparameters", "1", shared.CVAR_ARCHIVE )
+	gl_ext_compiled_vertex_array = ri.Cvar_Get( "gl_ext_compiled_vertex_array", "1", shared.CVAR_ARCHIVE )
 
 	gl_drawbuffer = ri.Cvar_Get( "gl_drawbuffer", "GL_BACK", 0 )
-	gl_swapinterval = ri.Cvar_Get( "gl_swapinterval", "1", q_shared.CVAR_ARCHIVE )
+	gl_swapinterval = ri.Cvar_Get( "gl_swapinterval", "1", shared.CVAR_ARCHIVE )
 
 	gl_saturatelighting = ri.Cvar_Get( "gl_saturatelighting", "0", 0 )
 
-	gl_3dlabs_broken = ri.Cvar_Get( "gl_3dlabs_broken", "1", q_shared.CVAR_ARCHIVE )
+	gl_3dlabs_broken = ri.Cvar_Get( "gl_3dlabs_broken", "1", shared.CVAR_ARCHIVE )
 
-	vid_fullscreen = ri.Cvar_Get( "vid_fullscreen", "0", q_shared.CVAR_ARCHIVE )
-	vid_gamma = ri.Cvar_Get( "vid_gamma", "1.0", q_shared.CVAR_ARCHIVE )
-	vid_ref = ri.Cvar_Get( "vid_ref", "soft", q_shared.CVAR_ARCHIVE )
+	vid_fullscreen = ri.Cvar_Get( "vid_fullscreen", "0", shared.CVAR_ARCHIVE )
+	vid_gamma = ri.Cvar_Get( "vid_gamma", "1.0", shared.CVAR_ARCHIVE )
+	vid_ref = ri.Cvar_Get( "vid_ref", "soft", shared.CVAR_ARCHIVE )
 
 	ri.Cmd_AddCommand( "imagelist", gl_image.GL_ImageList_f )
 	ri.Cmd_AddCommand( "screenshot", gl_rmisc.GL_ScreenShot_f )
@@ -1143,7 +1146,7 @@ def R_SetMode (): # (returns qboolean)
 
 	if vid_fullscreen.modified and not gl_config.allow_cds:
 	
-		ri.Con_Printf( q_shared.PRINT_ALL, "R_SetMode() - CDS not allowed with this driver\n" )
+		ri.Con_Printf( shared.PRINT_ALL, "R_SetMode() - CDS not allowed with this driver\n" )
 		ri.Cvar_SetValue( "vid_fullscreen", not vid_fullscreen.value )
 		vid_fullscreen.modified = False
 	
@@ -1162,7 +1165,7 @@ def R_SetMode (): # (returns qboolean)
 		
 			ri.Cvar_SetValue( "vid_fullscreen", 0)
 			vid_fullscreen.modified = False
-			ri.Con_Printf( q_shared.PRINT_ALL, "ref_gl::R_SetMode() - fullscreen unavailable in this mode\n" )
+			ri.Con_Printf( shared.PRINT_ALL, "ref_gl::R_SetMode() - fullscreen unavailable in this mode\n" )
 			err, vid.width, vid.height = gl_glx.GLimp_SetMode( vid.width, vid.height, gl_mode.value, False )
 			if err == rserr_t.rserr_ok:
 				return True
@@ -1171,13 +1174,13 @@ def R_SetMode (): # (returns qboolean)
 		
 			ri.Cvar_SetValue( "gl_mode", gl_state.prev_mode )
 			gl_mode.modified = False
-			ri.Con_Printf( q_shared.PRINT_ALL, "ref_gl::R_SetMode() - invalid mode\n" )
+			ri.Con_Printf( shared.PRINT_ALL, "ref_gl::R_SetMode() - invalid mode\n" )
 		
 		# try setting it back to something safe
 		err, vid.width, vid.height = gl_glx.GLimp_SetMode( vid.width, vid.height, gl_state.prev_mode, False )
 		if err != rserr_t.rserr_ok:
 		
-			ri.Con_Printf( q_shared.PRINT_ALL, "ref_gl::R_SetMode() - could not revert to safe mode\n" )
+			ri.Con_Printf( shared.PRINT_ALL, "ref_gl::R_SetMode() - could not revert to safe mode\n" )
 			return False
 		
 
@@ -1205,7 +1208,7 @@ def R_Init( hinstance, hWnd ): #void *, void *
 		r_turbsin[j] *= 0.5;
 	}
 	"""
-	ri.Con_Printf (q_shared.PRINT_ALL, "ref_gl version: {}\n".format(REF_VERSION))
+	ri.Con_Printf (shared.PRINT_ALL, "ref_gl version: {}\n".format(REF_VERSION))
 	
 	gl_image.Draw_GetPalette ()
 	R_Register()
@@ -1231,7 +1234,7 @@ def R_Init( hinstance, hWnd ): #void *, void *
 	if not R_SetMode ():
 	
 		qgl_linux.QGL_Shutdown()
-		ri.Con_Printf (q_shared.PRINT_ALL, "ref_gl::R_Init() - could not R_SetMode()\n" )
+		ri.Con_Printf (shared.PRINT_ALL, "ref_gl::R_Init() - could not R_SetMode()\n" )
 		return -1
 	
 	ri.Vid_MenuInit()
@@ -1240,13 +1243,13 @@ def R_Init( hinstance, hWnd ): #void *, void *
 	# get our various GL strings
 	#
 	gl_config.vendor_string = glGetString (GL.GL_VENDOR)
-	ri.Con_Printf (q_shared.PRINT_ALL, "GL_VENDOR: {}\n".format(gl_config.vendor_string) )
+	ri.Con_Printf (shared.PRINT_ALL, "GL_VENDOR: {}\n".format(gl_config.vendor_string) )
 	gl_config.renderer_string = glGetString (GL.GL_RENDERER)
-	ri.Con_Printf (q_shared.PRINT_ALL, "GL_RENDERER: {}\n".format(gl_config.renderer_string) )
+	ri.Con_Printf (shared.PRINT_ALL, "GL_RENDERER: {}\n".format(gl_config.renderer_string) )
 	gl_config.version_string = glGetString (GL.GL_VERSION)
-	ri.Con_Printf (q_shared.PRINT_ALL, "GL_VERSION: {}\n".format(gl_config.version_string) )
+	ri.Con_Printf (shared.PRINT_ALL, "GL_VERSION: {}\n".format(gl_config.version_string) )
 	gl_config.extensions = set(glGetString (GL.GL_EXTENSIONS).decode('utf-8').split(" "))
-	ri.Con_Printf (q_shared.PRINT_ALL, "GL_EXTENSIONS: {}\n".format(gl_config.extensions) )
+	ri.Con_Printf (shared.PRINT_ALL, "GL_EXTENSIONS: {}\n".format(gl_config.extensions) )
 
 	renderer_buffer = gl_config.renderer_string.decode("ascii", "ignore").lower() # strcpy and strlwr
 	vendor_buffer = gl_config.vendor_string.decode("ascii", "ignore").lower()
@@ -1280,7 +1283,7 @@ def R_Init( hinstance, hWnd ): #void *, void *
 		if gl_config.renderer == GL_RENDERER_PERMEDIA2:
 		
 			ri.Cvar_Set( "gl_monolightmap", "A" )
-			ri.Con_Printf( q_shared.PRINT_ALL, "...using gl_monolightmap 'a'\n" )
+			ri.Con_Printf( shared.PRINT_ALL, "...using gl_monolightmap 'a'\n" )
 		
 		elif gl_config.renderer & GL_RENDERER_POWERVR:
 		
@@ -1326,9 +1329,9 @@ def R_Init( hinstance, hWnd ): #void *, void *
 
 	"""
 	if gl_config.allow_cds:
-		ri.Con_Printf( q_shared.PRINT_ALL, "...allowing CDS\n" )
+		ri.Con_Printf( shared.PRINT_ALL, "...allowing CDS\n" )
 	else:
-		ri.Con_Printf( q_shared.PRINT_ALL, "...disabling CDS\n" )
+		ri.Con_Printf( shared.PRINT_ALL, "...disabling CDS\n" )
 	
 	#
 	# grab extensions
@@ -1336,13 +1339,13 @@ def R_Init( hinstance, hWnd ): #void *, void *
 	if "GL_EXT_compiled_vertex_array" in gl_config.extensions or \
 		 "GL_SGI_compiled_vertex_array" in gl_config.extensions:
 	
-		ri.Con_Printf( q_shared.PRINT_ALL, "...enabling GL_EXT_compiled_vertex_array\n" )
+		ri.Con_Printf( shared.PRINT_ALL, "...enabling GL_EXT_compiled_vertex_array\n" )
 		qgl_linux.qglLockArraysEXT = True #( void * ) qwglGetProcAddress( "glLockArraysEXT" )
 		qgl_linux.qglUnlockArraysEXT = True #( void * ) qwglGetProcAddress( "glUnlockArraysEXT" )
 	
 	else:
 	
-		ri.Con_Printf( q_shared.PRINT_ALL, "...GL_EXT_compiled_vertex_array not found\n" )
+		ri.Con_Printf( shared.PRINT_ALL, "...GL_EXT_compiled_vertex_array not found\n" )
 	
 	"""
 #ifdef _WIN32
@@ -1363,16 +1366,16 @@ def R_Init( hinstance, hWnd ): #void *, void *
 		
 			qgl_linux.qglPointParameterfEXT = True #( void (APIENTRY *)( GLenum, GLfloat ) ) qwglGetProcAddress( "glPointParameterfEXT" )
 			qgl_linux.qglPointParameterfvEXT = True #( void (APIENTRY *)( GLenum, const GLfloat * ) ) qwglGetProcAddress( "glPointParameterfvEXT" )
-			ri.Con_Printf( q_shared.PRINT_ALL, "...using GL_EXT_point_parameters\n" )
+			ri.Con_Printf( shared.PRINT_ALL, "...using GL_EXT_point_parameters\n" )
 		
 		else:
 		
-			ri.Con_Printf( q_shared.PRINT_ALL, "...ignoring GL_EXT_point_parameters\n" )
+			ri.Con_Printf( shared.PRINT_ALL, "...ignoring GL_EXT_point_parameters\n" )
 		
 	
 	else:
 	
-		ri.Con_Printf( q_shared.PRINT_ALL, "...GL_EXT_point_parameters not found\n" );
+		ri.Con_Printf( shared.PRINT_ALL, "...GL_EXT_point_parameters not found\n" );
 	
 	"""
 #ifdef __linux__
@@ -1401,24 +1404,24 @@ def R_Init( hinstance, hWnd ): #void *, void *
 	
 		if gl_ext_palettedtexture.value:
 		
-			ri.Con_Printf( q_shared.PRINT_ALL, "...using GL_EXT_shared_texture_palette\n" )
+			ri.Con_Printf( shared.PRINT_ALL, "...using GL_EXT_shared_texture_palette\n" )
 			qgl_linux.qglColorTableEXT = True #( void ( APIENTRY * ) ( int, int, int, int, int, const void * ) ) qwglGetProcAddress( "glColorTableEXT" )
 		
 		else:
 		
-			ri.Con_Printf( q_shared.PRINT_ALL, "...ignoring GL_EXT_shared_texture_palette\n" )
+			ri.Con_Printf( shared.PRINT_ALL, "...ignoring GL_EXT_shared_texture_palette\n" )
 		
 	
 	else:
 	
-		ri.Con_Printf( q_shared.PRINT_ALL, "...GL_EXT_shared_texture_palette not found\n" )
+		ri.Con_Printf( shared.PRINT_ALL, "...GL_EXT_shared_texture_palette not found\n" )
 	
 	
 	if "GL_ARB_multitexture" in gl_config.extensions:
 	
 		if gl_ext_multitexture.value:
 		
-			ri.Con_Printf( q_shared.PRINT_ALL, "...using GL_ARB_multitexture\n" );
+			ri.Con_Printf( shared.PRINT_ALL, "...using GL_ARB_multitexture\n" );
 			qgl_linux.qglMTexCoord2fSGIS = True #( void * ) qwglGetProcAddress( "glMultiTexCoord2fARB" );
 			qgl_linux.qglActiveTextureARB = True #( void * ) qwglGetProcAddress( "glActiveTextureARB" );
 			qgl_linux.qglClientActiveTextureARB = True #( void * ) qwglGetProcAddress( "glClientActiveTextureARB" );
@@ -1427,12 +1430,12 @@ def R_Init( hinstance, hWnd ): #void *, void *
 		
 		else:
 		
-			ri.Con_Printf( q_shared.PRINT_ALL, "...ignoring GL_ARB_multitexture\n" );
+			ri.Con_Printf( shared.PRINT_ALL, "...ignoring GL_ARB_multitexture\n" );
 		
 	
 	else:
 	
-		ri.Con_Printf( q_shared.PRINT_ALL, "...GL_ARB_multitexture not found\n" )
+		ri.Con_Printf( shared.PRINT_ALL, "...GL_ARB_multitexture not found\n" )
 	
 	"""
 	if ( strstr( gl_config.extensions_string, "GL_SGIS_multitexture" ) )
@@ -1476,7 +1479,7 @@ def R_Init( hinstance, hWnd ): #void *, void *
 
 	err = GL.glGetError()
 	if err != GL.GL_NO_ERROR:
-		ri.Con_Printf (q_shared.PRINT_ALL, "glGetError() = 0x{:x}\n".format(err))
+		ri.Con_Printf (shared.PRINT_ALL, "glGetError() = 0x{:x}\n".format(err))
 
 	# q2 extra code to catch opengl errors
 	GL.glDebugMessageCallback(GL.GLDEBUGPROC(onGlDebugMessage), None)
@@ -1584,7 +1587,7 @@ def R_BeginFrame( camera_separation ): #float
 
 		if gl_state.camera_separation == 0 or not gl_state.stereo_enabled:
 		
-			if q_shared.Q_stricmp( gl_drawbuffer.string, "GL_FRONT" ) == 0:
+			if shared_c.Q_stricmp( gl_drawbuffer.string, "GL_FRONT" ) == 0:
 				GL.glDrawBuffer( GL.GL_FRONT )
 			else:
 				GL.glDrawBuffer( GL.GL_BACK )
@@ -1687,17 +1690,17 @@ def R_DrawBeam( e ): #entity_t *
 	direction = oldorigin - origin
 	normalized_direction = direction.copy()
 
-	if q_shared.VectorNormalize( normalized_direction ) == 0:
+	if shared_c.VectorNormalize( normalized_direction ) == 0:
 		return
 
-	q_shared.PerpendicularVector( perpvec, normalized_direction )
-	q_shared.VectorScale( perpvec, e.frame / 2, perpvec )
+	shared_c.PerpendicularVector( perpvec, normalized_direction )
+	shared_c.VectorScale( perpvec, e.frame / 2, perpvec )
 
 	for i in range(6):
 	
-		q_shared.RotatePointAroundVector( start_points[i], normalized_direction, perpvec, (360.0/NUM_BEAM_SEGS)*i )
-		q_shared.VectorAdd( start_points[i], origin, start_points[i] )
-		q_shared.VectorAdd( start_points[i], direction, end_points[i] )
+		shared_c.RotatePointAroundVector( start_points[i], normalized_direction, perpvec, (360.0/NUM_BEAM_SEGS)*i )
+		shared.VectorAdd( start_points[i], origin, start_points[i] )
+		shared.VectorAdd( start_points[i], direction, end_points[i] )
 	
 	GL.glDisable( GL.GL_TEXTURE_2D )
 	GL.glEnable( GL.GL_BLEND )
@@ -1790,7 +1793,7 @@ def GetRefAPI ( rimp ): #refimport_t (returns refexport_t)
 
 	re.AppActivate = gl_glx.GLimp_AppActivate
 	
-	q_shared.Swap_Init ()
+	shared_c.Swap_Init ()
 
 	return re
 

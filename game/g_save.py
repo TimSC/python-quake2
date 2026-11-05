@@ -23,7 +23,8 @@ import struct
 import time
 import numpy as np
 
-from game import g_main, q_shared, game, g_items, g_local
+from game import g_main, game, g_items, g_local
+from common.header import shared
 """
 #include "g_local.h"
 
@@ -182,23 +183,23 @@ def InitGame ():
 	maxclients = g_main.gi.cvar ("maxclients", "4", q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH);
 	maxspectators = g_main.gi.cvar ("maxspectators", "4", q_shared.CVAR_SERVERINFO);	
 	"""
-	g_main.deathmatch = g_main.gi.cvar ("deathmatch", "0", q_shared.CVAR_LATCH)
-	g_main.coop = g_main.gi.cvar ("coop", "0", q_shared.CVAR_LATCH)
-	g_main.skill = g_main.gi.cvar ("skill", "1", q_shared.CVAR_LATCH)
-	g_main.maxclients = g_main.gi.cvar ("maxclients", "4", q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH)
-	g_main.maxspectators = g_main.gi.cvar ("maxspectators", "4", q_shared.CVAR_SERVERINFO)
-	g_main.maxentities = g_main.gi.cvar ("maxentities", "1024", q_shared.CVAR_LATCH)
+	g_main.deathmatch = g_main.gi.cvar ("deathmatch", "0", shared.CVAR_LATCH)
+	g_main.coop = g_main.gi.cvar ("coop", "0", shared.CVAR_LATCH)
+	g_main.skill = g_main.gi.cvar ("skill", "1", shared.CVAR_LATCH)
+	g_main.maxclients = g_main.gi.cvar ("maxclients", "4", shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
+	g_main.maxspectators = g_main.gi.cvar ("maxspectators", "4", shared.CVAR_SERVERINFO)
+	g_main.maxentities = g_main.gi.cvar ("maxentities", "1024", shared.CVAR_LATCH)
 
 	# change anytime vars
-	g_main.dmflags = g_main.gi.cvar ("dmflags", "0", q_shared.CVAR_SERVERINFO)
-	g_main.fraglimit = g_main.gi.cvar ("fraglimit", "0", q_shared.CVAR_SERVERINFO)
-	g_main.timelimit = g_main.gi.cvar ("timelimit", "0", q_shared.CVAR_SERVERINFO)
-	g_main.password = g_main.gi.cvar ("password", "", q_shared.CVAR_USERINFO)
-	g_main.spectator_password = g_main.gi.cvar ("spectator_password", "", q_shared.CVAR_USERINFO)
-	g_main.needpass = g_main.gi.cvar ("needpass", "0", q_shared.CVAR_SERVERINFO)
+	g_main.dmflags = g_main.gi.cvar ("dmflags", "0", shared.CVAR_SERVERINFO)
+	g_main.fraglimit = g_main.gi.cvar ("fraglimit", "0", shared.CVAR_SERVERINFO)
+	g_main.timelimit = g_main.gi.cvar ("timelimit", "0", shared.CVAR_SERVERINFO)
+	g_main.password = g_main.gi.cvar ("password", "", shared.CVAR_USERINFO)
+	g_main.spectator_password = g_main.gi.cvar ("spectator_password", "", shared.CVAR_USERINFO)
+	g_main.needpass = g_main.gi.cvar ("needpass", "0", shared.CVAR_SERVERINFO)
 	g_main.filterban = g_main.gi.cvar ("filterban", "1", 0)
 
-	g_main.g_select_empty = g_main.gi.cvar ("g_select_empty", "0", q_shared.CVAR_ARCHIVE)
+	g_main.g_select_empty = g_main.gi.cvar ("g_select_empty", "0", shared.CVAR_ARCHIVE)
 
 	g_main.run_pitch = g_main.gi.cvar ("run_pitch", "0.002", 0)
 	g_main.run_roll = g_main.gi.cvar ("run_roll", "0.005", 0)
@@ -214,8 +215,8 @@ def InitGame ():
 	g_main.sv_rollangle = g_main.gi.cvar ("sv_rollangle", "2", 0)
 	g_main.sv_maxvelocity = g_main.gi.cvar ("sv_maxvelocity", "2000", 0)
 	g_main.sv_gravity = g_main.gi.cvar ("sv_gravity", "800", 0)
-	g_main.dedicated = g_main.gi.cvar ("dedicated", "0", q_shared.CVAR_NOSET)
-	g_main.sv_cheats = g_main.gi.cvar ("cheats", "0", q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH)
+	g_main.dedicated = g_main.gi.cvar ("dedicated", "0", shared.CVAR_NOSET)
+	g_main.sv_cheats = g_main.gi.cvar ("cheats", "0", shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
 
 	# flood control
 	g_main.flood_msgs = g_main.gi.cvar ("flood_msgs", "4", 0)

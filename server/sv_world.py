@@ -21,9 +21,13 @@ from __future__ import annotations
 
 import math
 import numpy as np
-from game import q_shared, game
+from game import game
 from server import sv_init, sv_game
-from qcommon import cmodel, qcommon, common
+from qcommon import cmodel
+from common.header import common as common_h
+from common.header import shared
+from common.shared import shared as shared_c
+from common import clientserver
 """
 // world.c -- world query functions
 
@@ -137,17 +141,17 @@ def SV_CreateAreaNode (depth, mins, maxs): #int, vec3_t, vec3_t
 		anode.children[0] = anode.children[1] = None
 		return anode
 
-	q_shared.VectorSubtract (maxs, mins, size)
+	shared.VectorSubtract (maxs, mins, size)
 	if size[0] > size[1]:
 		anode.axis = 0
 	else:
 		anode.axis = 1
 
 	anode.dist = 0.5 * (maxs[anode.axis] + mins[anode.axis])
-	q_shared.VectorCopy (mins, mins1)
-	q_shared.VectorCopy (mins, mins2)
-	q_shared.VectorCopy (maxs, maxs1)
-	q_shared.VectorCopy (maxs, maxs2)
+	shared.VectorCopy (mins, mins1)
+	shared.VectorCopy (mins, mins2)
+	shared.VectorCopy (maxs, maxs1)
+	shared.VectorCopy (maxs, maxs2)
 
 	maxs1[anode.axis] = anode.dist
 	mins2[anode.axis] = anode.dist
@@ -220,7 +224,7 @@ def SV_LinkEdict (ent): #edict_t *
 		return
 
 	# set the size
-	q_shared.VectorSubtract (ent.maxs, ent.mins, ent.size)
+	shared.VectorSubtract (ent.maxs, ent.mins, ent.size)
 
 	# encode the size into the entity_state for client prediction
 	if ent.solid == game.SOLID_BBOX and not (ent.svflags & game.SVF_DEADMONSTER):
@@ -270,8 +274,8 @@ def SV_LinkEdict (ent): #edict_t *
 
 	else:
 		# normal
-		q_shared.VectorAdd (ent.s.origin, ent.mins, ent.absmin)
-		q_shared.VectorAdd (ent.s.origin, ent.maxs, ent.absmax)
+		shared.VectorAdd (ent.s.origin, ent.mins, ent.absmin)
+		shared.VectorAdd (ent.s.origin, ent.maxs, ent.absmax)
 
 	# because movement is clipped an epsilon away from an actual edge,
 	# we must fully check even when bounding boxes don't quite touch
@@ -300,7 +304,7 @@ def SV_LinkEdict (ent): #edict_t *
 			# but nothing should evern need more than that
 			if ent.areanum and ent.areanum != area:
 				if ent.areanum2 and ent.areanum2 != area and sv_init.sv.state == sv_init.server_state_t.ss_loading:
-					common.Com_DPrintf ("Object touching 3 areas at %f %f %f\n" % (
+					clientserver.Com_DPrintf ("Object touching 3 areas at %f %f %f\n" % (
 						ent.absmin[0], ent.absmin[1], ent.absmin[2]))
 				ent.areanum2 = area
 			else:
@@ -331,7 +335,7 @@ def SV_LinkEdict (ent): #edict_t *
 
 	# if first time, make sure old_origin is valid
 	if not ent.linkcount:
-		q_shared.VectorCopy (ent.s.origin, ent.s.old_origin)
+		shared.VectorCopy (ent.s.origin, ent.s.old_origin)
 
 	ent.linkcount += 1
 
@@ -376,7 +380,7 @@ def SV_AreaEdicts_r (node): #areanode_t *
 	count = 0
 
 	# touch linked edicts
-	if area_type == q_shared.AREA_SOLID:
+	if area_type == shared.AREA_SOLID:
 		start = node.solid_edicts
 	else:
 		start = node.trigger_edicts
@@ -399,7 +403,7 @@ def SV_AreaEdicts_r (node): #areanode_t *
 			continue		# not touching
 
 		if area_count == area_maxcount:
-			common.Com_Printf ("SV_AreaEdicts: MAXCOUNT\n")
+			clientserver.Com_Printf ("SV_AreaEdicts: MAXCOUNT\n")
 			return
 
 		area_list[area_count] = check
@@ -454,7 +458,7 @@ def SV_PointContents (p): #vec3_t
 	int			headnode;
 	float		*angles;
 	"""
-	touch = [None]*q_shared.MAX_EDICTS
+	touch = [None]*shared.MAX_EDICTS
 	contents = 0
 	c2 = 0
 
@@ -462,7 +466,7 @@ def SV_PointContents (p): #vec3_t
 	contents = cmodel.CM_PointContents (p, sv_init.sv.models[1].headnode)
 
 	# or in contents from all the other entities
-	num = SV_AreaEdicts (p, p, touch, q_shared.MAX_EDICTS, q_shared.AREA_SOLID)
+	num = SV_AreaEdicts (p, p, touch, shared.MAX_EDICTS, shared.AREA_SOLID)
 
 	for i in range(num):
 		hit = touch[i]
@@ -471,7 +475,7 @@ def SV_PointContents (p): #vec3_t
 		headnode = SV_HullForEntity (hit)
 		angles = hit.s.angles
 		if hit.solid != game.SOLID_BSP:
-			angles = q_shared.vec3_origin	# boxes don't rotate
+			angles = shared_c.vec3_origin	# boxes don't rotate
 
 		c2 = cmodel.CM_TransformedPointContents (p, headnode, hit.s.origin, hit.s.angles)
 
@@ -503,7 +507,7 @@ class moveclip_t(object):
 		self.maxs2 = np.zeros((3,), dtype=np.float32)
 		self.start = None #float *
 		self.end = None #float *
-		self.trace = q_shared.trace_t()
+		self.trace = shared.trace_t()
 		self.passedict = None #edict_t *
 		self.contentmask = 0 #int
 
@@ -526,7 +530,7 @@ def SV_HullForEntity (ent): #edict_t *
 		model = sv_init.sv.models[ent.s.modelindex]
 
 		if not model:
-			common.Com_Error (qcommon.ERR_FATAL, "MOVETYPE_PUSH with a non bsp model")
+			clientserver.Com_Error (common_h.ERR_FATAL, "MOVETYPE_PUSH with a non bsp model")
 
 		return model.headnode
 
@@ -555,9 +559,9 @@ def SV_ClipMoveToEntities (clip): #moveclip_t *
 	"""
 	trace = None
 
-	touchlist = [None]*q_shared.MAX_EDICTS
+	touchlist = [None]*shared.MAX_EDICTS
 	num = SV_AreaEdicts (clip.boxmins, clip.boxmaxs, touchlist,
-		q_shared.MAX_EDICTS, q_shared.AREA_SOLID)
+		shared.MAX_EDICTS, shared.AREA_SOLID)
 
 	# be careful, it is possible to have an entity in this
 	# list removed before we get to it (killtriggered)
@@ -575,7 +579,7 @@ def SV_ClipMoveToEntities (clip): #moveclip_t *
 			if clip.passedict.owner is touch:
 				continue	# don't clip against owner
 
-		if not (clip.contentmask & q_shared.CONTENTS_DEADMONSTER) \
+		if not (clip.contentmask & shared.CONTENTS_DEADMONSTER) \
 		and (touch.svflags & game.SVF_DEADMONSTER):
 			continue
 
@@ -583,7 +587,7 @@ def SV_ClipMoveToEntities (clip): #moveclip_t *
 		headnode = SV_HullForEntity (touch)
 		angles = touch.s.angles
 		if touch.solid != game.SOLID_BSP:
-			angles = q_shared.vec3_origin	# boxes don't rotate
+			angles = shared_c.vec3_origin	# boxes don't rotate
 
 		if touch.svflags & game.SVF_MONSTER:
 			trace = cmodel.CM_TransformedBoxTrace (clip.start, clip.end,
@@ -640,9 +644,9 @@ def SV_Trace (start, mins, maxs, end, passedict, contentmask): #vec3_t, vec3_t, 
 	clip = moveclip_t()
 
 	if mins is None:
-		mins = q_shared.vec3_origin
+		mins = shared_c.vec3_origin
 	if maxs is None:
-		maxs = q_shared.vec3_origin
+		maxs = shared_c.vec3_origin
 
 	# clip to world
 	clip.trace = cmodel.CM_BoxTrace (start, end, mins, maxs, 0, contentmask)
@@ -657,8 +661,8 @@ def SV_Trace (start, mins, maxs, end, passedict, contentmask): #vec3_t, vec3_t, 
 	clip.maxs = maxs
 	clip.passedict = passedict
 
-	q_shared.VectorCopy (mins, clip.mins2)
-	q_shared.VectorCopy (maxs, clip.maxs2)
+	shared.VectorCopy (mins, clip.mins2)
+	shared.VectorCopy (maxs, clip.maxs2)
 
 	# create the bounding box of the entire move
 	SV_TraceBounds (start, clip.mins2, clip.maxs2, end, clip.boxmins, clip.boxmaxs)

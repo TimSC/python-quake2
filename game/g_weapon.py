@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import math
 import random as _r
-from game import q_shared
+pass
 from game import g_local
 from game import g_main
 from game import g_utils
@@ -34,20 +34,17 @@ from game.game import SVF_MONSTER, SVF_DEADMONSTER
 from game.game import solid_t
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 SOLID_NOT = solid_t.SOLID_NOT.value
-from game.q_shared import (MASK_SHOT, MASK_WATER, MASK_OPAQUE, CONTENTS_SOLID,
-	CONTENTS_MONSTER, CONTENTS_DEADMONSTER, CONTENTS_WATER, CONTENTS_SLIME,
-	CONTENTS_LAVA, CONTENTS_WINDOW, SURF_SKY, SURF_WARP, SURF_TRANS33,
-	SURF_TRANS66, SURF_FLOWING, SPLASH_BLUE_WATER, SPLASH_BROWN_WATER,
-	SPLASH_SLIME, SPLASH_LAVA, SPLASH_UNKNOWN, EF_GRENADE, EF_ROCKET,
-	EF_BFG, EF_ANIM_ALLFAST)
+from common.header.shared import MASK_SHOT, MASK_WATER, MASK_OPAQUE, CONTENTS_SOLID, CONTENTS_MONSTER, CONTENTS_DEADMONSTER, CONTENTS_WATER, CONTENTS_SLIME, CONTENTS_LAVA, CONTENTS_WINDOW, SURF_SKY, SURF_WARP, SURF_TRANS33, SURF_TRANS66, SURF_FLOWING, SPLASH_BLUE_WATER, SPLASH_BROWN_WATER, SPLASH_SLIME, SPLASH_LAVA, SPLASH_UNKNOWN, EF_GRENADE, EF_ROCKET, EF_BFG, EF_ANIM_ALLFAST
 from game.g_local import (svc_temp_entity, FRAMETIME, MOVETYPE_FLYMISSILE,
 	MOVETYPE_BOUNCE, PNOISE_IMPACT,
 	DAMAGE_NO_KNOCKBACK, DAMAGE_BULLET, DAMAGE_ENERGY, DAMAGE_RADIUS,
 	MOD_HIT, MOD_HYPERBLASTER, MOD_BLASTER, MOD_HANDGRENADE, MOD_GRENADE,
 	MOD_HELD_GRENADE, MOD_HG_SPLASH, MOD_G_SPLASH, MOD_ROCKET, MOD_R_SPLASH,
 	MOD_RAILGUN, MOD_BFG_EFFECT, MOD_BFG_BLAST, MOD_BFG_LASER, FL_IMMUNE_LASER)
-from game.q_shared import (multicast_t, CHAN_VOICE, CHAN_WEAPON, ATTN_NORM,
-	vec3_origin, YAW, PITCH, ROLL)
+from common.header.shared import multicast_t, CHAN_VOICE, CHAN_WEAPON, ATTN_NORM, YAW, PITCH, ROLL
+from common.shared.shared import vec3_origin
+from common.header import shared
+from common.shared import shared as shared_c
 MULTICAST_PVS = multicast_t.MULTICAST_PVS.value
 MULTICAST_PHS = multicast_t.MULTICAST_PHS.value
 
@@ -71,11 +68,11 @@ def check_dodge (self, start, dir, speed):
 		if g_local.random() > 0.25:
 			return
 
-	q_shared.VectorMA (start, 8192, dir, end)
+	shared_c.VectorMA (start, 8192, dir, end)
 	tr = g_main.gi.trace (start, None, None, end, self, MASK_SHOT)
 	if (tr.ent) and (tr.ent.svflags & SVF_MONSTER) and (tr.ent.health > 0) and (tr.ent.monsterinfo.dodge) and g_ai.infront(tr.ent, self):
-		q_shared.VectorSubtract (tr.endpos, start, v)
-		eta = (q_shared.VectorLength(v) - tr.ent.maxs[0]) / speed
+		shared.VectorSubtract (tr.endpos, start, v)
+		eta = (shared_c.VectorLength(v) - tr.ent.maxs[0]) / speed
 		tr.ent.monsterinfo.dodge (tr.ent, self, eta)
 
 
@@ -97,8 +94,8 @@ def fire_hit (self, aim, damage, kick):
 	dir = [0, 0, 0]
 
 	#see if enemy is in range
-	q_shared.VectorSubtract (self.enemy.s.origin, self.s.origin, dir)
-	range = q_shared.VectorLength(dir)
+	shared.VectorSubtract (self.enemy.s.origin, self.s.origin, dir)
+	range = shared_c.VectorLength(dir)
 	if range > aim[0]:
 		return False
 
@@ -112,7 +109,7 @@ def fire_hit (self, aim, damage, kick):
 		else:
 			aim[1] = self.enemy.maxs[0]
 
-	q_shared.VectorMA (self.s.origin, range, dir, point)
+	shared_c.VectorMA (self.s.origin, range, dir, point)
 
 	tr = g_main.gi.trace (self.s.origin, None, None, point, self, MASK_SHOT)
 	if tr.fraction < 1:
@@ -122,11 +119,11 @@ def fire_hit (self, aim, damage, kick):
 		if (tr.ent.svflags & SVF_MONSTER) or (tr.ent.client):
 			tr.ent = self.enemy
 
-	q_shared.AngleVectors(self.s.angles, forward, right, up)
-	q_shared.VectorMA (self.s.origin, range, forward, point)
-	q_shared.VectorMA (point, aim[1], right, point)
-	q_shared.VectorMA (point, aim[2], up, point)
-	q_shared.VectorSubtract (point, self.enemy.s.origin, dir)
+	shared_c.AngleVectors(self.s.angles, forward, right, up)
+	shared_c.VectorMA (self.s.origin, range, forward, point)
+	shared_c.VectorMA (point, aim[1], right, point)
+	shared_c.VectorMA (point, aim[2], up, point)
+	shared.VectorSubtract (point, self.enemy.s.origin, dir)
 
 	# do the damage
 	g_combat.T_Damage (tr.ent, self, self, dir, point, vec3_origin, damage, kick/2, DAMAGE_NO_KNOCKBACK, MOD_HIT)
@@ -135,10 +132,10 @@ def fire_hit (self, aim, damage, kick):
 		return False
 
 	# do our special form of knockback here
-	q_shared.VectorMA (self.enemy.absmin, 0.5, self.enemy.size, v)
-	q_shared.VectorSubtract (v, point, v)
-	q_shared.VectorNormalize (v)
-	q_shared.VectorMA (self.enemy.velocity, kick, v, self.enemy.velocity)
+	shared_c.VectorMA (self.enemy.absmin, 0.5, self.enemy.size, v)
+	shared.VectorSubtract (v, point, v)
+	shared_c.VectorNormalize (v)
+	shared_c.VectorMA (self.enemy.velocity, kick, v, self.enemy.velocity)
 	if self.enemy.velocity[2] > 0:
 		self.enemy.groundentity = None
 	return True
@@ -168,17 +165,17 @@ def fire_lead (self, start, aimdir, damage, kick, te_impact, hspread, vspread, m
 	tr = g_main.gi.trace (self.s.origin, None, None, start, self, MASK_SHOT)
 	if not (tr.fraction < 1.0):
 		g_utils.vectoangles (aimdir, dir)
-		q_shared.AngleVectors (dir, forward, right, up)
+		shared_c.AngleVectors (dir, forward, right, up)
 
 		r = g_local.crandom()*hspread
 		u = g_local.crandom()*vspread
-		q_shared.VectorMA (start, 8192, forward, end)
-		q_shared.VectorMA (end, r, right, end)
-		q_shared.VectorMA (end, u, up, end)
+		shared_c.VectorMA (start, 8192, forward, end)
+		shared_c.VectorMA (end, r, right, end)
+		shared_c.VectorMA (end, u, up, end)
 
 		if g_main.gi.pointcontents (start) & MASK_WATER:
 			water = True
-			q_shared.VectorCopy (start, water_start)
+			shared.VectorCopy (start, water_start)
 			content_mask &= ~MASK_WATER
 
 		tr = g_main.gi.trace (start, None, None, end, self, content_mask)
@@ -187,9 +184,9 @@ def fire_lead (self, start, aimdir, damage, kick, te_impact, hspread, vspread, m
 		if tr.contents & MASK_WATER:
 			#int color
 			water = True
-			q_shared.VectorCopy (tr.endpos, water_start)
+			shared.VectorCopy (tr.endpos, water_start)
 
-			if not q_shared.VectorCompare (start, tr.endpos):
+			if not shared_c.VectorCompare (start, tr.endpos):
 				if tr.contents & CONTENTS_WATER:
 					if tr.surface.name == "*brwater":
 						color = SPLASH_BROWN_WATER
@@ -204,7 +201,7 @@ def fire_lead (self, start, aimdir, damage, kick, te_impact, hspread, vspread, m
 
 				if color != SPLASH_UNKNOWN:
 					g_main.gi.WriteByte (svc_temp_entity)
-					g_main.gi.WriteByte (q_shared.temp_event_t.TE_SPLASH.value)
+					g_main.gi.WriteByte (shared.temp_event_t.TE_SPLASH.value)
 					g_main.gi.WriteByte (8)
 					g_main.gi.WritePosition (tr.endpos)
 					g_main.gi.WriteDir (tr.plane.normal)
@@ -212,14 +209,14 @@ def fire_lead (self, start, aimdir, damage, kick, te_impact, hspread, vspread, m
 					g_main.gi.multicast (tr.endpos, MULTICAST_PVS)
 
 				# change bullet's course when it enters water
-				q_shared.VectorSubtract (end, start, dir)
+				shared.VectorSubtract (end, start, dir)
 				g_utils.vectoangles (dir, dir)
-				q_shared.AngleVectors (dir, forward, right, up)
+				shared_c.AngleVectors (dir, forward, right, up)
 				r = g_local.crandom()*hspread*2
 				u = g_local.crandom()*vspread*2
-				q_shared.VectorMA (water_start, 8192, forward, end)
-				q_shared.VectorMA (end, r, right, end)
-				q_shared.VectorMA (end, u, up, end)
+				shared_c.VectorMA (water_start, 8192, forward, end)
+				shared_c.VectorMA (end, r, right, end)
+				shared_c.VectorMA (end, u, up, end)
 
 			# re-trace ignoring water this time
 			tr = g_main.gi.trace (water_start, None, None, end, self, MASK_SHOT)
@@ -245,19 +242,19 @@ def fire_lead (self, start, aimdir, damage, kick, te_impact, hspread, vspread, m
 		#vec3_t pos
 		pos = [0, 0, 0]
 
-		q_shared.VectorSubtract (tr.endpos, water_start, dir)
-		q_shared.VectorNormalize (dir)
-		q_shared.VectorMA (tr.endpos, -2, dir, pos)
+		shared.VectorSubtract (tr.endpos, water_start, dir)
+		shared_c.VectorNormalize (dir)
+		shared_c.VectorMA (tr.endpos, -2, dir, pos)
 		if g_main.gi.pointcontents (pos) & MASK_WATER:
-			q_shared.VectorCopy (pos, tr.endpos)
+			shared.VectorCopy (pos, tr.endpos)
 		else:
 			tr = g_main.gi.trace (pos, None, None, water_start, tr.ent, MASK_WATER)
 
-		q_shared.VectorAdd (water_start, tr.endpos, pos)
-		q_shared.VectorScale (pos, 0.5, pos)
+		shared.VectorAdd (water_start, tr.endpos, pos)
+		shared_c.VectorScale (pos, 0.5, pos)
 
 		g_main.gi.WriteByte (svc_temp_entity)
-		g_main.gi.WriteByte (q_shared.temp_event_t.TE_BUBBLETRAIL.value)
+		g_main.gi.WriteByte (shared.temp_event_t.TE_BUBBLETRAIL.value)
 		g_main.gi.WritePosition (water_start)
 		g_main.gi.WritePosition (tr.endpos)
 		g_main.gi.multicast (pos, MULTICAST_PVS)
@@ -271,7 +268,7 @@ Fires a single round.  Used for machinegun and chaingun.
 =================
 """
 def fire_bullet (self, start, aimdir, damage, kick, hspread, vspread, mod):
-	fire_lead (self, start, aimdir, damage, kick, q_shared.temp_event_t.TE_GUNSHOT.value, hspread, vspread, mod)
+	fire_lead (self, start, aimdir, damage, kick, shared.temp_event_t.TE_GUNSHOT.value, hspread, vspread, mod)
 
 
 """
@@ -284,7 +281,7 @@ Shoots shotgun pellets.  Used by shotgun and super shotgun.
 def fire_shotgun (self, start, aimdir, damage, kick, hspread, vspread, count, mod):
 	#int i
 	for i in range(count):
-		fire_lead (self, start, aimdir, damage, kick, q_shared.temp_event_t.TE_SHOTGUN.value, hspread, vspread, mod)
+		fire_lead (self, start, aimdir, damage, kick, shared.temp_event_t.TE_SHOTGUN.value, hspread, vspread, mod)
 
 
 """
@@ -318,7 +315,7 @@ def blaster_touch (self, other, plane, surf):
 		g_combat.T_Damage (other, self, self.owner, self.velocity, self.s.origin, (plane.normal if plane else vec3_origin), self.dmg, 1, DAMAGE_ENERGY, mod)
 	else:
 		g_main.gi.WriteByte (svc_temp_entity)
-		g_main.gi.WriteByte (q_shared.temp_event_t.TE_BLASTER.value)
+		g_main.gi.WriteByte (shared.temp_event_t.TE_BLASTER.value)
 		g_main.gi.WritePosition (self.s.origin)
 		if not plane:
 			g_main.gi.WriteDir (vec3_origin)
@@ -332,19 +329,19 @@ def blaster_touch (self, other, plane, surf):
 def fire_blaster (self, start, dir, damage, speed, effect, hyper):
 	#edict_t *bolt
 	bolt = g_utils.G_Spawn()
-	q_shared.VectorNormalize (dir)
+	shared_c.VectorNormalize (dir)
 
 	bolt.svflags = SVF_DEADMONSTER
-	q_shared.VectorCopy (start, bolt.s.origin)
-	q_shared.VectorCopy (start, bolt.s.old_origin)
+	shared.VectorCopy (start, bolt.s.origin)
+	shared.VectorCopy (start, bolt.s.old_origin)
 	g_utils.vectoangles (dir, bolt.s.angles)
-	q_shared.VectorScale (dir, speed, bolt.velocity)
+	shared_c.VectorScale (dir, speed, bolt.velocity)
 	bolt.movetype = MOVETYPE_FLYMISSILE
 	bolt.clipmask = MASK_SHOT
 	bolt.solid = SOLID_BBOX
 	bolt.s.effects |= effect
-	q_shared.VectorClear (bolt.mins)
-	q_shared.VectorClear (bolt.maxs)
+	shared.VectorClear (bolt.mins)
+	shared.VectorClear (bolt.maxs)
 	bolt.s.modelindex = g_main.gi.modelindex ("models/objects/laser/tris.md2")
 	bolt.s.sound = g_main.gi.soundindex ("misc/lasfly.wav")
 	bolt.owner = self
@@ -362,7 +359,7 @@ def fire_blaster (self, start, dir, damage, speed, effect, hyper):
 
 	tr = g_main.gi.trace (self.s.origin, None, None, bolt.s.origin, bolt, MASK_SHOT)
 	if tr.fraction < 1.0:
-		q_shared.VectorMA (bolt.s.origin, -10, dir, bolt.s.origin)
+		shared_c.VectorMA (bolt.s.origin, -10, dir, bolt.s.origin)
 		bolt.touch (bolt, tr.ent, None, None)
 
 
@@ -383,11 +380,11 @@ def Grenade_Explode (ent):
 
 	if ent.enemy:
 		#float points
-		q_shared.VectorAdd (ent.enemy.mins, ent.enemy.maxs, v)
-		q_shared.VectorMA (ent.enemy.s.origin, 0.5, v, v)
-		q_shared.VectorSubtract (ent.s.origin, v, v)
-		points = ent.dmg - 0.5 * q_shared.VectorLength (v)
-		q_shared.VectorSubtract (ent.enemy.s.origin, ent.s.origin, dir)
+		shared.VectorAdd (ent.enemy.mins, ent.enemy.maxs, v)
+		shared_c.VectorMA (ent.enemy.s.origin, 0.5, v, v)
+		shared.VectorSubtract (ent.s.origin, v, v)
+		points = ent.dmg - 0.5 * shared_c.VectorLength (v)
+		shared.VectorSubtract (ent.enemy.s.origin, ent.s.origin, dir)
 		if ent.spawnflags & 1:
 			mod = MOD_HANDGRENADE
 		else:
@@ -402,18 +399,18 @@ def Grenade_Explode (ent):
 		mod = MOD_G_SPLASH
 	g_combat.T_RadiusDamage(ent, ent.owner, ent.dmg, ent.enemy, ent.dmg_radius, mod)
 
-	q_shared.VectorMA (ent.s.origin, -0.02, ent.velocity, origin)
+	shared_c.VectorMA (ent.s.origin, -0.02, ent.velocity, origin)
 	g_main.gi.WriteByte (svc_temp_entity)
 	if ent.waterlevel:
 		if ent.groundentity:
-			g_main.gi.WriteByte (q_shared.temp_event_t.TE_GRENADE_EXPLOSION_WATER.value)
+			g_main.gi.WriteByte (shared.temp_event_t.TE_GRENADE_EXPLOSION_WATER.value)
 		else:
-			g_main.gi.WriteByte (q_shared.temp_event_t.TE_ROCKET_EXPLOSION_WATER.value)
+			g_main.gi.WriteByte (shared.temp_event_t.TE_ROCKET_EXPLOSION_WATER.value)
 	else:
 		if ent.groundentity:
-			g_main.gi.WriteByte (q_shared.temp_event_t.TE_GRENADE_EXPLOSION.value)
+			g_main.gi.WriteByte (shared.temp_event_t.TE_GRENADE_EXPLOSION.value)
 		else:
-			g_main.gi.WriteByte (q_shared.temp_event_t.TE_ROCKET_EXPLOSION.value)
+			g_main.gi.WriteByte (shared.temp_event_t.TE_ROCKET_EXPLOSION.value)
 	g_main.gi.WritePosition (origin)
 	g_main.gi.multicast (ent.s.origin, MULTICAST_PHS)
 
@@ -451,20 +448,20 @@ def fire_grenade (self, start, aimdir, damage, speed, timer, damage_radius):
 	up = [0, 0, 0]
 
 	g_utils.vectoangles (aimdir, dir)
-	q_shared.AngleVectors (dir, forward, right, up)
+	shared_c.AngleVectors (dir, forward, right, up)
 
 	grenade = g_utils.G_Spawn()
-	q_shared.VectorCopy (start, grenade.s.origin)
-	q_shared.VectorScale (aimdir, speed, grenade.velocity)
-	q_shared.VectorMA (grenade.velocity, 200 + g_local.crandom() * 10.0, up, grenade.velocity)
-	q_shared.VectorMA (grenade.velocity, g_local.crandom() * 10.0, right, grenade.velocity)
-	q_shared.VectorSet (grenade.avelocity, 300, 300, 300)
+	shared.VectorCopy (start, grenade.s.origin)
+	shared_c.VectorScale (aimdir, speed, grenade.velocity)
+	shared_c.VectorMA (grenade.velocity, 200 + g_local.crandom() * 10.0, up, grenade.velocity)
+	shared_c.VectorMA (grenade.velocity, g_local.crandom() * 10.0, right, grenade.velocity)
+	shared.VectorSet (grenade.avelocity, 300, 300, 300)
 	grenade.movetype = MOVETYPE_BOUNCE
 	grenade.clipmask = MASK_SHOT
 	grenade.solid = SOLID_BBOX
-	grenade.s.effects |= q_shared.EF_GRENADE
-	q_shared.VectorClear (grenade.mins)
-	q_shared.VectorClear (grenade.maxs)
+	grenade.s.effects |= shared.EF_GRENADE
+	shared.VectorClear (grenade.mins)
+	shared.VectorClear (grenade.maxs)
 	grenade.s.modelindex = g_main.gi.modelindex ("models/objects/grenade/tris.md2")
 	grenade.owner = self
 	grenade.touch = Grenade_Touch
@@ -486,20 +483,20 @@ def fire_grenade2 (self, start, aimdir, damage, speed, timer, damage_radius, hel
 	up = [0, 0, 0]
 
 	g_utils.vectoangles (aimdir, dir)
-	q_shared.AngleVectors (dir, forward, right, up)
+	shared_c.AngleVectors (dir, forward, right, up)
 
 	grenade = g_utils.G_Spawn()
-	q_shared.VectorCopy (start, grenade.s.origin)
-	q_shared.VectorScale (aimdir, speed, grenade.velocity)
-	q_shared.VectorMA (grenade.velocity, 200 + g_local.crandom() * 10.0, up, grenade.velocity)
-	q_shared.VectorMA (grenade.velocity, g_local.crandom() * 10.0, right, grenade.velocity)
-	q_shared.VectorSet (grenade.avelocity, 300, 300, 300)
+	shared.VectorCopy (start, grenade.s.origin)
+	shared_c.VectorScale (aimdir, speed, grenade.velocity)
+	shared_c.VectorMA (grenade.velocity, 200 + g_local.crandom() * 10.0, up, grenade.velocity)
+	shared_c.VectorMA (grenade.velocity, g_local.crandom() * 10.0, right, grenade.velocity)
+	shared.VectorSet (grenade.avelocity, 300, 300, 300)
 	grenade.movetype = MOVETYPE_BOUNCE
 	grenade.clipmask = MASK_SHOT
 	grenade.solid = SOLID_BBOX
-	grenade.s.effects |= q_shared.EF_GRENADE
-	q_shared.VectorClear (grenade.mins)
-	q_shared.VectorClear (grenade.maxs)
+	grenade.s.effects |= shared.EF_GRENADE
+	shared.VectorClear (grenade.mins)
+	shared.VectorClear (grenade.maxs)
 	grenade.s.modelindex = g_main.gi.modelindex ("models/objects/grenade2/tris.md2")
 	grenade.owner = self
 	grenade.touch = Grenade_Touch
@@ -542,7 +539,7 @@ def rocket_touch (ent, other, plane, surf):
 		p_weapon.PlayerNoise(ent.owner, ent.s.origin, PNOISE_IMPACT)
 
 	# calculate position for the explosion entity
-	q_shared.VectorMA (ent.s.origin, -0.02, ent.velocity, origin)
+	shared_c.VectorMA (ent.s.origin, -0.02, ent.velocity, origin)
 
 	if other.takedamage:
 		g_combat.T_Damage (other, ent, ent.owner, ent.velocity, ent.s.origin, plane.normal, ent.dmg, 0, 0, MOD_ROCKET)
@@ -559,9 +556,9 @@ def rocket_touch (ent, other, plane, surf):
 
 	g_main.gi.WriteByte (svc_temp_entity)
 	if ent.waterlevel:
-		g_main.gi.WriteByte (q_shared.temp_event_t.TE_ROCKET_EXPLOSION_WATER.value)
+		g_main.gi.WriteByte (shared.temp_event_t.TE_ROCKET_EXPLOSION_WATER.value)
 	else:
-		g_main.gi.WriteByte (q_shared.temp_event_t.TE_ROCKET_EXPLOSION.value)
+		g_main.gi.WriteByte (shared.temp_event_t.TE_ROCKET_EXPLOSION.value)
 	g_main.gi.WritePosition (origin)
 	g_main.gi.multicast (ent.s.origin, MULTICAST_PHS)
 
@@ -571,16 +568,16 @@ def rocket_touch (ent, other, plane, surf):
 def fire_rocket (self, start, dir, damage, speed, damage_radius, radius_damage):
 	#edict_t *rocket
 	rocket = g_utils.G_Spawn()
-	q_shared.VectorCopy (start, rocket.s.origin)
-	q_shared.VectorCopy (dir, rocket.movedir)
+	shared.VectorCopy (start, rocket.s.origin)
+	shared.VectorCopy (dir, rocket.movedir)
 	g_utils.vectoangles (dir, rocket.s.angles)
-	q_shared.VectorScale (dir, speed, rocket.velocity)
+	shared_c.VectorScale (dir, speed, rocket.velocity)
 	rocket.movetype = MOVETYPE_FLYMISSILE
 	rocket.clipmask = MASK_SHOT
 	rocket.solid = SOLID_BBOX
-	rocket.s.effects |= q_shared.EF_ROCKET
-	q_shared.VectorClear (rocket.mins)
-	q_shared.VectorClear (rocket.maxs)
+	rocket.s.effects |= shared.EF_ROCKET
+	shared.VectorClear (rocket.mins)
+	shared.VectorClear (rocket.maxs)
 	rocket.s.modelindex = g_main.gi.modelindex ("models/objects/rocket/tris.md2")
 	rocket.owner = self
 	rocket.touch = rocket_touch
@@ -613,8 +610,8 @@ def fire_rail (self, start, aimdir, damage, kick):
 	ignore = self
 	water = False
 	mask = MASK_SHOT|CONTENTS_SLIME|CONTENTS_LAVA
-	q_shared.VectorMA (start, 8192, aimdir, end)
-	q_shared.VectorCopy (start, from_)
+	shared_c.VectorMA (start, 8192, aimdir, end)
+	shared.VectorCopy (start, from_)
 	while ignore:
 		tr = g_main.gi.trace (from_, None, None, end, ignore, mask)
 
@@ -631,17 +628,17 @@ def fire_rail (self, start, aimdir, damage, kick):
 			if (tr.ent != self) and (tr.ent.takedamage):
 				g_combat.T_Damage (tr.ent, self, self, aimdir, tr.endpos, tr.plane.normal, damage, kick, 0, MOD_RAILGUN)
 
-		q_shared.VectorCopy (tr.endpos, from_)
+		shared.VectorCopy (tr.endpos, from_)
 
 	# send gun puff / flash
 	g_main.gi.WriteByte (svc_temp_entity)
-	g_main.gi.WriteByte (q_shared.temp_event_t.TE_RAILTRAIL.value)
+	g_main.gi.WriteByte (shared.temp_event_t.TE_RAILTRAIL.value)
 	g_main.gi.WritePosition (start)
 	g_main.gi.WritePosition (tr.endpos)
 	g_main.gi.multicast (self.s.origin, MULTICAST_PHS)
 	if water:
 		g_main.gi.WriteByte (svc_temp_entity)
-		g_main.gi.WriteByte (q_shared.temp_event_t.TE_RAILTRAIL.value)
+		g_main.gi.WriteByte (shared.temp_event_t.TE_RAILTRAIL.value)
 		g_main.gi.WritePosition (start)
 		g_main.gi.WritePosition (tr.endpos)
 		g_main.gi.multicast (tr.endpos, MULTICAST_PHS)
@@ -674,16 +671,16 @@ def bfg_explode (self):
 			if not g_combat.CanDamage (ent, self.owner):
 				continue
 
-			q_shared.VectorAdd (ent.mins, ent.maxs, v)
-			q_shared.VectorMA (ent.s.origin, 0.5, v, v)
-			q_shared.VectorSubtract (self.s.origin, v, v)
-			dist = q_shared.VectorLength(v)
+			shared.VectorAdd (ent.mins, ent.maxs, v)
+			shared_c.VectorMA (ent.s.origin, 0.5, v, v)
+			shared.VectorSubtract (self.s.origin, v, v)
+			dist = shared_c.VectorLength(v)
 			points = self.radius_dmg * (1.0 - math.sqrt(dist/self.dmg_radius))
 			if ent == self.owner:
 				points = points * 0.5
 
 			g_main.gi.WriteByte (svc_temp_entity)
-			g_main.gi.WriteByte (q_shared.temp_event_t.TE_BFG_EXPLOSION.value)
+			g_main.gi.WriteByte (shared.temp_event_t.TE_BFG_EXPLOSION.value)
 			g_main.gi.WritePosition (ent.s.origin)
 			g_main.gi.multicast (ent.s.origin, MULTICAST_PHS)
 			g_combat.T_Damage (ent, self, self.owner, self.velocity, ent.s.origin, vec3_origin, int(points), 0, DAMAGE_ENERGY, MOD_BFG_EFFECT)
@@ -713,18 +710,18 @@ def bfg_touch (self, other, plane, surf):
 	g_main.gi.sound (self, CHAN_VOICE, g_main.gi.soundindex ("weapons/bfg__x1b.wav"), 1, ATTN_NORM, 0)
 	self.solid = SOLID_NOT
 	self.touch = None
-	q_shared.VectorMA (self.s.origin, -1 * FRAMETIME, self.velocity, self.s.origin)
-	q_shared.VectorClear (self.velocity)
+	shared_c.VectorMA (self.s.origin, -1 * FRAMETIME, self.velocity, self.s.origin)
+	shared.VectorClear (self.velocity)
 	self.s.modelindex = g_main.gi.modelindex ("sprites/s_bfg3.sp2")
 	self.s.frame = 0
 	self.s.sound = 0
-	self.s.effects &= ~q_shared.EF_ANIM_ALLFAST
+	self.s.effects &= ~shared.EF_ANIM_ALLFAST
 	self.think = bfg_explode
 	self.nextthink = g_main.level.time + FRAMETIME
 	self.enemy = other
 
 	g_main.gi.WriteByte (svc_temp_entity)
-	g_main.gi.WriteByte (q_shared.temp_event_t.TE_BFG_BIGEXPLOSION.value)
+	g_main.gi.WriteByte (shared.temp_event_t.TE_BFG_BIGEXPLOSION.value)
 	g_main.gi.WritePosition (self.s.origin)
 	g_main.gi.multicast (self.s.origin, MULTICAST_PVS)
 
@@ -753,14 +750,14 @@ def bfg_think (self):
 		if not (ent.svflags & SVF_MONSTER) and (not ent.client) and (ent.classname != "misc_explobox"):
 			continue
 
-		q_shared.VectorMA (ent.absmin, 0.5, ent.size, point)
+		shared_c.VectorMA (ent.absmin, 0.5, ent.size, point)
 
-		q_shared.VectorSubtract (point, self.s.origin, dir)
-		q_shared.VectorNormalize (dir)
+		shared.VectorSubtract (point, self.s.origin, dir)
+		shared_c.VectorNormalize (dir)
 
 		ignore = self
-		q_shared.VectorCopy (self.s.origin, start)
-		q_shared.VectorMA (start, 2048, dir, end)
+		shared.VectorCopy (self.s.origin, start)
+		shared_c.VectorMA (start, 2048, dir, end)
 		while True:
 			tr = g_main.gi.trace (start, None, None, end, ignore, CONTENTS_SOLID|CONTENTS_MONSTER|CONTENTS_DEADMONSTER)
 
@@ -774,7 +771,7 @@ def bfg_think (self):
 			# if we hit something that's not a monster or player we're done
 			if not (tr.ent.svflags & SVF_MONSTER) and (not tr.ent.client):
 				g_main.gi.WriteByte (svc_temp_entity)
-				g_main.gi.WriteByte (q_shared.temp_event_t.TE_LASER_SPARKS.value)
+				g_main.gi.WriteByte (shared.temp_event_t.TE_LASER_SPARKS.value)
 				g_main.gi.WriteByte (4)
 				g_main.gi.WritePosition (tr.endpos)
 				g_main.gi.WriteDir (tr.plane.normal)
@@ -783,10 +780,10 @@ def bfg_think (self):
 				break
 
 			ignore = tr.ent
-			q_shared.VectorCopy (tr.endpos, start)
+			shared.VectorCopy (tr.endpos, start)
 
 		g_main.gi.WriteByte (svc_temp_entity)
-		g_main.gi.WriteByte (q_shared.temp_event_t.TE_BFG_LASER.value)
+		g_main.gi.WriteByte (shared.temp_event_t.TE_BFG_LASER.value)
 		g_main.gi.WritePosition (self.s.origin)
 		g_main.gi.WritePosition (tr.endpos)
 		g_main.gi.multicast (self.s.origin, MULTICAST_PHS)
@@ -797,16 +794,16 @@ def bfg_think (self):
 def fire_bfg (self, start, dir, damage, speed, damage_radius):
 	#edict_t *bfg
 	bfg = g_utils.G_Spawn()
-	q_shared.VectorCopy (start, bfg.s.origin)
-	q_shared.VectorCopy (dir, bfg.movedir)
+	shared.VectorCopy (start, bfg.s.origin)
+	shared.VectorCopy (dir, bfg.movedir)
 	g_utils.vectoangles (dir, bfg.s.angles)
-	q_shared.VectorScale (dir, speed, bfg.velocity)
+	shared_c.VectorScale (dir, speed, bfg.velocity)
 	bfg.movetype = MOVETYPE_FLYMISSILE
 	bfg.clipmask = MASK_SHOT
 	bfg.solid = SOLID_BBOX
-	bfg.s.effects |= q_shared.EF_BFG | q_shared.EF_ANIM_ALLFAST
-	q_shared.VectorClear (bfg.mins)
-	q_shared.VectorClear (bfg.maxs)
+	bfg.s.effects |= shared.EF_BFG | shared.EF_ANIM_ALLFAST
+	shared.VectorClear (bfg.mins)
+	shared.VectorClear (bfg.maxs)
 	bfg.s.modelindex = g_main.gi.modelindex ("sprites/s_bfg1.sp2")
 	bfg.owner = self
 	bfg.touch = bfg_touch

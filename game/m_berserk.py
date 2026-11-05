@@ -21,17 +21,18 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import q_shared, g_local, g_main, g_utils, g_monster, g_misc, g_ai
+from game import g_local, g_main, g_utils, g_monster, g_misc, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_utils import G_FreeEdict
 from game.g_weapon import fire_hit
 from game.g_monster import walkmonster_start
 from game.g_misc import ThrowGib, ThrowHead
-from game.q_shared import CHAN_VOICE, CHAN_WEAPON, ATTN_NORM, ATTN_IDLE, YAW
+from common.header.shared import CHAN_VOICE, CHAN_WEAPON, ATTN_NORM, ATTN_IDLE, YAW
 from game.g_local import (MELEE_DISTANCE, GIB_ORGANIC, DEAD_DEAD, MOVETYPE_TOSS,
 	MOVETYPE_STEP, AI_STAND_GROUND, damage_t)
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 from game.game import solid_t, SVF_DEADMONSTER
+from common.header import shared
 
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 
@@ -200,7 +201,7 @@ def berserk_swing (self):
 def berserk_attack_club (self):
 	aim = np.zeros((3,), dtype=np.float32)
 
-	q_shared.VectorSet (aim, MELEE_DISTANCE, self.mins[0], -4)
+	shared.VectorSet (aim, MELEE_DISTANCE, self.mins[0], -4)
 	fire_hit (self, aim, (5 + (_r.randint(0, 2147483647) % 6)), 400)		# Slower attack
 
 def berserk_strike (self):
@@ -237,8 +238,8 @@ def berserk_pain (self, other, kick, damage):
 		self.monsterinfo.currentmove = berserk_move_pain2
 
 def berserk_dead (self):
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, -8)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, -8)
 	self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	self.nextthink = 0
@@ -282,8 +283,8 @@ def SP_monster_berserk (self):
 	sound_sight = g_main.gi.soundindex ("berserk/sight.wav")
 
 	self.s.modelindex = g_main.gi.modelindex("models/monsters/berserk/tris.md2")
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, 32)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, 32)
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 

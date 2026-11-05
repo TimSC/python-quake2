@@ -22,7 +22,7 @@ from __future__ import annotations
 import math
 import numpy as np
 import random as _r
-from game import q_shared, g_main, g_utils, g_local
+from game import g_main, g_utils, g_local
 from game import g_combat, g_items, g_ai, p_weapon, p_hud
 from game.g_local import (DAMAGE_TIME, FALL_TIME, DAMAGE_NO_ARMOR,
 	POWER_ARMOR_SCREEN, POWER_ARMOR_SHIELD, PNOISE_SELF, MOD_WATER, MOD_SLIME,
@@ -32,13 +32,8 @@ from game.g_local import (DAMAGE_TIME, FALL_TIME, DAMAGE_NO_ARMOR,
 	FRAME_pain204, FRAME_pain301, FRAME_pain304, FRAME_jump1, FRAME_jump2,
 	FRAME_jump3, FRAME_jump6, FRAME_crstnd01, FRAME_crstnd19, FRAME_crwalk1,
 	FRAME_crwalk6, FRAME_crpain1, FRAME_crpain4)
-from game.q_shared import (RDF_UNDERWATER, CONTENTS_SOLID, CONTENTS_LAVA,
-	CONTENTS_SLIME, CONTENTS_WATER, CHAN_VOICE, CHAN_BODY, CHAN_ITEM, CHAN_AUTO,
-	ATTN_NORM, ATTN_STATIC, PMF_DUCKED, ROLL, PITCH, YAW, DotProduct,
-	VectorClear, VectorCopy, VectorAdd, VectorMA, VectorSet, VectorNormalize,
-	AngleVectors, vec3_origin, EF_COLOR_SHELL, EF_POWERSCREEN, EF_QUAD, EF_PENT,
-	RF_SHELL_RED, RF_SHELL_GREEN, RF_SHELL_BLUE, DF_NO_FALLING, EV_FOOTSTEP,
-	EV_FALLSHORT, EV_FALL, EV_FALLFAR, STAT_FLASHES)
+from common.header.shared import RDF_UNDERWATER, CONTENTS_SOLID, CONTENTS_LAVA, CONTENTS_SLIME, CONTENTS_WATER, CHAN_VOICE, CHAN_BODY, CHAN_ITEM, CHAN_AUTO, ATTN_NORM, ATTN_STATIC, PMF_DUCKED, ROLL, PITCH, YAW, DotProduct, VectorClear, VectorCopy, VectorAdd, VectorSet, EF_COLOR_SHELL, EF_POWERSCREEN, EF_QUAD, EF_PENT, RF_SHELL_RED, RF_SHELL_GREEN, RF_SHELL_BLUE, DF_NO_FALLING, EV_FOOTSTEP, EV_FALLSHORT, EV_FALL, EV_FALLFAR, STAT_FLASHES
+from common.shared.shared import VectorMA, VectorNormalize, AngleVectors, vec3_origin
 """
 
 #include "g_local.h"

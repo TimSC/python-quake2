@@ -25,10 +25,16 @@ import math
 import functools
 import copy
 import numpy as np
-from qcommon import cvar, common, cmd, cmodel
-from game import q_shared
+from qcommon import cmodel
+pass
 from client import cl_tent, cl_main, client, console, cl_scrn, cl_ents, ref
 from linux import q_shlinux, vid_so, cd_linux, sys_linux
+from common.header import shared
+from common.shared import shared as shared_c
+from common import clientserver
+from common import cmdparser
+from common import cvar
+from common import frame
 """
 #include "client.h"
 
@@ -107,7 +113,7 @@ def V_AddParticle (org, color, alpha):
 	if r_numparticles >= ref.MAX_PARTICLES:
 		return
 	p = r_particles[r_numparticles]
-	q_shared.VectorCopy(org, p.origin)
+	shared.VectorCopy(org, p.origin)
 	p.color = color
 	p.alpha = alpha
 	r_numparticles += 1
@@ -119,7 +125,7 @@ def V_AddLight (org, intensity, r, g, b):
 	if r_numdlights >= ref.MAX_DLIGHTS:
 		return
 	dl = r_dlights[r_numdlights]
-	q_shared.VectorCopy(org, dl.origin)
+	shared.VectorCopy(org, dl.origin)
 	dl.intensity = intensity
 	dl.color[0] = r
 	dl.color[1] = g
@@ -129,7 +135,7 @@ def V_AddLight (org, intensity, r, g, b):
 
 def V_AddLightStyle (style, r, g, b):
 	if style < 0 or style > ref.MAX_LIGHTSTYLES:
-		common.Com_Error(q_shared.ERR_DROP, "Bad light style %i" % style)
+		clientserver.Com_Error(shared.ERR_DROP, "Bad light style %i" % style)
 	ls = r_lightstyles[style]
 	ls.white = r + g + b
 	ls.rgb[0] = r
@@ -243,14 +249,14 @@ def CL_PrepRefresh ():
 	
 	axis = np.zeros((3,), dtype=np.float32)
 
-	if not cl_main.cl.configstrings[q_shared.CS_MODELS+1]:
+	if not cl_main.cl.configstrings[shared.CS_MODELS+1]:
 		return		# no map loaded
 
 	cl_scrn.SCR_AddDirtyPoint (0, 0)
 	cl_scrn.SCR_AddDirtyPoint (vid_so.viddef.width-1, vid_so.viddef.height-1)
 
 	# let the render dll load the map
-	mapname = cl_main.cl.configstrings[q_shared.CS_MODELS+1]
+	mapname = cl_main.cl.configstrings[shared.CS_MODELS+1]
 	if mapname and mapname.startswith("maps/"):
 		mapname = mapname[5:]
 	if mapname and mapname.endswith(".bsp"):
@@ -259,27 +265,27 @@ def CL_PrepRefresh ():
 	cl_weaponmodels[0] = "weapon.md2"
 	num_cl_weaponmodels = 1
 
-	common.Com_Printf ("Map: {}\r".format(mapname))
+	clientserver.Com_Printf ("Map: {}\r".format(mapname))
 	cl_scrn.SCR_UpdateScreen ()
 	vid_so.re.BeginRegistration (mapname)
-	common.Com_Printf ("                                     \r")
+	clientserver.Com_Printf ("                                     \r")
 
 	# precache status bar pics
-	common.Com_Printf ("pics\r")
+	clientserver.Com_Printf ("pics\r")
 	cl_scrn.SCR_UpdateScreen ()
 	cl_scrn.SCR_TouchPics ()
-	common.Com_Printf ("                                     \r")
+	clientserver.Com_Printf ("                                     \r")
 
 	cl_tent.CL_RegisterTEntModels ()
 
 	# register models
-	for i in range(1, q_shared.MAX_MODELS):
-		model_name = cl_main.cl.configstrings[q_shared.CS_MODELS + i]
+	for i in range(1, shared.MAX_MODELS):
+		model_name = cl_main.cl.configstrings[shared.CS_MODELS + i]
 		if not model_name:
 			break
 		name = model_name[:37]
 		if not model_name.startswith('*'):
-			common.Com_Printf ("{}\r".format(name))
+			clientserver.Com_Printf ("{}\r".format(name))
 		cl_scrn.SCR_UpdateScreen ()
 		sys_linux.Sys_SendKeyEvents ()
 		if model_name.startswith('#'):
@@ -287,7 +293,7 @@ def CL_PrepRefresh ():
 				cl_weaponmodels[num_cl_weaponmodels] = model_name[1:]
 				num_cl_weaponmodels += 1
 			if not model_name.startswith('*'):
-				common.Com_Printf ("                                     \r")
+				clientserver.Com_Printf ("                                     \r")
 			continue
 		cl_main.cl.model_draw[i] = vid_so.re.RegisterModel (model_name)
 		if model_name.startswith('*'):
@@ -295,42 +301,42 @@ def CL_PrepRefresh ():
 		else:
 			cl_main.cl.model_clip[i] = None
 		if not model_name.startswith('*'):
-			common.Com_Printf ("                                     \r")
+			clientserver.Com_Printf ("                                     \r")
 
 	# precache images
-	common.Com_Printf ("images\r")
+	clientserver.Com_Printf ("images\r")
 	cl_scrn.SCR_UpdateScreen ()
-	for i in range(1, q_shared.MAX_IMAGES):
-		image_name = cl_main.cl.configstrings[q_shared.CS_IMAGES + i]
+	for i in range(1, shared.MAX_IMAGES):
+		image_name = cl_main.cl.configstrings[shared.CS_IMAGES + i]
 		if not image_name:
 			break
 		cl_main.cl.image_precache[i] = vid_so.re.RegisterPic (image_name)
 		sys_linux.Sys_SendKeyEvents ()
-	common.Com_Printf ("                                     \r")
+	clientserver.Com_Printf ("                                     \r")
 
 	# cache player skins
 	from client import cl_parse as cl_parse_mod
 
-	for i in range(q_shared.MAX_CLIENTS):
-		info = cl_main.cl.configstrings[q_shared.CS_PLAYERSKINS + i]
+	for i in range(shared.MAX_CLIENTS):
+		info = cl_main.cl.configstrings[shared.CS_PLAYERSKINS + i]
 		if not info:
 			continue
-		common.Com_Printf ("client {}\r".format(i))
+		clientserver.Com_Printf ("client {}\r".format(i))
 		cl_scrn.SCR_UpdateScreen ()
 		sys_linux.Sys_SendKeyEvents ()
 		cl_parse_mod.CL_ParseClientinfo (i)
-		common.Com_Printf ("                                     \r")
+		clientserver.Com_Printf ("                                     \r")
 
 	cl_parse_mod.CL_LoadClientinfo (cl_main.cl.baseclientinfo, "unnamed\\male/grunt")
 
 	# set sky textures and speed
-	common.Com_Printf ("sky\r")
+	clientserver.Com_Printf ("sky\r")
 	cl_scrn.SCR_UpdateScreen ()
 	try:
-		rotate = float(cl_main.cl.configstrings[q_shared.CS_SKYROTATE] or 0.0)
+		rotate = float(cl_main.cl.configstrings[shared.CS_SKYROTATE] or 0.0)
 	except (TypeError, ValueError):
 		rotate = 0.0
-	axis_values = (cl_main.cl.configstrings[q_shared.CS_SKYAXIS] or "0 0 1").split()
+	axis_values = (cl_main.cl.configstrings[shared.CS_SKYAXIS] or "0 0 1").split()
 	for idx in range(min(3, len(axis_values))):
 		try:
 			axis[idx] = float(axis_values[idx])
@@ -339,8 +345,8 @@ def CL_PrepRefresh ():
 	if len(axis_values) < 3:
 		for idx in range(len(axis_values), 3):
 			axis[idx] = 0.0
-	vid_so.re.SetSky (cl_main.cl.configstrings[q_shared.CS_SKY], rotate, axis)
-	common.Com_Printf ("                                     \r")
+	vid_so.re.SetSky (cl_main.cl.configstrings[shared.CS_SKY], rotate, axis)
+	clientserver.Com_Printf ("                                     \r")
 
 	# the renderer can now free unneeded stuff
 	vid_so.re.EndRegistration ()
@@ -354,7 +360,7 @@ def CL_PrepRefresh ():
 
 	# start the cd track
 	try:
-		cd_track = int(cl_main.cl.configstrings[q_shared.CS_CDTRACK] or 0)
+		cd_track = int(cl_main.cl.configstrings[shared.CS_CDTRACK] or 0)
 	except (TypeError, ValueError):
 		cd_track = 0
 	cd_linux.CDAudio_Play (cd_track, True)
@@ -369,7 +375,7 @@ def CalcFov (fov_x: float, width: float, height: float)->float:
 	#float	x;
 
 	if fov_x < 1 or fov_x > 179:
-		common.Com_Error (q_shared.ERR_DROP, "Bad fov: {}".format(fov_x))
+		clientserver.Com_Error (shared.ERR_DROP, "Bad fov: {}".format(fov_x))
 
 	x = width/math.tan(fov_x/360*math.pi)
 
@@ -467,8 +473,8 @@ def V_RenderView( stereo_separation: float ):
 		
 			tmp = np.zeros((3,), dtype=np.float32) #vec3_t
 
-			q_shared.VectorScale( cl_main.cl.v_right, stereo_separation, tmp )
-			q_shared.VectorAdd( cl_main.cl.refdef.vieworg, tmp, cl_main.cl.refdef.vieworg )
+			shared_c.VectorScale( cl_main.cl.v_right, stereo_separation, tmp )
+			shared.VectorAdd( cl_main.cl.refdef.vieworg, tmp, cl_main.cl.refdef.vieworg )
 		
 
 		# never let it sit exactly on a node line, because a water plane can
@@ -494,7 +500,7 @@ def V_RenderView( stereo_separation: float ):
 		if not int(cl_main.cl_add_lights.value):
 			r_numdlights = 0
 		if not int(cl_main.cl_add_blend.value):
-			q_shared.VectorClear (cl_main.cl.refdef.blend)	
+			shared.VectorClear (cl_main.cl.refdef.blend)	
 
 		cl_main.cl.refdef.num_entities = r_numentities
 		cl_main.cl.refdef.entities = r_entities
@@ -512,8 +518,8 @@ def V_RenderView( stereo_separation: float ):
 	
 	vid_so.re.RenderFrame (cl_main.cl.refdef)
 	if cl_stats.value:
-		common.Com_Printf ("ent:{}  lt:{}  part:{}\n".format(r_numentities, r_numdlights, r_numparticles))
-	if int(common.log_stats.value) and ( log_stats_file != 0 ):
+		clientserver.Com_Printf ("ent:{}  lt:{}  part:{}\n".format(r_numentities, r_numdlights, r_numparticles))
+	if int(frame.log_stats.value) and ( log_stats_file != 0 ):
 		log_stats_file = "{},{},{},".format(r_numentities, r_numdlights, r_numparticles)
 
 	cl_scrn.SCR_AddDirtyPoint (cl_scrn.scr_vrect.x, cl_scrn.scr_vrect.y)
@@ -529,9 +535,9 @@ def V_RenderView( stereo_separation: float ):
 # =============
 def V_Viewpos_f ():
 
-	common.Com_Printf ("({} {} {}) : {}\n".format(int(cl_main.cl.refdef.vieworg[0]),
+	clientserver.Com_Printf ("({} {} {}) : {}\n".format(int(cl_main.cl.refdef.vieworg[0]),
 		int(cl_main.cl.refdef.vieworg[1]), int(cl_main.cl.refdef.vieworg[2]), 
-		int(cl_main.cl.refdef.viewangles[q_shared.YAW])))
+		int(cl_main.cl.refdef.viewangles[shared.YAW])))
 
 # =============
 # V_Init
@@ -540,13 +546,13 @@ def V_Init ():
 
 	global crosshair, cl_testparticles, cl_testentities, cl_testlights, cl_testblend, cl_stats
 
-	cmd.Cmd_AddCommand ("gun_next", V_Gun_Next_f)
-	cmd.Cmd_AddCommand ("gun_prev", V_Gun_Prev_f)
-	cmd.Cmd_AddCommand ("gun_model", V_Gun_Model_f)
+	cmdparser.Cmd_AddCommand ("gun_next", V_Gun_Next_f)
+	cmdparser.Cmd_AddCommand ("gun_prev", V_Gun_Prev_f)
+	cmdparser.Cmd_AddCommand ("gun_model", V_Gun_Model_f)
 
-	cmd.Cmd_AddCommand ("viewpos", V_Viewpos_f);
+	cmdparser.Cmd_AddCommand ("viewpos", V_Viewpos_f);
 	
-	crosshair = cvar.Cvar_Get ("crosshair", "0", q_shared.CVAR_ARCHIVE)
+	crosshair = cvar.Cvar_Get ("crosshair", "0", shared.CVAR_ARCHIVE)
 
 	cl_testblend = cvar.Cvar_Get ("cl_testblend", "0", 0)
 	cl_testparticles = cvar.Cvar_Get ("cl_testparticles", "0", 0)

@@ -21,18 +21,21 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import q_shared, g_local, g_main, g_utils, g_monster, g_misc, g_ai, m_flash
+from game import g_local, g_main, g_utils, g_monster, g_misc, g_ai
 from game import game as _game
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_turn, ai_charge
 from game.g_utils import G_ProjectSource, G_PickTarget, G_UseTargets, vtos, G_SetMovedir, vectoyaw, G_FreeEdict
 from game.g_monster import monster_fire_bullet, walkmonster_start
 from game.g_misc import ThrowGib, ThrowHead
-from game.q_shared import YAW, PRINT_CHAT, ATTN_NORM, CHAN_VOICE, MZ2_ACTOR_MACHINEGUN_1
+from common.header.shared import YAW, PRINT_CHAT, ATTN_NORM, CHAN_VOICE, MZ2_ACTOR_MACHINEGUN_1
 from game.g_local import (FRAMETIME, GIB_ORGANIC, DEAD_DEAD, MOVETYPE_STEP,
 	MOVETYPE_TOSS, AI_GOOD_GUY, AI_BRUTAL, AI_STAND_GROUND, AI_HOLD_FRAME,
 	DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, damage_t)
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 from game.game import solid_t, SVF_NOCLIENT, SVF_DEADMONSTER
+from common.header import shared
+from common.shared import flash
+from common.shared import shared as shared_c
 
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 SOLID_TRIGGER = solid_t.SOLID_TRIGGER.value
@@ -185,7 +188,7 @@ def actor_pain (self, other, kick, damage):
 		v = np.zeros((3,), dtype=np.float32)
 		name = ""
 
-		q_shared.VectorSubtract (other.s.origin, self.s.origin, v)
+		shared.VectorSubtract (other.s.origin, self.s.origin, v)
 		self.ideal_yaw = vectoyaw (v)
 		if g_local.random() < 0.5:
 			self.monsterinfo.currentmove = actor_move_flipoff
@@ -210,24 +213,24 @@ def actorMachineGun (self):
 	right = np.zeros((3,), dtype=np.float32)
 	up = np.zeros((3,), dtype=np.float32)
 
-	q_shared.AngleVectors (self.s.angles, forward, right, up)
-	G_ProjectSource (self.s.origin, m_flash.monster_flash_offset[MZ2_ACTOR_MACHINEGUN_1], forward, right, start)
+	shared_c.AngleVectors (self.s.angles, forward, right, up)
+	G_ProjectSource (self.s.origin, flash.monster_flash_offset[MZ2_ACTOR_MACHINEGUN_1], forward, right, start)
 	if self.enemy:
 		if self.enemy.health > 0:
-			q_shared.VectorMA (self.enemy.s.origin, -0.2, self.enemy.velocity, target)
+			shared_c.VectorMA (self.enemy.s.origin, -0.2, self.enemy.velocity, target)
 			target[2] += self.enemy.viewheight
 		else:
-			q_shared.VectorCopy (self.enemy.absmin, target)
+			shared.VectorCopy (self.enemy.absmin, target)
 			target[2] += (self.enemy.size[2] / 2)
-		q_shared.VectorSubtract (target, start, forward)
-		q_shared.VectorNormalize (forward)
+		shared.VectorSubtract (target, start, forward)
+		shared_c.VectorNormalize (forward)
 	else:
-		q_shared.AngleVectors (self.s.angles, forward, None, None)
+		shared_c.AngleVectors (self.s.angles, forward, None, None)
 	monster_fire_bullet (self, start, forward, 3, 4, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, MZ2_ACTOR_MACHINEGUN_1)
 
 def actor_dead (self):
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, -8)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, -8)
 	self.movetype = MOVETYPE_TOSS
 	self.svflags |= SVF_DEADMONSTER
 	self.nextthink = 0
@@ -279,7 +282,7 @@ def actor_use (self, other, activator):
 		self.monsterinfo.stand (self)
 		return
 
-	q_shared.VectorSubtract (self.goalentity.s.origin, self.s.origin, v)
+	shared.VectorSubtract (self.goalentity.s.origin, self.s.origin, v)
 	self.ideal_yaw = self.s.angles[YAW] = vectoyaw(v)
 	self.monsterinfo.walk (self)
 	self.target = None
@@ -302,8 +305,8 @@ def SP_misc_actor (self):
 	self.movetype = MOVETYPE_STEP
 	self.solid = SOLID_BBOX
 	self.s.modelindex = g_main.gi.modelindex("players/male/tris.md2")
-	q_shared.VectorSet (self.mins, -16, -16, -24)
-	q_shared.VectorSet (self.maxs, 16, 16, 32)
+	shared.VectorSet (self.mins, -16, -16, -24)
+	shared.VectorSet (self.maxs, 16, 16, 32)
 
 	if not self.health:
 		self.health = 100
@@ -387,7 +390,7 @@ def target_actor_touch (self, other, plane, surf):
 		other.monsterinfo.pausetime = g_main.level.time + 100000000
 		other.monsterinfo.stand (other)
 	elif other.movetarget == other.goalentity:
-		q_shared.VectorSubtract (other.movetarget.s.origin, other.s.origin, v)
+		shared.VectorSubtract (other.movetarget.s.origin, other.s.origin, v)
 		other.ideal_yaw = vectoyaw (v)
 
 def SP_target_actor (self):
@@ -396,8 +399,8 @@ def SP_target_actor (self):
 
 	self.solid = SOLID_TRIGGER
 	self.touch = target_actor_touch
-	q_shared.VectorSet (self.mins, -8, -8, -8)
-	q_shared.VectorSet (self.maxs, 8, 8, 8)
+	shared.VectorSet (self.mins, -8, -8, -8)
+	shared.VectorSet (self.maxs, 8, 8, 8)
 	self.svflags = SVF_NOCLIENT
 
 	if self.spawnflags & 1:

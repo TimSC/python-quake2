@@ -20,8 +20,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 from game import game as _gamemod
-from game import q_shared, g_local, g_main, g_utils, g_monster, g_misc, g_combat
+from game import g_local, g_main, g_utils, g_monster, g_misc, g_combat
 from math import floor, sqrt, fabs
+from common.header import shared
+from common.shared import shared as shared_c
 """
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
@@ -348,7 +350,7 @@ Kills everything inside when fired, irrespective of protection.
 """
 
 def Move_Done (ent):
-	q_shared.VectorClear (ent.velocity)
+	shared.VectorClear (ent.velocity)
 	ent.moveinfo.endfunc (ent)
 
 def Move_Final (ent):
@@ -356,7 +358,7 @@ def Move_Final (ent):
 		Move_Done (ent)
 		return
 
-	q_shared.VectorScale (ent.moveinfo.dir, ent.moveinfo.remaining_distance / g_local.FRAMETIME, ent.velocity)
+	shared_c.VectorScale (ent.moveinfo.dir, ent.moveinfo.remaining_distance / g_local.FRAMETIME, ent.velocity)
 
 	ent.think = Move_Done
 	ent.nextthink = g_main.level.time + g_local.FRAMETIME
@@ -367,16 +369,16 @@ def Move_Begin (ent):
 	if (ent.moveinfo.speed * g_local.FRAMETIME) >= ent.moveinfo.remaining_distance:
 		Move_Final (ent)
 		return
-	q_shared.VectorScale (ent.moveinfo.dir, ent.moveinfo.speed, ent.velocity)
+	shared_c.VectorScale (ent.moveinfo.dir, ent.moveinfo.speed, ent.velocity)
 	frames = floor((ent.moveinfo.remaining_distance / ent.moveinfo.speed) / g_local.FRAMETIME)
 	ent.moveinfo.remaining_distance -= frames * ent.moveinfo.speed * g_local.FRAMETIME
 	ent.nextthink = g_main.level.time + (frames * g_local.FRAMETIME)
 	ent.think = Move_Final
 
 def Move_Calc (ent, dest, func):
-	q_shared.VectorClear (ent.velocity)
-	q_shared.VectorSubtract (dest, ent.s.origin, ent.moveinfo.dir)
-	ent.moveinfo.remaining_distance = q_shared.VectorNormalize (ent.moveinfo.dir)
+	shared.VectorClear (ent.velocity)
+	shared.VectorSubtract (dest, ent.s.origin, ent.moveinfo.dir)
+	ent.moveinfo.remaining_distance = shared_c.VectorNormalize (ent.moveinfo.dir)
 	ent.moveinfo.endfunc = func
 
 	if ent.moveinfo.speed == ent.moveinfo.accel and ent.moveinfo.speed == ent.moveinfo.decel:
@@ -392,40 +394,40 @@ def Move_Calc (ent, dest, func):
 		ent.nextthink = g_main.level.time + g_local.FRAMETIME
 
 def AngleMove_Done (ent):
-	q_shared.VectorClear (ent.avelocity)
+	shared.VectorClear (ent.avelocity)
 	ent.moveinfo.endfunc (ent)
 
 def AngleMove_Final (ent):
-	move = q_shared.vec3_origin.copy()
+	move = shared_c.vec3_origin.copy()
 
 	if ent.moveinfo.state == STATE_UP:
-		q_shared.VectorSubtract (ent.moveinfo.end_angles, ent.s.angles, move)
+		shared.VectorSubtract (ent.moveinfo.end_angles, ent.s.angles, move)
 	else:
-		q_shared.VectorSubtract (ent.moveinfo.start_angles, ent.s.angles, move)
+		shared.VectorSubtract (ent.moveinfo.start_angles, ent.s.angles, move)
 
-	if q_shared.VectorCompare (move, q_shared.vec3_origin):
+	if shared_c.VectorCompare (move, shared_c.vec3_origin):
 		AngleMove_Done (ent)
 		return
 
-	q_shared.VectorScale (move, 1.0/g_local.FRAMETIME, ent.avelocity)
+	shared_c.VectorScale (move, 1.0/g_local.FRAMETIME, ent.avelocity)
 
 	ent.think = AngleMove_Done
 	ent.nextthink = g_main.level.time + g_local.FRAMETIME
 
 def AngleMove_Begin (ent):
-	destdelta = q_shared.vec3_origin.copy()
+	destdelta = shared_c.vec3_origin.copy()
 	len = 0.0
 	traveltime = 0.0
 	frames = 0.0
 
 	# set destdelta to the vector needed to move
 	if ent.moveinfo.state == STATE_UP:
-		q_shared.VectorSubtract (ent.moveinfo.end_angles, ent.s.angles, destdelta)
+		shared.VectorSubtract (ent.moveinfo.end_angles, ent.s.angles, destdelta)
 	else:
-		q_shared.VectorSubtract (ent.moveinfo.start_angles, ent.s.angles, destdelta)
+		shared.VectorSubtract (ent.moveinfo.start_angles, ent.s.angles, destdelta)
 	
 	# calculate length of vector
-	len = q_shared.VectorLength (destdelta)
+	len = shared_c.VectorLength (destdelta)
 	
 	# divide by speed to get time to reach dest
 	traveltime = len / ent.moveinfo.speed
@@ -437,14 +439,14 @@ def AngleMove_Begin (ent):
 	frames = floor(traveltime / g_local.FRAMETIME)
 
 	# scale the destdelta vector by the time spent traveling to get velocity
-	q_shared.VectorScale (destdelta, 1.0 / traveltime, ent.avelocity)
+	shared_c.VectorScale (destdelta, 1.0 / traveltime, ent.avelocity)
 
 	# set nextthink to trigger a think when dest is reached
 	ent.nextthink = g_main.level.time + frames * g_local.FRAMETIME
 	ent.think = AngleMove_Final
 
 def AngleMove_Calc (ent, func):
-	q_shared.VectorClear (ent.avelocity)
+	shared.VectorClear (ent.avelocity)
 	ent.moveinfo.endfunc = func
 	if g_main.level.current_entity == (ent.teammaster if (ent.flags & g_local.FL_TEAMSLAVE) else ent):
 		AngleMove_Begin (ent)
@@ -565,14 +567,14 @@ def Think_AccelMove (ent):
 		Move_Final (ent)
 		return
 
-	q_shared.VectorScale (ent.moveinfo.dir, ent.moveinfo.current_speed*10, ent.velocity)
+	shared_c.VectorScale (ent.moveinfo.dir, ent.moveinfo.current_speed*10, ent.velocity)
 	ent.nextthink = g_main.level.time + g_local.FRAMETIME
 	ent.think = Think_AccelMove
 
 def plat_hit_top (ent):
 	if not (ent.flags & g_local.FL_TEAMSLAVE):
 		if ent.moveinfo.sound_end:
-			g_main.gi.sound (ent, q_shared.CHAN_NO_PHS_ADD + q_shared.CHAN_VOICE, ent.moveinfo.sound_end, 1, q_shared.ATTN_STATIC, 0)
+			g_main.gi.sound (ent, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, ent.moveinfo.sound_end, 1, shared.ATTN_STATIC, 0)
 		ent.s.sound = 0
 	ent.moveinfo.state = STATE_TOP
 
@@ -582,14 +584,14 @@ def plat_hit_top (ent):
 def plat_hit_bottom (ent):
 	if not (ent.flags & g_local.FL_TEAMSLAVE):
 		if ent.moveinfo.sound_end:
-			g_main.gi.sound (ent, q_shared.CHAN_NO_PHS_ADD + q_shared.CHAN_VOICE, ent.moveinfo.sound_end, 1, q_shared.ATTN_STATIC, 0)
+			g_main.gi.sound (ent, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, ent.moveinfo.sound_end, 1, shared.ATTN_STATIC, 0)
 		ent.s.sound = 0
 	ent.moveinfo.state = STATE_BOTTOM
 
 def plat_go_down (ent):
 	if not (ent.flags & g_local.FL_TEAMSLAVE):
 		if ent.moveinfo.sound_start:
-			g_main.gi.sound (ent, q_shared.CHAN_NO_PHS_ADD + q_shared.CHAN_VOICE, ent.moveinfo.sound_start, 1, q_shared.ATTN_STATIC, 0)
+			g_main.gi.sound (ent, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, ent.moveinfo.sound_start, 1, shared.ATTN_STATIC, 0)
 		ent.s.sound = ent.moveinfo.sound_middle
 	ent.moveinfo.state = STATE_DOWN
 	Move_Calc (ent, ent.moveinfo.end_origin, plat_hit_bottom)
@@ -597,7 +599,7 @@ def plat_go_down (ent):
 def plat_go_up (ent):
 	if not (ent.flags & g_local.FL_TEAMSLAVE):
 		if ent.moveinfo.sound_start:
-			g_main.gi.sound (ent, q_shared.CHAN_NO_PHS_ADD + q_shared.CHAN_VOICE, ent.moveinfo.sound_start, 1, q_shared.ATTN_STATIC, 0)
+			g_main.gi.sound (ent, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, ent.moveinfo.sound_start, 1, shared.ATTN_STATIC, 0)
 		ent.s.sound = ent.moveinfo.sound_middle
 	ent.moveinfo.state = STATE_UP
 	Move_Calc (ent, ent.moveinfo.start_origin, plat_hit_top)
@@ -605,13 +607,13 @@ def plat_go_up (ent):
 def plat_blocked (self, other):
 	if not (other.svflags & _gamemod.SVF_MONSTER) and not other.client:
 		# give it a chance to go away on it's own terms (like gibs)
-		g_combat.T_Damage (other, self, self, q_shared.vec3_origin, other.s.origin, q_shared.vec3_origin, 100000, 1, 0, g_local.MOD_CRUSH)
+		g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, 100000, 1, 0, g_local.MOD_CRUSH)
 		# if it's still there, nuke it
 		if other:
 			g_misc.BecomeExplosion1 (other)
 		return
 
-	g_combat.T_Damage (other, self, self, q_shared.vec3_origin, other.s.origin, q_shared.vec3_origin, self.dmg, 1, 0, g_local.MOD_CRUSH)
+	g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, self.dmg, 1, 0, g_local.MOD_CRUSH)
 
 	if self.moveinfo.state == STATE_UP:
 		plat_go_down (self)
@@ -638,8 +640,8 @@ def Touch_Plat_Center (ent, other, plane, surf):
 
 def plat_spawn_inside_trigger (ent):
 	trigger = None
-	tmin = q_shared.vec3_origin.copy()
-	tmax = q_shared.vec3_origin.copy()
+	tmin = shared_c.vec3_origin.copy()
+	tmax = shared_c.vec3_origin.copy()
 
 #tmin[0] = tmin[1] = tmin[2] = 0.0
 #tmax[0] = tmax[1] = tmax[2] = 0.0
@@ -672,13 +674,13 @@ def plat_spawn_inside_trigger (ent):
 		tmin[1] = (ent.mins[1] + ent.maxs[1]) *0.5
 		tmax[1] = tmin[1] + 1
 	
-	q_shared.VectorCopy (tmin, trigger.mins)
-	q_shared.VectorCopy (tmax, trigger.maxs)
+	shared.VectorCopy (tmin, trigger.mins)
+	shared.VectorCopy (tmax, trigger.maxs)
 
 	g_main.gi.linkentity (trigger)
 
 def SP_func_plat (ent):
-	q_shared.VectorClear (ent.s.angles)
+	shared.VectorClear (ent.s.angles)
 	ent.solid = SOLID_BSP
 	ent.movetype = g_local.MOVETYPE_PUSH
 
@@ -708,8 +710,8 @@ def SP_func_plat (ent):
 		g_main.st.lip = 8
 
 	# pos1 is the top position, pos2 is the bottom
-	q_shared.VectorCopy (ent.s.origin, ent.pos1)
-	q_shared.VectorCopy (ent.s.origin, ent.pos2)
+	shared.VectorCopy (ent.s.origin, ent.pos1)
+	shared.VectorCopy (ent.s.origin, ent.pos2)
 	if g_main.st.height:
 		ent.pos2[2] -= g_main.st.height
 	else:
@@ -722,7 +724,7 @@ def SP_func_plat (ent):
 	if ent.targetname:
 		ent.moveinfo.state = STATE_UP
 	else:
-		q_shared.VectorCopy (ent.pos2, ent.s.origin)
+		shared.VectorCopy (ent.pos2, ent.s.origin)
 		g_main.gi.linkentity (ent)
 		ent.moveinfo.state = STATE_BOTTOM
 
@@ -730,30 +732,30 @@ def SP_func_plat (ent):
 	ent.moveinfo.accel = ent.accel
 	ent.moveinfo.decel = ent.decel
 	ent.moveinfo.wait = ent.wait
-	q_shared.VectorCopy (ent.pos1, ent.moveinfo.start_origin)
-	q_shared.VectorCopy (ent.s.angles, ent.moveinfo.start_angles)
-	q_shared.VectorCopy (ent.pos2, ent.moveinfo.end_origin)
-	q_shared.VectorCopy (ent.s.angles, ent.moveinfo.end_angles)
+	shared.VectorCopy (ent.pos1, ent.moveinfo.start_origin)
+	shared.VectorCopy (ent.s.angles, ent.moveinfo.start_angles)
+	shared.VectorCopy (ent.pos2, ent.moveinfo.end_origin)
+	shared.VectorCopy (ent.s.angles, ent.moveinfo.end_angles)
 
 	ent.moveinfo.sound_start = g_main.gi.soundindex ("plats/pt1_strt.wav")
 	ent.moveinfo.sound_middle = g_main.gi.soundindex ("plats/pt1_mid.wav")
 	ent.moveinfo.sound_end = g_main.gi.soundindex ("plats/pt1_end.wav")
 
 def rotating_blocked (self, other):
-	g_combat.T_Damage (other, self, self, q_shared.vec3_origin, other.s.origin, q_shared.vec3_origin, self.dmg, 1, 0, g_local.MOD_CRUSH)
+	g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, self.dmg, 1, 0, g_local.MOD_CRUSH)
 
 def rotating_touch (self, other, plane, surf):
 	if self.avelocity[0] or self.avelocity[1] or self.avelocity[2]:
-		g_combat.T_Damage (other, self, self, q_shared.vec3_origin, other.s.origin, q_shared.vec3_origin, self.dmg, 1, 0, g_local.MOD_CRUSH)
+		g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, self.dmg, 1, 0, g_local.MOD_CRUSH)
 
 def rotating_use (self, other, activator):
-	if not q_shared.VectorCompare (self.avelocity, q_shared.vec3_origin):
+	if not shared_c.VectorCompare (self.avelocity, shared_c.vec3_origin):
 		self.s.sound = 0
-		q_shared.VectorClear (self.avelocity)
+		shared.VectorClear (self.avelocity)
 		self.touch = None
 	else:
 		self.s.sound = self.moveinfo.sound_middle
-		q_shared.VectorScale (self.movedir, self.speed, self.avelocity)
+		shared_c.VectorScale (self.movedir, self.speed, self.avelocity)
 		if self.spawnflags & 16:
 			self.touch = rotating_touch
 
@@ -765,7 +767,7 @@ def SP_func_rotating (ent):
 		ent.movetype = g_local.MOVETYPE_PUSH
 
 	# set the axis of rotation
-	q_shared.VectorClear(ent.movedir)
+	shared.VectorClear(ent.movedir)
 	if ent.spawnflags & 4:
 		ent.movedir[2] = 1.0
 	elif ent.spawnflags & 8:
@@ -775,7 +777,7 @@ def SP_func_rotating (ent):
 
 	# check for reverse rotation
 	if ent.spawnflags & 2:
-		q_shared.VectorNegate (ent.movedir, ent.movedir)
+		shared.VectorNegate (ent.movedir, ent.movedir)
 
 	if not ent.speed:
 		ent.speed = 100
@@ -792,17 +794,17 @@ def SP_func_rotating (ent):
 		ent.use (ent, None, None)
 
 	if ent.spawnflags & 64:
-		ent.s.effects |= q_shared.EF_ANIM_ALL
+		ent.s.effects |= shared.EF_ANIM_ALL
 	if ent.spawnflags & 128:
-		ent.s.effects |= q_shared.EF_ANIM_ALLFAST
+		ent.s.effects |= shared.EF_ANIM_ALLFAST
 
 	g_main.gi.setmodel (ent, ent.model)
 	g_main.gi.linkentity (ent)
 
 def button_done (self):
 	self.moveinfo.state = STATE_BOTTOM
-	self.s.effects &= ~q_shared.EF_ANIM23
-	self.s.effects |= q_shared.EF_ANIM01
+	self.s.effects &= ~shared.EF_ANIM23
+	self.s.effects |= shared.EF_ANIM01
 
 def button_return (self):
 	self.moveinfo.state = STATE_DOWN
@@ -816,8 +818,8 @@ def button_return (self):
 
 def button_wait (self):
 	self.moveinfo.state = STATE_TOP
-	self.s.effects &= ~q_shared.EF_ANIM01
-	self.s.effects |= q_shared.EF_ANIM23
+	self.s.effects &= ~shared.EF_ANIM01
+	self.s.effects |= shared.EF_ANIM23
 
 	g_utils.G_UseTargets (self, self.activator)
 	self.s.frame = 1
@@ -831,7 +833,7 @@ def button_fire (self):
 
 	self.moveinfo.state = STATE_UP
 	if self.moveinfo.sound_start and not (self.flags & g_local.FL_TEAMSLAVE):
-		g_main.gi.sound (self, q_shared.CHAN_NO_PHS_ADD + q_shared.CHAN_VOICE, self.moveinfo.sound_start, 1, q_shared.ATTN_STATIC, 0)
+		g_main.gi.sound (self, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, self.moveinfo.sound_start, 1, shared.ATTN_STATIC, 0)
 	Move_Calc (self, self.moveinfo.end_origin, button_wait)
 
 def button_use (self, other, activator):
@@ -855,7 +857,7 @@ def button_killed (self, inflictor, attacker, damage, point):
 	button_fire (self)
 
 def SP_func_button (ent):
-	abs_movedir = q_shared.vec3_origin.copy()
+	abs_movedir = shared_c.vec3_origin.copy()
 	dist = 0.0
 
 	g_utils.G_SetMovedir (ent.s.angles, ent.movedir)
@@ -878,15 +880,15 @@ def SP_func_button (ent):
 	if not g_main.st.lip:
 		g_main.st.lip = 4
 
-	q_shared.VectorCopy (ent.s.origin, ent.pos1)
+	shared.VectorCopy (ent.s.origin, ent.pos1)
 	abs_movedir[0] = fabs(ent.movedir[0])
 	abs_movedir[1] = fabs(ent.movedir[1])
 	abs_movedir[2] = fabs(ent.movedir[2])
 	dist = abs_movedir[0] * ent.size[0] + abs_movedir[1] * ent.size[1] + abs_movedir[2] * ent.size[2] - g_main.st.lip
-	q_shared.VectorMA (ent.pos1, dist, ent.movedir, ent.pos2)
+	shared_c.VectorMA (ent.pos1, dist, ent.movedir, ent.pos2)
 
 	ent.use = button_use
-	ent.s.effects |= q_shared.EF_ANIM01
+	ent.s.effects |= shared.EF_ANIM01
 
 	if ent.health:
 		ent.max_health = ent.health
@@ -901,10 +903,10 @@ def SP_func_button (ent):
 	ent.moveinfo.accel = ent.accel
 	ent.moveinfo.decel = ent.decel
 	ent.moveinfo.wait = ent.wait
-	q_shared.VectorCopy (ent.pos1, ent.moveinfo.start_origin)
-	q_shared.VectorCopy (ent.s.angles, ent.moveinfo.start_angles)
-	q_shared.VectorCopy (ent.pos2, ent.moveinfo.end_origin)
-	q_shared.VectorCopy (ent.s.angles, ent.moveinfo.end_angles)
+	shared.VectorCopy (ent.pos1, ent.moveinfo.start_origin)
+	shared.VectorCopy (ent.s.angles, ent.moveinfo.start_angles)
+	shared.VectorCopy (ent.pos2, ent.moveinfo.end_origin)
+	shared.VectorCopy (ent.s.angles, ent.moveinfo.end_angles)
 
 	g_main.gi.linkentity (ent)
 
@@ -918,13 +920,13 @@ def door_use_areaportals (self, open):
 		t = g_utils.G_Find (t, "targetname", self.target)
 		if not t:
 			break
-		if q_shared.Q_stricmp(t.classname, "func_areaportal") == 0:
+		if shared_c.Q_stricmp(t.classname, "func_areaportal") == 0:
 			g_main.gi.SetAreaPortalState (t.style, open)
 
 def door_hit_top (self):
 	if not (self.flags & g_local.FL_TEAMSLAVE):
 		if self.moveinfo.sound_end:
-			g_main.gi.sound (self, q_shared.CHAN_NO_PHS_ADD + q_shared.CHAN_VOICE, self.moveinfo.sound_end, 1, q_shared.ATTN_STATIC, 0)
+			g_main.gi.sound (self, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, self.moveinfo.sound_end, 1, shared.ATTN_STATIC, 0)
 		self.s.sound = 0
 	self.moveinfo.state = STATE_TOP
 	if self.spawnflags & DOOR_TOGGLE:
@@ -936,7 +938,7 @@ def door_hit_top (self):
 def door_hit_bottom (self):
 	if not (self.flags & g_local.FL_TEAMSLAVE):
 		if self.moveinfo.sound_end:
-			g_main.gi.sound (self, q_shared.CHAN_NO_PHS_ADD + q_shared.CHAN_VOICE, self.moveinfo.sound_end, 1, q_shared.ATTN_STATIC, 0)
+			g_main.gi.sound (self, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, self.moveinfo.sound_end, 1, shared.ATTN_STATIC, 0)
 		self.s.sound = 0
 	self.moveinfo.state = STATE_BOTTOM
 	door_use_areaportals (self, False)
@@ -944,7 +946,7 @@ def door_hit_bottom (self):
 def door_go_down (self):
 	if not (self.flags & g_local.FL_TEAMSLAVE):
 		if self.moveinfo.sound_start:
-			g_main.gi.sound (self, q_shared.CHAN_NO_PHS_ADD + q_shared.CHAN_VOICE, self.moveinfo.sound_start, 1, q_shared.ATTN_STATIC, 0)
+			g_main.gi.sound (self, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, self.moveinfo.sound_start, 1, shared.ATTN_STATIC, 0)
 		self.s.sound = self.moveinfo.sound_middle
 	if self.max_health:
 		self.takedamage = g_local.damage_t.DAMAGE_YES.value
@@ -968,7 +970,7 @@ def door_go_up (self, activator):
 	
 	if not (self.flags & g_local.FL_TEAMSLAVE):
 		if self.moveinfo.sound_start:
-			g_main.gi.sound (self, q_shared.CHAN_NO_PHS_ADD + q_shared.CHAN_VOICE, self.moveinfo.sound_start, 1, q_shared.ATTN_STATIC, 0)
+			g_main.gi.sound (self, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, self.moveinfo.sound_start, 1, shared.ATTN_STATIC, 0)
 		self.s.sound = self.moveinfo.sound_middle
 	self.moveinfo.state = STATE_UP
 	if self.classname == "func_door":
@@ -1063,14 +1065,14 @@ def Think_CalcMoveSpeed (self):
 
 def Think_SpawnDoorTrigger (ent):
 	other = None
-	mins = q_shared.vec3_origin.copy()
-	maxs = q_shared.vec3_origin.copy()
+	mins = shared_c.vec3_origin.copy()
+	maxs = shared_c.vec3_origin.copy()
 
 	if ent.flags & g_local.FL_TEAMSLAVE:
 		return		# only the team leader spawns a trigger
 
-	q_shared.VectorCopy (ent.absmin, mins)
-	q_shared.VectorCopy (ent.absmax, maxs)
+	shared.VectorCopy (ent.absmin, mins)
+	shared.VectorCopy (ent.absmax, maxs)
 
 	other = ent.teamchain
 	while other:
@@ -1085,8 +1087,8 @@ def Think_SpawnDoorTrigger (ent):
 	maxs[1] += 60
 
 	other = g_utils.G_Spawn ()
-	q_shared.VectorCopy (mins, other.mins)
-	q_shared.VectorCopy (maxs, other.maxs)
+	shared.VectorCopy (mins, other.mins)
+	shared.VectorCopy (maxs, other.maxs)
 	other.owner = ent
 	other.solid = SOLID_TRIGGER
 	other.movetype = g_local.MOVETYPE_NONE
@@ -1103,13 +1105,13 @@ def door_blocked (self, other):
 
 	if not (other.svflags & _gamemod.SVF_MONSTER) and not other.client:
 		# give it a chance to go away on it's own terms (like gibs)
-		g_combat.T_Damage (other, self, self, q_shared.vec3_origin, other.s.origin, q_shared.vec3_origin, 100000, 1, 0, g_local.MOD_CRUSH)
+		g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, 100000, 1, 0, g_local.MOD_CRUSH)
 		# if it's still there, nuke it
 		if other:
 			g_misc.BecomeExplosion1 (other)
 		return
 
-	g_combat.T_Damage (other, self, self, q_shared.vec3_origin, other.s.origin, q_shared.vec3_origin, self.dmg, 1, 0, g_local.MOD_CRUSH)
+	g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, self.dmg, 1, 0, g_local.MOD_CRUSH)
 
 	if self.spawnflags & DOOR_CRUSHER:
 		return
@@ -1148,10 +1150,10 @@ def door_touch (self, other, plane, surf):
 	self.touch_debounce_time = g_main.level.time + 5.0
 
 	g_main.gi.centerprintf (other, "%s", self.message)
-	g_main.gi.sound (other, q_shared.CHAN_AUTO, g_main.gi.soundindex ("misc/talk1.wav"), 1, q_shared.ATTN_NORM, 0)
+	g_main.gi.sound (other, shared.CHAN_AUTO, g_main.gi.soundindex ("misc/talk1.wav"), 1, shared.ATTN_NORM, 0)
 
 def SP_func_door (ent):
-	abs_movedir = q_shared.vec3_origin.copy()
+	abs_movedir = shared_c.vec3_origin.copy()
 
 	if ent.sounds != 1:
 		ent.moveinfo.sound_start = g_main.gi.soundindex  ("doors/dr1_strt.wav")
@@ -1184,18 +1186,18 @@ def SP_func_door (ent):
 		ent.dmg = 2
 
 	# calculate second position
-	q_shared.VectorCopy (ent.s.origin, ent.pos1)
+	shared.VectorCopy (ent.s.origin, ent.pos1)
 	abs_movedir[0] = fabs(ent.movedir[0])
 	abs_movedir[1] = fabs(ent.movedir[1])
 	abs_movedir[2] = fabs(ent.movedir[2])
 	ent.moveinfo.distance = abs_movedir[0] * ent.size[0] + abs_movedir[1] * ent.size[1] + abs_movedir[2] * ent.size[2] - g_main.st.lip
-	q_shared.VectorMA (ent.pos1, ent.moveinfo.distance, ent.movedir, ent.pos2)
+	shared_c.VectorMA (ent.pos1, ent.moveinfo.distance, ent.movedir, ent.pos2)
 
 	# if it starts open, switch the positions
 	if ent.spawnflags & DOOR_START_OPEN:
-		q_shared.VectorCopy (ent.pos2, ent.s.origin)
-		q_shared.VectorCopy (ent.pos1, ent.pos2)
-		q_shared.VectorCopy (ent.s.origin, ent.pos1)
+		shared.VectorCopy (ent.pos2, ent.s.origin)
+		shared.VectorCopy (ent.pos1, ent.pos2)
+		shared.VectorCopy (ent.s.origin, ent.pos1)
 
 	ent.moveinfo.state = STATE_BOTTOM
 
@@ -1211,15 +1213,15 @@ def SP_func_door (ent):
 	ent.moveinfo.accel = ent.accel
 	ent.moveinfo.decel = ent.decel
 	ent.moveinfo.wait = ent.wait
-	q_shared.VectorCopy (ent.pos1, ent.moveinfo.start_origin)
-	q_shared.VectorCopy (ent.s.angles, ent.moveinfo.start_angles)
-	q_shared.VectorCopy (ent.pos2, ent.moveinfo.end_origin)
-	q_shared.VectorCopy (ent.s.angles, ent.moveinfo.end_angles)
+	shared.VectorCopy (ent.pos1, ent.moveinfo.start_origin)
+	shared.VectorCopy (ent.s.angles, ent.moveinfo.start_angles)
+	shared.VectorCopy (ent.pos2, ent.moveinfo.end_origin)
+	shared.VectorCopy (ent.s.angles, ent.moveinfo.end_angles)
 
 	if ent.spawnflags & 16:
-		ent.s.effects |= q_shared.EF_ANIM_ALL
+		ent.s.effects |= shared.EF_ANIM_ALL
 	if ent.spawnflags & 64:
-		ent.s.effects |= q_shared.EF_ANIM_ALLFAST
+		ent.s.effects |= shared.EF_ANIM_ALLFAST
 
 	# to simplify logic elsewhere, make non-teamed doors into a team of one
 	if not ent.team:
@@ -1234,10 +1236,10 @@ def SP_func_door (ent):
 		ent.think = Think_SpawnDoorTrigger
 
 def SP_func_door_rotating (ent):
-	q_shared.VectorClear (ent.s.angles)
+	shared.VectorClear (ent.s.angles)
 
 	# set the axis of rotation
-	q_shared.VectorClear(ent.movedir)
+	shared.VectorClear(ent.movedir)
 	if ent.spawnflags & DOOR_X_AXIS:
 		ent.movedir[2] = 1.0
 	elif ent.spawnflags & DOOR_Y_AXIS:
@@ -1247,14 +1249,14 @@ def SP_func_door_rotating (ent):
 
 	# check for reverse rotation
 	if ent.spawnflags & DOOR_REVERSE:
-		q_shared.VectorNegate (ent.movedir, ent.movedir)
+		shared.VectorNegate (ent.movedir, ent.movedir)
 
 	if not g_main.st.distance:
 		g_main.gi.dprintf("%s at %s with no distance set\n", ent.classname, g_utils.vtos(ent.s.origin))
 		g_main.st.distance = 90
 
-	q_shared.VectorCopy (ent.s.angles, ent.pos1)
-	q_shared.VectorMA (ent.s.angles, g_main.st.distance, ent.movedir, ent.pos2)
+	shared.VectorCopy (ent.s.angles, ent.pos1)
+	shared_c.VectorMA (ent.s.angles, g_main.st.distance, ent.movedir, ent.pos2)
 	ent.moveinfo.distance = g_main.st.distance
 
 	ent.movetype = g_local.MOVETYPE_PUSH
@@ -1283,10 +1285,10 @@ def SP_func_door_rotating (ent):
 
 	# if it starts open, switch the positions
 	if ent.spawnflags & DOOR_START_OPEN:
-		q_shared.VectorCopy (ent.pos2, ent.s.angles)
-		q_shared.VectorCopy (ent.pos1, ent.pos2)
-		q_shared.VectorCopy (ent.s.angles, ent.pos1)
-		q_shared.VectorNegate (ent.movedir, ent.movedir)
+		shared.VectorCopy (ent.pos2, ent.s.angles)
+		shared.VectorCopy (ent.pos1, ent.pos2)
+		shared.VectorCopy (ent.s.angles, ent.pos1)
+		shared.VectorNegate (ent.movedir, ent.movedir)
 
 	if ent.health:
 		ent.takedamage = g_local.damage_t.DAMAGE_YES.value
@@ -1302,13 +1304,13 @@ def SP_func_door_rotating (ent):
 	ent.moveinfo.accel = ent.accel
 	ent.moveinfo.decel = ent.decel
 	ent.moveinfo.wait = ent.wait
-	q_shared.VectorCopy (ent.s.origin, ent.moveinfo.start_origin)
-	q_shared.VectorCopy (ent.pos1, ent.moveinfo.start_angles)
-	q_shared.VectorCopy (ent.s.origin, ent.moveinfo.end_origin)
-	q_shared.VectorCopy (ent.pos2, ent.moveinfo.end_angles)
+	shared.VectorCopy (ent.s.origin, ent.moveinfo.start_origin)
+	shared.VectorCopy (ent.pos1, ent.moveinfo.start_angles)
+	shared.VectorCopy (ent.s.origin, ent.moveinfo.end_origin)
+	shared.VectorCopy (ent.pos2, ent.moveinfo.end_angles)
 
 	if ent.spawnflags & 16:
-		ent.s.effects |= q_shared.EF_ANIM_ALL
+		ent.s.effects |= shared.EF_ANIM_ALL
 
 	# to simplify logic elsewhere, make non-teamed doors into a team of one
 	if not ent.team:
@@ -1323,7 +1325,7 @@ def SP_func_door_rotating (ent):
 		ent.think = Think_SpawnDoorTrigger
 
 def SP_func_water (self):
-	abs_movedir = q_shared.vec3_origin.copy()
+	abs_movedir = shared_c.vec3_origin.copy()
 
 	g_utils.G_SetMovedir (self.s.angles, self.movedir)
 	self.movetype = g_local.MOVETYPE_PUSH
@@ -1338,23 +1340,23 @@ def SP_func_water (self):
 		self.moveinfo.sound_end = g_main.gi.soundindex  ("world/stp_watr.wav")
 
 	# calculate second position
-	q_shared.VectorCopy (self.s.origin, self.pos1)
+	shared.VectorCopy (self.s.origin, self.pos1)
 	abs_movedir[0] = fabs(self.movedir[0])
 	abs_movedir[1] = fabs(self.movedir[1])
 	abs_movedir[2] = fabs(self.movedir[2])
 	self.moveinfo.distance = abs_movedir[0] * self.size[0] + abs_movedir[1] * self.size[1] + abs_movedir[2] * self.size[2] - g_main.st.lip
-	q_shared.VectorMA (self.pos1, self.moveinfo.distance, self.movedir, self.pos2)
+	shared_c.VectorMA (self.pos1, self.moveinfo.distance, self.movedir, self.pos2)
 
 # if it starts open, switch the positions
 	if self.spawnflags & DOOR_START_OPEN:
-		q_shared.VectorCopy (self.pos2, self.s.origin)
-		q_shared.VectorCopy (self.pos1, self.pos2)
-		q_shared.VectorCopy (self.s.origin, self.pos1)
+		shared.VectorCopy (self.pos2, self.s.origin)
+		shared.VectorCopy (self.pos1, self.pos2)
+		shared.VectorCopy (self.s.origin, self.pos1)
 
-	q_shared.VectorCopy (self.pos1, self.moveinfo.start_origin)
-	q_shared.VectorCopy (self.s.angles, self.moveinfo.start_angles)
-	q_shared.VectorCopy (self.pos2, self.moveinfo.end_origin)
-	q_shared.VectorCopy (self.s.angles, self.moveinfo.end_angles)
+	shared.VectorCopy (self.pos1, self.moveinfo.start_origin)
+	shared.VectorCopy (self.s.angles, self.moveinfo.start_angles)
+	shared.VectorCopy (self.pos2, self.moveinfo.end_origin)
+	shared.VectorCopy (self.s.angles, self.moveinfo.end_angles)
 
 	self.moveinfo.state = STATE_BOTTOM
 
@@ -1378,7 +1380,7 @@ def SP_func_water (self):
 def train_blocked (self, other):
 	if not (other.svflags & _gamemod.SVF_MONSTER) and not other.client:
 		# give it a chance to go away on it's own terms (like gibs)
-		g_combat.T_Damage (other, self, self, q_shared.vec3_origin, other.s.origin, q_shared.vec3_origin, 100000, 1, 0, g_local.MOD_CRUSH)
+		g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, 100000, 1, 0, g_local.MOD_CRUSH)
 		# if it's still there, nuke it
 		if other:
 			g_misc.BecomeExplosion1 (other)
@@ -1390,7 +1392,7 @@ def train_blocked (self, other):
 	if not self.dmg:
 		return
 	self.touch_debounce_time = g_main.level.time + 0.5
-	g_combat.T_Damage (other, self, self, q_shared.vec3_origin, other.s.origin, q_shared.vec3_origin, self.dmg, 1, 0, g_local.MOD_CRUSH)
+	g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, self.dmg, 1, 0, g_local.MOD_CRUSH)
 
 def train_wait (self):
 	if self.target_ent.pathtarget:
@@ -1414,12 +1416,12 @@ def train_wait (self):
 		elif self.spawnflags & TRAIN_TOGGLE:  # && wait < 0
 			train_next (self)
 			self.spawnflags &= ~TRAIN_START_ON
-			q_shared.VectorClear (self.velocity)
+			shared.VectorClear (self.velocity)
 			self.nextthink = 0
 
 		if not (self.flags & g_local.FL_TEAMSLAVE):
 			if self.moveinfo.sound_end:
-				g_main.gi.sound (self, q_shared.CHAN_NO_PHS_ADD + q_shared.CHAN_VOICE, self.moveinfo.sound_end, 1, q_shared.ATTN_STATIC, 0)
+				g_main.gi.sound (self, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, self.moveinfo.sound_end, 1, shared.ATTN_STATIC, 0)
 			self.s.sound = 0
 	else:
 		train_next (self)
@@ -1427,7 +1429,7 @@ def train_wait (self):
 
 def train_next (self):
 	ent = None
-	dest = q_shared.vec3_origin.copy()
+	dest = shared_c.vec3_origin.copy()
 
 	first = True
 	while True:
@@ -1448,9 +1450,9 @@ def train_next (self):
 				g_main.gi.dprintf ("connected teleport path_corners, see %s at %s\n", ent.classname, g_utils.vtos(ent.s.origin))
 				return
 			first = False
-			q_shared.VectorSubtract (ent.s.origin, self.mins, self.s.origin)
-			q_shared.VectorCopy (self.s.origin, self.s.old_origin)
-			self.s.event = q_shared.EV_OTHER_TELEPORT
+			shared.VectorSubtract (ent.s.origin, self.mins, self.s.origin)
+			shared.VectorCopy (self.s.origin, self.s.old_origin)
+			self.s.event = shared.EV_OTHER_TELEPORT
 			g_main.gi.linkentity (self)
 			continue
 
@@ -1459,27 +1461,27 @@ def train_next (self):
 
 		if not (self.flags & g_local.FL_TEAMSLAVE):
 			if self.moveinfo.sound_start:
-				g_main.gi.sound (self, q_shared.CHAN_NO_PHS_ADD + q_shared.CHAN_VOICE, self.moveinfo.sound_start, 1, q_shared.ATTN_STATIC, 0)
+				g_main.gi.sound (self, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, self.moveinfo.sound_start, 1, shared.ATTN_STATIC, 0)
 			self.s.sound = self.moveinfo.sound_middle
 
-		q_shared.VectorSubtract (ent.s.origin, self.mins, dest)
+		shared.VectorSubtract (ent.s.origin, self.mins, dest)
 		self.moveinfo.state = STATE_TOP
-		q_shared.VectorCopy (self.s.origin, self.moveinfo.start_origin)
-		q_shared.VectorCopy (dest, self.moveinfo.end_origin)
+		shared.VectorCopy (self.s.origin, self.moveinfo.start_origin)
+		shared.VectorCopy (dest, self.moveinfo.end_origin)
 		Move_Calc (self, dest, train_wait)
 		self.spawnflags |= TRAIN_START_ON
 		break
 
 def train_resume (self):
 	ent = None
-	dest = q_shared.vec3_origin.copy()
+	dest = shared_c.vec3_origin.copy()
 
 	ent = self.target_ent
 
-	q_shared.VectorSubtract (ent.s.origin, self.mins, dest)
+	shared.VectorSubtract (ent.s.origin, self.mins, dest)
 	self.moveinfo.state = STATE_TOP
-	q_shared.VectorCopy (self.s.origin, self.moveinfo.start_origin)
-	q_shared.VectorCopy (dest, self.moveinfo.end_origin)
+	shared.VectorCopy (self.s.origin, self.moveinfo.start_origin)
+	shared.VectorCopy (dest, self.moveinfo.end_origin)
 	Move_Calc (self, dest, train_wait)
 	self.spawnflags |= TRAIN_START_ON
 
@@ -1495,7 +1497,7 @@ def func_train_find (self):
 		return
 	self.target = ent.target
 
-	q_shared.VectorSubtract (ent.s.origin, self.mins, self.s.origin)
+	shared.VectorSubtract (ent.s.origin, self.mins, self.s.origin)
 	g_main.gi.linkentity (self)
 
 	# if not triggered, start immediately
@@ -1514,7 +1516,7 @@ def train_use (self, other, activator):
 		if not (self.spawnflags & TRAIN_TOGGLE):
 			return
 		self.spawnflags &= ~TRAIN_START_ON
-		q_shared.VectorClear (self.velocity)
+		shared.VectorClear (self.velocity)
 		self.nextthink = 0
 	else:
 		if self.target_ent:
@@ -1525,7 +1527,7 @@ def train_use (self, other, activator):
 def SP_func_train (self):
 	self.movetype = g_local.MOVETYPE_PUSH
 
-	q_shared.VectorClear (self.s.angles)
+	shared.VectorClear (self.s.angles)
 	self.blocked = train_blocked
 	if self.spawnflags & TRAIN_BLOCK_STOPS:
 		self.dmg = 0
@@ -1657,7 +1659,7 @@ def SP_func_conveyor (self):
 
 def door_secret_use (self, other, activator):
 	# make sure we're not already moving
-	if not q_shared.VectorCompare(self.s.origin, q_shared.vec3_origin):
+	if not shared_c.VectorCompare(self.s.origin, shared_c.vec3_origin):
 		return
 
 	Move_Calc (self, self.pos1, door_secret_move1)
@@ -1684,7 +1686,7 @@ def door_secret_move5 (self):
 	self.think = door_secret_move6
 
 def door_secret_move6 (self):
-	Move_Calc (self, q_shared.vec3_origin, door_secret_done)
+	Move_Calc (self, shared_c.vec3_origin, door_secret_done)
 
 def door_secret_done (self):
 	if not (self.targetname) or (self.spawnflags & SECRET_ALWAYS_SHOOT):
@@ -1695,7 +1697,7 @@ def door_secret_done (self):
 def door_secret_blocked (self, other):
 	if not (other.svflags & _gamemod.SVF_MONSTER) and not other.client:
 		# give it a chance to go away on it's own terms (like gibs)
-		g_combat.T_Damage (other, self, self, q_shared.vec3_origin, other.s.origin, q_shared.vec3_origin, 100000, 1, 0, g_local.MOD_CRUSH)
+		g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, 100000, 1, 0, g_local.MOD_CRUSH)
 		# if it's still there, nuke it
 		if other:
 			g_misc.BecomeExplosion1 (other)
@@ -1705,16 +1707,16 @@ def door_secret_blocked (self, other):
 		return
 	self.touch_debounce_time = g_main.level.time + 0.5
 
-	g_combat.T_Damage (other, self, self, q_shared.vec3_origin, other.s.origin, q_shared.vec3_origin, self.dmg, 1, 0, g_local.MOD_CRUSH)
+	g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, self.dmg, 1, 0, g_local.MOD_CRUSH)
 
 def door_secret_die (self, inflictor, attacker, damage, point):
 	self.takedamage = g_local.damage_t.DAMAGE_NO.value
 	door_secret_use (self, attacker, attacker)
 
 def SP_func_door_secret (ent):
-	forward = q_shared.vec3_origin.copy()
-	right = q_shared.vec3_origin.copy()
-	up = q_shared.vec3_origin.copy()
+	forward = shared_c.vec3_origin.copy()
+	right = shared_c.vec3_origin.copy()
+	up = shared_c.vec3_origin.copy()
 	side = 0.0
 	width = 0.0
 	length = 0.0
@@ -1744,19 +1746,19 @@ def SP_func_door_secret (ent):
 	ent.moveinfo.accel = ent.moveinfo.decel = ent.moveinfo.speed = 50
 
 	# calculate positions
-	q_shared.AngleVectors (ent.s.angles, forward, right, up)
-	q_shared.VectorClear (ent.s.angles)
+	shared_c.AngleVectors (ent.s.angles, forward, right, up)
+	shared.VectorClear (ent.s.angles)
 	side = 1.0 - (ent.spawnflags & SECRET_1ST_LEFT)
 	if ent.spawnflags & SECRET_1ST_DOWN:
-		width = fabs(q_shared.DotProduct(up, ent.size))
+		width = fabs(shared.DotProduct(up, ent.size))
 	else:
-		width = fabs(q_shared.DotProduct(right, ent.size))
-	length = fabs(q_shared.DotProduct(forward, ent.size))
+		width = fabs(shared.DotProduct(right, ent.size))
+	length = fabs(shared.DotProduct(forward, ent.size))
 	if ent.spawnflags & SECRET_1ST_DOWN:
-		q_shared.VectorMA (ent.s.origin, -1 * width, up, ent.pos1)
+		shared_c.VectorMA (ent.s.origin, -1 * width, up, ent.pos1)
 	else:
-		q_shared.VectorMA (ent.s.origin, side * width, right, ent.pos1)
-	q_shared.VectorMA (ent.pos1, length, forward, ent.pos2)
+		shared_c.VectorMA (ent.s.origin, side * width, right, ent.pos1)
+	shared_c.VectorMA (ent.pos1, length, forward, ent.pos2)
 
 	if ent.health:
 		ent.takedamage = g_local.damage_t.DAMAGE_YES.value

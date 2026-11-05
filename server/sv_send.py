@@ -23,8 +23,16 @@ import struct
 import numpy as np
 from linux import q_shlinux
 from server import sv_init, sv_main, sv_user, sv_ents
-from qcommon import qcommon, net_chan, cmodel, common
-from game import q_shared, game
+from qcommon import net_chan, cmodel
+from game import game
+from common.header import common as common_h
+from common.header import shared
+from common.shared import shared as shared_c
+from common import clientserver
+from common import filesystem
+from common import frame
+from common import movemsg
+from common import szone
 """
 // sv_main.c -- server main program
 
@@ -37,7 +45,7 @@ Com_Printf redirection
 
 =============================================================================
 """
-SV_OUTPUTBUF_LENGTH = qcommon.MAX_MSGLEN - 16
+SV_OUTPUTBUF_LENGTH = common_h.MAX_MSGLEN - 16
 sv_outputbuf = "" #char [SV_OUTPUTBUF_LENGTH]
 
 """
@@ -47,14 +55,14 @@ SV_FlushRedirect
 """
 def SV_FlushRedirect (sv_redirected, outputbuf): #int, char *
 
-	if sv_redirected == common.RD_PACKET:
+	if sv_redirected == clientserver.RD_PACKET:
 	
-		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, net_chan.net_from, "print\n{}".format(outputbuf))
-	elif sv_redirected == common.RD_CLIENT:
+		net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, net_chan.net_from, "print\n{}".format(outputbuf))
+	elif sv_redirected == clientserver.RD_CLIENT:
 	
-		common.MSG_WriteByte (sv_main.sv_client.netchan.message, qcommon.svc_ops_e.svc_print.value)
-		common.MSG_WriteByte (sv_main.sv_client.netchan.message, q_shared.PRINT_HIGH)
-		common.MSG_WriteString (sv_main.sv_client.netchan.message, outputbuf.encode('ascii'))
+		movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, common_h.svc_ops_e.svc_print.value)
+		movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, shared.PRINT_HIGH)
+		movemsg.MSG_WriteString (sv_main.sv_client.netchan.message, outputbuf.encode('ascii'))
 
 """
 /*
@@ -80,9 +88,9 @@ def SV_ClientPrintf (cl, level, fmt, *args): #client_t *, int, char *, ...
 	# va_start (argptr,fmt); vsprintf (string, fmt,argptr); va_end (argptr);
 	msg = fmt % args if args else fmt
 
-	common.MSG_WriteByte (cl.netchan.message, qcommon.svc_ops_e.svc_print.value)
-	common.MSG_WriteByte (cl.netchan.message, level)
-	common.MSG_WriteString (cl.netchan.message, msg.encode('ascii'))
+	movemsg.MSG_WriteByte (cl.netchan.message, common_h.svc_ops_e.svc_print.value)
+	movemsg.MSG_WriteByte (cl.netchan.message, level)
+	movemsg.MSG_WriteString (cl.netchan.message, msg.encode('ascii'))
 
 """
 =================
@@ -97,8 +105,8 @@ def SV_BroadcastPrintf (level, fmt, *args): #int, char *, ...
 	msg = fmt % args if args else fmt
 
 	# echo to console
-	if common.dedicated.value:
-		common.Com_Printf ("{}".format(msg))
+	if frame.dedicated.value:
+		clientserver.Com_Printf ("{}".format(msg))
 
 	for cl in sv_init.svs.clients:
 	
@@ -106,9 +114,9 @@ def SV_BroadcastPrintf (level, fmt, *args): #int, char *, ...
 			continue
 		if cl.state != sv_init.client_state_t.cs_spawned:
 			continue
-		common.MSG_WriteByte (cl.netchan.message, qcommon.svc_ops_e.svc_print.value)
-		common.MSG_WriteByte (cl.netchan.message, level)
-		common.MSG_WriteString (cl.netchan.message, msg.encode('ascii'))
+		movemsg.MSG_WriteByte (cl.netchan.message, common_h.svc_ops_e.svc_print.value)
+		movemsg.MSG_WriteByte (cl.netchan.message, level)
+		movemsg.MSG_WriteString (cl.netchan.message, msg.encode('ascii'))
 
 """
 /*
@@ -123,9 +131,9 @@ def SV_BroadcastCommand (msg): #char *
 	if not sv_init.sv.state:
 		return
 
-	common.MSG_WriteByte(sv_init.sv.multicast, struct.pack("B", qcommon.svc_ops_e.svc_stufftext.value))
-	common.MSG_WriteString(sv_init.sv.multicast, msg.encode('ascii'))
-	SV_Multicast (None, q_shared.multicast_t.MULTICAST_ALL_R)
+	movemsg.MSG_WriteByte(sv_init.sv.multicast, struct.pack("B", common_h.svc_ops_e.svc_stufftext.value))
+	movemsg.MSG_WriteString(sv_init.sv.multicast, msg.encode('ascii'))
+	SV_Multicast (None, shared.multicast_t.MULTICAST_ALL_R)
 
 
 """
@@ -156,7 +164,7 @@ def SV_Multicast (origin, to): #vec3_t, multicast_t
 	reliable = False
 	mask = None
 
-	if to != q_shared.multicast_t.MULTICAST_ALL_R.value and to != q_shared.multicast_t.MULTICAST_ALL.value:
+	if to != shared.multicast_t.MULTICAST_ALL_R.value and to != shared.multicast_t.MULTICAST_ALL.value:
 	
 		leafnum = cmodel.CM_PointLeafnum (origin)
 		area1 = cmodel.CM_LeafArea (leafnum)
@@ -167,34 +175,34 @@ def SV_Multicast (origin, to): #vec3_t, multicast_t
 	
 	# if doing a serverrecord, store everything
 	if sv_init.svs.demofile:
-		common.SZ_Write(sv_init.svs.demo_multicast, sv_init.sv.multicast.data)
+		szone.SZ_Write(sv_init.svs.demo_multicast, sv_init.sv.multicast.data)
 	
-	if to == q_shared.multicast_t.MULTICAST_ALL_R.value:
+	if to == shared.multicast_t.MULTICAST_ALL_R.value:
 		reliable = True	# intentional fallthrough
-	if to == q_shared.multicast_t.MULTICAST_ALL_R.value or to == q_shared.multicast_t.MULTICAST_ALL.value:
+	if to == shared.multicast_t.MULTICAST_ALL_R.value or to == shared.multicast_t.MULTICAST_ALL.value:
 		leafnum = 0
 		mask = None
 
-	if to == q_shared.multicast_t.MULTICAST_PHS_R.value:
+	if to == shared.multicast_t.MULTICAST_PHS_R.value:
 		reliable = True	# intentional fallthrough
-	if to == q_shared.multicast_t.MULTICAST_PHS_R.value or to == q_shared.multicast_t.MULTICAST_PHS.value:
+	if to == shared.multicast_t.MULTICAST_PHS_R.value or to == shared.multicast_t.MULTICAST_PHS.value:
 		leafnum = cmodel.CM_PointLeafnum (origin)
 		cluster = cmodel.CM_LeafCluster (leafnum)
 		mask = cmodel.CM_ClusterPHS (cluster)
 
-	if to == q_shared.multicast_t.MULTICAST_PVS_R.value:
+	if to == shared.multicast_t.MULTICAST_PVS_R.value:
 		reliable = True	# intentional fallthrough
-	if to == q_shared.multicast_t.MULTICAST_PVS_R.value or to == q_shared.multicast_t.MULTICAST_PVS.value:
+	if to == shared.multicast_t.MULTICAST_PVS_R.value or to == shared.multicast_t.MULTICAST_PVS.value:
 		leafnum = cmodel.CM_PointLeafnum (origin)
 		cluster = cmodel.CM_LeafCluster (leafnum)
 		mask = cmodel.CM_ClusterPVS (cluster)
 
-	if to != q_shared.multicast_t.MULTICAST_ALL_R.value and to != q_shared.multicast_t.MULTICAST_ALL.value and \
-		to != q_shared.multicast_t.MULTICAST_PHS_R.value and to != q_shared.multicast_t.MULTICAST_PHS.value and \
-		to != q_shared.multicast_t.MULTICAST_PVS_R.value and to != q_shared.multicast_t.MULTICAST_PVS.value:
+	if to != shared.multicast_t.MULTICAST_ALL_R.value and to != shared.multicast_t.MULTICAST_ALL.value and \
+		to != shared.multicast_t.MULTICAST_PHS_R.value and to != shared.multicast_t.MULTICAST_PHS.value and \
+		to != shared.multicast_t.MULTICAST_PVS_R.value and to != shared.multicast_t.MULTICAST_PVS.value:
 
 		mask = None
-		common.Com_Error (qcommon.ERR_FATAL, "SV_Multicast: bad to:{}".format(to))
+		clientserver.Com_Error (common_h.ERR_FATAL, "SV_Multicast: bad to:{}".format(to))
 
 	# send the data to all relevent clients
 	for client in sv_init.svs.clients:
@@ -215,11 +223,11 @@ def SV_Multicast (origin, to): #vec3_t, multicast_t
 				continue
 
 		if reliable:
-			common.SZ_Write(client.netchan.message, sv_init.sv.multicast.data)
+			szone.SZ_Write(client.netchan.message, sv_init.sv.multicast.data)
 		else:
-			common.SZ_Write(client.datagram, sv_init.sv.multicast.data)
+			szone.SZ_Write(client.datagram, sv_init.sv.multicast.data)
 	
-	common.SZ_Clear(sv_init.sv.multicast)
+	szone.SZ_Clear(sv_init.sv.multicast)
 
 
 
@@ -257,16 +265,16 @@ def SV_StartSound (origin, entity, channel, soundindex, volume, attenuation, tim
 	#vec3_t origin_v
 
 	if volume < 0 or volume > 1.0:
-		common.Com_Error (qcommon.ERR_FATAL, "SV_StartSound: volume = %f", volume)
+		clientserver.Com_Error (common_h.ERR_FATAL, "SV_StartSound: volume = %f", volume)
 
 	if attenuation < 0 or attenuation > 4:
-		common.Com_Error (qcommon.ERR_FATAL, "SV_StartSound: attenuation = %f", attenuation)
+		clientserver.Com_Error (common_h.ERR_FATAL, "SV_StartSound: attenuation = %f", attenuation)
 
 	#if channel < 0 or channel > 15
 	#	Com_Error (ERR_FATAL, "SV_StartSound: channel = %i", channel)
 
 	if timeofs < 0 or timeofs > 0.255:
-		common.Com_Error (qcommon.ERR_FATAL, "SV_StartSound: timeofs = %f", timeofs)
+		clientserver.Com_Error (common_h.ERR_FATAL, "SV_StartSound: timeofs = %f", timeofs)
 
 	ent = sv_init.NUM_FOR_EDICT(entity)
 
@@ -279,23 +287,23 @@ def SV_StartSound (origin, entity, channel, soundindex, volume, attenuation, tim
 	sendchan = (ent<<3) | (channel&7)
 
 	flags = 0
-	if volume != qcommon.DEFAULT_SOUND_PACKET_VOLUME:
-		flags |= qcommon.SND_VOLUME
-	if attenuation != qcommon.DEFAULT_SOUND_PACKET_ATTENUATION:
-		flags |= qcommon.SND_ATTENUATION
+	if volume != common_h.DEFAULT_SOUND_PACKET_VOLUME:
+		flags |= common_h.SND_VOLUME
+	if attenuation != common_h.DEFAULT_SOUND_PACKET_ATTENUATION:
+		flags |= common_h.SND_ATTENUATION
 
 	# the client doesn't know that bmodels have weird origins
 	# the origin can also be explicitly set
 	if (entity.svflags & game.SVF_NOCLIENT) \
 		or entity.solid == game.SOLID_BSP \
 		or origin is not None:
-		flags |= qcommon.SND_POS
+		flags |= common_h.SND_POS
 
 	# always send the entity number for channel overrides
-	flags |= qcommon.SND_ENT
+	flags |= common_h.SND_ENT
 
 	if timeofs:
-		flags |= qcommon.SND_OFFSET
+		flags |= common_h.SND_OFFSET
 
 	# use the entity origin unless it is a bmodel or explicitly specified
 	origin_v = np.zeros((3,), dtype=np.float32)
@@ -304,41 +312,41 @@ def SV_StartSound (origin, entity, channel, soundindex, volume, attenuation, tim
 			for i in range(3):
 				origin_v[i] = entity.s.origin[i]+0.5*(entity.mins[i]+entity.maxs[i])
 		else:
-			q_shared.VectorCopy (entity.s.origin, origin_v)
+			shared.VectorCopy (entity.s.origin, origin_v)
 		origin = origin_v
 
-	common.MSG_WriteByte (sv_init.sv.multicast, qcommon.svc_ops_e.svc_sound.value)
-	common.MSG_WriteByte (sv_init.sv.multicast, flags)
-	common.MSG_WriteByte (sv_init.sv.multicast, soundindex)
+	movemsg.MSG_WriteByte (sv_init.sv.multicast, common_h.svc_ops_e.svc_sound.value)
+	movemsg.MSG_WriteByte (sv_init.sv.multicast, flags)
+	movemsg.MSG_WriteByte (sv_init.sv.multicast, soundindex)
 
-	if flags & qcommon.SND_VOLUME:
-		common.MSG_WriteByte (sv_init.sv.multicast, volume*255)
-	if flags & qcommon.SND_ATTENUATION:
-		common.MSG_WriteByte (sv_init.sv.multicast, attenuation*64)
-	if flags & qcommon.SND_OFFSET:
-		common.MSG_WriteByte (sv_init.sv.multicast, timeofs*1000)
+	if flags & common_h.SND_VOLUME:
+		movemsg.MSG_WriteByte (sv_init.sv.multicast, volume*255)
+	if flags & common_h.SND_ATTENUATION:
+		movemsg.MSG_WriteByte (sv_init.sv.multicast, attenuation*64)
+	if flags & common_h.SND_OFFSET:
+		movemsg.MSG_WriteByte (sv_init.sv.multicast, timeofs*1000)
 
-	if flags & qcommon.SND_ENT:
-		common.MSG_WriteShort (sv_init.sv.multicast, sendchan)
+	if flags & common_h.SND_ENT:
+		movemsg.MSG_WriteShort (sv_init.sv.multicast, sendchan)
 
-	if flags & qcommon.SND_POS:
-		common.MSG_WritePos (sv_init.sv.multicast, origin)
+	if flags & common_h.SND_POS:
+		movemsg.MSG_WritePos (sv_init.sv.multicast, origin)
 
 	# if the sound doesn't attenuate, send it to everyone
 	# (global radio chatter, voiceovers, etc)
-	if attenuation == q_shared.ATTN_NONE:
+	if attenuation == shared.ATTN_NONE:
 		use_phs = False
 
-	if channel & q_shared.CHAN_RELIABLE:
+	if channel & shared.CHAN_RELIABLE:
 		if use_phs:
-			SV_Multicast (origin, q_shared.multicast_t.MULTICAST_PHS_R)
+			SV_Multicast (origin, shared.multicast_t.MULTICAST_PHS_R)
 		else:
-			SV_Multicast (origin, q_shared.multicast_t.MULTICAST_ALL_R)
+			SV_Multicast (origin, shared.multicast_t.MULTICAST_ALL_R)
 	else:
 		if use_phs:
-			SV_Multicast (origin, q_shared.multicast_t.MULTICAST_PHS)
+			SV_Multicast (origin, shared.multicast_t.MULTICAST_PHS)
 		else:
-			SV_Multicast (origin, q_shared.multicast_t.MULTICAST_ALL)
+			SV_Multicast (origin, shared.multicast_t.MULTICAST_ALL)
 
 """
 /*
@@ -359,11 +367,11 @@ def SV_SendClientDatagram (client)-> bool: #sv_init.client_t
 
 	#byte		msg_buf[qcommon.MAX_MSGLEN];
 	#sizebuf_t	msg;
-	msg = qcommon.sizebuf_t()
+	msg = common_h.sizebuf_t()
 
 	sv_ents.SV_BuildClientFrame (client)
 
-	common.SZ_Init (msg, qcommon.MAX_MSGLEN)
+	szone.SZ_Init (msg, common_h.MAX_MSGLEN)
 	msg.allowoverflow = True
 
 	# send over all the relevant entity_state_t
@@ -375,15 +383,15 @@ def SV_SendClientDatagram (client)-> bool: #sv_init.client_t
 	# it is necessary for this to be after the WriteEntities
 	# so that entity references will be current
 	if client.datagram.overflowed:
-		common.Com_Printf ("WARNING: datagram overflowed for {}\n".format(client.name))
+		clientserver.Com_Printf ("WARNING: datagram overflowed for {}\n".format(client.name))
 	else:
-		common.SZ_Write (msg, bytes(client.datagram.data[:client.datagram.cursize]))
-	common.SZ_Clear (client.datagram)
+		szone.SZ_Write (msg, bytes(client.datagram.data[:client.datagram.cursize]))
+	szone.SZ_Clear (client.datagram)
 
 	if msg.overflowed:
 		# must have room left for the packet header
-		common.Com_Printf ("WARNING: msg overflowed for {}\n".format(client.name))
-		common.SZ_Clear (msg)
+		clientserver.Com_Printf ("WARNING: msg overflowed for {}\n".format(client.name))
+		szone.SZ_Clear (msg)
 
 	# send the datagram
 	net_chan.Netchan_Transmit (client.netchan, bytes(msg.data[:msg.cursize]))
@@ -404,8 +412,8 @@ def SV_DemoCompleted ():
 
 	if sv_init.sv.demofile:
 	
-		sv_init.sv.demofile.close()
-		sv_init.sv.demofile = None
+		filesystem.FS_FCloseFile (sv_init.sv.demofile)
+		sv_init.sv.demofile = 0
 	
 	sv_user.SV_Nextserver ()
 
@@ -459,28 +467,28 @@ def SV_SendClientMessages ():
 	msglen = 0 # int
 
 	# read the next demo message if needed
-	if sv_init.sv.state == sv_init.server_state_t.ss_demo and sv_init.sv.demofile is not None:
+	if sv_init.sv.state == sv_init.server_state_t.ss_demo and sv_init.sv.demofile:
 	
 		if sv_main.sv_paused.value != 0:
 			msglen = 0
 		else:
 			# get the next message
-			data = sv_init.sv.demofile.read(4)
+			data = filesystem.FS_FRead (4, 1, sv_init.sv.demofile)
 			r = 1 if len(data) == 4 else 0 # r = fread (&msglen, 4, 1, sv.demofile);
 			if r != 1:
 			
 				SV_DemoCompleted ()
 				return
 			
-			msglen = q_shared.LittleSLong (data)
+			msglen = shared_c.LittleSLong (data)
 			if msglen == -1:
 			
 				SV_DemoCompleted ()
 				return
 			
-			if msglen > qcommon.MAX_MSGLEN:
-				common.Com_Error (q_shared.ERR_DROP, "SV_SendClientMessages: msglen > MAX_MSGLEN")
-			msgbuf = sv_init.sv.demofile.read(msglen)
+			if msglen > common_h.MAX_MSGLEN:
+				clientserver.Com_Error (shared.ERR_DROP, "SV_SendClientMessages: msglen > MAX_MSGLEN")
+			msgbuf = filesystem.FS_FRead (msglen, 1, sv_init.sv.demofile)
 			r = 1 if len(msgbuf) == msglen else 0 # r = fread (msgbuf, msglen, 1, sv.demofile);
 			if r != 1:
 			
@@ -500,9 +508,9 @@ def SV_SendClientMessages ():
 		# drop the client
 		if c.netchan.message.overflowed:
 		
-			common.SZ_Clear (c.netchan.message)
-			common.SZ_Clear (c.datagram)
-			SV_BroadcastPrintf (q_shared.PRINT_HIGH, "%s overflowed\n", c.name)
+			szone.SZ_Clear (c.netchan.message)
+			szone.SZ_Clear (c.datagram)
+			SV_BroadcastPrintf (shared.PRINT_HIGH, "%s overflowed\n", c.name)
 			sv_main.SV_DropClient (c)
 		
 		if (sv_init.sv.state == sv_init.server_state_t.ss_cinematic 

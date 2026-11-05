@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import random as _r
-from game import q_shared
+pass
 from game import g_local
 from game import g_main
 from game import g_utils
@@ -41,12 +41,13 @@ AMMO_ROCKETS  = ammo_t.AMMO_ROCKETS.value
 AMMO_GRENADES = ammo_t.AMMO_GRENADES.value
 AMMO_CELLS    = ammo_t.AMMO_CELLS.value
 AMMO_SLUGS    = ammo_t.AMMO_SLUGS.value
-from game.q_shared import (Q_stricmp, EF_ROTATE, RF_GLOW, CHAN_ITEM, CHAN_AUTO,
-	ATTN_NORM, PRINT_HIGH, CS_ITEMS, STAT_PICKUP_ICON, STAT_PICKUP_STRING,
-	STAT_SELECTED_ITEM, MASK_SOLID, CONTENTS_SOLID, MAX_QPATH, EV_ITEM_RESPAWN)
+from common.shared.shared import Q_stricmp
+from common.header.shared import EF_ROTATE, RF_GLOW, CHAN_ITEM, CHAN_AUTO, ATTN_NORM, PRINT_HIGH, CS_ITEMS, STAT_PICKUP_ICON, STAT_PICKUP_STRING, STAT_SELECTED_ITEM, MASK_SOLID, CONTENTS_SOLID, MAX_QPATH, EV_ITEM_RESPAWN
 from game.g_local import (MOVETYPE_TOSS, FL_RESPAWN, FL_POWER_ARMOR,
 	FL_TEAMSLAVE, FRAMETIME)
 from game.game import SVF_NOCLIENT
+from common.header import shared
+from common.shared import shared as shared_c
 
 SOLID_TRIGGER = solid_t.SOLID_TRIGGER.value
 SOLID_BBOX = solid_t.SOLID_BBOX.value
@@ -218,7 +219,7 @@ def Pickup_Powerup (ent, other):
 	if g_main.deathmatch.value:
 		if not (ent.spawnflags & DROPPED_ITEM):
 			SetRespawn (ent, ent.item.quantity)
-		if (int(g_main.dmflags.value) & q_shared.DF_INSTANT_ITEMS) or ((ent.item.use == Use_Quad) and (ent.spawnflags & DROPPED_PLAYER_ITEM)):
+		if (int(g_main.dmflags.value) & shared.DF_INSTANT_ITEMS) or ((ent.item.use == Use_Quad) and (ent.spawnflags & DROPPED_PLAYER_ITEM)):
 			if (ent.item.use == Use_Quad) and (ent.spawnflags & DROPPED_PLAYER_ITEM):
 				global quad_drop_timeout_hack
 				quad_drop_timeout_hack = (ent.nextthink - g_main.level.time) / FRAMETIME
@@ -517,7 +518,7 @@ def Pickup_Ammo (ent, other):
 	#int oldcount, count
 	#qboolean weapon
 	weapon = (ent.item.flags & IT_WEAPON)
-	if weapon and (int(g_main.dmflags.value) & q_shared.DF_INFINITE_AMMO):
+	if weapon and (int(g_main.dmflags.value) & shared.DF_INFINITE_AMMO):
 		count = 1000
 	elif ent.count:
 		count = ent.count
@@ -824,8 +825,8 @@ def Drop_Item (ent, item):
 	dropped.spawnflags = DROPPED_ITEM
 	dropped.s.effects = item.world_model_flags
 	dropped.s.renderfx = RF_GLOW
-	q_shared.VectorSet (dropped.mins, -15, -15, -15)
-	q_shared.VectorSet (dropped.maxs, 15, 15, 15)
+	shared.VectorSet (dropped.mins, -15, -15, -15)
+	shared.VectorSet (dropped.maxs, 15, 15, 15)
 	g_main.gi.setmodel (dropped, dropped.item.world_model)
 	dropped.solid = SOLID_TRIGGER
 	dropped.movetype = MOVETYPE_TOSS
@@ -834,17 +835,17 @@ def Drop_Item (ent, item):
 
 	if ent.client:
 		#trace_t trace
-		q_shared.AngleVectors (ent.client.v_angle, forward, right, None)
-		q_shared.VectorSet(offset, 24, 0, -16)
+		shared_c.AngleVectors (ent.client.v_angle, forward, right, None)
+		shared.VectorSet(offset, 24, 0, -16)
 		g_utils.G_ProjectSource (ent.s.origin, offset, forward, right, dropped.s.origin)
 		trace = g_main.gi.trace (ent.s.origin, dropped.mins, dropped.maxs,
 			dropped.s.origin, ent, CONTENTS_SOLID)
-		q_shared.VectorCopy (trace.endpos, dropped.s.origin)
+		shared.VectorCopy (trace.endpos, dropped.s.origin)
 	else:
-		q_shared.AngleVectors (ent.s.angles, forward, right, None)
-		q_shared.VectorCopy (ent.s.origin, dropped.s.origin)
+		shared_c.AngleVectors (ent.s.angles, forward, right, None)
+		shared.VectorCopy (ent.s.origin, dropped.s.origin)
 
-	q_shared.VectorScale (forward, 100, dropped.velocity)
+	shared_c.VectorScale (forward, 100, dropped.velocity)
 	dropped.velocity[2] = 300
 
 	dropped.think = drop_make_touchable
@@ -880,9 +881,9 @@ def droptofloor (ent):
 	dest = [0, 0, 0]
 
 	v = g_utils.tv(-15, -15, -15)
-	q_shared.VectorCopy (v, ent.mins)
+	shared.VectorCopy (v, ent.mins)
 	v = g_utils.tv(15, 15, 15)
-	q_shared.VectorCopy (v, ent.maxs)
+	shared.VectorCopy (v, ent.maxs)
 
 	if ent.model:
 		g_main.gi.setmodel (ent, ent.model)
@@ -893,7 +894,7 @@ def droptofloor (ent):
 	ent.touch = Touch_Item
 
 	v = g_utils.tv(0, 0, -128)
-	q_shared.VectorAdd (ent.s.origin, v, dest)
+	shared.VectorAdd (ent.s.origin, v, dest)
 
 	tr = g_main.gi.trace (ent.s.origin, ent.mins, ent.maxs, dest, ent, MASK_SOLID)
 	if tr.startsolid:
@@ -901,7 +902,7 @@ def droptofloor (ent):
 		g_utils.G_FreeEdict (ent)
 		return
 
-	q_shared.VectorCopy (tr.endpos, ent.s.origin)
+	shared.VectorCopy (tr.endpos, ent.s.origin)
 
 	if ent.team:
 		ent.flags &= ~FL_TEAMSLAVE
@@ -1000,19 +1001,19 @@ def SpawnItem (ent, item):
 
 	# some items will be prevented in deathmatch
 	if g_main.deathmatch.value:
-		if int(g_main.dmflags.value) & q_shared.DF_NO_ARMOR:
+		if int(g_main.dmflags.value) & shared.DF_NO_ARMOR:
 			if item.pickup == Pickup_Armor or item.pickup == Pickup_PowerArmor:
 				g_utils.G_FreeEdict (ent)
 				return
-		if int(g_main.dmflags.value) & q_shared.DF_NO_ITEMS:
+		if int(g_main.dmflags.value) & shared.DF_NO_ITEMS:
 			if item.pickup == Pickup_Powerup:
 				g_utils.G_FreeEdict (ent)
 				return
-		if int(g_main.dmflags.value) & q_shared.DF_NO_HEALTH:
+		if int(g_main.dmflags.value) & shared.DF_NO_HEALTH:
 			if item.pickup == Pickup_Health or item.pickup == Pickup_Adrenaline or item.pickup == Pickup_AncientHead:
 				g_utils.G_FreeEdict (ent)
 				return
-		if int(g_main.dmflags.value) & q_shared.DF_INFINITE_AMMO:
+		if int(g_main.dmflags.value) & shared.DF_INFINITE_AMMO:
 			if (item.flags == IT_AMMO) or (ent.classname == "weapon_bfg"):
 				g_utils.G_FreeEdict (ent)
 				return
@@ -1294,7 +1295,7 @@ itemlist = [
 
 	_mk("key_commander_head", Pickup_Key, None, Drop_General, None,
 		"items/pkup.wav", "models/monsters/commandr/head/tris.md2",
-		q_shared.EF_GIB, None, "k_comhead", "Commander's Head", 2, 0, None,
+		shared.EF_GIB, None, "k_comhead", "Commander's Head", 2, 0, None,
 		IT_STAY_COOP|IT_KEY, 0, None, 0, ""),
 
 	_mk("key_airstrike_target", Pickup_Key, None, Drop_General, None,
@@ -1319,7 +1320,7 @@ itemlist = [
 */
 """
 def SP_item_health (self):
-	if g_main.deathmatch.value and (int(g_main.dmflags.value) & q_shared.DF_NO_HEALTH):
+	if g_main.deathmatch.value and (int(g_main.dmflags.value) & shared.DF_NO_HEALTH):
 		g_utils.G_FreeEdict (self)
 		return
 
@@ -1334,7 +1335,7 @@ def SP_item_health (self):
 */
 """
 def SP_item_health_small (self):
-	if g_main.deathmatch.value and (int(g_main.dmflags.value) & q_shared.DF_NO_HEALTH):
+	if g_main.deathmatch.value and (int(g_main.dmflags.value) & shared.DF_NO_HEALTH):
 		g_utils.G_FreeEdict (self)
 		return
 
@@ -1350,7 +1351,7 @@ def SP_item_health_small (self):
 */
 """
 def SP_item_health_large (self):
-	if g_main.deathmatch.value and (int(g_main.dmflags.value) & q_shared.DF_NO_HEALTH):
+	if g_main.deathmatch.value and (int(g_main.dmflags.value) & shared.DF_NO_HEALTH):
 		g_utils.G_FreeEdict (self)
 		return
 
@@ -1365,7 +1366,7 @@ def SP_item_health_large (self):
 */
 """
 def SP_item_health_mega (self):
-	if g_main.deathmatch.value and (int(g_main.dmflags.value) & q_shared.DF_NO_HEALTH):
+	if g_main.deathmatch.value and (int(g_main.dmflags.value) & shared.DF_NO_HEALTH):
 		g_utils.G_FreeEdict (self)
 		return
 

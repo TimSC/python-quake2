@@ -19,10 +19,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from __future__ import annotations
 
-from qcommon import cmd, cvar, common, qcommon, files
+pass
 import os
 from linux import vid_so
 from client import cl_scrn, cl_main, client, keys, menu
+from common.header import common as common_h
+from common import clientserver
+from common import cmdparser
+from common import cvar
+from common import filesystem
 """
 // console.c
 
@@ -107,12 +112,12 @@ def Con_ToggleConsole_f ():
 	cl_scrn.SCR_EndLoadingPlaque ()	# get rid of loading plaque
 	
 	if cl_main.cl.attractloop:
-		cmd.Cbuf_AddText ("killserver\n")
+		cmdparser.Cbuf_AddText ("killserver\n")
 		return
 	
 	if cl_main.cls.state == client.connstate_t.ca_disconnected:
 		# start the demo loop again
-		cmd.Cbuf_AddText ("d1\n")
+		cmdparser.Cbuf_AddText ("d1\n")
 		return
 	
 	Key_ClearTyping ()
@@ -129,7 +134,7 @@ def Con_ToggleConsole_f ():
 		cl_main.cls.key_dest = client.keydest_t.key_console
 
 		if cvar.Cvar_VariableValue ("maxclients") == 1\
-			and common.Com_ServerState ():
+			and clientserver.Com_ServerState ():
 
 			cvar.Cvar_Set ("paused", "1")
 	
@@ -158,18 +163,18 @@ def Con_Clear_f ():
 	for i, li in enumerate(con.text):
 		con.text[i] = ""
 def Con_Dump_f ():
-	if cmd.Cmd_Argc() != 2:
-		common.Com_Printf ("usage: condump <filename>\n")
+	if cmdparser.Cmd_Argc() != 2:
+		clientserver.Com_Printf ("usage: condump <filename>\n")
 		return
 
-	name = os.path.join(files.FS_Gamedir(), "{}.txt".format(cmd.Cmd_Argv(1)))
+	name = os.path.join(filesystem.FS_Gamedir(), "{}.txt".format(cmdparser.Cmd_Argv(1)))
 
-	common.Com_Printf ("Dumped console text to {}.\n".format(name))
-	files.FS_CreatePath (name)
+	clientserver.Com_Printf ("Dumped console text to {}.\n".format(name))
+	filesystem.FS_CreatePath (name)
 	try:
 		f = open(name, "w", encoding="ascii", errors="ignore")
 	except OSError:
-		common.Com_Printf ("ERROR: couldn't open.\n")
+		clientserver.Com_Printf ("ERROR: couldn't open.\n")
 		return
 
 	l = con.current - con.totallines + 1
@@ -278,19 +283,19 @@ def Con_Init ():
 
 	Con_CheckResize ()
 	
-	common.Com_Printf ("Console initialized.\n")
+	clientserver.Com_Printf ("Console initialized.\n")
 
 	#
 	# register our commands
 	#
 	con_notifytime = cvar.Cvar_Get ("con_notifytime", "3", 0);
 
-	cmd.Cmd_AddCommand ("toggleconsole", Con_ToggleConsole_f)
-	cmd.Cmd_AddCommand ("togglechat", Con_ToggleChat_f)
-	cmd.Cmd_AddCommand ("messagemode", Con_MessageMode_f)
-	cmd.Cmd_AddCommand ("messagemode2", Con_MessageMode2_f)
-	cmd.Cmd_AddCommand ("clear", Con_Clear_f)
-	cmd.Cmd_AddCommand ("condump", Con_Dump_f)
+	cmdparser.Cmd_AddCommand ("toggleconsole", Con_ToggleConsole_f)
+	cmdparser.Cmd_AddCommand ("togglechat", Con_ToggleChat_f)
+	cmdparser.Cmd_AddCommand ("messagemode", Con_MessageMode_f)
+	cmdparser.Cmd_AddCommand ("messagemode2", Con_MessageMode2_f)
+	cmdparser.Cmd_AddCommand ("clear", Con_Clear_f)
+	cmdparser.Cmd_AddCommand ("condump", Con_Dump_f)
 	con.initialized = True
 
 """
@@ -488,7 +493,7 @@ def Con_DrawConsole (frac): #float
 	cl_scrn.SCR_AddDirtyPoint (vid_so.viddef.width-1,lines-1)
 
 	
-	version = "v{:4.2f}".format(qcommon.VERSION)
+	version = "v{:4.2f}".format(common_h.VERSION)
 	for x in range(5):
 		vid_so.re.DrawChar (vid_so.viddef.width-44+x*8, lines-12, 128 + ord(version[x]) )
 

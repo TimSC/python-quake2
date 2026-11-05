@@ -22,9 +22,18 @@ from __future__ import annotations
 import os
 import struct
 from client import cl_main, cl_scrn, client, snd_dma
-from qcommon import files, cvar, common, qcommon, qfiles
-from game import q_shared
+pass
+pass
 from linux import q_shlinux, vid_so, cd_linux
+from common.header import common as common_h
+from common.header import files as files_h
+from common.header import shared
+from common.shared import shared as shared_c
+from common import clientserver
+from common import cvar
+from common import filesystem
+from common import movemsg
+from common import szone
 """
 #include "client.h"
 
@@ -88,14 +97,14 @@ def SCR_LoadPCX (filename): # char * (byte **pic, byte **palette, int *width, in
 	#
 	# load the file
 	#
-	length, raw = files.FS_LoadFile (filename)
+	length, raw = filesystem.FS_LoadFile (filename)
 	if raw is None:
 		return None, None, None, None	# Com_Printf ("Bad pcx file %s\n", filename);
 
 	#
 	# parse the PCX file
 	#
-	pcx = qfiles.pcx_t()
+	pcx = files_h.pcx_t()
 	pcx.Read(raw) # pcx = (pcx_t *)raw;
 	data = pcx.data # raw = &pcx->data;
 	r = 0 # index into data
@@ -107,7 +116,7 @@ def SCR_LoadPCX (filename): # char * (byte **pic, byte **palette, int *width, in
 		or pcx.xmax >= 640
 		or pcx.ymax >= 480):
 	
-		common.Com_Printf ("Bad pcx file {}\n".format(filename))
+		clientserver.Com_Printf ("Bad pcx file {}\n".format(filename))
 		return None, None, None, None
 	
 	out = bytearray ( (pcx.ymax+1) * (pcx.xmax+1) )
@@ -147,7 +156,7 @@ def SCR_LoadPCX (filename): # char * (byte **pic, byte **palette, int *width, in
 
 	if r + 128 > length: # raw - (byte *)pcx > len
 	
-		common.Com_Printf ("PCX file {} was malformed".format(filename))
+		clientserver.Com_Printf ("PCX file {} was malformed".format(filename))
 		pic = None
 	
 	return pic, palette, width, height
@@ -177,8 +186,9 @@ def SCR_StopCinematic ():
 		vid_so.re.CinematicSetPalette(None)
 		cl_main.cl.cinematicpalette_active = False
 	
-	if cl_main.cl.cinematic_file is not None:
-		cl_main.cl.cinematic_file = None
+	if cl_main.cl.cinematic_file:
+		filesystem.FS_FCloseFile (cl_main.cl.cinematic_file)
+		cl_main.cl.cinematic_file = 0
 
 	if cin.hnodes1 is not None:
 	
@@ -204,8 +214,8 @@ Called when either the cinematic completes, or it is aborted
 def SCR_FinishCinematic ():
 
 	# tell the server to advance to the next map / cinematic
-	common.MSG_WriteByte (cl_main.cls.netchan.message, qcommon.clc_ops_e.clc_stringcmd.value.to_bytes(1, 'big'))
-	common.SZ_Print (cl_main.cls.netchan.message, "nextserver {}\n".format(cl_main.cl.servercount))
+	movemsg.MSG_WriteByte (cl_main.cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value.to_bytes(1, 'big'))
+	szone.SZ_Print (cl_main.cls.netchan.message, "nextserver {}\n".format(cl_main.cl.servercount))
 
 
 """
@@ -270,7 +280,7 @@ def Huff1TableInit ():
 		cin.h_used = [0]*512
 
 		# read a row of counts
-		counts = files.FS_Read (256, cl_main.cl.cinematic_file)
+		counts = filesystem.FS_Read (256, cl_main.cl.cinematic_file)
 		for j in range(256):
 			cin.h_count[j] = counts[j]
 
@@ -355,7 +365,7 @@ def Huff1Decompress (in_data): #cblock_t (returns cblock_t)
 
 	if input_p != len(in_data) and input_p != len(in_data)+1:
 	
-		common.Com_Printf ("Decompression overread by %i", input_p - len(in_data))
+		clientserver.Com_Printf ("Decompression overread by %i", input_p - len(in_data))
 	
 	#out.count = out_p - out.data;
 
@@ -382,37 +392,37 @@ def SCR_ReadNextFrame (): #byte *
 
 	# read the next frame
 	try:
-		command = cl_main.cl.cinematic_file.read(4)
+		command = filesystem.FS_Read (4, cl_main.cl.cinematic_file)
 	except:
 		try:
 			# we'll give it one more chance
-			command = cl_main.cl.cinematic_file.read(4)
+			command = filesystem.FS_Read (4, cl_main.cl.cinematic_file)
 		except:
 			return None
 
-	command = q_shared.LittleLong(command)
+	command = shared_c.LittleLong(command)
 	if command == 2:
 		return None	# last frame marker
 
 	if command == 1:
 		# read palette
-		cl_main.cl.cinematicpalette = files.FS_Read (768, cl_main.cl.cinematic_file)
+		cl_main.cl.cinematicpalette = filesystem.FS_Read (768, cl_main.cl.cinematic_file)
 		cl_main.cl.cinematicpalette_active=False	# dubious....  exposes an edge case
 	
 
 	# decompress the next frame
-	size = files.FS_Read (4, cl_main.cl.cinematic_file)
-	size = q_shared.LittleLong(size)
+	size = filesystem.FS_Read (4, cl_main.cl.cinematic_file)
+	size = shared_c.LittleLong(size)
 	if size > 0x20000 or size < 1:
-		common.Com_Error (q_shared.ERR_DROP, "Bad compressed frame size")
-	compressed = files.FS_Read (size, cl_main.cl.cinematic_file)
+		clientserver.Com_Error (shared.ERR_DROP, "Bad compressed frame size")
+	compressed = filesystem.FS_Read (size, cl_main.cl.cinematic_file)
 
 	# read sound
 	start = cl_main.cl.cinematicframe*cin.s_rate//14
 	end = (cl_main.cl.cinematicframe+1)*cin.s_rate//14
 	count = end - start
 
-	samples = files.FS_Read (count*cin.s_width*cin.s_channels, cl_main.cl.cinematic_file)
+	samples = filesystem.FS_Read (count*cin.s_width*cin.s_channels, cl_main.cl.cinematic_file)
 
 	snd_dma.S_RawSamples (count, cin.s_rate, cin.s_width, cin.s_channels, samples)
 
@@ -457,7 +467,7 @@ def SCR_RunCinematic ():
 		return
 	if frame > cl_main.cl.cinematicframe+1:
 	
-		common.Com_Printf ("Dropped frame: {} > {}\n".format(frame, cl_main.cl.cinematicframe+1))
+		clientserver.Com_Printf ("Dropped frame: {} > {}\n".format(frame, cl_main.cl.cinematicframe+1))
 		cl_main.cl.cinematictime = cl_main.cls.realtime - cl_main.cl.cinematicframe*1000//14
 	
 	if cin.pic is not None:
@@ -554,7 +564,7 @@ def SCR_PlayCinematic (arg): # char *
 		cl_main.cls.state = client.connstate_t.ca_active
 		if cin.pic is None:
 		
-			common.Com_Printf ("{} not found.\n".format(name))
+			clientserver.Com_Printf ("{} not found.\n".format(name))
 			cl_main.cl.cinematictime = 0
 		
 		else:
@@ -563,8 +573,8 @@ def SCR_PlayCinematic (arg): # char *
 		return
 
 	name = "video/{}".format(arg)
-	file_length, cl_main.cl.cinematic_file = files.FS_FOpenFile (name)
-	if cl_main.cl.cinematic_file is None:
+	file_length, cl_main.cl.cinematic_file = filesystem.FS_FOpenFile (name)
+	if not cl_main.cl.cinematic_file:
 	
 #		Com_Error (ERR_DROP, "Cinematic %s not found.\n", name);
 		SCR_FinishCinematic ()
@@ -575,17 +585,17 @@ def SCR_PlayCinematic (arg): # char *
 
 	cl_main.cls.state = client.connstate_t.ca_active
 
-	width = files.FS_Read (4, cl_main.cl.cinematic_file)
-	height = files.FS_Read (4, cl_main.cl.cinematic_file)
-	cin.width = q_shared.LittleLong(width)
-	cin.height = q_shared.LittleLong(height)
+	width = filesystem.FS_Read (4, cl_main.cl.cinematic_file)
+	height = filesystem.FS_Read (4, cl_main.cl.cinematic_file)
+	cin.width = shared_c.LittleLong(width)
+	cin.height = shared_c.LittleLong(height)
 
-	cin.s_rate = files.FS_Read (4, cl_main.cl.cinematic_file)
-	cin.s_rate = q_shared.LittleLong(cin.s_rate)
-	cin.s_width = files.FS_Read (4, cl_main.cl.cinematic_file)
-	cin.s_width = q_shared.LittleLong(cin.s_width)
-	cin.s_channels = files.FS_Read (4, cl_main.cl.cinematic_file)
-	cin.s_channels = q_shared.LittleLong(cin.s_channels)
+	cin.s_rate = filesystem.FS_Read (4, cl_main.cl.cinematic_file)
+	cin.s_rate = shared_c.LittleLong(cin.s_rate)
+	cin.s_width = filesystem.FS_Read (4, cl_main.cl.cinematic_file)
+	cin.s_width = shared_c.LittleLong(cin.s_width)
+	cin.s_channels = filesystem.FS_Read (4, cl_main.cl.cinematic_file)
+	cin.s_channels = shared_c.LittleLong(cin.s_channels)
 
 	Huff1TableInit ()
 

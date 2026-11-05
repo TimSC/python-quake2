@@ -19,13 +19,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from __future__ import annotations
 
-from game import q_shared
+pass
 from game import game as _gamemod
 from game import g_local, g_main, g_utils
-from game.q_shared import (CS_NAME, CS_SKY, CS_SKYROTATE, CS_SKYAXIS,
-	CS_CDTRACK, CS_MAXCLIENTS, CS_STATUSBAR, CS_LIGHTS)
+from common.header.shared import CS_NAME, CS_SKY, CS_SKYROTATE, CS_SKYAXIS, CS_CDTRACK, CS_MAXCLIENTS, CS_STATUSBAR, CS_LIGHTS
 import numpy as np
 import math
+from common.shared import shared as shared_c
 """
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
@@ -616,7 +616,7 @@ def ED_NewString (string):
 def ED_ParseField (key, value, ent):
 	#field_t	*f;
 	for name, ftype, flags in fields:
-		if not (flags & g_local.FFL_NOSPAWN) and q_shared.Q_stricmp (name, key) == 0:	# found it
+		if not (flags & g_local.FFL_NOSPAWN) and shared_c.Q_stricmp (name, key) == 0:	# found it
 			if ftype == _ft.F_LSTRING:
 				v = ED_NewString (value)
 			elif ftype == _ft.F_VECTOR:
@@ -665,14 +665,14 @@ def ED_ParseEdict (data, ent, cursor):
 	# go through all the dictionary pairs
 	while 1:
 		# parse key
-		keyname, cursor = q_shared.COM_Parse (data, cursor)
+		keyname, cursor = shared_c.COM_Parse (data, cursor)
 		if keyname == '}':
 			break
 		if cursor is None:
 			g_main.gi.error ("ED_ParseEntity: EOF without closing brace")
 
 		# parse value
-		com_token, cursor = q_shared.COM_Parse (data, cursor)
+		com_token, cursor = shared_c.COM_Parse (data, cursor)
 		if cursor is None:
 			g_main.gi.error ("ED_ParseEntity: EOF without closing brace")
 
@@ -765,7 +765,7 @@ def SpawnEntities (mapname, entities, spawnpoint):
 	# parse ents
 	while 1:
 		# parse the opening brace
-		token, cursor = q_shared.COM_Parse (entities, cursor)
+		token, cursor = shared_c.COM_Parse (entities, cursor)
 		if cursor is None:
 			break
 		if token[0] != '{':
@@ -778,7 +778,7 @@ def SpawnEntities (mapname, entities, spawnpoint):
 		cursor = ED_ParseEdict (entities, ent, cursor)
 
 		# yet another map hack
-		if q_shared.Q_stricmp(g_main.level.mapname, "command") == 0 and q_shared.Q_stricmp(ent.classname, "trigger_once") == 0 and q_shared.Q_stricmp(ent.model, "*27") == 0:
+		if shared_c.Q_stricmp(g_main.level.mapname, "command") == 0 and shared_c.Q_stricmp(ent.classname, "trigger_once") == 0 and shared_c.Q_stricmp(ent.model, "*27") == 0:
 			ent.spawnflags &= ~g_local.SPAWNFLAG_NOT_HARD
 
 		# remove things (except the world) from different skill levels / deathmatch

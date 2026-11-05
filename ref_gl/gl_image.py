@@ -27,10 +27,14 @@ import OpenGL.GL as GL
 import OpenGL.GL.ARB.multitexture as GLmt
 import pygame
 from enum import Enum
-from game import q_shared
+pass
 from ref_gl import gl_rmain, gl_model, gl_draw
-from qcommon import qfiles, qcommon
+pass
 from linux import qgl_linux
+from common.header import common as common_h
+from common.header import files as files_h
+from common.header import shared
+from common.shared import shared as shared_c
 
 class imagetype_t(Enum):
 
@@ -361,7 +365,7 @@ def GL_TextureMode( string ): #char *
 	
 	if foundMode is None:
 	
-		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "bad filter name\n")
+		gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "bad filter name\n")
 		return
 	
 	gl_filter_min = foundMode.minimize
@@ -387,11 +391,11 @@ def GL_TextureAlphaMode( string ): #char *
 	global gl_tex_alpha_format
 
 	for i, mode in enumerate(gl_alpha_modes):
-		if not q_shared.Q_stricmp(mode.name, string):
+		if not shared_c.Q_stricmp(mode.name, string):
 			gl_tex_alpha_format = mode.mode
 			return
 
-	gl_rmain.ri.Con_Printf(q_shared.PRINT_ALL, "bad alpha texture mode name\n")
+	gl_rmain.ri.Con_Printf(shared.PRINT_ALL, "bad alpha texture mode name\n")
 
 # GL_TextureSolidMode
 def GL_TextureSolidMode( string ): #char *
@@ -399,11 +403,11 @@ def GL_TextureSolidMode( string ): #char *
 	global gl_tex_solid_format
 
 	for i, mode in enumerate(gl_solid_modes):
-		if not q_shared.Q_stricmp(mode.name, string):
+		if not shared_c.Q_stricmp(mode.name, string):
 			gl_tex_solid_format = mode.mode
 			return
 
-	gl_rmain.ri.Con_Printf(q_shared.PRINT_ALL, "bad solid texture mode name\n")
+	gl_rmain.ri.Con_Printf(shared.PRINT_ALL, "bad solid texture mode name\n")
 
 # GL_ImageList_f
 def GL_ImageList_f ():
@@ -415,7 +419,7 @@ def GL_ImageList_f ():
 	"""
 	palstrings = ["RGB", "PAL"]
 
-	gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "------------------\n")
+	gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "------------------\n")
 	texels = 0
 
 	for i in range(numgltextures):
@@ -425,24 +429,24 @@ def GL_ImageList_f ():
 			continue
 		texels += image.upload_width*image.upload_height;
 		if image.type == imagetype_t.it_skin:
-			gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "M");
+			gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "M");
 
 		elif image.type == imagetype_t.it_sprite:
-			gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "S");
+			gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "S");
 
 		elif image.type == imagetype_t.it_wall:
-			gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "W");
+			gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "W");
 
 		elif image.type == imagetype_t.it_pic:
-			gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "P");
+			gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "P");
 
 		else:
-			gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, " ");
+			gl_rmain.ri.Con_Printf (shared.PRINT_ALL, " ");
 
-		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL,  " {:3d} {:3d} {}: {}\n".format(
+		gl_rmain.ri.Con_Printf (shared.PRINT_ALL,  " {:3d} {:3d} {}: {}\n".format(
 			image.upload_width, image.upload_height, palstrings[image.paletted], image.name))
 	
-	gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "Total texel count (not counting mipmaps): {}\n".format(texels))
+	gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "Total texel count (not counting mipmaps): {}\n".format(texels))
 
 
 
@@ -538,22 +542,22 @@ def LoadPCX (filename): #char *, byte **, byte **, int *, int *
 	length, raw = gl_rmain.ri.FS_LoadFile (filename)
 	if raw is None:
 	
-		gl_rmain.ri.Con_Printf (qcommon.PRINT_DEVELOPER, "Bad pcx file {}\n".format(filename))
+		gl_rmain.ri.Con_Printf (common_h.PRINT_DEVELOPER, "Bad pcx file {}\n".format(filename))
 		return None, None, None, None
 	
 	#
 	# parse the PCX file
 	#
-	pcx = qfiles.pcx_t()
+	pcx = files_h.pcx_t()
 	
 	try:
 		pic, palette, width, height = pcx.Decompress(raw)
 	except IndexError:
 		pic = None
-		gl_rmain.ri.Con_Printf (q_shared.PRINT_DEVELOPER, "PCX file {} was malformed".format(filename))
+		gl_rmain.ri.Con_Printf (shared.PRINT_DEVELOPER, "PCX file {} was malformed".format(filename))
 
 	if pic is None:
-		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "Bad pcx file {}\n".format(filename))
+		gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "Bad pcx file {}\n".format(filename))
 		return None, None, None, None
 
 	return pic, palette, width, height
@@ -968,7 +972,7 @@ def GL_Upload32 (data, width, height, mipmap): #unsigned *, int, int, qboolean (
 	upload_height = scaled_height
 
 	if scaled_width * scaled_height > scaledSize:
-		gl_rmain.ri.Sys_Error (q_shared.ERR_DROP, "GL_Upload32: too big")
+		gl_rmain.ri.Sys_Error (shared.ERR_DROP, "GL_Upload32: too big")
 
 	# scan the texture for any non-255 alpha
 	c = width*height
@@ -989,7 +993,7 @@ def GL_Upload32 (data, width, height, mipmap): #unsigned *, int, int, qboolean (
 	elif samples == gl_alpha_format:
 	    comp = gl_tex_alpha_format
 	else:
-	    gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL,
+	    gl_rmain.ri.Con_Printf (shared.PRINT_ALL,
 			   "Unknown number of texture components {}\n".format(
 			   samples))
 	    comp = samples
@@ -1158,7 +1162,7 @@ def GL_Upload8 (data, width, height, mipmap, is_sky ): #byte *, int, int, qboole
 	s = width*height
 
 	if s > sizeTrans:
-		gl_rmain.ri.Sys_Error (q_shared.ERR_DROP, "GL_Upload8: too large")
+		gl_rmain.ri.Sys_Error (shared.ERR_DROP, "GL_Upload8: too large")
 
 	if ( qgl_linux.qglColorTableEXT and 
 		 gl_rmain.gl_ext_palettedtexture.value and 
@@ -1230,13 +1234,13 @@ def GL_LoadPic (name, pic, width, height, imgType, bits): #char *, byte *, int, 
 	if i == numgltextures:
 	
 		if numgltextures == MAX_GLTEXTURES:
-			gl_rmain.ri.Sys_Error (q_shared.ERR_DROP, "MAX_GLTEXTURES")
+			gl_rmain.ri.Sys_Error (shared.ERR_DROP, "MAX_GLTEXTURES")
 		numgltextures+=1
 	
 	image = gltextures[i]
 
-	if len(name) >= q_shared.MAX_QPATH:
-		gl_rmain.ri.Sys_Error (q_shared.ERR_DROP, "Draw_LoadPic: \"{}\" is too long".format(name))
+	if len(name) >= shared.MAX_QPATH:
+		gl_rmain.ri.Sys_Error (shared.ERR_DROP, "Draw_LoadPic: \"{}\" is too long".format(name))
 	image.name = name
 	image.registration_sequence = gl_model.registration_sequence
 
@@ -1314,10 +1318,10 @@ def GL_LoadWal (name): #char * (returns image_t *)
 	length, mt = gl_rmain.ri.FS_LoadFile (name);
 	if mt is None:
 	
-		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "GL_FindImage: can't load {}\n".format(name))
+		gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "GL_FindImage: can't load {}\n".format(name))
 		return gl_rmain.r_notexture
 	
-	img_header = qfiles.miptex_t()
+	img_header = files_h.miptex_t()
 	img_header.load(mt)
 
 	width = img_header.width
@@ -1383,7 +1387,7 @@ def GL_FindImage (name, imgType): #char *, imagetype_t (returns image_t *)
 		length, raw = gl_rmain.ri.FS_LoadFile (name)
 		if raw is None:
 		
-			gl_rmain.ri.Con_Printf (q_shared.PRINT_DEVELOPER, "Bad tga file {}\n".format(name))
+			gl_rmain.ri.Con_Printf (shared.PRINT_DEVELOPER, "Bad tga file {}\n".format(name))
 			return
 		
 		pgimg = pygame.image.load(io.BytesIO(raw), "x.tga")
@@ -1462,7 +1466,7 @@ def Draw_GetPalette ():
 
 	pic, pal, width, height = LoadPCX ("pics/colormap.pcx")
 	if pal is None:
-		gl_rmain.ri.Sys_Error (q_shared.ERR_FATAL, "Couldn't load pics/colormap.pcx")
+		gl_rmain.ri.Sys_Error (shared.ERR_FATAL, "Couldn't load pics/colormap.pcx")
 
 	for i in range(256):
 	

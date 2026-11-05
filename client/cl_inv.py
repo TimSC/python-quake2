@@ -19,10 +19,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from __future__ import annotations
 
-from qcommon import common, net_chan
-from game import q_shared
+from qcommon import net_chan
+pass
 from client import cl_main, cl_scrn, keys
 from linux import vid_so
+from common.header import shared
+from common.shared import shared as shared_c
+from common import movemsg
 """
 // cl_inv.c -- client inventory screen
 
@@ -39,8 +42,8 @@ def CL_ParseInventory ():
 
 	#int		i;
 
-	for i in range(q_shared.MAX_ITEMS):
-		cl_main.cl.inventory[i] = common.MSG_ReadShort (net_chan.net_message)
+	for i in range(shared.MAX_ITEMS):
+		cl_main.cl.inventory[i] = movemsg.MSG_ReadShort (net_chan.net_message)
 
 
 """
@@ -81,13 +84,13 @@ def CL_DrawInventory ():
 	int		selected;
 	int		top;
 	"""
-	index = [0] * q_shared.MAX_ITEMS
+	index = [0] * shared.MAX_ITEMS
 
-	selected = cl_main.cl.frame.playerstate.stats[q_shared.STAT_SELECTED_ITEM]
+	selected = cl_main.cl.frame.playerstate.stats[shared.STAT_SELECTED_ITEM]
 
 	num = 0
 	selected_num = 0
-	for i in range(q_shared.MAX_ITEMS):
+	for i in range(shared.MAX_ITEMS):
 	
 		if i==selected:
 			selected_num = num
@@ -121,16 +124,16 @@ def CL_DrawInventory ():
 	
 		item = index[i]
 		# search for a binding
-		binding = "use {}".format(cl_main.cl.configstrings[q_shared.CS_ITEMS+item])
+		binding = "use {}".format(cl_main.cl.configstrings[shared.CS_ITEMS+item])
 		bind = ""
 		for j in range(256):
-			if keys.keybindings[j] and not q_shared.Q_stricmp (keys.keybindings[j], binding):
+			if keys.keybindings[j] and not shared_c.Q_stricmp (keys.keybindings[j], binding):
 			
 				bind = keys.Key_KeynumToString(j)
 				break
 			
 		string = "{:>6} {:3d} {}".format(bind, cl_main.cl.inventory[item],
-			cl_main.cl.configstrings[q_shared.CS_ITEMS+item] ) # "%6s %3i %s"
+			cl_main.cl.configstrings[shared.CS_ITEMS+item] ) # "%6s %3i %s"
 		if item != selected:
 			string = SetStringHighBit (string)
 		else:	# draw a blinky cursor by the selected item

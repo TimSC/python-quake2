@@ -21,9 +21,11 @@ from __future__ import annotations
 
 from game import game as _gamemod, g_save, p_client
 from game import g_local
-from game import p_view, p_hud, g_utils, g_ai, g_monster, g_phys, q_shared
+from game import p_view, p_hud, g_utils, g_ai, g_monster, g_phys
 from game import g_spawn, g_cmds, g_svcmds
-from game.q_shared import Q_stricmp, DF_SAME_LEVEL, PRINT_HIGH
+from common.shared.shared import Q_stricmp
+from common.header.shared import DF_SAME_LEVEL, PRINT_HIGH
+from common.header import shared
 """
 
 #include "g_local.h"
@@ -369,7 +371,7 @@ def G_RunFrame ():
 
 		level.current_entity = ent
 
-		q_shared.VectorCopy (ent.s.origin, ent.s.old_origin)
+		shared.VectorCopy (ent.s.origin, ent.s.old_origin)
 
 		# if the ground entity moved, make sure we are still on it
 		if ent.groundentity and ent.groundentity.linkcount != ent.groundentity_linkcount:

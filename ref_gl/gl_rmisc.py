@@ -23,7 +23,8 @@ import os
 import OpenGL.GL as GL
 from ref_gl import gl_image, gl_rmain
 from linux import qgl_linux, q_shlinux
-from game import q_shared
+pass
+from common.header import shared
 """
 // r_misc.c
 
@@ -139,7 +140,7 @@ def GL_ScreenShot_f ():
 	
 	if i == 100:
 	
-		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "SCR_ScreenShot_f: Couldn't create a file\n")
+		gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "SCR_ScreenShot_f: Couldn't create a file\n")
 		return
 	
 	buffer = bytearray(vid.width*vid.height*3 + 18) # malloc and memset (buffer, 0, 18);
@@ -160,7 +161,7 @@ def GL_ScreenShot_f ():
 	with open (checkname, "wb") as f:
 		f.write (buffer[:c])
 
-	gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "Wrote {}\n".format("".join(picname)))
+	gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "Wrote {}\n".format("".join(picname)))
 """
 
 /*
@@ -169,10 +170,10 @@ def GL_ScreenShot_f ():
 """
 def GL_Strings_f( ):
 
-	gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "GL_VENDOR: {}\n".format(gl_rmain.gl_config.vendor_string) )
-	gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "GL_RENDERER: {}\n".format(gl_rmain.gl_config.renderer_string) )
-	gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "GL_VERSION: {}\n".format(gl_rmain.gl_config.version_string) )
-	gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "GL_EXTENSIONS: {}\n".format(gl_rmain.gl_config.extensions) )
+	gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "GL_VENDOR: {}\n".format(gl_rmain.gl_config.vendor_string) )
+	gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "GL_RENDERER: {}\n".format(gl_rmain.gl_config.renderer_string) )
+	gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "GL_VERSION: {}\n".format(gl_rmain.gl_config.version_string) )
+	gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "GL_EXTENSIONS: {}\n".format(gl_rmain.gl_config.extensions) )
 
 
 """

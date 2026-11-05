@@ -26,10 +26,14 @@ import numpy as np
 import OpenGL.GL as GL
 import OpenGL.GL.EXT.compiled_vertex_array as GLcva
 from linux import qgl_linux
-from game import q_shared
-from qcommon import qfiles, common
+pass
+pass
 from client import ref
 from ref_gl import gl_rmain, gl_image, gl_light
+from common.header import files as files_h
+from common.header import shared
+from common.shared import shared as shared_c
+from common import movemsg
 """
 // gl_mesh.c: triangle model functions
 
@@ -50,10 +54,10 @@ NUMVERTEXNORMALS = 162
 # can't be aliased here because qcommon.common is still loading when this
 # module is first imported.
 
-s_lerped = np.zeros((qfiles.MAX_VERTS, 3), dtype=np.float32) #static vec4_t [MAX_VERTS], 4th value was SIMD padding
+s_lerped = np.zeros((files_h.MAX_VERTS, 3), dtype=np.float32) #static vec4_t [MAX_VERTS], 4th value was SIMD padding
 # colorArray for the vertex array path. The C one is on the stack, but GL reads it
 # during glArrayElement, so it is kept at module level so it outlives the pointer.
-s_colorArray = np.zeros((qfiles.MAX_VERTS, 3), dtype=np.float32) #float [MAX_VERTS*4]
+s_colorArray = np.zeros((files_h.MAX_VERTS, 3), dtype=np.float32) #float [MAX_VERTS*4]
 
 shadevector = np.zeros((3,), dtype=np.float32) #vec3_t
 shadelight = np.zeros((3,), dtype=np.float32) #float[3]
@@ -72,7 +76,7 @@ r_avertexnormal_dots = _LoadAnormtab()
 
 shadedots = r_avertexnormal_dots[0] #float *
 
-SHELL_FLAGS = q_shared.RF_SHELL_RED | q_shared.RF_SHELL_GREEN | q_shared.RF_SHELL_BLUE | q_shared.RF_SHELL_DOUBLE | q_shared.RF_SHELL_HALF_DAM
+SHELL_FLAGS = shared.RF_SHELL_RED | shared.RF_SHELL_GREEN | shared.RF_SHELL_BLUE | shared.RF_SHELL_DOUBLE | shared.RF_SHELL_HALF_DAM
 
 def GL_LerpVerts (nverts, v, ov, verts, lerp, move, frontv, backv): #int, dtrivertx_t *, dtrivertx_t *, dtrivertx_t *, float *, float[3], float[3], float[3]
 
@@ -84,7 +88,7 @@ def GL_LerpVerts (nverts, v, ov, verts, lerp, move, frontv, backv): #int, dtrive
 	#PMM -- added RF_SHELL_DOUBLE, RF_SHELL_HALF_DAM
 	if gl_rmain.currententity.flags & SHELL_FLAGS:
 
-		normal = common.bytedirs[verts[:nverts, 3]] # r_avertexnormals
+		normal = movemsg.bytedirs[verts[:nverts, 3]] # r_avertexnormals
 		lerp[:nverts] = move + ov[:nverts, :3]*backv + v[:nverts, :3]*frontv + normal * ref.POWERSUIT_SCALE
 
 	else:
@@ -129,7 +133,7 @@ def GL_DrawAliasFrameLerp (paliashdr, backlerp): #dmdl_t *, float
 #	glTranslatef (frame->translate[0], frame->translate[1], frame->translate[2]);
 #	glScalef (frame->scale[0], frame->scale[1], frame->scale[2]);
 
-	if currententity.flags & q_shared.RF_TRANSLUCENT:
+	if currententity.flags & shared.RF_TRANSLUCENT:
 		alpha = currententity.alpha
 	else:
 		alpha = 1.0
@@ -144,14 +148,14 @@ def GL_DrawAliasFrameLerp (paliashdr, backlerp): #dmdl_t *, float
 	delta = np.zeros((3,), dtype=np.float32)
 	vectors = [np.zeros((3,), dtype=np.float32) for _ in range(3)]
 	move = np.zeros((3,), dtype=np.float32)
-	q_shared.VectorSubtract (currententity.oldorigin, currententity.origin, delta)
-	q_shared.AngleVectors (currententity.angles, vectors[0], vectors[1], vectors[2])
+	shared.VectorSubtract (currententity.oldorigin, currententity.origin, delta)
+	shared_c.AngleVectors (currententity.angles, vectors[0], vectors[1], vectors[2])
 
-	move[0] = q_shared.DotProduct (delta, vectors[0])	# forward
-	move[1] = -q_shared.DotProduct (delta, vectors[1])	# left
-	move[2] = q_shared.DotProduct (delta, vectors[2])	# up
+	move[0] = shared.DotProduct (delta, vectors[0])	# forward
+	move[1] = -shared.DotProduct (delta, vectors[1])	# left
+	move[2] = shared.DotProduct (delta, vectors[2])	# up
 
-	q_shared.VectorAdd (move, oldframe.translate, move)
+	shared.VectorAdd (move, oldframe.translate, move)
 
 	for i in range(3):
 
@@ -323,7 +327,7 @@ def GL_DrawAliasFrameLerp (paliashdr, backlerp): #dmdl_t *, float
 		GL.glEnableClientState( GL.GL_VERTEX_ARRAY )
 		GL.glVertexPointer( 3, GL.GL_FLOAT, 0, lerped )	# qglVertex3fv (s_lerped[index_xyz]);
 
-		if currententity.flags & ( q_shared.RF_SHELL_RED | q_shared.RF_SHELL_GREEN | q_shared.RF_SHELL_BLUE ):
+		if currententity.flags & ( shared.RF_SHELL_RED | shared.RF_SHELL_GREEN | shared.RF_SHELL_BLUE ):
 
 			GL.glColor4f( shadelight[0], shadelight[1], shadelight[2], alpha)
 
@@ -443,13 +447,13 @@ def R_CullAliasModel (bbox, e): #vec3_t[8], entity_t * (returns qboolean)
 
 	if ( e.frame >= paliashdr.num_frames ) or ( e.frame < 0 ):
 
-		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "R_CullAliasModel {}: no such frame {}\n".format(
+		gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "R_CullAliasModel {}: no such frame {}\n".format(
 			currentmodel.name, e.frame))
 		e.frame = 0
 
 	if ( e.oldframe >= paliashdr.num_frames ) or ( e.oldframe < 0 ):
 
-		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "R_CullAliasModel {}: no such oldframe {}\n".format(
+		gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "R_CullAliasModel {}: no such oldframe {}\n".format(
 			currentmodel.name, e.oldframe))
 		e.oldframe = 0
 
@@ -511,7 +515,7 @@ def R_CullAliasModel (bbox, e): #vec3_t[8], entity_t * (returns qboolean)
 		else:
 			tmp[2] = maxs[2]
 
-		q_shared.VectorCopy( tmp, bbox[i] )
+		shared.VectorCopy( tmp, bbox[i] )
 
 	#
 	# rotate the bounding box
@@ -519,17 +523,17 @@ def R_CullAliasModel (bbox, e): #vec3_t[8], entity_t * (returns qboolean)
 	angles = e.angles.copy() # VectorCopy( e->angles, angles );
 	angles[gl_rmain.YAW] = -angles[gl_rmain.YAW]
 	vectors = [np.zeros((3,), dtype=np.float32) for _ in range(3)]
-	q_shared.AngleVectors( angles, vectors[0], vectors[1], vectors[2] )
+	shared_c.AngleVectors( angles, vectors[0], vectors[1], vectors[2] )
 
 	for i in range(8):
 
 		tmp = bbox[i].copy() # VectorCopy( bbox[i], tmp );
 
-		bbox[i][0] = q_shared.DotProduct( vectors[0], tmp )
-		bbox[i][1] = -q_shared.DotProduct( vectors[1], tmp )
-		bbox[i][2] = q_shared.DotProduct( vectors[2], tmp )
+		bbox[i][0] = shared.DotProduct( vectors[0], tmp )
+		bbox[i][1] = -shared.DotProduct( vectors[1], tmp )
+		bbox[i][2] = shared.DotProduct( vectors[2], tmp )
 
-		q_shared.VectorAdd( e.origin, bbox[i], bbox[i] )
+		shared.VectorAdd( e.origin, bbox[i], bbox[i] )
 
 	#int p, f, aggregatemask = ~0;
 	aggregatemask = ~0
@@ -540,7 +544,7 @@ def R_CullAliasModel (bbox, e): #vec3_t[8], entity_t * (returns qboolean)
 
 		for f in range(4):
 
-			dp = q_shared.DotProduct( gl_rmain.frustum[f].normal, bbox[p] )
+			dp = shared.DotProduct( gl_rmain.frustum[f].normal, bbox[p] )
 
 			if ( dp - gl_rmain.frustum[f].dist ) < 0:
 
@@ -575,12 +579,12 @@ def R_DrawAliasModel (e): #entity_t *
 	currentmodel = gl_rmain.currentmodel
 	bbox = np.zeros((8, 3), dtype=np.float32)
 
-	if not ( e.flags & q_shared.RF_WEAPONMODEL ):
+	if not ( e.flags & shared.RF_WEAPONMODEL ):
 
 		if R_CullAliasModel( bbox, e ):
 			return
 
-	if e.flags & q_shared.RF_WEAPONMODEL:
+	if e.flags & shared.RF_WEAPONMODEL:
 
 		if gl_rmain.r_lefthand.value == 2:
 			return
@@ -593,28 +597,28 @@ def R_DrawAliasModel (e): #entity_t *
 	# PMM - rewrote, reordered to handle new shells & mixing
 	# PMM - 3.20 code .. replaced with original way of doing it to keep mod authors happy
 	#
-	if currententity.flags & ( q_shared.RF_SHELL_HALF_DAM | q_shared.RF_SHELL_GREEN | q_shared.RF_SHELL_RED | q_shared.RF_SHELL_BLUE | q_shared.RF_SHELL_DOUBLE ):
+	if currententity.flags & ( shared.RF_SHELL_HALF_DAM | shared.RF_SHELL_GREEN | shared.RF_SHELL_RED | shared.RF_SHELL_BLUE | shared.RF_SHELL_DOUBLE ):
 
-		q_shared.VectorClear (shadelight)
-		if currententity.flags & q_shared.RF_SHELL_HALF_DAM:
+		shared.VectorClear (shadelight)
+		if currententity.flags & shared.RF_SHELL_HALF_DAM:
 
 				shadelight[0] = 0.56
 				shadelight[1] = 0.59
 				shadelight[2] = 0.45
 
-		if currententity.flags & q_shared.RF_SHELL_DOUBLE:
+		if currententity.flags & shared.RF_SHELL_DOUBLE:
 
 			shadelight[0] = 0.9
 			shadelight[1] = 0.7
 
-		if currententity.flags & q_shared.RF_SHELL_RED:
+		if currententity.flags & shared.RF_SHELL_RED:
 			shadelight[0] = 1.0
-		if currententity.flags & q_shared.RF_SHELL_GREEN:
+		if currententity.flags & shared.RF_SHELL_GREEN:
 			shadelight[1] = 1.0
-		if currententity.flags & q_shared.RF_SHELL_BLUE:
+		if currententity.flags & shared.RF_SHELL_BLUE:
 			shadelight[2] = 1.0
 
-	elif currententity.flags & q_shared.RF_FULLBRIGHT:
+	elif currententity.flags & shared.RF_FULLBRIGHT:
 
 		for i in range(3):
 			shadelight[i] = 1.0
@@ -625,7 +629,7 @@ def R_DrawAliasModel (e): #entity_t *
 
 		# player lighting hack for communication back to server
 		# big hack!
-		if currententity.flags & q_shared.RF_WEAPONMODEL:
+		if currententity.flags & shared.RF_WEAPONMODEL:
 
 			# pick the greatest component, which should be the same
 			# as the mono value returned by software
@@ -656,7 +660,7 @@ def R_DrawAliasModel (e): #entity_t *
 			shadelight[1] = s
 			shadelight[2] = s
 
-	if currententity.flags & q_shared.RF_MINLIGHT:
+	if currententity.flags & shared.RF_MINLIGHT:
 
 		for i in range(3):
 			if shadelight[i] > 0.1:
@@ -667,7 +671,7 @@ def R_DrawAliasModel (e): #entity_t *
 			shadelight[1] = 0.1
 			shadelight[2] = 0.1
 
-	if currententity.flags & q_shared.RF_GLOW:
+	if currententity.flags & shared.RF_GLOW:
 		# bonus items will pulse with time
 		#float	scale;
 		#float	min;
@@ -682,7 +686,7 @@ def R_DrawAliasModel (e): #entity_t *
 
 # =================
 # PGM	ir goggles color override
-	if gl_rmain.r_newrefdef.rdflags & q_shared.RDF_IRGOGGLES and currententity.flags & q_shared.RF_IR_VISIBLE:
+	if gl_rmain.r_newrefdef.rdflags & shared.RDF_IRGOGGLES and currententity.flags & shared.RF_IR_VISIBLE:
 
 		shadelight[0] = 1.0
 		shadelight[1] = 0.0
@@ -697,7 +701,7 @@ def R_DrawAliasModel (e): #entity_t *
 	shadevector[0] = math.cos(-an)
 	shadevector[1] = math.sin(-an)
 	shadevector[2] = 1
-	q_shared.VectorNormalize (shadevector)
+	shared_c.VectorNormalize (shadevector)
 
 	#
 	# locate the proper data
@@ -708,10 +712,10 @@ def R_DrawAliasModel (e): #entity_t *
 	#
 	# draw all the triangles
 	#
-	if currententity.flags & q_shared.RF_DEPTHHACK: # hack the depth range to prevent view model from poking into walls
+	if currententity.flags & shared.RF_DEPTHHACK: # hack the depth range to prevent view model from poking into walls
 		GL.glDepthRange (gl_rmain.gldepthmin, gl_rmain.gldepthmin + 0.3*(gl_rmain.gldepthmax-gl_rmain.gldepthmin))
 
-	if ( currententity.flags & q_shared.RF_WEAPONMODEL ) and ( gl_rmain.r_lefthand.value == 1.0 ):
+	if ( currententity.flags & shared.RF_WEAPONMODEL ) and ( gl_rmain.r_lefthand.value == 1.0 ):
 
 		GL.glMatrixMode( GL.GL_PROJECTION )
 		GL.glPushMatrix()
@@ -732,7 +736,7 @@ def R_DrawAliasModel (e): #entity_t *
 		skin = currententity.skin	# custom player skin
 	else:
 
-		if currententity.skinnum >= qfiles.MAX_MD2SKINS:
+		if currententity.skinnum >= files_h.MAX_MD2SKINS:
 			skin = currentmodel.skins[0]
 		else:
 
@@ -750,14 +754,14 @@ def R_DrawAliasModel (e): #entity_t *
 	GL.glShadeModel (GL.GL_SMOOTH)
 
 	gl_image.GL_TexEnv( GL.GL_MODULATE )
-	if currententity.flags & q_shared.RF_TRANSLUCENT:
+	if currententity.flags & shared.RF_TRANSLUCENT:
 
 		GL.glEnable (GL.GL_BLEND)
 
 	if ( (currententity.frame >= paliashdr.num_frames)
 		or (currententity.frame < 0) ):
 
-		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "R_DrawAliasModel {}: no such frame {}\n".format(
+		gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "R_DrawAliasModel {}: no such frame {}\n".format(
 			currentmodel.name, currententity.frame))
 		currententity.frame = 0
 		currententity.oldframe = 0
@@ -765,7 +769,7 @@ def R_DrawAliasModel (e): #entity_t *
 	if ( (currententity.oldframe >= paliashdr.num_frames)
 		or (currententity.oldframe < 0)):
 
-		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "R_DrawAliasModel {}: no such oldframe {}\n".format(
+		gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "R_DrawAliasModel {}: no such oldframe {}\n".format(
 			currentmodel.name, currententity.oldframe))
 		currententity.frame = 0
 		currententity.oldframe = 0
@@ -796,22 +800,22 @@ def R_DrawAliasModel (e): #entity_t *
 #endif
 	"""
 
-	if ( currententity.flags & q_shared.RF_WEAPONMODEL ) and ( gl_rmain.r_lefthand.value == 1.0 ):
+	if ( currententity.flags & shared.RF_WEAPONMODEL ) and ( gl_rmain.r_lefthand.value == 1.0 ):
 
 		GL.glMatrixMode( GL.GL_PROJECTION )
 		GL.glPopMatrix()
 		GL.glMatrixMode( GL.GL_MODELVIEW )
 		GL.glCullFace( GL.GL_FRONT )
 
-	if currententity.flags & q_shared.RF_TRANSLUCENT:
+	if currententity.flags & shared.RF_TRANSLUCENT:
 
 		GL.glDisable (GL.GL_BLEND)
 
-	if currententity.flags & q_shared.RF_DEPTHHACK:
+	if currententity.flags & shared.RF_DEPTHHACK:
 		GL.glDepthRange (gl_rmain.gldepthmin, gl_rmain.gldepthmax)
 
 #if 1
-	if gl_rmain.gl_shadows.value and not (currententity.flags & (q_shared.RF_TRANSLUCENT | q_shared.RF_WEAPONMODEL)):
+	if gl_rmain.gl_shadows.value and not (currententity.flags & (shared.RF_TRANSLUCENT | shared.RF_WEAPONMODEL)):
 
 		GL.glPushMatrix ()
 		gl_rmain.R_RotateForEntity (e)

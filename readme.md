@@ -16,6 +16,35 @@ rely on the base games textures.
 About 5% of the code was ported by hand; the rest was ported with the
 help of ChatGPT, Claude and qwen.
 
+## This branch: merging Yamagi Quake II fixes
+
+The `yquake2` branch moves the port from id's original source to
+[Yamagi Quake II](https://github.com/yquake2/yquake2). Yamagi is a maintained
+C version of Quake II that has fixed many bugs in id's code over more than
+fifteen years, and changed some gameplay along the way.
+
+On this branch the reference the port follows becomes Yamagi's source, kept
+in `yquake2/`:
+
+- **Layout:** the Python files move to Yamagi's layout, file for file. For
+  example `qcommon/cmodel.c` became `src/common/collision.c` in Yamagi, and
+  `game/m_soldier.c` became `src/game/monster/soldier/soldier.c`.
+- **Behaviour:** Yamagi's bug fixes and its gameplay changes are both taken.
+- **Network:** the port follows Yamagi's protocol. It is still Quake II
+  protocol 34, so the port can still play with Yamagi and other C servers and
+  clients.
+
+The work is done one area of functionality at a time: shared code, collision
+and movement, networking, the server, the game logic (player, weapons and
+items, doors and triggers, monsters, save games), the client, and the
+renderer. Each area is tested before moving on. New Yamagi features, such as
+music from OGG files in place of CD audio or the OpenGL 3 renderer, can follow
+later.
+
+Until the move is finished, parts of the port still follow id's 3.21 source
+in `quake2-original/`, which is kept unmodified as a reference. The plan and
+progress are in [docs/yquake2_plan.md](docs/yquake2_plan.md).
+
 ## Status
 
 - The single player game runs: maps load, monsters fight, items, doors, lifts
@@ -101,6 +130,8 @@ Q2STDIN=1 python3 main.py +set basedir /path/to/quake2data/Data +map base1
 | `qcommon/` | shared code: collision, player movement, file system, network channel |
 | `ref_gl/` | OpenGL renderer |
 | `linux/` | platform layer, using pygame for video, input and sound |
+| `quake2-original/` | id Software's Quake II 3.21 C source, which the port originally followed |
+| `yquake2/` | a checkout of Yamagi Quake II, the reference on this branch (not tracked in this repository) |
 
 ## Porting conventions
 
@@ -109,6 +140,8 @@ Q2STDIN=1 python3 main.py +set basedir /path/to/quake2data/Data +map base1
 - C code that is not yet ported stays in triple-quoted blocks next to the
   Python. Code that is disabled in the C (`#if 0`) stays disabled.
 - Changes that only exist in the port are marked with `Q2PORT` comments.
+- On this branch the file mapping moves from id's source to Yamagi's: each
+  ported file follows a file under `yquake2/src/`.
 
 `AGENTS.md` has the full set of conventions.
 
