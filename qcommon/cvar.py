@@ -369,9 +369,9 @@ def Cvar_Set_f ():
 	
 		flags = 0
 		if cmd.Cmd_Argv(3) == "u":
-			flags = CVAR_USERINFO;
+			flags = q_shared.CVAR_USERINFO;
 		elif cmd.Cmd_Argv(3) == "s":
-			flags = CVAR_SERVERINFO;
+			flags = q_shared.CVAR_SERVERINFO;
 		else:		
 			common.Com_Printf ("flags can only be 'u' or 's'\n")
 			return

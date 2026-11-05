@@ -443,7 +443,7 @@ def MSG_WriteString (sb: qcommon.sizebuf_t, s): #sizebuf_t
 		SZ_Write (sb, b"\0")
 	else:
 		if isinstance(s, str):
-			s = s.encode('ascii')
+			s = s.encode('latin-1')
 		SZ_Write (sb, s)
 		SZ_Write (sb, b"\0")
 
@@ -883,7 +883,7 @@ def MSG_ReadString (msg_read): #sizebuf_t *
 		l+=1
 	
 	#string[l] = 0;
-	return st.decode('ascii')
+	return st.decode('latin-1')
 
 
 def MSG_ReadStringLine (msg_read): # sizebuf_t * (returns char *)
@@ -906,7 +906,7 @@ def MSG_ReadStringLine (msg_read): # sizebuf_t * (returns char *)
 	
 	#string[l] = 0
 	
-	return st.decode('ascii')
+	return st.decode('latin-1')
 
 
 def MSG_ReadCoord (msg_read: qcommon.sizebuf_t)->float:
