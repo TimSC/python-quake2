@@ -241,7 +241,7 @@ class edict_t(object):
 		self.absmin = np.zeros((3,), dtype=np.float32)
 		self.absmax = np.zeros((3,), dtype=np.float32)
 		self.size = np.zeros((3,), dtype=np.float32)
-		self.solid = None #solid_t
+		self.solid = SOLID_NOT #solid_t, 0 as after memset
 		self.clipmask = 0
 		self.owner = None
 

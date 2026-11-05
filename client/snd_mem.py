@@ -136,7 +136,7 @@ def S_LoadSound (s): #sfx_t * (returns sfxcache_t *)
 	else:
 		namebuffer = "sound/{}".format(name)
 
-	common.Com_Printf ("loading {}\n".format(namebuffer))
+	#Com_Printf ("loading %s\n",namebuffer);
 
 	size, data = files.FS_LoadFile (namebuffer)
 
