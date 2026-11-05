@@ -908,6 +908,14 @@ void GL_BuildPalettedTexture( unsigned char *paletted_texture, unsigned char *sc
 		scaled += 4;
 	}
 }
+"""
+def GL_BuildPalettedTexture (paletted_texture, scaled, scaled_width, scaled_height): #unsigned char *, unsigned char *, int, int
+
+	# Q2PORT: not ported, it is only used with the GL_EXT_paletted_texture extension,
+	# which modern drivers do not offer. The C above is kept for reference.
+	raise NotImplementedError()
+
+"""
 
 int		upload_width, upload_height;
 qboolean uploaded_paletted;

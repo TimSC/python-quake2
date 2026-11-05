@@ -180,25 +180,6 @@ class pcx_t (object):
 					x += 1
 
 		return pic, palette, width, height
-		
-	def DecodeToPixels(self, buff):
-		from PIL import Image
-
-		pic, palette, width, height = self.Decompress(buff)
-		if pic is None:
-			return None
-
-		pall = []
-		for i in range(0, len(palette), 3):
-			pall.append(struct.unpack("<BBB", palette[i:i+3]))
-
-		im = Image.new("RGB", (self.xmax+1, self.ymax+1))
-		px = im.load()
-		for y in range(self.ymax+1):
-			for x in range(self.xmax+1):
-				px[x, y] = pall[pic[y*(self.xmax+1) + x]]
-
-		return im
 
 """
 ========================================================================

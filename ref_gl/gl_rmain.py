@@ -1221,7 +1221,7 @@ def R_Init( hinstance, hWnd ): #void *, void *
 	# initialize OS-specific parts of OpenGL
 	if not gl_glx.GLimp_Init( hinstance, hWnd ) :
 	
-		QGL_Shutdown()
+		qgl_linux.QGL_Shutdown()
 		return -1
 	
 	# set our "safe" modes
@@ -1230,7 +1230,7 @@ def R_Init( hinstance, hWnd ): #void *, void *
 	# create the window and set up the context
 	if not R_SetMode ():
 	
-		QGL_Shutdown()
+		qgl_linux.QGL_Shutdown()
 		ri.Con_Printf (q_shared.PRINT_ALL, "ref_gl::R_Init() - could not R_SetMode()\n" )
 		return -1
 	

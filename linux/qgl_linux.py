@@ -3005,6 +3005,13 @@ void QGL_Shutdown( void )
 	qglXCopyContext              = NULL;
 	qglXSwapBuffers              = NULL;
 }
+"""
+def QGL_Shutdown(): # void
+	# Q2PORT: placeholder. The GL functions come from PyOpenGL, so there is no driver
+	# library to unload or proc pointers to clear; the C above is kept for reference.
+	pass
+
+"""
 
 #define GPA( a ) dlsym( glw_state.OpenGLLib, a )
 
