@@ -165,10 +165,10 @@ def Q_ftol(f):
 	return int(f)
 
 def VectorCopy(a,b): b[:]=a[:]
-def VectorAdd(a, b, out): out[:] = a + b
-def VectorSubtract(a, b, out): out[:] = a - b
-def VectorScale(vec, scale, out): out[:] = vec * scale
-def VectorMA(veca, scale, vecb, vecc): vecc[:] = veca + scale * vecb
+def VectorAdd(a, b, out): out[:] = [a[i] + b[i] for i in range(3)]
+def VectorSubtract(a, b, out): out[:] = [a[i] - b[i] for i in range(3)]
+def VectorScale(vec, scale, out): out[:] = [vec[i] * scale for i in range(3)]
+def VectorMA(veca, scale, vecb, vecc): vecc[:] = [veca[i] + scale * vecb[i] for i in range(3)]
 
 def DotProduct(v1, v2):
 	return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2]
@@ -2872,7 +2872,7 @@ def COM_Parse (data, cursor): #char ** (returns char *)
 	possInComment = True
 	
 	while possInComment:
-		while cursor >= len(data) or data[cursor].strip() == '':
+		while cursor >= len(data) or data[cursor].strip() == '' or data[cursor] == '\0':
 			if cursor >= len(data):
 				return "", None # *data_p = NULL;
 			
@@ -2905,7 +2905,7 @@ def COM_Parse (data, cursor): #char ** (returns char *)
 		
 	# parse a regular word
 	c = data[cursor]
-	while c != None and c.strip() != "" and cursor < len(data):
+	while c != None and c.strip() != "" and c != '\0' and cursor < len(data):
 		
 		if length < MAX_TOKEN_CHARS:
 		

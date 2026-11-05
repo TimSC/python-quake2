@@ -134,6 +134,10 @@ MULTICAST_PHS	send to clients potentially hearable from org
 """
 def SV_Multicast (origin, to): #vec3_t, multicast_t
 
+	# accept both enum members and bare int values
+	if hasattr(to, "value"):
+		to = to.value
+
 	#sv_init.client_t	*client;
 	#byte		*mask;
 	#int			leafnum, cluster;
@@ -144,7 +148,7 @@ def SV_Multicast (origin, to): #vec3_t, multicast_t
 	reliable = False
 	mask = None
 
-	if to != q_shared.multicast_t.MULTICAST_ALL_R and to != q_shared.multicast_t.MULTICAST_ALL:
+	if to != q_shared.multicast_t.MULTICAST_ALL_R.value and to != q_shared.multicast_t.MULTICAST_ALL.value:
 	
 		leafnum = cmodel.CM_PointLeafnum (origin)
 		area1 = cmodel.CM_LeafArea (leafnum)
@@ -157,32 +161,32 @@ def SV_Multicast (origin, to): #vec3_t, multicast_t
 	if sv_init.svs.demofile:
 		common.SZ_Write(sv_init.svs.demo_multicast, sv_init.sv.multicast.data)
 	
-	if to == q_shared.multicast_t.MULTICAST_ALL_R:
+	if to == q_shared.multicast_t.MULTICAST_ALL_R.value:
 		reliable = True	# intentional fallthrough
-	if to == q_shared.multicast_t.MULTICAST_ALL_R or to == q_shared.multicast_t.MULTICAST_ALL:
+	if to == q_shared.multicast_t.MULTICAST_ALL_R.value or to == q_shared.multicast_t.MULTICAST_ALL.value:
 		leafnum = 0
 		mask = None
 
-	if to == q_shared.multicast_t.MULTICAST_PHS_R:
+	if to == q_shared.multicast_t.MULTICAST_PHS_R.value:
 		reliable = True	# intentional fallthrough
-	if to == q_shared.multicast_t.MULTICAST_PHS_R or to == q_shared.multicast_t.MULTICAST_PHS:
+	if to == q_shared.multicast_t.MULTICAST_PHS_R.value or to == q_shared.multicast_t.MULTICAST_PHS.value:
 		leafnum = cmodel.CM_PointLeafnum (origin)
 		cluster = cmodel.CM_LeafCluster (leafnum)
 		mask = cmodel.CM_ClusterPHS (cluster)
 
-	if to == q_shared.multicast_t.MULTICAST_PVS_R:
+	if to == q_shared.multicast_t.MULTICAST_PVS_R.value:
 		reliable = True	# intentional fallthrough
-	if to == q_shared.multicast_t.MULTICAST_PVS_R or to == q_shared.multicast_t.MULTICAST_PVS:
+	if to == q_shared.multicast_t.MULTICAST_PVS_R.value or to == q_shared.multicast_t.MULTICAST_PVS.value:
 		leafnum = cmodel.CM_PointLeafnum (origin)
 		cluster = cmodel.CM_LeafCluster (leafnum)
 		mask = cmodel.CM_ClusterPVS (cluster)
 
-	if to != q_shared.multicast_t.MULTICAST_ALL_R and to != q_shared.multicast_t.MULTICAST_ALL and \
-		to != q_shared.multicast_t.MULTICAST_PHS_R and to != q_shared.multicast_t.MULTICAST_PHS and \
-		to != q_shared.multicast_t.MULTICAST_PVS_R and to != q_shared.multicast_t.MULTICAST_PVS:
+	if to != q_shared.multicast_t.MULTICAST_ALL_R.value and to != q_shared.multicast_t.MULTICAST_ALL.value and \
+		to != q_shared.multicast_t.MULTICAST_PHS_R.value and to != q_shared.multicast_t.MULTICAST_PHS.value and \
+		to != q_shared.multicast_t.MULTICAST_PVS_R.value and to != q_shared.multicast_t.MULTICAST_PVS.value:
 
 		mask = None
-		common.Com_Error (ERR_FATAL, "SV_Multicast: bad to:{}".format(to))
+		common.Com_Error (qcommon.ERR_FATAL, "SV_Multicast: bad to:{}".format(to))
 
 	# send the data to all relevent clients
 	for client in sv_init.svs.clients:

@@ -25,6 +25,7 @@ from game import g_utils
 from game import g_combat
 from game import g_monster
 from game import g_target
+from game import g_func
 from game.game import SVF_MONSTER, SVF_DEADMONSTER, SVF_NOCLIENT
 from game.game import solid_t
 SOLID_TRIGGER = solid_t.SOLID_TRIGGER.value
@@ -1077,7 +1078,7 @@ def SP_misc_viper (ent):
 	q_shared.VectorSet (ent.mins, -16, -16, 0)
 	q_shared.VectorSet (ent.maxs, 16, 16, 32)
 
-	ent.think = g_target.func_train_find
+	ent.think = g_func.func_train_find
 	ent.nextthink = g_main.level.time + FRAMETIME
 	ent.use = misc_viper_use
 	ent.svflags |= SVF_NOCLIENT
@@ -1188,7 +1189,7 @@ def SP_misc_strogg_ship (ent):
 	q_shared.VectorSet (ent.mins, -16, -16, 0)
 	q_shared.VectorSet (ent.maxs, 16, 16, 32)
 
-	ent.think = g_target.func_train_find
+	ent.think = g_func.func_train_find
 	ent.nextthink = g_main.level.time + FRAMETIME
 	ent.use = misc_strogg_ship_use
 	ent.svflags |= SVF_NOCLIENT

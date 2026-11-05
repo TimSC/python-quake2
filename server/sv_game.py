@@ -148,7 +148,7 @@ def PF_error (fmt, *args): #char *, ...
 	else:
 		msg = fmt
 
-	common.Com_Error (qcommon.ERR_DROP, "Game Error: %s", msg)
+	common.Com_Error (qcommon.ERR_DROP, "Game Error: %s" % msg)
 """
 /*
 =================

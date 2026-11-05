@@ -148,7 +148,7 @@ def SV_Configstrings_f ():
 	while sv_main.sv_client.netchan.message.cursize < qcommon.MAX_MSGLEN//2 \
 		and start < q_shared.MAX_CONFIGSTRINGS:
 
-		if sv_init.sv.configstrings[start][0]:
+		if sv_init.sv.configstrings[start]:  # C: empty string has [0]=='\0'
 
 			common.MSG_WriteByte (sv_main.sv_client.netchan.message, qcommon.svc_ops_e.svc_configstring.value)
 			common.MSG_WriteShort (sv_main.sv_client.netchan.message, start)
@@ -312,6 +312,7 @@ def SV_BeginDownload_f():
 	#int offset = 0
 
 	name = cmd.Cmd_Argv(1)
+	offset = 0
 
 	if cmd.Cmd_Argc() > 2:
 		offset = int(cmd.Cmd_Argv(2)) # downloaded offset

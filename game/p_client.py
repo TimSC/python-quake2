@@ -128,7 +128,7 @@ def SP_FixCoopSpots (self):
 	spot = None
 
 	while True:
-		spot = g_utils.G_Find (spot, g_utils.FOFS(classname), "info_player_start")
+		spot = g_utils.G_Find (spot, g_utils.FOFS("classname"), "info_player_start")
 		if not spot:
 			return
 		if not spot.targetname:
@@ -636,7 +636,7 @@ def SelectRandomDeathmatchSpawnPoint ():
 	count = 0
 
 	while True:
-		spot = g_utils.G_Find (spot, g_utils.FOFS(classname), "info_player_deathmatch")
+		spot = g_utils.G_Find (spot, g_utils.FOFS("classname"), "info_player_deathmatch")
 		if not spot:
 			break
 		count += 1
@@ -660,7 +660,7 @@ def SelectRandomDeathmatchSpawnPoint ():
 
 	spot = None
 	while True:
-		spot = g_utils.G_Find (spot, g_utils.FOFS(classname), "info_player_deathmatch")
+		spot = g_utils.G_Find (spot, g_utils.FOFS("classname"), "info_player_deathmatch")
 		if spot is spot1 or spot is spot2:
 			selection += 1
 		selection -= 1
@@ -678,7 +678,7 @@ def SelectFarthestDeathmatchSpawnPoint ():
 	bestspot = None
 	bestdistance = 0
 	while True:
-		spot = g_utils.G_Find (spot, g_utils.FOFS(classname), "info_player_deathmatch")
+		spot = g_utils.G_Find (spot, g_utils.FOFS("classname"), "info_player_deathmatch")
 		if not spot:
 			break
 		bestplayerdistance = PlayersRangeFromSpot (spot)
@@ -692,7 +692,7 @@ def SelectFarthestDeathmatchSpawnPoint ():
 
 	# if there is a player just spawned on each and every start spot
 	# we have no choice to turn one into a telefrag meltdown
-	spot = g_utils.G_Find (None, g_utils.FOFS(classname), "info_player_deathmatch")
+	spot = g_utils.G_Find (None, g_utils.FOFS("classname"), "info_player_deathmatch")
 
 	return spot
 
@@ -718,7 +718,7 @@ def SelectCoopSpawnPoint (ent):
 
 	# assume there are four coop spots at each spawnpoint
 	while True:
-		spot = g_utils.G_Find (spot, g_utils.FOFS(classname), "info_player_coop")
+		spot = g_utils.G_Find (spot, g_utils.FOFS("classname"), "info_player_coop")
 		if not spot:
 			return None	# we didn't have enough...
 
@@ -744,7 +744,7 @@ def SelectSpawnPoint (ent, origin, angles):
 	# find a single player start spot
 	if not spot:
 		while True:
-			spot = g_utils.G_Find (spot, g_utils.FOFS(classname), "info_player_start")
+			spot = g_utils.G_Find (spot, g_utils.FOFS("classname"), "info_player_start")
 			if not spot:
 				break
 			if not g_main.game.spawnpoint and not spot.targetname:
@@ -759,7 +759,7 @@ def SelectSpawnPoint (ent, origin, angles):
 		if not spot:
 			if not g_main.game.spawnpoint:
 				# there wasn't a spawnpoint without a target, so use any
-				spot = g_utils.G_Find (None, g_utils.FOFS(classname), "info_player_start")
+				spot = g_utils.G_Find (None, g_utils.FOFS("classname"), "info_player_start")
 			if not spot:
 				g_main.gi.error ("Couldn't find spawn point %s\n" % g_main.game.spawnpoint)
 

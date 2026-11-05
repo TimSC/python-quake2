@@ -1456,7 +1456,7 @@ def button_return (self):
 	self.s.frame = 0
 
 	if self.health:
-		self.takedamage = g_local.DAMAGE_YES
+		self.takedamage = g_local.damage_t.DAMAGE_YES.value
 	"""
 	void button_return (edict_t *self)
 	{
@@ -1556,7 +1556,7 @@ def button_touch (self, other, plane, surf):
 def button_killed (self, inflictor, attacker, damage, point):
 	self.activator = attacker
 	self.health = self.max_health
-	self.takedamage = g_local.DAMAGE_NO
+	self.takedamage = g_local.damage_t.DAMAGE_NO.value
 	button_fire (self)
 	"""
 	void button_killed (edict_t *self, edict_t *inflictor, edict_t *attacker, int damage, vec3_t point)
@@ -1605,7 +1605,7 @@ def SP_func_button (ent):
 	if ent.health:
 		ent.max_health = ent.health
 		ent.die = button_killed
-		ent.takedamage = g_local.DAMAGE_YES
+		ent.takedamage = g_local.damage_t.DAMAGE_YES.value
 	elif not ent.targetname:
 		ent.touch = button_touch
 
@@ -1769,7 +1769,7 @@ def door_go_down (self):
 			g_main.gi.sound (self, q_shared.CHAN_NO_PHS_ADD + q_shared.CHAN_VOICE, self.moveinfo.sound_start, 1, q_shared.ATTN_STATIC, 0)
 		self.s.sound = self.moveinfo.sound_middle
 	if self.max_health:
-		self.takedamage = g_local.DAMAGE_YES
+		self.takedamage = g_local.damage_t.DAMAGE_YES.value
 		self.health = self.max_health
 	
 	self.moveinfo.state = STATE_DOWN
@@ -2174,7 +2174,7 @@ def door_killed (self, inflictor, attacker, damage, point):
 	ent = self.teammaster
 	while ent:
 		ent.health = ent.max_health
-		ent.takedamage = g_local.DAMAGE_NO
+		ent.takedamage = g_local.damage_t.DAMAGE_NO.value
 		ent = ent.teamchain
 	door_use (self.teammaster, attacker, attacker)
 	"""
@@ -2266,7 +2266,7 @@ def SP_func_door (ent):
 	ent.moveinfo.state = STATE_BOTTOM
 
 	if ent.health:
-		ent.takedamage = g_local.DAMAGE_YES
+		ent.takedamage = g_local.damage_t.DAMAGE_YES.value
 		ent.die = door_killed
 		ent.max_health = ent.health
 	elif ent.targetname and ent.message:
@@ -2449,7 +2449,7 @@ def SP_func_door_rotating (ent):
 		q_shared.VectorNegate (ent.movedir, ent.movedir)
 
 	if ent.health:
-		ent.takedamage = g_local.DAMAGE_YES
+		ent.takedamage = g_local.damage_t.DAMAGE_YES.value
 		ent.die = door_killed
 		ent.max_health = ent.health
 	
@@ -3459,7 +3459,7 @@ def door_secret_move6 (self):
 def door_secret_done (self):
 	if not (self.targetname) or (self.spawnflags & SECRET_ALWAYS_SHOOT):
 		self.health = 0
-		self.takedamage = g_local.DAMAGE_YES
+		self.takedamage = g_local.damage_t.DAMAGE_YES.value
 	door_use_areaportals (self, False)
 	"""
 	void door_secret_done (edict_t *self)
@@ -3509,7 +3509,7 @@ def door_secret_blocked (self, other):
 	"""
 
 def door_secret_die (self, inflictor, attacker, damage, point):
-	self.takedamage = g_local.DAMAGE_NO
+	self.takedamage = g_local.damage_t.DAMAGE_NO.value
 	door_secret_use (self, attacker, attacker)
 	"""
 	void door_secret_die (edict_t *self, edict_t *inflictor, edict_t *attacker, int damage, vec3_t point)
@@ -3540,7 +3540,7 @@ def SP_func_door_secret (ent):
 
 	if not (ent.targetname) or (ent.spawnflags & SECRET_ALWAYS_SHOOT):
 		ent.health = 0
-		ent.takedamage = g_local.DAMAGE_YES
+		ent.takedamage = g_local.damage_t.DAMAGE_YES.value
 		ent.die = door_secret_die
 
 	if not ent.dmg:
@@ -3567,7 +3567,7 @@ def SP_func_door_secret (ent):
 	q_shared.VectorMA (ent.pos1, length, forward, ent.pos2)
 
 	if ent.health:
-		ent.takedamage = g_local.DAMAGE_YES
+		ent.takedamage = g_local.damage_t.DAMAGE_YES.value
 		ent.die = door_killed
 		ent.max_health = ent.health
 	elif ent.targetname and ent.message:

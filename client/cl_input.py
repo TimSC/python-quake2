@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 import numpy as np
 from qcommon import cvar, net_chan, qcommon, common, cmd
 from game import q_shared
-from client import cl_main, client, keys, client
+from client import cl_main, client, keys, client, cl_cin
 from linux import vid_so, sys_linux, q_shlinux
 """
 // cl_main.cl.input.c  -- builds an intended movement command to send to the server

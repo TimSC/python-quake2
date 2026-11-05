@@ -38,6 +38,13 @@ class solid_t(Enum):
 	SOLID_BBOX = 2	# touch on edge
 	SOLID_BSP = 3	# bsp clip, touch on edge
 
+# module-level aliases so `game.SOLID_*` resolves to the int values
+# (matches the per-module `SOLID_* = solid_t.SOLID_*.value` definitions)
+SOLID_NOT = solid_t.SOLID_NOT.value
+SOLID_TRIGGER = solid_t.SOLID_TRIGGER.value
+SOLID_BBOX = solid_t.SOLID_BBOX.value
+SOLID_BSP = solid_t.SOLID_BSP.value
+
 MAX_ENT_CLUSTERS = 16
 
 

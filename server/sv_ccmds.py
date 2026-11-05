@@ -452,7 +452,7 @@ def SV_GameMap_f ():
 	
 	# check for clearing the current savegame
 	map = cmd.Cmd_Argv(1)
-	if map[0] == '*':
+	if len(map) > 0 and map[0] == '*':  # C: empty string has map[0]=='\0'
 		# wipe all the *.sav files
 		SV_WipeSavegame ("current")
 	else:
@@ -501,7 +501,7 @@ def SV_Map_f ():
 	if mapName.find(".") == -1:
 	
 		expanded = "maps/{}.bsp".format(mapName)
-		length, handle = files.FS_LoadFile (expanded, None)
+		length, handle = files.FS_LoadFile (expanded)
 		if handle is None:
 		
 			common.Com_Printf ("Can't find {}\n".format(expanded))
@@ -826,7 +826,7 @@ def SV_ServerRecord_f ():
 	common.MSG_WriteString (buf, sv_init.sv.configstrings[q_shared.CS_NAME])
 
 	for i in range(q_shared.MAX_CONFIGSTRINGS):
-		if sv_init.sv.configstrings[i][0]:
+		if sv_init.sv.configstrings[i]:  # C: empty string has [0]=='\0'
 			common.MSG_WriteByte (buf, qcommon.svc_ops_e.svc_configstring.value)
 			common.MSG_WriteShort (buf, i)
 			common.MSG_WriteString (buf, sv_init.sv.configstrings[i])

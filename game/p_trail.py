@@ -21,7 +21,7 @@ from game import q_shared, g_main, g_utils, g_ai
 
 TRAIL_LENGTH = 8
 
-trail = []
+trail = [None] * TRAIL_LENGTH
 trail_head = 0
 trail_active = False
 

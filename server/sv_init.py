@@ -473,6 +473,14 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 	# map initialization
 	sv.state = server_state_t.ss_loading
 	common.Com_SetServerState (sv.state.value)
+
+	# load and spawn all other entities
+	sv_game.ge.SpawnEntities (sv.name, cmodel.CM_EntityString(), spawnpoint)
+
+	# run two frames to allow everything to settle
+	sv_game.ge.RunFrame ()
+	sv_game.ge.RunFrame ()
+
 	"""
 	# load and spawn all other entities
 	ge->SpawnEntities ( sv.name, CM_EntityString(), spawnpoint )

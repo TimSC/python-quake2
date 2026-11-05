@@ -179,7 +179,7 @@ Com_DPrintf
 A Com_Printf that only shows up if the "developer" cvar is set
 ================
 """
-def Com_DPrintf (fmt):
+def Com_DPrintf (fmt, *args):
 
 	"""
 	va_list		argptr;
@@ -194,6 +194,11 @@ def Com_DPrintf (fmt):
 	vsprintf (msg,fmt,argptr);
 	va_end (argptr);
 	"""
+
+	if args:
+		msg = fmt % args
+	else:
+		msg = fmt
 
 	Com_Printf (msg)
 

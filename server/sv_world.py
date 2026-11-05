@@ -316,9 +316,9 @@ def SV_LinkEdict (ent): #edict_t *
 		for i in range(num_leafs):
 			if clusters[i] == -1:
 				continue		# not a visible leaf
-			for j in range(i):
-				if clusters[j] == clusters[i]:
-					break
+			j = 0
+			while j < i and clusters[j] != clusters[i]:
+				j += 1
 			if j == i:
 				if ent.num_clusters == game.MAX_ENT_CLUSTERS:
 					# assume we missed some leafs, and mark by headnode
@@ -646,7 +646,7 @@ def SV_Trace (start, mins, maxs, end, passedict, contentmask): #vec3_t, vec3_t, 
 
 	# clip to world
 	clip.trace = cmodel.CM_BoxTrace (start, end, mins, maxs, 0, contentmask)
-	clip.trace.ent = sv_game.ge.edicts
+	clip.trace.ent = passedict
 	if clip.trace.fraction == 0:
 		return clip.trace		# blocked by the world
 

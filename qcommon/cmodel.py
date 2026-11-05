@@ -1306,6 +1306,9 @@ def CM_RecursiveHullCheck(num, p1f, p2f, p1, p2):
     if trace_trace.fraction <= p1f:
         return
 
+    if num is None:
+        return
+
     if num < 0:
         CM_TraceToLeaf(-1 - num)
         return
