@@ -22,6 +22,7 @@ from __future__ import annotations
 import io
 import math
 import struct
+import numpy as np
 import OpenGL.GL as GL
 import OpenGL.GL.ARB.multitexture as GLmt
 import pygame
@@ -544,7 +545,6 @@ def LoadPCX (filename): #char *, byte **, byte **, int *, int *
 	# parse the PCX file
 	#
 	pcx = qfiles.pcx_t()
-	pcx.DecodeToPixels(raw)
 	
 	try:
 		pic, palette, width, height = pcx.Decompress(raw)
@@ -791,56 +791,35 @@ GL_ResampleTexture
 """
 def GL_ResampleTexture (inPic, inwidth, inheight, outwidth, outheight): #unsigned *, int, int, unsigned *, int, int
 
-	"""
-	int		i, j;
-	unsigned	*inrow, *inrow2;
-	unsigned	frac, fracstep;
-	unsigned	p1[1024], p2[1024];
-	byte		*pix1, *pix2, *pix3, *pix4;
-	"""
+	#int		i, j;
+	#unsigned	*inrow, *inrow2;
+	#unsigned	frac, fracstep;
+	#unsigned	p1[1024], p2[1024];
+	#byte		*pix1, *pix2, *pix3, *pix4;
 
 	if inwidth*inheight*4 != len(inPic):
 		raise ValueError("img parameters don't match buffer size")
 
 	p1, p2 = [], []
-
 	fracstep = inwidth * 0x10000 // outwidth
 
 	frac = fracstep>>2
 	for i in range(outwidth):
-	
-		p1.append(4*(frac>>16))
+		p1.append(frac>>16)	# Q2PORT: a pixel index, the C stores the byte offset 4*(frac>>16)
 		frac += fracstep
-	
 	frac = 3*(fracstep>>2)
 	for i in range(outwidth):
-	
-		p2.append(4*(frac>>16))
+		p2.append(frac>>16)
 		frac += fracstep
 
-	out = bytearray(outwidth*outheight*4)
-	outCursor = 0
-	for i in range(outheight):
-	
-		inrow = 4*inwidth*int(((i+0.25)*inheight/outheight))
-		inrow2 = 4*inwidth*int(((i+0.75)*inheight/outheight))
-		#frac = fracstep >> 1
+	# Q2PORT: the row and pixel loops are done with numpy, using the same rows, pixels
+	# and >>2 average as the C
+	pic = np.frombuffer(inPic, dtype=np.uint8).reshape(inheight, inwidth, 4).astype(np.uint16)
+	inrow = pic[[int(((i+0.25)*inheight/outheight)) for i in range(outheight)]]
+	inrow2 = pic[[int(((i+0.75)*inheight/outheight)) for i in range(outheight)]]
+	out = (inrow[:, p1] + inrow[:, p2] + inrow2[:, p1] + inrow2[:, p2]) >> 2
 
-		for j in range(outwidth):
-		
-			pix1 = inrow + p1[j]
-			pix2 = inrow + p2[j]
-			pix3 = inrow2 + p1[j]
-			pix4 = inrow2 + p2[j]
-			outPxOffset = outCursor + j*4
-			out[outPxOffset+0] = (inPic[pix1+0] + inPic[pix2+0] + inPic[pix3+0] + inPic[pix4+0])>>2
-			out[outPxOffset+1] = (inPic[pix1+1] + inPic[pix2+1] + inPic[pix3+1] + inPic[pix4+1])>>2
-			out[outPxOffset+2] = (inPic[pix1+2] + inPic[pix2+2] + inPic[pix3+2] + inPic[pix4+2])>>2
-			out[outPxOffset+3] = (inPic[pix1+3] + inPic[pix2+3] + inPic[pix3+3] + inPic[pix4+3])>>2
-		
-		outCursor += outwidth*4
-
-	return out
+	return bytearray(out.astype(np.uint8).tobytes())
 
 """
 ================
@@ -854,35 +833,17 @@ def GL_LightScaleTexture (inPic, inwidth, inheight, only_gamma ): #unsigned *, i
 
 	global gammatable, intensitytable
 
+	#int		i, c;
+	#byte	*p;
+
+	# Q2PORT: the per-pixel loops are numpy table lookups on a view of inPic, changed in place
+	c = inwidth*inheight
+	rgb = np.frombuffer(inPic, dtype=np.uint8, count=c*4).reshape(c, 4)[:, :3]
 	if only_gamma:
-	
-		#int		i, c;
-		#byte	*p;
-
-		p = 0
-		c = inwidth*inheight
-		for i in range(c):
-		
-			inPic[p+0] = gammatable[inPic[p+0]]
-			inPic[p+1] = gammatable[inPic[p+1]]
-			inPic[p+2] = gammatable[inPic[p+2]]
-			p+=4
-	
+		table = np.array(gammatable, dtype=np.uint8)
 	else:
-	
-		#int		i, c;
-		#byte	*p;
-
-		p = 0
-		c = inwidth*inheight
-		for i in range(c):
-		
-			inPic[p+0] = gammatable[intensitytable[inPic[p+0]]]
-			inPic[p+1] = gammatable[intensitytable[inPic[p+1]]]
-			inPic[p+2] = gammatable[intensitytable[inPic[p+2]]]
-			p+=4
-	
-
+		table = np.array([gammatable[intensitytable[i]] for i in range(256)], dtype=np.uint8)
+	rgb[:] = table[rgb]
 
 """
 ================
@@ -896,25 +857,30 @@ def GL_MipMap (pic, width, height): #byte *, int, int
 	#int		i, j;
 	#byte	*out;
 
-	width <<=2
+	if width & 1:
+		# odd widths (a 1 pixel wide mip level): the C loop reads across row ends, keep it as is
+		width <<=2
+		height >>= 1
+		c = 0
+		out = 0
+		for i in range(height):
+			for j in range(0, width, 8):
+				pic[out+0] = (pic[c+0] + pic[c+4] + pic[c+width+0] + pic[c+width+4])>>2
+				pic[out+1] = (pic[c+1] + pic[c+5] + pic[c+width+1] + pic[c+width+5])>>2
+				pic[out+2] = (pic[c+2] + pic[c+6] + pic[c+width+2] + pic[c+width+6])>>2
+				pic[out+3] = (pic[c+3] + pic[c+7] + pic[c+width+3] + pic[c+width+7])>>2
+				out += 4
+				c += 8
+			c += width
+		return
+
+	# Q2PORT: for even widths the loops are done with numpy. Each output pixel is the >>2
+	# average of a 2x2 block, written to the start of pic. The C writes never overtake its
+	# reads, so computing from the original values gives the same bytes.
+	src = np.frombuffer(pic, dtype=np.uint8, count=width*height*4).reshape(height, width, 4).astype(np.uint16)
 	height >>= 1
-	c = 0
-	out = 0
-	for i in range(height):
-	
-		for j in range(0, width, 8):
-		
-			pic[out+0] = (pic[c+0] + pic[c+4] + pic[c+width+0] + pic[c+width+4])>>2
-			pic[out+1] = (pic[c+1] + pic[c+5] + pic[c+width+1] + pic[c+width+5])>>2
-			pic[out+2] = (pic[c+2] + pic[c+6] + pic[c+width+2] + pic[c+width+6])>>2
-			pic[out+3] = (pic[c+3] + pic[c+7] + pic[c+width+3] + pic[c+width+7])>>2
-
-			out += 4
-			c += 8
-		
-		c += width
-	
-
+	half = (src[0:height*2:2, 0:width:2] + src[0:height*2:2, 1:width:2] + src[1:height*2:2, 0:width:2] + src[1:height*2:2, 1:width:2]) >> 2
+	pic[0:half.size] = half.astype(np.uint8).tobytes()
 
 """
 ===============
@@ -1206,39 +1172,27 @@ def GL_Upload8 (data, width, height, mipmap, is_sky ): #byte *, int, int, qboole
 		return False, width, height, True #has_alpha, upload_width, upload_height, paletted
 
 	else:
-		trans = bytearray(s*4)
+		# Q2PORT: the per-pixel loop is done with numpy, with the same palette lookup
+		# and the same neighbour search for transparent pixels
+		pal = np.array(d_8to24table, dtype=np.uint8)
+		d = np.frombuffer(bytes(data[:s]), dtype=np.uint8).astype(np.int32)
+		trans = pal[d]
 
-		for i in range (s):
+		i = np.nonzero(d == 255)[0]
+		if len(i):
+			# transparent, so scan around for another color
+			# to avoid alpha fringes
+			# FIXME: do a full flood fill so mips work...
+			up = np.where(i > width, d[np.maximum(i-width, 0)], 255)
+			down = np.where(i < s-width, d[np.minimum(i+width, s-1)], 255)
+			left = np.where(i > 0, d[np.maximum(i-1, 0)], 255)
+			right = np.where(i < s-1, d[np.minimum(i+1, s-1)], 255)
+			p = np.where(up != 255, up, np.where(down != 255, down, np.where(left != 255, left, np.where(right != 255, right, 0))))
+			# copy rgb components
+			trans[i, 0:3] = pal[p, 0:3]
 
-			p = data[i]
-			transOffset = i*4
-			col = bytearray(d_8to24table[p])
-			trans[transOffset+0] = col[0]
-			trans[transOffset+1] = col[1]
-			trans[transOffset+2] = col[2]
-			trans[transOffset+3] = col[3]
-
-			if p == 255:
-				# transparent, so scan around for another color
-				# to avoid alpha fringes
-				# FIXME: do a full flood fill so mips work...
-				if i > width and data[i-width] != 255:
-					p = data[i-width]
-				elif i < s-width and data[i+width] != 255:
-					p = data[i+width]
-				elif i > 0 and data[i-1] != 255:
-					p = data[i-1]
-				elif i < s-1 and data[i+1] != 255:
-					p = data[i+1]
-				else:
-					p = 0
-				# copy rgb components
-				pcol = d_8to24table[p]
-				trans[transOffset+0] = pcol[0]
-				trans[transOffset+1] = pcol[1]
-				trans[transOffset+2] = pcol[2]
-
-			assert len(trans) == s*4
+		trans = bytearray(trans.tobytes())
+		assert len(trans) == s*4
 
 		return GL_Upload32 (trans, width, height, mipmap)
 

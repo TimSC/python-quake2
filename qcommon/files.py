@@ -224,9 +224,12 @@ def FS_FOpenFile (filename): #char *
 		
 			# look through all the pak file elements
 			pak = search.pack
-			for i in range (pak.numfiles):
+			# for (i=0 ; i<pak->numfiles ; i++)
+			#	if (!Q_strcasecmp (pak->files[i].name, filename))
+			# Q2PORT: the loop is a lookup in the pak's lowercased name index
+			for i in [pak.lookup.get(filename.lower())]:
 
-				if not q_shared.Q_strcasecmp (pak.files[i].name, filename):
+				if i is not None:
 					# found it!
 					file_from_pak = 1;
 					common.Com_DPrintf ("PackFile: {} : {}\n".format(pak.filename, filename))
@@ -411,6 +414,11 @@ def FS_LoadPackFile (packfile): # char * (returns pack_t *)
 	pack.handle = packhandle
 	pack.numfiles = numpackfiles
 	pack.files = newfiles
+	# Q2PORT: index of the lowercased names (first entry wins, as in the search loop),
+	# so FS_FOpenFile does not compare the name against every file in the pak
+	pack.lookup = {}
+	for i in range(numpackfiles):
+		pack.lookup.setdefault(newfiles[i].name.lower(), i)
 	
 	common.Com_Printf ("Added packfile {} ({} files)\n".format(packfile, numpackfiles))
 	return pack;

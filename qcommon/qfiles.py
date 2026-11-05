@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from __future__ import annotations
 
+import io
 import struct
 import numpy as np
 from game import q_shared
@@ -139,6 +140,19 @@ class pcx_t (object):
 		palette = buff[-256*3:]
 		width = self.xmax+1
 		height = self.ymax+1
+
+		# Q2PORT: Pillow's PCX decoder (in C) gives the same pixels as the loop below when the
+		# rows have no padding (bytes_per_line == width). Otherwise use the loop, which, like
+		# the C, decodes width pixels per row and ignores bytes_per_line.
+		if self.color_planes == 1 and self.bytes_per_line == width and self.xmin == 0 and self.ymin == 0:
+			try:
+				from PIL import Image
+				im = Image.open(io.BytesIO(bytes(buff)))
+				im.load()
+				if im.mode == "P" and im.size == (width, height):
+					return bytearray(im.tobytes()), palette, width, height
+			except (OSError, ValueError, SyntaxError):
+				pass	# Pillow could not decode it: fall back to the loop
 
 		y = 0
 		cursor = 0

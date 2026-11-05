@@ -1,159 +1,284 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-#
-# Copyright © 2019 James Seo <james@equiv.tech> (github.com/kangtastic).
-#
-# This file is released under the WTFPL, version 2 (wtfpl.net).
-#
-# md4.py: An implementation of the MD4 hash algorithm in pure Python 3.
-#
-# Description: Zounds! Yet another rendition of pseudocode from RFC1320!
-#              Bonus points for the algorithm literally being from 1992.
-#
-# Usage: Why would anybody use this? This is self-rolled crypto, and
-#        self-rolled *obsolete* crypto at that. DO NOT USE if you need
-#        something "performant" or "secure". :P
-#
-#        Anyway, from the command line:
-#
-#           $ ./md4.py [messages]
-#
-#        where [messages] are some strings to be hashed.
-#
-#        In Python, use similarly to hashlib:
-#
-#           from .md4 import MD4
-#
-#           digest = MD4("BEES").hexdigest()
-#
-#           print(digest)  # "501af1ef4b68495b5b7e37b15b4cda68"
-#
-#
-# Sample console output:
-#
-#   Testing the MD4 class.
-#
-#   Message:  b''
-#   Expected: 31d6cfe0d16ae931b73c59d7e0c089c0
-#   Actual:   31d6cfe0d16ae931b73c59d7e0c089c0
-#
-#   Message:  b'The quick brown fox jumps over the lazy dog'
-#   Expected: 1bee69a46ba811185c194762abaeae90
-#   Actual:   1bee69a46ba811185c194762abaeae90
-#
-#   Message:  b'BEES'
-#   Expected: 501af1ef4b68495b5b7e37b15b4cda68
-#   Actual:   501af1ef4b68495b5b7e37b15b4cda68
-#
+"""
+GLOBAL.H - RSAREF types and constants
+
+MD4.H - header file for MD4C.C
+
+Copyright (C) 1991-2, RSA Data Security, Inc. Created 1991.
+
+All rights reserved.
+
+License to copy and use this software is granted provided that it is identified as the RSA Data Security, Inc. MD4 Message-Digest Algorithm in all material mentioning or referencing this software or this function.
+License is also granted to make and use derivative works provided that such works are identified as derived from the RSA Data Security, Inc. MD4 Message-Digest Algorithm in all material mentioning or referencing the derived work.
+RSA Data Security, Inc. makes no representations concerning either the merchantability of this software or the suitability of this software for any particular purpose. It is provided as is without express or implied warranty of any kind.
+
+These notices must be retained in any copies of any part of this documentation and/or software.
+"""
 from __future__ import annotations
 
 import struct
 
+"""
+#include <string.h>
 
-class MD4:
-    """An implementation of the MD4 hash algorithm."""
+/* POINTER defines a generic pointer type */
+typedef unsigned char *POINTER;
 
-    width = 32
-    mask = 0xFFFFFFFF
+/* UINT2 defines a two byte word */
+typedef unsigned short int UINT2;
 
-    # Unlike, say, SHA-1, MD4 uses little-endian. Fascinating!
-    h = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476]
+/* UINT4 defines a four byte word */
+#ifdef __alpha__
+typedef unsigned int UINT4;
+#else
+typedef unsigned long int UINT4;
+#endif
+"""
+# Q2PORT: UINT4 is a 32 bit word. The C "unsigned long" is 64 bits on x86-64 Linux,
+# so the values are masked to 32 bits here, as on the 32 bit machines Quake II shipped for.
+UINT4_MASK = 0xFFFFFFFF
 
-    def __init__(self, msg=None):
-        """:param ByteString msg: The message to be hashed."""
-        if msg is None:
-            msg = b""
+# MD4 context.
+class MD4_CTX(object):
 
-        self.msg = msg
+	def __init__(self):
 
-        # Pre-processing: Total length is a multiple of 512 bits.
-        ml = len(msg) * 8
-        msg += b"\x80"
-        msg += b"\x00" * (-(len(msg) + 8) % 64)
-        msg += struct.pack("<Q", ml)
+		self.state = [0, 0, 0, 0] #UINT4 [4], state (ABCD)
+		self.count = [0, 0] #UINT4 [2], number of bits, modulo 2^64 (lsb first)
+		self.buffer = bytearray(64) #unsigned char [64], input buffer
 
-        # Process the message in successive 512-bit chunks.
-        self._process([msg[i : i + 64] for i in range(0, len(msg), 64)])
 
-    def __repr__(self):
-        if self.msg:
-            return f"{self.__class__.__name__}({self.msg})"
-        return f"{self.__class__.__name__}()"
+"""
+MD4C.C - RSA Data Security, Inc., MD4 message-digest algorithm
+Copyright (C) 1990-2, RSA Data Security, Inc. All rights reserved.
 
-    def __str__(self):
-        return self.hexdigest()
+License to copy and use this software is granted provided that it is identified as the
+RSA Data Security, Inc. MD4 Message-Digest Algorithm
+ in all material mentioning or referencing this software or this function.
+License is also granted to make and use derivative works provided that such works are identified as
+derived from the RSA Data Security, Inc. MD4 Message-Digest Algorithm
+in all material mentioning or referencing the derived work.
+RSA Data Security, Inc. makes no representations concerning either the merchantability of this software or the suitability of this software for any particular purpose. It is provided
+as is without express or implied warranty of any kind.
 
-    def __eq__(self, other):
-        return self.h == other.h
+These notices must be retained in any copies of any part of this documentation and/or software.
+"""
 
-    def bytes(self):
-        """:return: The final hash value as a `bytes` object."""
-        return struct.pack("<4L", *self.h)
+# Constants for MD4Transform routine.
+S11	= 3
+S12	= 7
+S13	= 11
+S14	= 19
+S21	= 3
+S22	= 5
+S23	= 9
+S24	= 13
+S31	= 3
+S32	= 9
+S33	= 11
+S34	= 15
 
-    def hexbytes(self):
-        """:return: The final hash value as hexbytes."""
-        return self.hexdigest().encode()
+PADDING = bytes([0x80] + [0] * 63) #static unsigned char [64]
 
-    def hexdigest(self):
-        """:return: The final hash value as a hexstring."""
-        return "".join(f"{value:02x}" for value in self.bytes())
+# F, G and H are basic MD4 functions, and ROTATE_LEFT rotates x left n bits.
+# FF, GG and HH are transformations for rounds 1, 2 and 3; they are C macros and are
+# written out in place in MD4Transform (Q2PORT: calling a function per step is too slow).
+#define F(x, y, z) (((x) & (y)) | ((~x) & (z)))
+#define G(x, y, z) (((x) & (y)) | ((x) & (z)) | ((y) & (z)))
+#define H(x, y, z) ((x) ^ (y) ^ (z))
+#define ROTATE_LEFT(x, n) (((x) << (n)) | ((x) >> (32-(n))))
+#define FF(a, b, c, d, x, s) {(a) += F ((b), (c), (d)) + (x); (a) = ROTATE_LEFT ((a), (s));}
+#define GG(a, b, c, d, x, s) {(a) += G ((b), (c), (d)) + (x) + (UINT4)0x5a827999; (a) = ROTATE_LEFT ((a), (s));}
+#define HH(a, b, c, d, x, s) {(a) += H ((b), (c), (d)) + (x) + (UINT4)0x6ed9eba1; (a) = ROTATE_LEFT ((a), (s));}
 
-    def _process(self, chunks):
-        for chunk in chunks:
-            X, h = list(struct.unpack("<16I", chunk)), self.h.copy()
 
-            # Round 1.
-            Xi = [3, 7, 11, 19]
-            for n in range(16):
-                i, j, k, l = map(lambda x: x % 4, range(-n, -n + 4))
-                K, S = n, Xi[n % 4]
-                hn = h[i] + MD4.F(h[j], h[k], h[l]) + X[K]
-                h[i] = MD4.lrot(hn & MD4.mask, S)
+# MD4 initialization. Begins an MD4 operation, writing a new context.
+def MD4Init (context): #MD4_CTX *
 
-            # Round 2.
-            Xi = [3, 5, 9, 13]
-            for n in range(16):
-                i, j, k, l = map(lambda x: x % 4, range(-n, -n + 4))
-                K, S = n % 4 * 4 + n // 4, Xi[n % 4]
-                hn = h[i] + MD4.G(h[j], h[k], h[l]) + X[K] + 0x5A827999
-                h[i] = MD4.lrot(hn & MD4.mask, S)
+	context.count[0] = context.count[1] = 0
 
-            # Round 3.
-            Xi = [3, 9, 11, 15]
-            Ki = [0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15]
-            for n in range(16):
-                i, j, k, l = map(lambda x: x % 4, range(-n, -n + 4))
-                K, S = Ki[n], Xi[n % 4]
-                hn = h[i] + MD4.H(h[j], h[k], h[l]) + X[K] + 0x6ED9EBA1
-                h[i] = MD4.lrot(hn & MD4.mask, S)
+	# Load magic initialization constants.
+	context.state[0] = 0x67452301
+	context.state[1] = 0xefcdab89
+	context.state[2] = 0x98badcfe
+	context.state[3] = 0x10325476
 
-            self.h = [((v + n) & MD4.mask) for v, n in zip(self.h, h)]
 
-    @staticmethod
-    def F(x, y, z):
-        return (x & y) | (~x & z)
+# MD4 block update operation. Continues an MD4 message-digest operation, processing another message block, and updating the context.
+def MD4Update (context, input, inputLen): #MD4_CTX *, unsigned char *, unsigned int
 
-    @staticmethod
-    def G(x, y, z):
-        return (x & y) | (x & z) | (y & z)
+	#unsigned int i, index, partLen;
 
-    @staticmethod
-    def H(x, y, z):
-        return x ^ y ^ z
+	# Compute number of bytes mod 64
+	index = (context.count[0] >> 3) & 0x3F
 
-    @staticmethod
-    def lrot(value, n):
-        lbits, rbits = (value << n) & MD4.mask, value >> (MD4.width - n)
-        return lbits | rbits
+	# Update number of bits
+	context.count[0] = (context.count[0] + (inputLen << 3)) & UINT4_MASK
+	if context.count[0] < ((inputLen << 3) & UINT4_MASK):
+		context.count[1] = (context.count[1] + 1) & UINT4_MASK
+
+	context.count[1] = (context.count[1] + (inputLen >> 29)) & UINT4_MASK
+
+	partLen = 64 - index
+
+	# Transform as many times as possible.
+	if inputLen >= partLen:
+
+		context.buffer[index:index+partLen] = input[0:partLen] # memcpy
+		MD4Transform (context.state, context.buffer, 0)
+
+		i = partLen
+		while i + 63 < inputLen:
+			MD4Transform (context.state, input, i) # &input[i]
+			i += 64
+
+		index = 0
+
+	else:
+		i = 0
+
+	# Buffer remaining input
+	context.buffer[index:index+inputLen-i] = input[i:inputLen] # memcpy
+
+
+# MD4 finalization. Ends an MD4 message-digest operation, writing the the message digest and zeroizing the context.
+def MD4Final (digest, context): #unsigned char [16], MD4_CTX *
+
+	#unsigned char bits[8];
+	#unsigned int index, padLen;
+
+	# Save number of bits
+	bits = bytearray(8)
+	Encode (bits, context.count, 8)
+
+	# Pad out to 56 mod 64.
+	index = (context.count[0] >> 3) & 0x3f
+	padLen = (56 - index) if (index < 56) else (120 - index)
+	MD4Update (context, PADDING, padLen)
+
+	# Append length (before padding)
+	MD4Update (context, bits, 8)
+
+	# Store state in digest
+	Encode (digest, context.state, 16)
+
+	# Zeroize sensitive information.
+	context.__init__() # memset ((POINTER)context, 0, sizeof (*context));
+
+
+# MD4 basic transformation. Transforms state based on block.
+def MD4Transform (state, block, offset): #UINT4 [4], unsigned char [64] (Q2PORT: block is a buffer plus an offset)
+
+	M = UINT4_MASK
+	a = state[0]; b = state[1]; c = state[2]; d = state[3]
+	x = struct.unpack_from("<16I", block, offset) # Decode (x, block, 64);
+
+	# Round 1
+	a = (a + ((b & c) | (~b & d)) + x[ 0]) & M; a = ((a << S11) | (a >> (32-S11))) & M	# 1
+	d = (d + ((a & b) | (~a & c)) + x[ 1]) & M; d = ((d << S12) | (d >> (32-S12))) & M	# 2
+	c = (c + ((d & a) | (~d & b)) + x[ 2]) & M; c = ((c << S13) | (c >> (32-S13))) & M	# 3
+	b = (b + ((c & d) | (~c & a)) + x[ 3]) & M; b = ((b << S14) | (b >> (32-S14))) & M	# 4
+	a = (a + ((b & c) | (~b & d)) + x[ 4]) & M; a = ((a << S11) | (a >> (32-S11))) & M	# 5
+	d = (d + ((a & b) | (~a & c)) + x[ 5]) & M; d = ((d << S12) | (d >> (32-S12))) & M	# 6
+	c = (c + ((d & a) | (~d & b)) + x[ 6]) & M; c = ((c << S13) | (c >> (32-S13))) & M	# 7
+	b = (b + ((c & d) | (~c & a)) + x[ 7]) & M; b = ((b << S14) | (b >> (32-S14))) & M	# 8
+	a = (a + ((b & c) | (~b & d)) + x[ 8]) & M; a = ((a << S11) | (a >> (32-S11))) & M	# 9
+	d = (d + ((a & b) | (~a & c)) + x[ 9]) & M; d = ((d << S12) | (d >> (32-S12))) & M	# 10
+	c = (c + ((d & a) | (~d & b)) + x[10]) & M; c = ((c << S13) | (c >> (32-S13))) & M	# 11
+	b = (b + ((c & d) | (~c & a)) + x[11]) & M; b = ((b << S14) | (b >> (32-S14))) & M	# 12
+	a = (a + ((b & c) | (~b & d)) + x[12]) & M; a = ((a << S11) | (a >> (32-S11))) & M	# 13
+	d = (d + ((a & b) | (~a & c)) + x[13]) & M; d = ((d << S12) | (d >> (32-S12))) & M	# 14
+	c = (c + ((d & a) | (~d & b)) + x[14]) & M; c = ((c << S13) | (c >> (32-S13))) & M	# 15
+	b = (b + ((c & d) | (~c & a)) + x[15]) & M; b = ((b << S14) | (b >> (32-S14))) & M	# 16
+
+	# Round 2
+	a = (a + ((b & c) | (b & d) | (c & d)) + x[ 0] + 0x5a827999) & M; a = ((a << S21) | (a >> (32-S21))) & M	# 17
+	d = (d + ((a & b) | (a & c) | (b & c)) + x[ 4] + 0x5a827999) & M; d = ((d << S22) | (d >> (32-S22))) & M	# 18
+	c = (c + ((d & a) | (d & b) | (a & b)) + x[ 8] + 0x5a827999) & M; c = ((c << S23) | (c >> (32-S23))) & M	# 19
+	b = (b + ((c & d) | (c & a) | (d & a)) + x[12] + 0x5a827999) & M; b = ((b << S24) | (b >> (32-S24))) & M	# 20
+	a = (a + ((b & c) | (b & d) | (c & d)) + x[ 1] + 0x5a827999) & M; a = ((a << S21) | (a >> (32-S21))) & M	# 21
+	d = (d + ((a & b) | (a & c) | (b & c)) + x[ 5] + 0x5a827999) & M; d = ((d << S22) | (d >> (32-S22))) & M	# 22
+	c = (c + ((d & a) | (d & b) | (a & b)) + x[ 9] + 0x5a827999) & M; c = ((c << S23) | (c >> (32-S23))) & M	# 23
+	b = (b + ((c & d) | (c & a) | (d & a)) + x[13] + 0x5a827999) & M; b = ((b << S24) | (b >> (32-S24))) & M	# 24
+	a = (a + ((b & c) | (b & d) | (c & d)) + x[ 2] + 0x5a827999) & M; a = ((a << S21) | (a >> (32-S21))) & M	# 25
+	d = (d + ((a & b) | (a & c) | (b & c)) + x[ 6] + 0x5a827999) & M; d = ((d << S22) | (d >> (32-S22))) & M	# 26
+	c = (c + ((d & a) | (d & b) | (a & b)) + x[10] + 0x5a827999) & M; c = ((c << S23) | (c >> (32-S23))) & M	# 27
+	b = (b + ((c & d) | (c & a) | (d & a)) + x[14] + 0x5a827999) & M; b = ((b << S24) | (b >> (32-S24))) & M	# 28
+	a = (a + ((b & c) | (b & d) | (c & d)) + x[ 3] + 0x5a827999) & M; a = ((a << S21) | (a >> (32-S21))) & M	# 29
+	d = (d + ((a & b) | (a & c) | (b & c)) + x[ 7] + 0x5a827999) & M; d = ((d << S22) | (d >> (32-S22))) & M	# 30
+	c = (c + ((d & a) | (d & b) | (a & b)) + x[11] + 0x5a827999) & M; c = ((c << S23) | (c >> (32-S23))) & M	# 31
+	b = (b + ((c & d) | (c & a) | (d & a)) + x[15] + 0x5a827999) & M; b = ((b << S24) | (b >> (32-S24))) & M	# 32
+
+	# Round 3
+	a = (a + (b ^ c ^ d) + x[ 0] + 0x6ed9eba1) & M; a = ((a << S31) | (a >> (32-S31))) & M	# 33
+	d = (d + (a ^ b ^ c) + x[ 8] + 0x6ed9eba1) & M; d = ((d << S32) | (d >> (32-S32))) & M	# 34
+	c = (c + (d ^ a ^ b) + x[ 4] + 0x6ed9eba1) & M; c = ((c << S33) | (c >> (32-S33))) & M	# 35
+	b = (b + (c ^ d ^ a) + x[12] + 0x6ed9eba1) & M; b = ((b << S34) | (b >> (32-S34))) & M	# 36
+	a = (a + (b ^ c ^ d) + x[ 2] + 0x6ed9eba1) & M; a = ((a << S31) | (a >> (32-S31))) & M	# 37
+	d = (d + (a ^ b ^ c) + x[10] + 0x6ed9eba1) & M; d = ((d << S32) | (d >> (32-S32))) & M	# 38
+	c = (c + (d ^ a ^ b) + x[ 6] + 0x6ed9eba1) & M; c = ((c << S33) | (c >> (32-S33))) & M	# 39
+	b = (b + (c ^ d ^ a) + x[14] + 0x6ed9eba1) & M; b = ((b << S34) | (b >> (32-S34))) & M	# 40
+	a = (a + (b ^ c ^ d) + x[ 1] + 0x6ed9eba1) & M; a = ((a << S31) | (a >> (32-S31))) & M	# 41
+	d = (d + (a ^ b ^ c) + x[ 9] + 0x6ed9eba1) & M; d = ((d << S32) | (d >> (32-S32))) & M	# 42
+	c = (c + (d ^ a ^ b) + x[ 5] + 0x6ed9eba1) & M; c = ((c << S33) | (c >> (32-S33))) & M	# 43
+	b = (b + (c ^ d ^ a) + x[13] + 0x6ed9eba1) & M; b = ((b << S34) | (b >> (32-S34))) & M	# 44
+	a = (a + (b ^ c ^ d) + x[ 3] + 0x6ed9eba1) & M; a = ((a << S31) | (a >> (32-S31))) & M	# 45
+	d = (d + (a ^ b ^ c) + x[11] + 0x6ed9eba1) & M; d = ((d << S32) | (d >> (32-S32))) & M	# 46
+	c = (c + (d ^ a ^ b) + x[ 7] + 0x6ed9eba1) & M; c = ((c << S33) | (c >> (32-S33))) & M	# 47
+	b = (b + (c ^ d ^ a) + x[15] + 0x6ed9eba1) & M; b = ((b << S34) | (b >> (32-S34))) & M	# 48
+
+	state[0] = (state[0] + a) & M
+	state[1] = (state[1] + b) & M
+	state[2] = (state[2] + c) & M
+	state[3] = (state[3] + d) & M
+
+	# Zeroize sensitive information.
+	#memset ((POINTER)x, 0, sizeof (x));
+
+
+# Encodes input (UINT4) into output (unsigned char). Assumes len is a multiple of 4.
+def Encode (output, input, len): #unsigned char *, UINT4 *, unsigned int
+
+	#unsigned int i, j;
+
+	i = 0
+	j = 0
+	while j < len:
+		output[j] = input[i] & 0xff
+		output[j+1] = (input[i] >> 8) & 0xff
+		output[j+2] = (input[i] >> 16) & 0xff
+		output[j+3] = (input[i] >> 24) & 0xff
+		i += 1
+		j += 4
+
+
+# Decodes input (unsigned char) into output (UINT4). Assumes len is a multiple of 4.
+def Decode (output, input, len): #UINT4 *, unsigned char *, unsigned int
+
+	#unsigned int i, j;
+
+	i = 0
+	j = 0
+	while j < len:
+		output[i] = input[j] | (input[j+1] << 8) | (input[j+2] << 16) | (input[j+3] << 24)
+		i += 1
+		j += 4
 
 #===================================================================
 
-def Com_BlockChecksum (buff): # (unsigned)
+def Com_BlockChecksum (buffer, length): #void *, int (returns unsigned)
 
-	digest = MD4(buff).bytes()
-	
-	vals = struct.unpack("<IIII", digest)
-	val = vals[0] ^ vals[1] ^ vals[2] ^ vals[3]
+	#int			digest[4];
+	#unsigned	val;
+	#MD4_CTX		ctx;
 
-	return struct.pack("<I", val)
+	ctx = MD4_CTX()
+	digest = bytearray(16)
 
+	MD4Init (ctx)
+	MD4Update (ctx, buffer, length)
+	MD4Final (digest, ctx)
+
+	d = struct.unpack("<4I", digest) # (int *)digest
+	val = d[0] ^ d[1] ^ d[2] ^ d[3]
+
+	return val

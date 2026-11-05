@@ -699,7 +699,7 @@ def CM_LoadMap (name, clientload): #char *, qboolean (returns cmodel_t *, unsign
 	if buf is None:
 		common.Com_Error (q_shared.ERR_DROP, "Couldn't load {}".format(name))
 
-	last_checksum = q_shared.LittleLong (md4.Com_BlockChecksum (buf))
+	last_checksum = md4.Com_BlockChecksum (buf, length) # LittleLong (Com_BlockChecksum (buf, length)); Q2PORT: already a host int
 	checksum = last_checksum
 
 	header = qfiles.dheader_t()
