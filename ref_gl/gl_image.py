@@ -1575,9 +1575,9 @@ def GL_InitImages ():
 	"""
 	
 	for i in range(256):
-	
+
 		if g == 1.0:
-		
+			
 			gammatable[i] = i
 		
 		else:
@@ -1589,10 +1589,10 @@ def GL_InitImages ():
 				inf = 0
 			if inf > 255:
 				inf = 255
-			gammatable[i] = inf
-		
-	for i in range(256):
+			gammatable[i] = int(inf)
 	
+	for i in range(256):
+
 		j = int(i*intensity.value)
 		if j > 255:
 			j = 255

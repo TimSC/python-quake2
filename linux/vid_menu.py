@@ -84,15 +84,9 @@ def DriverCallback( unused ): #void *
 
 	s_ref_list[int(not s_current_menu_index)].curvalue = s_ref_list[s_current_menu_index].curvalue
 
-	if s_ref_list[s_current_menu_index].curvalue < 2:
-
-		s_current_menu = s_software_menu
-		s_current_menu_index = 0
-
-	else:
-
-		s_current_menu = s_opengl_menu
-		s_current_menu_index = 1
+	# Q2PORT: only the OpenGL driver is implemented
+	s_current_menu = s_opengl_menu
+	s_current_menu_index = 1
 
 
 def ScreenSizeCallback( s ): #void *
@@ -149,35 +143,11 @@ def ApplyChanges( unused ): #void *
 	cvar.Cvar_SetValue( "gl_mode", s_mode_list[OPENGL_MENU].curvalue )
 	cvar.Cvar_SetValue( "_windowed_mouse", s_windowed_mouse.curvalue)
 
-	ref = s_ref_list[s_current_menu_index].curvalue
-	if ref == REF_SOFT:
-		cvar.Cvar_Set( "vid_ref", "soft" )
-	elif ref == REF_SOFTX11:
-		cvar.Cvar_Set( "vid_ref", "softx" )
-
-	elif ref == REF_MESA3D :
-		cvar.Cvar_Set( "vid_ref", "gl" )
-		cvar.Cvar_Set( "gl_driver", "libMesaGL.so.2" )
-		if gl_driver.modified:
-			vid_so.vid_ref.modified = True
-
-	elif ref == REF_OPENGLX :
-		cvar.Cvar_Set( "vid_ref", "glx" )
-		cvar.Cvar_Set( "gl_driver", "libGL.so" )
-		if gl_driver.modified:
-			vid_so.vid_ref.modified = True
-
-	elif ref == REF_MESA3DGLX :
-		cvar.Cvar_Set( "vid_ref", "glx" )
-		cvar.Cvar_Set( "gl_driver", "libMesaGL.so.2" )
-		if gl_driver.modified:
-			vid_so.vid_ref.modified = True
-
-	elif ref == REF_3DFXGL :
-		cvar.Cvar_Set( "vid_ref", "gl" )
-		cvar.Cvar_Set( "gl_driver", "lib3dfxgl.so" )
-		if gl_driver.modified:
-			vid_so.vid_ref.modified = True
+	# Q2PORT: only the OpenGL driver is implemented
+	cvar.Cvar_Set( "vid_ref", "glx" )
+	cvar.Cvar_Set( "gl_driver", "libGL.so" )
+	if gl_driver.modified:
+		vid_so.vid_ref.modified = True
 
 	"""
 #if 0
@@ -233,12 +203,7 @@ def VID_MenuInit():
 		"[2048 1536]",
 	]
 	refs = [ #static const char *[]
-		"[software       ]",
-		"[software X11   ]",
-		"[Mesa 3-D 3DFX  ]",
-		"[3DFXGL Miniport]",
 		"[OpenGL glX     ]",
-		"[Mesa 3-D glX   ]",
 	]
 	yesno_names = [ #static const char *[]
 		"no",
@@ -272,31 +237,9 @@ def VID_MenuInit():
 	s_screensize_slider[SOFTWARE_MENU].curvalue = cl_scrn.scr_viewsize.value/10
 	s_screensize_slider[OPENGL_MENU].curvalue = cl_scrn.scr_viewsize.value/10
 
-	if vid_so.vid_ref.string == "soft":
-
-		s_current_menu_index = SOFTWARE_MENU
-		s_ref_list[0].curvalue = s_ref_list[1].curvalue = REF_SOFT
-
-	elif vid_so.vid_ref.string == "softx":
-
-		s_current_menu_index = SOFTWARE_MENU
-		s_ref_list[0].curvalue = s_ref_list[1].curvalue = REF_SOFTX11
-
-	elif vid_so.vid_ref.string == "gl":
-
-		s_current_menu_index = OPENGL_MENU
-		if gl_driver.string == "lib3dfxgl.so":
-			s_ref_list[s_current_menu_index].curvalue = REF_3DFXGL
-		else:
-			s_ref_list[s_current_menu_index].curvalue = REF_MESA3D
-
-	elif vid_so.vid_ref.string == "glx":
-
-		s_current_menu_index = OPENGL_MENU
-		if gl_driver.string == "libMesaGL.so.2":
-			s_ref_list[s_current_menu_index].curvalue = REF_MESA3DGLX
-		else:
-			s_ref_list[s_current_menu_index].curvalue = REF_OPENGLX
+	# Q2PORT: only the OpenGL driver is implemented, force the OpenGL menu
+	s_current_menu_index = OPENGL_MENU
+	s_ref_list[0].curvalue = s_ref_list[1].curvalue = 0
 
 	s_software_menu.x = int(vid_so.viddef.width * 0.50)
 	s_software_menu.nitems = 0
