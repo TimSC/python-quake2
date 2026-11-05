@@ -262,7 +262,7 @@ def SVC_DirectConnect ():
 		version = None
 	if version != qcommon.PROTOCOL_VERSION:
 	
-		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, adr, "print\nServer is version {:4.2f}.\n".format(VERSION))
+		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, adr, "print\nServer is version {:4.2f}.\n".format(qcommon.VERSION))
 		common.Com_DPrintf ("    rejected connect from version {}\n".format(version))
 		return
 	
@@ -327,8 +327,9 @@ def SVC_DirectConnect ():
 	
 	# find a client slot
 	newcl = None
-	for client in sv_init.svs.clients:
+	for i in range(int(maxclients.value)):
 	
+		cl = sv_init.svs.clients[i]
 		if cl.state == sv_init.client_state_t.cs_free:
 		
 			newcl = cl
@@ -336,8 +337,8 @@ def SVC_DirectConnect ():
 		
 	if newcl is None:
 	
-		Netchan_OutOfBandPrint (NS_SERVER, adr, "print\nServer is full.\n");
-		Com_DPrintf ("Rejected a connection.\n");
+		net_chan.Netchan_OutOfBandPrint (qcommon.netsrc_t.NS_SERVER, adr, "print\nServer is full.\n")
+		common.Com_DPrintf ("Rejected a connection.\n")
 		return;
 	
 	SVC_DirectConnect_NewClient(newcl, adr, qport, userinfo, challenge)
@@ -685,7 +686,7 @@ def SV_Frame (msec): #int
 		if sv_init.sv.time - sv_init.svs.realtime > 100:
 		
 			if int(sv_showclamp.value):
-				Com_Printf ("sv lowclamp\n");
+				common.Com_Printf ("sv lowclamp\n")
 			sv_init.svs.realtime = sv_init.sv.time - 100
 		
 		net_udp.NET_Sleep(sv_init.sv.time - sv_init.svs.realtime)

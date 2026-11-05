@@ -27,7 +27,7 @@ import OpenGL.GL.ARB.multitexture as GLmt
 import pygame
 from enum import Enum
 from game import q_shared
-from ref_gl import gl_rmain, gl_model
+from ref_gl import gl_rmain, gl_model, gl_draw
 from qcommon import qfiles, qcommon
 from linux import qgl_linux
 
@@ -162,7 +162,7 @@ def GL_SetTexturePalette(palette): #unsigned palette[256]
 	unsigned char temptable[768];
 	"""
 
-	if qgl_linux.qglColorTableEXT and gl_ext_palettedtexture.value:
+	if qgl_linux.qglColorTableEXT and gl_rmain.gl_ext_palettedtexture.value:
 
 		raise NotImplementedError()
 

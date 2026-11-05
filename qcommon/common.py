@@ -1348,7 +1348,7 @@ For proxy protecting
 */
 """
 def COM_BlockSequenceCheckByte (base, length, sequence, challenge): #byte *, int, int, int (returns byte)
-	Sys_Error ("COM_BlockSequenceCheckByte called\n")
+	sys_linux.Sys_Error ("COM_BlockSequenceCheckByte called\n")
 	return 0
 """
 #if 0

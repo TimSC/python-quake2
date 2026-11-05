@@ -69,28 +69,28 @@ extern	char	key_lines[32][MAXCMDLINE];
 extern	int		edit_line;
 extern	int		key_linepos;
 		
-
-void DrawString (int x, int y, char *s)
-{
-	while (*s)
-	{
-		vid_so.re.DrawChar (x, y, *s);
-		x+=8;
-		s++;
-	}
-}
-
-void DrawAltString (int x, int y, char *s)
-{
-	while (*s)
-	{
-		vid_so.re.DrawChar (x, y, *s ^ 0x80);
-		x+=8;
-		s++;
-	}
-}
-
 """
+
+def DrawString (x: int, y: int, s: str): #int, int, char *
+
+	i = 0 # index into s
+	while i < len(s) and s[i] != '\0': # while (*s)
+	
+		vid_so.re.DrawChar (x, y, ord(s[i]))
+		x+=8
+		i+=1 # s++
+	
+
+def DrawAltString (x: int, y: int, s: str): #int, int, char *
+
+	i = 0 # index into s
+	while i < len(s) and s[i] != '\0': # while (*s)
+	
+		vid_so.re.DrawChar (x, y, ord(s[i]) ^ 0x80)
+		x+=8
+		i+=1 # s++
+	
+
 def Key_ClearTyping ():
 
 	keys.key_lines[keys.edit_line] = keys.key_lines[keys.edit_line][0]	# clear any typing

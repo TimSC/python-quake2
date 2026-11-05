@@ -466,8 +466,10 @@ def V_RenderView( stereo_separation: float ):
 		# offset vieworg appropriately if we're doing stereo separation
 		if stereo_separation != 0:
 		
-			tmp = VectorScale( cl_main.cl.v_right, stereo_separation, tmp )
-			VectorAdd( cl_main.cl.refdef.vieworg, tmp, cl_main.cl.refdef.vieworg )
+			tmp = np.zeros((3,), dtype=np.float32) #vec3_t
+
+			q_shared.VectorScale( cl_main.cl.v_right, stereo_separation, tmp )
+			q_shared.VectorAdd( cl_main.cl.refdef.vieworg, tmp, cl_main.cl.refdef.vieworg )
 		
 
 		# never let it sit exactly on a node line, because a water plane can
@@ -493,7 +495,7 @@ def V_RenderView( stereo_separation: float ):
 		if not int(cl_main.cl_add_lights.value):
 			r_numdlights = 0
 		if not int(cl_main.cl_add_blend.value):
-			VectorClear (cl_main.cl.refdef.blend)	
+			q_shared.VectorClear (cl_main.cl.refdef.blend)	
 
 		cl_main.cl.refdef.num_entities = r_numentities
 		cl_main.cl.refdef.entities = r_entities
@@ -529,7 +531,7 @@ def V_Viewpos_f ():
 
 	common.Com_Printf ("({} {} {}) : {}\n".format(int(cl_main.cl.refdef.vieworg[0]),
 		int(cl_main.cl.refdef.vieworg[1]), int(cl_main.cl.refdef.vieworg[2]), 
-		int(cl_main.cl.refdef.viewangles[YAW])))
+		int(cl_main.cl.refdef.viewangles[q_shared.YAW])))
 
 # =============
 # V_Init

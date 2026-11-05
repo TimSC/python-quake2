@@ -66,7 +66,8 @@ class dpackheader_t(object):
 		self.ident, self.dirofs, self.dirlen = struct.unpack('<lll', fi.read(12))
 
 		if self.ident != IDPAKHEADER:
-			common.Com_Error (ERR_FATAL, "{} is not a packfile".format(packfile))
+			from qcommon import common
+			common.Com_Error (q_shared.ERR_FATAL, "{} is not a packfile".format(fi.name))
 
 
 MAX_FILES_IN_PACK = 4096

@@ -217,8 +217,8 @@ def Draw_TileClear (x, y, w, h, pic): #int, int, int, int, char *
 		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
 		return
 	
-	if  ( ( gl_config.renderer == GL_RENDERER_MCD ) or ( gl_config.renderer & GL_RENDERER_RENDITION ) )  and not image.has_alpha:
-		GL.glDisable (GL_ALPHA_TEST)
+	if  ( ( gl_rmain.gl_config.renderer == gl_rmain.GL_RENDERER_MCD ) or ( gl_rmain.gl_config.renderer & gl_rmain.GL_RENDERER_RENDITION ) )  and not image.has_alpha:
+		GL.glDisable (GL.GL_ALPHA_TEST)
 
 	gl_image.GL_Bind (image.texnum)
 	GL.glBegin (GL.GL_QUADS)
@@ -232,8 +232,8 @@ def Draw_TileClear (x, y, w, h, pic): #int, int, int, int, char *
 	GL.glVertex2f (x, y+h)
 	GL.glEnd ()
 
-	if ( ( gl_config.renderer == GL_RENDERER_MCD ) or ( gl_config.renderer & GL_RENDERER_RENDITION ) )  and not image.has_alpha:
-		GL.glEnable (GL_ALPHA_TEST)
+	if ( ( gl_rmain.gl_config.renderer == gl_rmain.GL_RENDERER_MCD ) or ( gl_rmain.gl_config.renderer & gl_rmain.GL_RENDERER_RENDITION ) )  and not image.has_alpha:
+		GL.glEnable (GL.GL_ALPHA_TEST)
 
 
 

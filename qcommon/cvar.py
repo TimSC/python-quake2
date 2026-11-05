@@ -202,8 +202,9 @@ def Cvar_Set2 (var_name, value, force): #char *, char *, qboolean (returns cvar_
 				var.value = q_shared.atof(var.string)
 				if var.name == "game":
 				
-					FS_SetGamedir (var.string);
-					FS_ExecAutoexec ();
+					from qcommon import files
+					files.FS_SetGamedir (var.string)
+					files.FS_ExecAutoexec ()
 				
 			
 			return var

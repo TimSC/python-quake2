@@ -543,7 +543,7 @@ def SV_InitGame ():
 	if cvar.Cvar_VariableValue ("coop") and cvar.Cvar_VariableValue ("deathmatch"):
 	
 		common.Com_Printf("Deathmatch and Coop both set, disabling Coop\n");
-		cvar.Cvar_FullSet ("coop", "0",  CVAR_SERVERINFO | CVAR_LATCH);
+		cvar.Cvar_FullSet ("coop", "0",  q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH)
 	
 
 	# dedicated servers are can't be single player and are usually DM
@@ -558,8 +558,8 @@ def SV_InitGame ():
 	
 		if sv_main.maxclients.value <= 1:
 			cvar.Cvar_FullSet ("maxclients", "8", q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH)
-		elif sv_main.maxclients.value > MAX_CLIENTS:
-			cvar.Cvar_FullSet ("maxclients", "%i" % MAX_CLIENTS, q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH)
+		elif sv_main.maxclients.value > q_shared.MAX_CLIENTS:
+			cvar.Cvar_FullSet ("maxclients", "%i" % q_shared.MAX_CLIENTS, q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH)
 	
 	elif cvar.Cvar_VariableValue ("coop"):
 	

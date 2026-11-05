@@ -22,7 +22,7 @@ from __future__ import annotations
 import os
 import functools
 from qcommon import cvar, cmd, common, files
-from client import cl_main, client, cl_scrn, snd_dma, keys, qmenu, cl_view, ref
+from client import cl_main, client, cl_scrn, snd_dma, keys, qmenu, cl_view, ref, console
 from linux import vid_so, q_shlinux, net_udp
 from game import q_shared
 

@@ -404,7 +404,7 @@ def S_PickChannel(entnum, entchannel): #int, int (returns channel_t *)
 	global channels
 
 	if entchannel<0:
-		common.Com_Error (ERR_DROP, "S_PickChannel: entchannel<0")
+		common.Com_Error (q_shared.ERR_DROP, "S_PickChannel: entchannel<0")
 
 	# Check for replacement sound, or find the best one to replace
 	first_to_die = -1

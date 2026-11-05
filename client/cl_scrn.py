@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from __future__ import annotations
 
+import copy
 from qcommon import cvar, cmd, qcommon, common
 from client import console, cl_main, client, menu, cl_cin, snd_dma, cl_view, cl_inv
 from linux import q_shlinux, vid_so, cd_linux
@@ -927,11 +928,11 @@ def SCR_ExecuteLayoutString (s): #char *
 			token, cursor = common.COM_Parse (s, cursor)
 			time = int(token)
 
-			DrawAltString (x+32, y, ci.name)
-			DrawString (x+32, y+8,  "Score: ")
-			DrawAltString (x+32+7*8, y+8,  "{}".format(score))
-			DrawString (x+32, y+16, "Ping:  {}".format(ping))
-			DrawString (x+32, y+24, "Time:  {}".format(time))
+			console.DrawAltString (x+32, y, ci.name)
+			console.DrawString (x+32, y+8,  "Score: ")
+			console.DrawAltString (x+32+7*8, y+8,  "{}".format(score))
+			console.DrawString (x+32, y+16, "Ping:  {}".format(ping))
+			console.DrawString (x+32, y+24, "Time:  {}".format(time))
 
 			if not ci.icon:
 				ci = cl.baseclientinfo
@@ -967,9 +968,9 @@ def SCR_ExecuteLayoutString (s): #char *
 			block = "{:3d} {:3d} {:<12.12s}".format(score, ping, ci.name) # sprintf(block, "%3d %3d %-12.12s", score, ping, ci->name);
 
 			if value == cl.playernum:
-				DrawAltString (x, y, block)
+				console.DrawAltString (x, y, block)
 			else:
-				DrawString (x, y, block)
+				console.DrawString (x, y, block)
 			continue
 		
 		if token == "picn":
@@ -1053,7 +1054,7 @@ def SCR_ExecuteLayoutString (s): #char *
 			index = cl.frame.playerstate.stats[index]
 			if index < 0 or index >= q_shared.MAX_CONFIGSTRINGS:
 				common.Com_Error (q_shared.ERR_DROP, "Bad stat_string index")
-			DrawString (x, y, cl.configstrings[index])
+			console.DrawString (x, y, cl.configstrings[index])
 			continue
 		
 		if token == "cstring":
@@ -1065,7 +1066,7 @@ def SCR_ExecuteLayoutString (s): #char *
 		if token == "string":
 		
 			token, cursor = common.COM_Parse (s, cursor)
-			DrawString (x, y, token)
+			console.DrawString (x, y, token)
 			continue
 		
 		if token == "cstring2":
@@ -1077,7 +1078,7 @@ def SCR_ExecuteLayoutString (s): #char *
 		if token == "string2":
 		
 			token, cursor = common.COM_Parse (s, cursor)
-			DrawAltString (x, y, token)
+			console.DrawAltString (x, y, token)
 			continue
 		
 		if token == "if":

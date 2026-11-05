@@ -3204,6 +3204,7 @@ def Info_SetValueForKey (key, value): #char*, char*
 
 	if key.find("\\") != -1 or value.find("\\") != -1 :
 	
+		from qcommon import common	# Q2PORT: imported here, q_shared is loaded before qcommon
 		common.Com_Printf ("Can't use keys or values with a \\\n")
 		return ""
 	

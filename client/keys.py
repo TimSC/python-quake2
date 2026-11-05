@@ -681,7 +681,7 @@ def Key_Unbind_f ():
 	b = Key_StringToKeynum (cmd.Cmd_Argv(1))
 	if b==-1:
 	
-		Com_Printf ("\"{}\" isn't a valid key\n".format( cmd.Cmd_Argv(1)))
+		common.Com_Printf ("\"{}\" isn't a valid key\n".format( cmd.Cmd_Argv(1)))
 		return;
 	
 
@@ -713,7 +713,7 @@ def Key_Bind_f ():
 
 	if b==-1:
 	
-		common.Com_Printf ("\"{}\" isn't a valid key\n".format(Cmd_Argv(1)))
+		common.Com_Printf ("\"{}\" isn't a valid key\n".format(cmd.Cmd_Argv(1)))
 		return
 	
 	if c == 2:

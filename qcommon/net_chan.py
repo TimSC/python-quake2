@@ -236,7 +236,7 @@ def Netchan_Transmit (chan: qcommon.netchan_t, data: bytes | bytearray)->None: #
 	
 		chan.fatal_error = True
 		common.Com_Printf ("{}:Outgoing message overflow\n".format(
-			NET_AdrToString (chan.remote_address)))
+			net_udp.NET_AdrToString (chan.remote_address)))
 		return
 	
 	send_reliable = Netchan_NeedReliable (chan)

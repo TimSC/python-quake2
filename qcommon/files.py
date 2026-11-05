@@ -438,7 +438,7 @@ def FS_LoadPackFile (packfile): # char * (returns pack_t *)
 	numpackfiles = header.dirlen // 64;
 
 	if numpackfiles > qfiles.MAX_FILES_IN_PACK:
-		common.Com_Error (ERR_FATAL, "{} has {} files".format(packfile, numpackfiles))
+		common.Com_Error (q_shared.ERR_FATAL, "{} has {} files".format(packfile, numpackfiles))
 
 	newfiles = []
 

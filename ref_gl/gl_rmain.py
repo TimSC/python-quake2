@@ -1486,7 +1486,7 @@ def R_Init( hinstance, hWnd ): #void *, void *
 
 
 def onGlDebugMessage(*args, **kwargs):
-    println('glGetError args = {0}, kwargs = {1}'.format(args, kwargs))
+    print('glGetError args = {0}, kwargs = {1}'.format(args, kwargs))
 
 
 """

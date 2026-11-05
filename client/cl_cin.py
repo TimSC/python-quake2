@@ -404,7 +404,7 @@ def SCR_ReadNextFrame (): #byte *
 	size = files.FS_Read (4, cl_main.cl.cinematic_file)
 	size = q_shared.LittleLong(size)
 	if size > 0x20000 or size < 1:
-		common.Com_Error (ERR_DROP, "Bad compressed frame size")
+		common.Com_Error (q_shared.ERR_DROP, "Bad compressed frame size")
 	compressed = files.FS_Read (size, cl_main.cl.cinematic_file)
 
 	# read sound

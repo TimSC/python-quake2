@@ -184,7 +184,8 @@ def Sys_FindFirst (path, musthave, canhave): #char *, unsigned, unsigned (return
 	#char *p;
 
 	if fdir is not None:
-		common.Sys_Error ("Sys_BeginFind without close")
+		from linux import sys_linux
+		sys_linux.Sys_Error ("Sys_BeginFind without close")
 
 	## COM_FilePath (path, findbase);
 	findbase = path
