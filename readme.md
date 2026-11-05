@@ -7,6 +7,12 @@ the port can be compared with the C line by line. The renderer is the OpenGL
 one (`ref_gl`), and the platform layer uses pygame for the window, input and
 sound.
 
+This is the Quake2 game engine without the maps, textures and models which are 
+proprietary. If you purchase the official game, it includes the
+quake2data asset folder and the game can be played normally using that. 
+Alternatively, you can try running independently created maps but they mostly 
+rely on the base games textures.
+
 About 5% of the code was ported by hand; the rest was ported with the
 help of ChatGPT, Claude and qwen.
 
