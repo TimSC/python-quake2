@@ -1078,7 +1078,7 @@ def Mod_LoadSpriteModel (mod, buff): # model_t *, void *
 # @@@@@@@@@@@@@@@@@@@@@
 def R_BeginRegistration (model): #char *
 
-	global registration_sequence, gl_rmain, r_viewcluster
+	global registration_sequence
 
 	#char	fullname[MAX_QPATH];
 	#cvar_t	*flushmap;
@@ -1095,7 +1095,7 @@ def R_BeginRegistration (model): #char *
 		Mod_Free (mod_known[0])
 	gl_rmain.r_worldmodel = Mod_ForName(fullname, True)
 
-	r_viewcluster = -1
+	gl_rmain.r_viewcluster = -1
 
 # @@@@@@@@@@@@@@@@@@@@@
 # R_RegisterModel
