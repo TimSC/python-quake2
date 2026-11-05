@@ -36,8 +36,7 @@ Not ported, or out of scope for now:
 ## Requirements
 
 - Python 3 (developed and tested with 3.12)
-- The packages in `requirements.txt`: pygame, PyOpenGL, numpy, Pillow and
-  Cython. Cython builds a compiled extension used for cinematic playback.
+- The packages in `requirements.txt`: pygame, PyOpenGL, numpy and Pillow.
 - The Quake II game data (`baseq2/pak0.pak` and so on), from a copy of the
   game you own. It is not included.
 
@@ -45,7 +44,6 @@ Not ported, or out of scope for now:
 
 ```
 pip3 install -r requirements.txt
-pip3 install -e .
 ```
 
 ## Running

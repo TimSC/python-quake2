@@ -21,11 +21,6 @@ from __future__ import annotations
 
 import os
 import struct
-import numpy as np
-try:
-	import cl_cin_extras
-except ModuleNotFoundError:
-	from client import cl_cin_extras
 from client import cl_main, cl_scrn, client, snd_dma
 from qcommon import files, cvar, common, qcommon, qfiles
 from game import q_shared
@@ -56,7 +51,6 @@ class cinematics_t(object):
 		# order 1 huffman stuff
 		self.hnodes1 = None #int * // [256][256][2]
 		self.numhnodes1 = None #int[256]
-		self.hnodes1tree = None
 
 		self.h_used = None #int[512]
 		self.h_count = None #int[512]
@@ -188,11 +182,7 @@ def SCR_StopCinematic ():
 
 	if cin.hnodes1 is not None:
 	
-		cin.hnodes1 = None
-		cin.hnodes1tree = None
-		cin.hnodes1vals = None
-		cin.hnodes1leaf = None
-		cin.numhnodes1 = None
+		cin.hnodes1 = None	# Z_Free (cin.hnodes1);
 
 	# switch back down to 11 khz sound if necessary
 	if cin.restart_sound:
@@ -270,8 +260,8 @@ def Huff1TableInit ():
 	int		numhnodes;
 	"""
 
-	cin.hnodes1 = [0] * (256*256*2*4)
-	cin.numhnodes1 = np.zeros((256,), dtype=np.int16) #int[256] Mapping from previous pixel to specalized huff tree
+	cin.hnodes1 = [0] * (256*256*2) # Z_Malloc (256*256*2*4); memset (cin.hnodes1, 0, 256*256*2*4);
+	cin.numhnodes1 = [0] * 256 #int[256]
 
 
 	for prev in range(256):
@@ -309,39 +299,67 @@ def Huff1TableInit ():
 
 		cin.numhnodes1[prev] = numhnodes-1
 
-	#Convert to higher level (cython friendly) representation
-	cin.hnodes1tree = np.empty((256, 256, 2), dtype=np.uint8) # Node tree
-	cin.hnodes1vals = np.zeros((256, 256, 2), dtype=np.uint8) # Leaf node values
-	cin.hnodes1leaf = np.zeros((256, 256, 2), dtype=np.uint8) # Indicates if node is a leaf node
 
-	for prevpixel in range(256):
+"""
+==================
+Huff1Decompress
+==================
+"""
+def Huff1Decompress (in_data): #cblock_t (returns cblock_t)
 
-		for nodenum in range(256):
-			leftRightNextNode = [cin.hnodes1[prevpixel * 512 + nodenum * 2 + 0],
-				cin.hnodes1[prevpixel * 512 + nodenum * 2 + 1]]
+	"""
+	byte		*input;
+	byte		*out_p;
+	int			nodenum;
+	int			count;
+	cblock_t	out;
+	int			inbyte;
+	int			*hnodes, *hnodesbase;
+	"""
+	hnodes1 = cin.hnodes1
+	numhnodes1 = cin.numhnodes1
 
-			if leftRightNextNode[0] < 0:
-				leftRightNextNode[0] = 0
-			elif leftRightNextNode[0] < 256:
-				cin.hnodes1vals[prevpixel][nodenum][0] = leftRightNextNode[0]
-				leftRightNextNode[0] = 0
-				cin.hnodes1leaf[prevpixel][nodenum][0] = 1
-			else:
-				leftRightNextNode[0] -= 256
+	# get decompressed count
+	count = in_data[0] + (in_data[1]<<8) + (in_data[2]<<16) + (in_data[3]<<24)
+	input_p = 4
+	out = bytearray(count) # out_p = out.data = Z_Malloc (count);
+	out_p = 0
 
-			if leftRightNextNode[1] < 0:
-				leftRightNextNode[1] = 0
-			elif leftRightNextNode[1] < 256:
-				cin.hnodes1vals[prevpixel][nodenum][1] = leftRightNextNode[1]
-				leftRightNextNode[1] = 0
-				cin.hnodes1leaf[prevpixel][nodenum][1] = 1
-			else:
-				leftRightNextNode[1] -= 256
+	# read bits
 
-			cin.hnodes1tree[prevpixel][nodenum][:] = leftRightNextNode
+	hnodesbase = -256*2	# nodes 0-255 aren't stored
 
-	cin.numhnodes1 -= 256
-	cin.numhnodes1 = np.array(cin.numhnodes1, dtype=np.uint8)
+	hnodes = hnodesbase
+	nodenum = numhnodes1[0]
+	while count:
+	
+		# Q2PORT: reading past the end of the block gives zero bits
+		inbyte = in_data[input_p] if input_p < len(in_data) else 0
+		input_p += 1
+		# Q2PORT: the C repeats this block once per bit, 8 times
+		for bit in range(8):
+			#-----------
+			if nodenum < 256:
+			
+				hnodes = hnodesbase + (nodenum<<9)
+				out[out_p] = nodenum
+				out_p += 1
+				count -= 1
+				if not count:
+					break
+				nodenum = numhnodes1[nodenum]
+			
+			nodenum = hnodes1[hnodes + nodenum*2 + (inbyte&1)]
+			inbyte >>=1
+	
+
+	if input_p != len(in_data) and input_p != len(in_data)+1:
+	
+		common.Com_Printf ("Decompression overread by %i", input_p - len(in_data))
+	
+	#out.count = out_p - out.data;
+
+	return bytes(out[:out_p])
 
 
 """
@@ -400,7 +418,7 @@ def SCR_ReadNextFrame (): #byte *
 
 	in_blk = bytes(compressed)
 
-	huf1 = cl_cin_extras.Huff1Decompress (in_blk, cin.hnodes1tree, cin.hnodes1vals, cin.hnodes1leaf, cin.numhnodes1)
+	huf1 = Huff1Decompress (in_blk)
 
 	pic = huf1
 

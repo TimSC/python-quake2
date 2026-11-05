@@ -266,14 +266,12 @@ far too slow. Avoid "cleanup" refactors and renaming.
 
 ## Performance
 
-- Only optimise a hotspot after measuring it. Inner loops that are too
-  slow in Python, like the cinematic Huffman decoder, go into a Cython
-  `.pyx` file (`client/cl_cin_extras.pyx`). It is built with
-  `python3 setup.py build_ext --inplace`.
-- The `.pyx` keeps the same layout: banner comment, a `"""` block of C
-  locals, the C names, and typed locals
-  (`count: numpy.uint32_t = ...`). Comment the algorithm where it isn't
-  obvious, with a link to its documentation.
+- Only optimise a hotspot after measuring it.
+- The port is pure Python, with no compiled extensions or build step.
+  Try a faster pure-Python approach (numpy, a lookup table) before
+  anything else, and keep the C structure where you can. For example,
+  the cinematic Huffman decoder (`Huff1Decompress` in `client/cl_cin.py`)
+  is a direct port of the C bit loop, and fast enough for playback.
 
 ## Dependencies
 
