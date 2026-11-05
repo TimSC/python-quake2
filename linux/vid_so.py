@@ -21,6 +21,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // is used for both the software and OpenGL rendering versions of the
 // Quake refresh engine.
 """
+from __future__ import annotations
+
 import os
 from qcommon import cvar, common, cmd, files
 from client import snd_dma, cl_main, ref, cl_input, keys, client

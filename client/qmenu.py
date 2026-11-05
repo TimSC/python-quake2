@@ -17,6 +17,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
+from __future__ import annotations
+
 from client import menu as menumod
 from client import keys
 from linux import vid_so, q_shlinux, sys_linux

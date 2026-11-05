@@ -32,6 +32,9 @@ only when a literal translation is impossible or far too slow.
   `q_shared.CVAR_ARCHIVE`, `cl_main.cls.state`.
 - Don't use `from x import *`, and don't import single names. The
   module prefix shows which C file a symbol comes from.
+- Every Python file starts with `from __future__ import annotations`
+  (right after the module docstring), so type annotations can reference
+  types without being evaluated at import time.
 - Put standard library and third-party imports first (`io`, `math`,
   `struct`, `numpy as np`, `pygame`, `OpenGL.GL as GL`), then project
   imports.
@@ -90,8 +93,10 @@ only when a literal translation is impossible or far too slow.
 - Write the C types of the parameters in a comment after the colon,
   in order. Add the return type in brackets when it isn't void:
   `#char *, char *, int (returns cvar_t *)`.
-- Type hints are rare. Only use them in small, self-contained helpers,
-  e.g. `def CalcFov (fov_x: float, width: float, height: float)->float:`.
+- Use type annotations on function parameters and return values, e.g.
+  `def CalcFov (fov_x: float, width: float, height: float)->float:`.
+  Annotate with the Python type that represents the C type (see Data
+  types), so `#char *` is `str` and `#cvar_t *` is `cvar_t`.
 - Often there is a space before the parameter list, as in the C:
   `def Cvar_Get (var_name, ...)`. This isn't always the case. Follow
   the spacing of the C you are copying.

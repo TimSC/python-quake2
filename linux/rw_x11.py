@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Placeholder for /home/tim/dev/quake2/linux/rw_x11.c
 # Unported C source follows.
 

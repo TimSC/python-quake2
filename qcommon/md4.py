@@ -45,6 +45,8 @@
 #   Expected: 501af1ef4b68495b5b7e37b15b4cda68
 #   Actual:   501af1ef4b68495b5b7e37b15b4cda68
 #
+from __future__ import annotations
+
 import struct
 
 

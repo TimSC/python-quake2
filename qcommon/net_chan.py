@@ -17,6 +17,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
+from __future__ import annotations
+
 import struct
 from qcommon import cvar, qcommon, common
 from game import q_shared
@@ -94,7 +96,7 @@ Netchan_Init
 
 ===============
 """
-def Netchan_Init ():
+def Netchan_Init ()->None:
 
 	global showpackets, showdrop, qport
 
@@ -115,7 +117,7 @@ Netchan_OutOfBand
 Sends an out-of-band datagram
 ================
 """
-def Netchan_OutOfBand (net_socket, adr, data): #int, netadr_t, byte *
+def Netchan_OutOfBand (net_socket: int, adr: qcommon.netadr_t, data: bytes)->None: #int, netadr_t, byte *
 
 	assert isinstance(data, bytes)
 
@@ -137,7 +139,7 @@ Netchan_OutOfBandPrint
 Sends a text message in an out-of-band datagram
 ================
 """
-def Netchan_OutOfBandPrint (net_socket, adr, msg): #int, netadr_t, char *
+def Netchan_OutOfBandPrint (net_socket: int, adr: qcommon.netadr_t, msg: str | bytes)->None: #int, netadr_t, char *
 
 	#va_list		argptr;
 	#static char		string[qcommon.MAX_MSGLEN - 4];
@@ -160,7 +162,7 @@ Netchan_Setup
 called to open a channel to a remote system
 ==============
 """
-def Netchan_Setup (sock, chan, adr, qport): #netsrc_t, netchan_t *, netadr_t, int
+def Netchan_Setup (sock: qcommon.netsrc_t, chan: qcommon.netchan_t, adr: qcommon.netadr_t, qport: int)->None: #netsrc_t, netchan_t *, netadr_t, int
 	
 	chan.clear()
 	
@@ -183,13 +185,13 @@ Netchan_CanReliable
 Returns true if the last reliable message has acked
 ================
 """
-def Netchan_CanReliable (chan): #netchan_t * (returns qboolean)
+def Netchan_CanReliable (chan: qcommon.netchan_t)->bool: #netchan_t * (returns qboolean)
 
 	if chan.reliable_length:
 		return False			# waiting for ack
 	return True
 
-def Netchan_NeedReliable (chan): #netchan_t *
+def Netchan_NeedReliable (chan: qcommon.netchan_t)->bool: #netchan_t *
 
 	# qboolean	send_reliable;
 
@@ -219,7 +221,7 @@ transmition / retransmition of the reliable messages.
 A 0 length will still generate a packet and deal with the reliable messages.
 ================
 """
-def Netchan_Transmit (chan: qcommon.netchan_t, data): #netchan_t *
+def Netchan_Transmit (chan: qcommon.netchan_t, data: bytes | bytearray)->None: #netchan_t *
 
 	assert isinstance(data, bytes) or isinstance(data, bytearray)
 
@@ -304,7 +306,7 @@ called when the current net_message is from remote_address
 modifies net_message so that it points to the packet payload
 =================
 """
-def Netchan_Process (chan, msg): #netchan_t *, sizebuf_t * (returns qboolean)
+def Netchan_Process (chan: qcommon.netchan_t, msg: qcommon.sizebuf_t)->bool: #netchan_t *, sizebuf_t * (returns qboolean)
 
 	#unsigned	sequence, sequence_ack;
 	#unsigned	reliable_ack, reliable_message;

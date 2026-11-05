@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Placeholder for /home/tim/dev/quake2/ref_soft/r_alias.c
 # Unported C source follows.
 

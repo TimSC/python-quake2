@@ -17,6 +17,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
+from __future__ import annotations
+
 from qcommon import cvar, cmd, qcommon, common
 from client import console, cl_main, client, menu, cl_cin, snd_dma, cl_view, cl_inv
 from linux import q_shlinux, vid_so, cd_linux

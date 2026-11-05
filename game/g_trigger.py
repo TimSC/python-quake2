@@ -457,6 +457,7 @@ void SP_trigger_monsterjump (edict_t *self)
 	self->movedir[2] = st.height;
 }
 """
+from __future__ import annotations
 
 import random as _r
 from game import q_shared

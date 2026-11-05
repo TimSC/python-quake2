@@ -17,6 +17,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 	"""
+from __future__ import annotations
+
 import os
 import struct
 from client import cl_main, cl_scrn, cl_view, client, cl_cin, cl_ents, cl_fx, snd_dma, cl_tent, console, cl_inv

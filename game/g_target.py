@@ -17,6 +17,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
+from __future__ import annotations
+
 from game import game as _gamemod
 from game import q_shared, g_local, g_main, g_utils, g_misc, g_combat, g_weapon, g_spawn, p_hud
 from game.q_shared import (CHAN_VOICE, CHAN_RELIABLE, CHAN_AUTO,

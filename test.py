@@ -1,4 +1,6 @@
 
+from __future__ import annotations
+
 from qcommon import common, qcommon, files
 from client import cl_cin
 

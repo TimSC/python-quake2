@@ -20,6 +20,8 @@ cvar.c -- dynamic variable tracking
 
 #include "qcommon.h"
 """
+from __future__ import annotations
+
 from qcommon import cmd, common
 from game import q_shared
 

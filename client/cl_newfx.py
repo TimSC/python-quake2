@@ -27,6 +27,8 @@ extern cvar_t		*vid_ref;
 
 extern void MakeNormalVectors (vec3_t forward, vec3_t right, vec3_t up);
 """
+from __future__ import annotations
+
 import math
 import random
 import numpy as np

@@ -21,6 +21,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "gl_local.h"
 """
+from __future__ import annotations
+
 import numpy as np
 import OpenGL.GL as GL
 from ref_gl import gl_warp, gl_image, gl_rmain, gl_model, gl_model_h, gl_light

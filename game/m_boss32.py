@@ -17,6 +17,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
+from __future__ import annotations
+
 import numpy as np
 from game import q_shared, g_local, g_main, g_utils, g_monster, g_misc, g_ai, m_flash
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge, infront, range, visible

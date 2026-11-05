@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Placeholder for /home/tim/dev/quake2/null/cl_null.c
 # Unported C source follows.
 

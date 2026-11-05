@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Placeholder for /home/tim/dev/quake2/ctf/m_move.c
 # Unported C source follows.
 

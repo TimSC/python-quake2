@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Placeholder for /home/tim/dev/quake2/ctf/p_menu.c
 # Unported C source follows.
 

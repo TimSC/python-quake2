@@ -17,6 +17,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
+from __future__ import annotations
+
 from game import game as _gamemod, g_save, p_client
 from game import g_local
 from game import p_view, p_hud, g_utils, g_ai, g_monster, g_phys, q_shared
