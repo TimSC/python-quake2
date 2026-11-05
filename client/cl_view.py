@@ -25,7 +25,7 @@ import math
 import functools
 import copy
 import numpy as np
-from qcommon import cmodel
+pass
 pass
 from client import cl_tent, cl_main, client, console, cl_scrn, cl_ents, ref
 from linux import q_shlinux, vid_so, cd_linux, sys_linux
@@ -35,6 +35,7 @@ from common import clientserver
 from common import cmdparser
 from common import cvar
 from common import frame
+from common import collision
 """
 #include "client.h"
 
@@ -297,7 +298,7 @@ def CL_PrepRefresh ():
 			continue
 		cl_main.cl.model_draw[i] = vid_so.re.RegisterModel (model_name)
 		if model_name.startswith('*'):
-			cl_main.cl.model_clip[i] = cmodel.CM_InlineModel (model_name)
+			cl_main.cl.model_clip[i] = collision.CM_InlineModel (model_name)
 		else:
 			cl_main.cl.model_clip[i] = None
 		if not model_name.startswith('*'):
@@ -519,8 +520,8 @@ def V_RenderView( stereo_separation: float ):
 	vid_so.re.RenderFrame (cl_main.cl.refdef)
 	if cl_stats.value:
 		clientserver.Com_Printf ("ent:{}  lt:{}  part:{}\n".format(r_numentities, r_numdlights, r_numparticles))
-	if int(frame.log_stats.value) and ( log_stats_file != 0 ):
-		log_stats_file = "{},{},{},".format(r_numentities, r_numdlights, r_numparticles)
+	if frame.log_stats.value and ( frame.log_stats_file is not None ):
+		frame.log_stats_file.write("%i,%i,%i," % (r_numentities, r_numdlights, r_numparticles))
 
 	cl_scrn.SCR_AddDirtyPoint (cl_scrn.scr_vrect.x, cl_scrn.scr_vrect.y)
 	cl_scrn.SCR_AddDirtyPoint (cl_scrn.scr_vrect.x+cl_scrn.scr_vrect.width-1,

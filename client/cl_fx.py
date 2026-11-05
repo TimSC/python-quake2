@@ -22,7 +22,7 @@ from __future__ import annotations
 import numpy as np
 import math
 import random
-from qcommon import net_chan
+pass
 pass
 from client import cl_main, cl_view, ref, snd_dma, cl_tent
 pass
@@ -33,6 +33,7 @@ from common.shared import shared as shared_c
 from common import clientserver
 from common import frame
 from common import movemsg
+from common import netchan
 """
 // cl_fx.c -- entity effects parsing and management
 
@@ -247,11 +248,11 @@ def CL_ParseMuzzleFlash ():
 	char		soundname[64];
 	"""
 
-	i = movemsg.MSG_ReadShort (net_chan.net_message)
+	i = movemsg.MSG_ReadShort (netchan.net_message)
 	if i < 1 or i >= shared.MAX_EDICTS:
 		clientserver.Com_Error (shared.ERR_DROP, "CL_ParseMuzzleFlash: bad entity")
 
-	weapon = movemsg.MSG_ReadByte (net_chan.net_message)
+	weapon = movemsg.MSG_ReadByte (netchan.net_message)
 	silenced = weapon & shared.MZ_SILENCED
 	weapon &= ~shared.MZ_SILENCED
 
@@ -439,11 +440,11 @@ def CL_ParseMuzzleFlash2 ():
 	forward = np.zeros((3,), dtype=np.float32)
 	right = np.zeros((3,), dtype=np.float32)
 
-	ent = movemsg.MSG_ReadShort (net_chan.net_message)
+	ent = movemsg.MSG_ReadShort (netchan.net_message)
 	if ent < 1 or ent >= shared.MAX_EDICTS:
 		clientserver.Com_Error (shared.ERR_DROP, "CL_ParseMuzzleFlash2: bad entity")
 
-	flash_number = movemsg.MSG_ReadByte (net_chan.net_message)
+	flash_number = movemsg.MSG_ReadByte (netchan.net_message)
 
 	# locate the origin
 	cent = cl_main.cl_entities[ent]

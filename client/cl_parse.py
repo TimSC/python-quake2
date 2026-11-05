@@ -23,7 +23,7 @@ import os
 import struct
 from client import cl_main, cl_scrn, cl_view, client, cl_cin, cl_ents, cl_fx, snd_dma, cl_tent, console, cl_inv
 pass
-from qcommon import net_chan, cmodel
+pass
 from linux import cd_linux, sys_linux, vid_so
 from common.header import common as common_h
 from common.header import shared
@@ -34,6 +34,8 @@ from common import cvar
 from common import filesystem
 from common import movemsg
 from common import szone
+from common import collision
+from common import netchan
 """
 // cl_parse.c  -- parse a message received from the server
 
@@ -219,8 +221,8 @@ def CL_ParseDownload ():
 	#int		r;
 
 	# read the data
-	size = movemsg.MSG_ReadShort (net_chan.net_message)
-	percent = movemsg.MSG_ReadByte (net_chan.net_message)
+	size = movemsg.MSG_ReadShort (netchan.net_message)
+	percent = movemsg.MSG_ReadByte (netchan.net_message)
 	if size == -1:
 	
 		clientserver.Com_Printf ("Server does not have this file.\n")
@@ -246,13 +248,13 @@ def CL_ParseDownload ():
 			cl_main.cls.download = None
 		if cl_main.cls.download is None:
 		
-			net_chan.net_message.readcount += size
+			netchan.net_message.readcount += size
 			clientserver.Com_Printf ("Failed to open {}\n".format(cl_main.cls.downloadtempname))
 			cl_main.CL_RequestNextDownload ()
 			return
 		
-	cl_main.cls.download.write (net_chan.net_message.data[net_chan.net_message.readcount:net_chan.net_message.readcount + size])
-	net_chan.net_message.readcount += size
+	cl_main.cls.download.write (netchan.net_message.data[netchan.net_message.readcount:netchan.net_message.readcount + size])
+	netchan.net_message.readcount += size
 
 	if percent != 100:
 	
@@ -321,17 +323,17 @@ def CL_ParseServerData ():
 	cl_main.CL_ClearState ()
 	cl_main.cls.state = client.connstate_t.ca_connected
 
-	protocol = movemsg.MSG_ReadLong (net_chan.net_message)
+	protocol = movemsg.MSG_ReadLong (netchan.net_message)
 	cl_main.cls.serverProtocol = protocol
 
 	if not (clientserver.Com_ServerState() and common_h.PROTOCOL_VERSION == 34):
 		if protocol != common_h.PROTOCOL_VERSION:
 			clientserver.Com_Error (common_h.ERR_DROP, "Server returned version {}, not {}".format(protocol, common_h.PROTOCOL_VERSION))
 
-	cl_main.cl.servercount = movemsg.MSG_ReadLong (net_chan.net_message)
-	cl_main.cl.attractloop = movemsg.MSG_ReadByte (net_chan.net_message)
+	cl_main.cl.servercount = movemsg.MSG_ReadLong (netchan.net_message)
+	cl_main.cl.attractloop = movemsg.MSG_ReadByte (netchan.net_message)
 
-	gamedir = movemsg.MSG_ReadString (net_chan.net_message)
+	gamedir = movemsg.MSG_ReadString (netchan.net_message)
 	cl_main.cl.gamedir = gamedir[:shared.MAX_QPATH]
 
 	fsvar = filesystem.fs_gamedirvar
@@ -341,9 +343,9 @@ def CL_ParseServerData ():
 	elif fsvar and fsvar.string:
 		cvar.Cvar_Set ("game", gamedir)
 
-	cl_main.cl.playernum = movemsg.MSG_ReadSShort (net_chan.net_message)
+	cl_main.cl.playernum = movemsg.MSG_ReadSShort (netchan.net_message)
 
-	level_name = movemsg.MSG_ReadString (net_chan.net_message)
+	level_name = movemsg.MSG_ReadString (netchan.net_message)
 
 	if cl_main.cl.playernum == -1:
 		cl_cin.SCR_PlayCinematic (level_name)
@@ -519,10 +521,10 @@ def CL_ParseConfigString ():
 		# char	olds[MAX_QPATH];
 
 
-	i = movemsg.MSG_ReadShort (net_chan.net_message)
+	i = movemsg.MSG_ReadShort (netchan.net_message)
 	if i < 0 or i >= shared.MAX_CONFIGSTRINGS:
 		clientserver.Com_Error (common_h.ERR_DROP, "configstring > MAX_CONFIGSTRINGS")
-	s = movemsg.MSG_ReadString (net_chan.net_message)
+	s = movemsg.MSG_ReadString (netchan.net_message)
 
 	olds = cl_main.cl.configstrings[i] or ""
 	cl_main.cl.configstrings[i] = s
@@ -545,7 +547,7 @@ def CL_ParseConfigString ():
 			if model_name:
 				cl_main.cl.model_draw[i - shared.CS_MODELS] = vid_so.re.RegisterModel (model_name)
 				if model_name[0] == '*':
-					cl_main.cl.model_clip[i - shared.CS_MODELS] = cmodel.CM_InlineModel (model_name)
+					cl_main.cl.model_clip[i - shared.CS_MODELS] = collision.CM_InlineModel (model_name)
 				else:
 					cl_main.cl.model_clip[i - shared.CS_MODELS] = None
 
@@ -587,27 +589,27 @@ def CL_ParseStartSoundPacket():
 	# float	ofs;
 
 
-	flags = movemsg.MSG_ReadByte (net_chan.net_message)
-	sound_num = movemsg.MSG_ReadByte (net_chan.net_message)
+	flags = movemsg.MSG_ReadByte (netchan.net_message)
+	sound_num = movemsg.MSG_ReadByte (netchan.net_message)
 
 	if flags & common_h.SND_VOLUME:
-		volume = movemsg.MSG_ReadByte (net_chan.net_message) / 255.0
+		volume = movemsg.MSG_ReadByte (netchan.net_message) / 255.0
 	else:
 		volume = common_h.DEFAULT_SOUND_PACKET_VOLUME
 	
 	if flags & common_h.SND_ATTENUATION:
-		attenuation = movemsg.MSG_ReadByte (net_chan.net_message) / 64.0
+		attenuation = movemsg.MSG_ReadByte (netchan.net_message) / 64.0
 	else:
 		attenuation = common_h.DEFAULT_SOUND_PACKET_ATTENUATION
 
 	if flags & common_h.SND_OFFSET:
-		ofs = movemsg.MSG_ReadByte (net_chan.net_message) / 1000.0
+		ofs = movemsg.MSG_ReadByte (netchan.net_message) / 1000.0
 	else:
 		ofs = 0
 
 	if flags & common_h.SND_ENT:
 		# entity reletive
-		channel = movemsg.MSG_ReadShort(net_chan.net_message)
+		channel = movemsg.MSG_ReadShort(netchan.net_message)
 		ent = channel>>3
 		if ent > shared.MAX_EDICTS:
 			clientserver.Com_Error (common_h.ERR_DROP,"CL_ParseStartSoundPacket: ent = {}".format(ent))
@@ -622,7 +624,7 @@ def CL_ParseStartSoundPacket():
 
 	if flags & common_h.SND_POS:
 		# positioned in space
-		pos_v = movemsg.MSG_ReadPos (net_chan.net_message)
+		pos_v = movemsg.MSG_ReadPos (netchan.net_message)
  
 		pos = pos_v
 	
@@ -642,7 +644,7 @@ def CL_ParseStartSoundPacket():
 def SHOWNET(s): #char *
 
 	if cl_main.cl_shownet.value>=2:
-		clientserver.Com_Printf ("{:3d}:{}\n".format(net_chan.net_message.readcount-1, s))
+		clientserver.Com_Printf ("{:3d}:{}\n".format(netchan.net_message.readcount-1, s))
 
 # ====================
 # CL_ParseServerMessage
@@ -657,7 +659,7 @@ def CL_ParseServerMessage ():
 	# if recording demos, copy the message out
 	#
 	if cl_main.cl_shownet.value == 1:
-		clientserver.Com_Printf ("{:d} ".format(net_chan.net_message.cursize))
+		clientserver.Com_Printf ("{:d} ".format(netchan.net_message.cursize))
 	elif cl_main.cl_shownet.value >= 2:
 		clientserver.Com_Printf ("------------------\n")
 
@@ -665,11 +667,11 @@ def CL_ParseServerMessage ():
 	# parse the message
 	#
 	while True:
-		if net_chan.net_message.readcount > net_chan.net_message.cursize:
+		if netchan.net_message.readcount > netchan.net_message.cursize:
 			clientserver.Com_Error (common_h.ERR_DROP,"CL_ParseServerMessage: Bad server message")
 			break
 
-		cmd_raw = movemsg.MSG_ReadByte (net_chan.net_message)
+		cmd_raw = movemsg.MSG_ReadByte (netchan.net_message)
 		if cmd_raw == -1:
 			SHOWNET("END OF MESSAGE")
 			break
@@ -677,7 +679,7 @@ def CL_ParseServerMessage ():
 		if cl_main.cl_shownet.value>=2:
 
 			if not svc_strings[cmd_raw]:
-				clientserver.Com_Printf ("{:3d}:BAD CMD {:d}".format(net_chan.net_message.readcount-1,cmd_raw))
+				clientserver.Com_Printf ("{:3d}:BAD CMD {:d}".format(netchan.net_message.readcount-1,cmd_raw))
 			else:
 				SHOWNET(svc_strings[cmd_raw])
 
@@ -700,17 +702,17 @@ def CL_ParseServerMessage ():
 			cl_main.cls.state = client.connstate_t.ca_connecting
 			cl_main.cls.connect_time = -99999
 		elif cmdval == common_h.svc_ops_e.svc_print:
-			i = movemsg.MSG_ReadByte (net_chan.net_message)
+			i = movemsg.MSG_ReadByte (netchan.net_message)
 			if i == shared.PRINT_CHAT:
 				snd_dma.S_StartLocalSound ("misc/talk.wav")
 				console.con.ormask = 128
 
-			clientserver.Com_Printf (movemsg.MSG_ReadString(net_chan.net_message))
+			clientserver.Com_Printf (movemsg.MSG_ReadString(netchan.net_message))
 			console.con.ormask = 0
 		elif cmdval == common_h.svc_ops_e.svc_centerprint:
-			cl_scrn.SCR_CenterPrint (movemsg.MSG_ReadString(net_chan.net_message))
+			cl_scrn.SCR_CenterPrint (movemsg.MSG_ReadString(netchan.net_message))
 		elif cmdval == common_h.svc_ops_e.svc_stufftext:
-			s = movemsg.MSG_ReadString(net_chan.net_message)
+			s = movemsg.MSG_ReadString(netchan.net_message)
 			clientserver.Com_DPrintf ("stufftext: {}\n".format(s))
 			cmdparser.Cbuf_AddText (s)
 		elif cmdval == common_h.svc_ops_e.svc_serverdata:
@@ -735,7 +737,7 @@ def CL_ParseServerMessage ():
 		elif cmdval == common_h.svc_ops_e.svc_inventory:
 			cl_inv.CL_ParseInventory ()
 		elif cmdval == common_h.svc_ops_e.svc_layout:
-			s = movemsg.MSG_ReadString(net_chan.net_message)
+			s = movemsg.MSG_ReadString(netchan.net_message)
 			cl_main.cl.layout = s
 		elif cmdval in [common_h.svc_ops_e.svc_playerinfo, common_h.svc_ops_e.svc_packetentities, common_h.svc_ops_e.svc_deltapacketentities]:
 			clientserver.Com_Error (common_h.ERR_DROP, "Out of place frame data")

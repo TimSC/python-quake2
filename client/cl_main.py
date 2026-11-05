@@ -21,11 +21,11 @@ from __future__ import annotations
 
 import os
 import struct
-from qcommon import net_chan, cmodel
+pass
 pass
 from client import console, snd_dma, cl_scrn, client, cl_view, menu, cl_input, keys, cl_cin, cl_parse, cl_fx, cl_tent, cl_pred
 from linux import q_shlinux, vid_so, net_udp, cd_linux, sys_linux
-from server import sv_main
+pass
 from common.header import common as common_h
 from common.header import files as files_h
 from common.header import shared
@@ -38,6 +38,9 @@ from common import filesystem
 from common import frame
 from common import movemsg
 from common import szone
+from common import collision
+from common import netchan
+from server import sv_main
 
 """
 // cl_main.c  -- client main loop
@@ -95,9 +98,9 @@ def CL_WriteDemoMessage ():
 	#int		len, swlen;
 
 	# the first eight bytes are just packet sequencing stuff
-	length = net_chan.net_message.cursize-8
+	length = netchan.net_message.cursize-8
 	cls.demofile.write (struct.pack("<i", length)) # swlen = LittleLong(len); fwrite (&swlen, 4, 1, cls.demofile);
-	cls.demofile.write (net_chan.net_message.data[8:8+length])
+	cls.demofile.write (netchan.net_message.data[8:8+length])
 
 
 """
@@ -395,7 +398,7 @@ def CL_SendConnectPacket ():
 	port = int(cvar.Cvar_VariableValue ("qport"))
 	cvar.userinfo_modified = False
 
-	net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "connect {:d} {:d} {:d} \"{}\"\n".format(
+	netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "connect {:d} {:d} {:d} \"{}\"\n".format(
 		common_h.PROTOCOL_VERSION, port, cls.challenge, cvar.Cvar_Userinfo()).encode('ascii') )
 
 
@@ -441,7 +444,7 @@ def CL_CheckForResend ():
 
 	clientserver.Com_Printf("Connecting to {}...\n".format(cls.servername))
 
-	net_chan.Netchan_OutOfBandPrint(common_h.netsrc_t.NS_CLIENT, adr, b"getchallenge\n")
+	netchan.Netchan_OutOfBandPrint(common_h.netsrc_t.NS_CLIENT, adr, b"getchallenge\n")
 
 
 
@@ -599,9 +602,9 @@ def CL_Disconnect ():
 	final = bytearray()
 	final += struct.pack("B", common_h.clc_ops_e.clc_stringcmd.value)
 	final += b"disconnect"
-	net_chan.Netchan_Transmit (cls.netchan, final)
-	net_chan.Netchan_Transmit (cls.netchan, final)
-	net_chan.Netchan_Transmit (cls.netchan, final)
+	netchan.Netchan_Transmit (cls.netchan, final)
+	netchan.Netchan_Transmit (cls.netchan, final)
+	netchan.Netchan_Transmit (cls.netchan, final)
 
 	CL_ClearState ()
 
@@ -737,10 +740,10 @@ def CL_ParseStatusMessage ():
 
 	#char	*s;
 
-	s = movemsg.MSG_ReadString(net_chan.net_message)
+	s = movemsg.MSG_ReadString(netchan.net_message)
 
 	clientserver.Com_Printf ("{}\n".format(s))
-	menu.M_AddToServerList (net_chan.net_from, s)
+	menu.M_AddToServerList (netchan.net_from, s)
 
 
 """
@@ -770,14 +773,14 @@ def CL_PingServers_f ():
 	
 		adr.type = common_h.netadrtype_t.NA_BROADCAST
 		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-		net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
+		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
 	
 	noipx = cvar.Cvar_Get ("noipx", "0", shared.CVAR_NOSET)
 	if not noipx.value:
 	
 		adr.type = common_h.netadrtype_t.NA_BROADCAST_IPX
 		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-		net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
+		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
 	
 	# send a packet to each address book entry
 	for i in range(16):
@@ -796,7 +799,7 @@ def CL_PingServers_f ():
 		
 		if not adr.port:
 			adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-		net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
+		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
 	
 
 """
@@ -837,16 +840,16 @@ def CL_ConnectionlessPacket ():
 	#char	*s;
 	#char	*c;
 	
-	movemsg.MSG_BeginReading (net_chan.net_message)
-	movemsg.MSG_ReadLong (net_chan.net_message)	# skip the -1
+	movemsg.MSG_BeginReading (netchan.net_message)
+	movemsg.MSG_ReadLong (netchan.net_message)	# skip the -1
 
-	s = movemsg.MSG_ReadStringLine (net_chan.net_message)
+	s = movemsg.MSG_ReadStringLine (netchan.net_message)
 
 	cmdparser.Cmd_TokenizeString (s, False)
 
 	c = cmdparser.Cmd_Argv(0)
 
-	clientserver.Com_Printf ("{}: {}\n".format(net_udp.NET_AdrToString (net_chan.net_from), c))
+	clientserver.Com_Printf ("{}: {}\n".format(net_udp.NET_AdrToString (netchan.net_from), c))
 
 	# server connection
 	if c == "client_connect":
@@ -856,7 +859,7 @@ def CL_ConnectionlessPacket ():
 			clientserver.Com_Printf ("Dup connect received.  Ignored.\n")
 			return
 		
-		net_chan.Netchan_Setup (common_h.netsrc_t.NS_CLIENT, cls.netchan, net_chan.net_from, cls.quakePort)
+		netchan.Netchan_Setup (common_h.netsrc_t.NS_CLIENT, cls.netchan, netchan.net_from, cls.quakePort)
 		movemsg.MSG_WriteChar (cls.netchan.message, struct.pack("B", common_h.clc_ops_e.clc_stringcmd.value))
 		movemsg.MSG_WriteString (cls.netchan.message, b"new")	
 		cls.state = client.connstate_t.ca_connected
@@ -871,13 +874,13 @@ def CL_ConnectionlessPacket ():
 	# remote command from gui front end
 	if c == "cmd":
 	
-		if not net_udp.NET_IsLocalAddress(net_chan.net_from):
+		if not net_udp.NET_IsLocalAddress(netchan.net_from):
 		
 			clientserver.Com_Printf ("Command packet from remote host.  Ignored.\n")
 			return
 		
 		sys_linux.Sys_AppActivate ()
-		s = movemsg.MSG_ReadString (net_chan.net_message)
+		s = movemsg.MSG_ReadString (netchan.net_message)
 		cmdparser.Cbuf_AddText (s)
 		cmdparser.Cbuf_AddText ("\n")
 		return
@@ -885,14 +888,14 @@ def CL_ConnectionlessPacket ():
 	# print command from somewhere
 	if c == "print":
 	
-		s = movemsg.MSG_ReadString (net_chan.net_message)
+		s = movemsg.MSG_ReadString (netchan.net_message)
 		clientserver.Com_Printf ("{}".format(s))
 		return
 	
 	# ping from somewhere
 	if c == "ping":
 	
-		net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, net_chan.net_from, b"ack")
+		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, netchan.net_from, b"ack")
 		return
 	
 	# challenge from the server we are connecting to
@@ -905,7 +908,7 @@ def CL_ConnectionlessPacket ():
 	# echo request from server
 	if c == "echo":
 	
-		net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, net_chan.net_from, "{}".format(cmdparser.Cmd_Argv(1)).encode('ascii') )
+		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, netchan.net_from, "{}".format(cmdparser.Cmd_Argv(1)).encode('ascii') )
 		return
 	
 	clientserver.Com_Printf ("Unknown command.\n")
@@ -923,7 +926,7 @@ when they overflow
 def CL_DumpPackets ():
 
 	while True:
-		rx, net_chan.net_from = net_udp.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, net_chan.net_from, net_chan.net_message)
+		rx, netchan.net_from = net_udp.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, netchan.net_from, netchan.net_message)
 		if not rx:
 			break
 	
@@ -937,7 +940,7 @@ CL_ReadPackets
 """
 def CL_ReadPackets ():
 
-	rx, net_chan.net_from = net_udp.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, net_chan.net_from, net_chan.net_message)
+	rx, netchan.net_from = net_udp.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, netchan.net_from, netchan.net_message)
 
 	while rx:
 		try:
@@ -946,7 +949,7 @@ def CL_ReadPackets ():
 			# remote command packet
 			#
 
-			header = struct.unpack("<l", net_chan.net_message.data[:4])[0] # *(int *)net_message.data
+			header = struct.unpack("<l", netchan.net_message.data[:4])[0] # *(int *)net_message.data
 			if header == -1:
 				CL_ConnectionlessPacket ()
 				continue
@@ -955,27 +958,27 @@ def CL_ReadPackets ():
 			if cls.state == client.connstate_t.ca_disconnected or cls.state == client.connstate_t.ca_connecting:
 				continue		# dump it if not connected
 
-			if net_chan.net_message.cursize < 8:
+			if netchan.net_message.cursize < 8:
 			
-				clientserver.Com_Printf ("{}: Runt packet\n".format(net_udp.NET_AdrToString(net_chan.net_from)))
+				clientserver.Com_Printf ("{}: Runt packet\n".format(net_udp.NET_AdrToString(netchan.net_from)))
 				continue
 			
 
 			#
 			# packet from server
 			#
-			if not net_udp.NET_CompareAdr (net_chan.net_from, cls.netchan.remote_address):
+			if not net_udp.NET_CompareAdr (netchan.net_from, cls.netchan.remote_address):
 			
 				clientserver.Com_DPrintf ("{}:sequenced packet without connection\n".format(
-					net_udp.NET_AdrToString(net_chan.net_from)))
+					net_udp.NET_AdrToString(netchan.net_from)))
 				continue
 			
-			if not net_chan.Netchan_Process(cls.netchan, net_chan.net_message):
+			if not netchan.Netchan_Process(cls.netchan, netchan.net_message):
 				continue		# wasn't accepted for some reason
 			cl_parse.CL_ParseServerMessage ()
 
 		finally:
-			rx, net_chan.net_from = net_udp.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, net_chan.net_from, net_chan.net_message)
+			rx, netchan.net_from = net_udp.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, netchan.net_from, netchan.net_message)
 
 	#
 	# check timeout
@@ -1263,7 +1266,7 @@ def CL_RequestNextDownload ():
 	if precache_check == ENV_CNT:
 		precache_check = ENV_CNT + 1
 
-		_, map_checksum = cmodel.CM_LoadMap (cl.configstrings[shared.CS_MODELS+1], True)
+		_, map_checksum = collision.CM_LoadMap (cl.configstrings[shared.CS_MODELS+1], True)
 
 		if map_checksum != (shared_c.atoi(cl.configstrings[shared.CS_MAPCHECKSUM]) & 0xffffffff): # atoi's int is converted to unsigned for the compare
 			clientserver.Com_Error (shared.ERR_DROP, "Local map version differs from server: {} != '{}'\n".format(
@@ -1298,10 +1301,10 @@ def CL_RequestNextDownload ():
 		#extern mapsurface_t	map_surfaces[];
 
 		if sv_main.allow_download.value and sv_main.allow_download_maps.value:
-			while precache_tex < cmodel.numtexinfo:
+			while precache_tex < collision.numtexinfo:
 				#char fn[MAX_OSPATH];
 
-				fn = "textures/{}.wal".format(cmodel.map_surfaces[precache_tex].rname)
+				fn = "textures/{}.wal".format(collision.map_surfaces[precache_tex].rname)
 				precache_tex += 1
 				if not cl_parse.CL_CheckOrDownloadFile(fn):
 					return # started a download
@@ -1334,7 +1337,7 @@ def CL_Precache_f ():
 	if cmdparser.Cmd_Argc() < 2:
 		#unsigned	map_checksum;		// for detecting cheater maps
 
-		map_checksum = cmodel.CM_LoadMap (cl.configstrings[shared.CS_MODELS+1], True)
+		map_checksum = collision.CM_LoadMap (cl.configstrings[shared.CS_MODELS+1], True)
 		cl_parse.CL_RegisterSounds ()
 		cl_view.CL_PrepRefresh ()
 		return
@@ -1755,7 +1758,7 @@ def CL_Init ():
 	#endif
 
 	cl_view.V_Init ()
-	szone.SZ_Init(net_chan.net_message, common_h.MAX_MSGLEN)
+	szone.SZ_Init(netchan.net_message, common_h.MAX_MSGLEN)
 	menu.M_Init ()
 
 	cl_scrn.SCR_Init ()

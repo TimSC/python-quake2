@@ -1,29 +1,33 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+Message sending and multiplexing.
+
+=======================================================================
 """
 from __future__ import annotations
 
 import struct
 import numpy as np
 from linux import q_shlinux
-from server import sv_init, sv_main, sv_user, sv_ents
-from qcommon import net_chan, cmodel
 from game import game
 from common.header import common as common_h
 from common.header import shared
@@ -33,19 +37,18 @@ from common import filesystem
 from common import frame
 from common import movemsg
 from common import szone
-"""
-// sv_main.c -- server main program
+from common import collision
+from common import netchan
+from server.header import server as server_h
+from server import sv_entities
+from server import sv_init
+from server import sv_main
+from server import sv_user
 
-#include "server.h"
 """
+#include "header/server.h"
 """
-=============================================================================
 
-Com_Printf redirection
-
-=============================================================================
-"""
-SV_OUTPUTBUF_LENGTH = common_h.MAX_MSGLEN - 16
 sv_outputbuf = "" #char [SV_OUTPUTBUF_LENGTH]
 
 """
@@ -57,7 +60,7 @@ def SV_FlushRedirect (sv_redirected, outputbuf): #int, char *
 
 	if sv_redirected == clientserver.RD_PACKET:
 	
-		net_chan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, net_chan.net_from, "print\n{}".format(outputbuf))
+		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, netchan.net_from, "print\n{}".format(outputbuf))
 	elif sv_redirected == clientserver.RD_CLIENT:
 	
 		movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, common_h.svc_ops_e.svc_print.value)
@@ -112,7 +115,7 @@ def SV_BroadcastPrintf (level, fmt, *args): #int, char *, ...
 	
 		if level < cl.messagelevel:
 			continue
-		if cl.state != sv_init.client_state_t.cs_spawned:
+		if cl.state != server_h.client_state_t.cs_spawned:
 			continue
 		movemsg.MSG_WriteByte (cl.netchan.message, common_h.svc_ops_e.svc_print.value)
 		movemsg.MSG_WriteByte (cl.netchan.message, level)
@@ -135,6 +138,82 @@ def SV_BroadcastCommand (msg): #char *
 	movemsg.MSG_WriteString(sv_init.sv.multicast, msg.encode('ascii'))
 	SV_Multicast (None, shared.multicast_t.MULTICAST_ALL_R)
 
+
+"""
+/*
+ * Sends the contents of sv.multicast to a subset of the clients,
+ * then clears sv.multicast.
+ *
+ * MULTICAST_ALL	same as broadcast (origin can be NULL)
+ * MULTICAST_PVS	send to clients potentially visible from org
+ * MULTICAST_PHS	send to clients potentially hearable from org
+ */
+static qboolean
+SV_WereConnected(int cluster, int area2, vec3_t origin,
+		 const byte *mask, int area1)
+{
+	// cluster can be -1 if we're in the void (or sometimes just at a wall)
+	// and using a negative index into mask[] would be invalid
+	if (cluster >= 0 && (mask[cluster >> 3] & (1 << (cluster & 7))))
+	{
+		if (CM_AreasConnected(area1, area2))
+		{
+			return true;
+		}
+	}
+
+	// if the client is currently in water, do a second check
+	if (CM_PointContents(origin, 0) & MASK_WATER)
+	{
+		vec3_t origin2;
+		int leafnum2, cluster2;
+
+		// if the client is half-submerged in opaque water so its origin
+		// is below the water, but the head/camera is still above the water
+		// and thus should be able to see/hear explosions or similar
+		// that are above the water.
+		// so try again at a slightly higher position
+		// FIXME: OTOH, we have a similar problem if we're over water and shoot under water (near water level) => can't see explosion
+
+		VectorCopy(origin, origin2);
+		origin2[2] += 32.0f;
+
+		leafnum2 = CM_PointLeafnum(origin2);
+		cluster2 = CM_LeafCluster(leafnum2);
+
+		if (cluster2 >= 0 && (mask[cluster2 >> 3] & (1 << (cluster2 & 7))))
+		{
+			if (CM_AreasConnected(area1, CM_LeafArea(leafnum2)))
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+"""
+
+"""
+static void
+SV_GetClientLeafCache(client_t *client, int *area, int *cluster)
+{
+	edict_t *e = CL_EDICT(client);
+
+	if (client->cached_framenum != sv.framenum ||
+	    !VectorCompare(client->cached_origin, e->s.origin))
+	{
+		VectorCopy(e->s.origin, client->cached_origin);
+		client->cached_leafnum = CM_PointLeafnum(e->s.origin);
+		client->cached_area = CM_LeafArea(client->cached_leafnum);
+		client->cached_cluster = CM_LeafCluster(client->cached_leafnum);
+		client->cached_framenum = sv.framenum;
+	}
+
+	*area = client->cached_area;
+	*cluster = client->cached_cluster;
+}
+"""
 
 """
 =================
@@ -166,8 +245,8 @@ def SV_Multicast (origin, to): #vec3_t, multicast_t
 
 	if to != shared.multicast_t.MULTICAST_ALL_R.value and to != shared.multicast_t.MULTICAST_ALL.value:
 	
-		leafnum = cmodel.CM_PointLeafnum (origin)
-		area1 = cmodel.CM_LeafArea (leafnum)
+		leafnum = collision.CM_PointLeafnum (origin)
+		area1 = collision.CM_LeafArea (leafnum)
 	
 	else:
 		leafnum = 0	# just to avoid compiler warnings
@@ -186,16 +265,16 @@ def SV_Multicast (origin, to): #vec3_t, multicast_t
 	if to == shared.multicast_t.MULTICAST_PHS_R.value:
 		reliable = True	# intentional fallthrough
 	if to == shared.multicast_t.MULTICAST_PHS_R.value or to == shared.multicast_t.MULTICAST_PHS.value:
-		leafnum = cmodel.CM_PointLeafnum (origin)
-		cluster = cmodel.CM_LeafCluster (leafnum)
-		mask = cmodel.CM_ClusterPHS (cluster)
+		leafnum = collision.CM_PointLeafnum (origin)
+		cluster = collision.CM_LeafCluster (leafnum)
+		mask = collision.CM_ClusterPHS (cluster)
 
 	if to == shared.multicast_t.MULTICAST_PVS_R.value:
 		reliable = True	# intentional fallthrough
 	if to == shared.multicast_t.MULTICAST_PVS_R.value or to == shared.multicast_t.MULTICAST_PVS.value:
-		leafnum = cmodel.CM_PointLeafnum (origin)
-		cluster = cmodel.CM_LeafCluster (leafnum)
-		mask = cmodel.CM_ClusterPVS (cluster)
+		leafnum = collision.CM_PointLeafnum (origin)
+		cluster = collision.CM_LeafCluster (leafnum)
+		mask = collision.CM_ClusterPVS (cluster)
 
 	if to != shared.multicast_t.MULTICAST_ALL_R.value and to != shared.multicast_t.MULTICAST_ALL.value and \
 		to != shared.multicast_t.MULTICAST_PHS_R.value and to != shared.multicast_t.MULTICAST_PHS.value and \
@@ -207,17 +286,17 @@ def SV_Multicast (origin, to): #vec3_t, multicast_t
 	# send the data to all relevent clients
 	for client in sv_init.svs.clients:
 	
-		if client.state == sv_init.client_state_t.cs_free or client.state == sv_init.client_state_t.cs_zombie:
+		if client.state == server_h.client_state_t.cs_free or client.state == server_h.client_state_t.cs_zombie:
 			continue
-		if client.state != sv_init.client_state_t.cs_spawned and not reliable:
+		if client.state != server_h.client_state_t.cs_spawned and not reliable:
 			continue
 
 		if mask is not None:
 	
-			leafnum = cmodel.CM_PointLeafnum (client.edict.s.origin)
-			cluster = cmodel.CM_LeafCluster (leafnum)
-			area2 = cmodel.CM_LeafArea (leafnum)
-			if not cmodel.CM_AreasConnected (area1, area2):
+			leafnum = collision.CM_PointLeafnum (server_h.CL_EDICT(client).s.origin)
+			cluster = collision.CM_LeafCluster (leafnum)
+			area2 = collision.CM_LeafArea (leafnum)
+			if not collision.CM_AreasConnected (area1, area2):
 				continue
 			if ( mask is not None and (not(mask[cluster>>3] & (1<<(cluster&7)) ) ) ):
 				continue
@@ -228,7 +307,6 @@ def SV_Multicast (origin, to): #vec3_t, multicast_t
 			szone.SZ_Write(client.datagram, sv_init.sv.multicast.data)
 	
 	szone.SZ_Clear(sv_init.sv.multicast)
-
 
 
 """
@@ -276,7 +354,7 @@ def SV_StartSound (origin, entity, channel, soundindex, volume, attenuation, tim
 	if timeofs < 0 or timeofs > 0.255:
 		clientserver.Com_Error (common_h.ERR_FATAL, "SV_StartSound: timeofs = %f", timeofs)
 
-	ent = sv_init.NUM_FOR_EDICT(entity)
+	ent = server_h.NUM_FOR_EDICT(entity)
 
 	if channel & 8:	# no PHS flag
 		use_phs = False
@@ -369,14 +447,14 @@ def SV_SendClientDatagram (client)-> bool: #sv_init.client_t
 	#sizebuf_t	msg;
 	msg = common_h.sizebuf_t()
 
-	sv_ents.SV_BuildClientFrame (client)
+	sv_entities.SV_BuildClientFrame (client)
 
 	szone.SZ_Init (msg, common_h.MAX_MSGLEN)
 	msg.allowoverflow = True
 
 	# send over all the relevant entity_state_t
 	# and the player_state_t
-	sv_ents.SV_WriteFrameToClient (client, msg)
+	sv_entities.SV_WriteFrameToClient (client, msg)
 
 	# copy the accumulated multicast datagram
 	# for this client out to the message
@@ -394,10 +472,10 @@ def SV_SendClientDatagram (client)-> bool: #sv_init.client_t
 		szone.SZ_Clear (msg)
 
 	# send the datagram
-	net_chan.Netchan_Transmit (client.netchan, bytes(msg.data[:msg.cursize]))
+	netchan.Netchan_Transmit (client.netchan, bytes(msg.data[:msg.cursize]))
 
 	# record the size for rate estimation
-	client.message_size[sv_init.sv.framenum % sv_init.RATE_MESSAGES] = msg.cursize
+	client.message_size[sv_init.sv.framenum % server_h.RATE_MESSAGES] = msg.cursize
 
 	return True
 
@@ -458,6 +536,58 @@ def SV_RateDrop (c)->bool:#sv_init.client_t*
 SV_SendClientMessages
 =======================
 """
+"""
+static int
+SV_NextDemoChunk(byte *msgbuf)
+{
+	size_t r;
+	int n;
+
+	if (sv_paused->value)
+	{
+		return 0;
+	}
+
+	r = FS_FRead(&n, 4, 1, sv.demofile);
+
+	if (r != 4)
+	{
+		return -1;
+	}
+
+	n = LittleLong(n);
+
+	if (n == -1)
+	{
+		return -1;
+	}
+
+	if (n > MAX_MSGLEN)
+	{
+		Com_Error(ERR_DROP,
+				"SV_SendClientMessages: msglen > MAX_MSGLEN");
+	}
+
+	r = FS_FRead(msgbuf, n, 1, sv.demofile);
+
+	return (r == n) ? n : -1;
+}
+"""
+
+r"""
+static void
+SV_SendDisconnect(client_t *c)
+{
+	SZ_Clear(&c->netchan.message);
+	SZ_Clear(&c->datagram);
+
+	SV_BroadcastPrintf(PRINT_HIGH, "%s overflowed\n", c->name);
+	SV_DropClient(c);
+
+	Netchan_Transmit(&c->netchan, 0, NULL);
+}
+"""
+
 def SV_SendClientMessages ():
 
 	#int			i;
@@ -467,7 +597,7 @@ def SV_SendClientMessages ():
 	msglen = 0 # int
 
 	# read the next demo message if needed
-	if sv_init.sv.state == sv_init.server_state_t.ss_demo and sv_init.sv.demofile:
+	if sv_init.sv.state == server_h.server_state_t.ss_demo and sv_init.sv.demofile:
 	
 		if sv_main.sv_paused.value != 0:
 			msglen = 0
@@ -513,13 +643,13 @@ def SV_SendClientMessages ():
 			SV_BroadcastPrintf (shared.PRINT_HIGH, "%s overflowed\n", c.name)
 			sv_main.SV_DropClient (c)
 		
-		if (sv_init.sv.state == sv_init.server_state_t.ss_cinematic 
-			or sv_init.sv.state == sv_init.server_state_t.ss_demo 
-			or sv_init.sv.state == sv_init.server_state_t.ss_pic):
+		if (sv_init.sv.state == server_h.server_state_t.ss_cinematic 
+			or sv_init.sv.state == server_h.server_state_t.ss_demo 
+			or sv_init.sv.state == server_h.server_state_t.ss_pic):
 
-			net_chan.Netchan_Transmit (c.netchan, msgbuf)
+			netchan.Netchan_Transmit (c.netchan, msgbuf)
 
-		elif c.state == sv_init.client_state_t.cs_spawned:
+		elif c.state == server_h.client_state_t.cs_spawned:
 		
 			# don't overrun bandwidth
 			if SV_RateDrop (c):
@@ -531,6 +661,42 @@ def SV_SendClientMessages ():
 		
 			# just update reliableif needed
 			if c.netchan.message.data is not None or q_shlinux.curtime - c.netchan.last_sent > 1000:
-				net_chan.Netchan_Transmit (c.netchan, b"")
-		
-	
+				netchan.Netchan_Transmit (c.netchan, b"")
+"""
+void
+SV_SendPrepClientMessages(void)
+{
+	client_t *c;
+	int i;
+
+	if ((sv.state == ss_cinematic) ||
+		(sv.state == ss_demo) ||
+		(sv.state == ss_pic))
+	{
+		return;
+	}
+
+	/* send a message to each inactive client if needed */
+	for (i = 0, c = svs.clients; i < maxclients->value; i++, c++)
+	{
+		if ((c->state == cs_free) || (c->state == cs_spawned))
+		{
+			continue;
+		}
+
+		if (c->netchan.message.overflowed)
+		{
+			SV_SendDisconnect(c);
+			continue;
+		}
+
+		/* just update reliable	if needed */
+		if (c->netchan.message.cursize ||
+			(curtime - c->netchan.last_sent > 1000))
+		{
+			Netchan_Transmit(&c->netchan, 0, NULL);
+		}
+	}
+}
+"""
+

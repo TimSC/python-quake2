@@ -1,28 +1,32 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+Interface between the server and the game module.
+
+=======================================================================
 """
 from __future__ import annotations
 
 from game import game
 from linux import sys_linux
-from qcommon import cmodel, pmove
-from server import sv_main, sv_send, sv_ents, sv_world, sv_init
 from client import cl_scrn
 from common.header import common as common_h
 from common.header import shared
@@ -33,11 +37,19 @@ from common import cvar
 from common import movemsg
 from common import szone
 from common import zone
-"""
-// sv_game.c -- interface to the game dll
+from common import collision
+from common import pmove
+from server.header import server as server_h
+from server import sv_init
+from server import sv_main
+from server import sv_send
+from server import sv_world
 
-#include "server.h"
 """
+#include "header/server.h"
+#include <limits.h>
+"""
+
 ge = None #game.game_export_t()
 """
 /*
@@ -48,6 +60,11 @@ Sends the contents of the mutlicast buffer to a single client
 ===============
 */
 """
+"""
+// sv_game.c -- interface to the game dll
+
+#include "server.h"
+"""
 def PF_Unicast (ent, reliable): #edict_t *, qboolean
 
 	#int p
@@ -55,7 +72,7 @@ def PF_Unicast (ent, reliable): #edict_t *, qboolean
 	if not ent:
 		return
 
-	p = sv_init.NUM_FOR_EDICT (ent)
+	p = server_h.NUM_FOR_EDICT (ent)
 	if p < 1 or p > int(sv_main.maxclients.value):
 		return
 
@@ -102,7 +119,7 @@ def PF_cprintf (ent, level, fmt, *args): #edict_t *, int, char *, ...
 
 	n = 0
 	if ent:
-		n = sv_init.NUM_FOR_EDICT (ent)
+		n = server_h.NUM_FOR_EDICT (ent)
 		if n < 1 or n > int(sv_main.maxclients.value):
 			clientserver.Com_Error (common_h.ERR_DROP, "cprintf to a non-client")
 
@@ -129,7 +146,7 @@ def PF_centerprintf (ent, fmt, *args): #edict_t *, char *, ...
 	#char msg[1024]
 	#int n
 
-	n = sv_init.NUM_FOR_EDICT (ent)
+	n = server_h.NUM_FOR_EDICT (ent)
 	if n < 1 or n > int(sv_main.maxclients.value):
 		return	# Com_Error (qcommon.ERR_DROP, "centerprintf to a non-client")
 
@@ -183,7 +200,7 @@ def PF_setmodel (ent, name): #edict_t *, char *
 
 	# if it is an inline model, get the size information for it
 	if name[0] == '*':
-		mod = cmodel.CM_InlineModel (name)
+		mod = collision.CM_InlineModel (name)
 		shared.VectorCopy (mod.mins, ent.mins)
 		shared.VectorCopy (mod.maxs, ent.maxs)
 		sv_world.SV_LinkEdict (ent)
@@ -206,7 +223,7 @@ def PF_Configstring (index, val): #int, char *
 	# change the string in sv
 	sv_init.sv.configstrings[index] = val
 
-	if sv_init.sv.state != sv_init.server_state_t.ss_loading:
+	if sv_init.sv.state != server_h.server_state_t.ss_loading:
 		# send the update to everyone
 		szone.SZ_Clear (sv_init.sv.multicast)
 		movemsg.MSG_WriteChar (sv_init.sv.multicast, common_h.svc_ops_e.svc_configstring.value)
@@ -247,17 +264,17 @@ def PF_inPVS (p1, p2): #vec3_t, vec3_t
 
 	#int leafnum, cluster, area1, area2
 
-	leafnum = cmodel.CM_PointLeafnum (p1)
-	cluster = cmodel.CM_LeafCluster (leafnum)
-	area1 = cmodel.CM_LeafArea (leafnum)
-	mask = cmodel.CM_ClusterPVS (cluster)
+	leafnum = collision.CM_PointLeafnum (p1)
+	cluster = collision.CM_LeafCluster (leafnum)
+	area1 = collision.CM_LeafArea (leafnum)
+	mask = collision.CM_ClusterPVS (cluster)
 
-	leafnum = cmodel.CM_PointLeafnum (p2)
-	cluster = cmodel.CM_LeafCluster (leafnum)
-	area2 = cmodel.CM_LeafArea (leafnum)
+	leafnum = collision.CM_PointLeafnum (p2)
+	cluster = collision.CM_LeafCluster (leafnum)
+	area2 = collision.CM_LeafArea (leafnum)
 	if mask and not (mask[cluster>>3] & (1<<(cluster&7))):
 		return False
-	if not cmodel.CM_AreasConnected (area1, area2):
+	if not collision.CM_AreasConnected (area1, area2):
 		return False		# a door blocks sight
 	return True
 """
@@ -273,17 +290,17 @@ def PF_inPHS (p1, p2): #vec3_t, vec3_t
 
 	#int leafnum, cluster, area1, area2
 
-	leafnum = cmodel.CM_PointLeafnum (p1)
-	cluster = cmodel.CM_LeafCluster (leafnum)
-	area1 = cmodel.CM_LeafArea (leafnum)
-	mask = cmodel.CM_ClusterPHS (cluster)
+	leafnum = collision.CM_PointLeafnum (p1)
+	cluster = collision.CM_LeafCluster (leafnum)
+	area1 = collision.CM_LeafArea (leafnum)
+	mask = collision.CM_ClusterPHS (cluster)
 
-	leafnum = cmodel.CM_PointLeafnum (p2)
-	cluster = cmodel.CM_LeafCluster (leafnum)
-	area2 = cmodel.CM_LeafArea (leafnum)
+	leafnum = collision.CM_PointLeafnum (p2)
+	cluster = collision.CM_LeafCluster (leafnum)
+	area2 = collision.CM_LeafArea (leafnum)
 	if mask and not (mask[cluster>>3] & (1<<(cluster&7))):
 		return False		# more than one bounce away
-	if not cmodel.CM_AreasConnected (area1, area2):
+	if not collision.CM_AreasConnected (area1, area2):
 		return False		# a door blocks hearing
 
 	return True
@@ -312,6 +329,48 @@ def SV_ShutdownGameProgs ():
 	ge.Shutdown ()
 	sys_linux.Sys_UnloadGame ()
 	ge = None
+
+r"""
+/*
+ * Init the game subsystem for a new map
+ */
+static void *
+GI_TagMalloc(int size, int tag)
+{
+	if (size < 0)
+	{
+		Com_Error(ERR_FATAL, "%s: size < 0: %i\n",
+			__func__, size);
+		return NULL;
+	}
+
+	if ((tag > USHRT_MAX) || (tag < 0))
+	{
+		Com_Printf("%s: tag outside [0, 65535]: %i\n",
+			__func__, tag);
+
+		tag = 0;
+	}
+
+	return Z_TagMalloc(size, (unsigned short)tag);
+}
+"""
+
+r"""
+static void
+GI_FreeTags(int tag)
+{
+	if ((tag > USHRT_MAX) || (tag <= 0))
+	{
+		Com_Printf("%s: tag outside [1, 65535]: %i\n",
+			__func__, tag);
+
+		return;
+	}
+
+	Z_FreeTags((unsigned short)tag);
+}
+"""
 
 """
 /*
@@ -384,8 +443,8 @@ def SV_InitGameProgs ():
 	gimport.AddCommandString = cmdparser.Cbuf_AddText
 
 	gimport.DebugGraph = cl_scrn.SCR_DebugGraph
-	gimport.SetAreaPortalState = cmodel.CM_SetAreaPortalState
-	gimport.AreasConnected = cmodel.CM_AreasConnected
+	gimport.SetAreaPortalState = collision.CM_SetAreaPortalState
+	gimport.AreasConnected = collision.CM_AreasConnected
 
 	ge = sys_linux.Sys_GetGameAPI (gimport)
 

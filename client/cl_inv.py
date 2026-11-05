@@ -19,13 +19,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from __future__ import annotations
 
-from qcommon import net_chan
+pass
 pass
 from client import cl_main, cl_scrn, keys
 from linux import vid_so
 from common.header import shared
 from common.shared import shared as shared_c
 from common import movemsg
+from common import netchan
 """
 // cl_inv.c -- client inventory screen
 
@@ -43,7 +44,7 @@ def CL_ParseInventory ():
 	#int		i;
 
 	for i in range(shared.MAX_ITEMS):
-		cl_main.cl.inventory[i] = movemsg.MSG_ReadShort (net_chan.net_message)
+		cl_main.cl.inventory[i] = movemsg.MSG_ReadShort (netchan.net_message)
 
 
 """

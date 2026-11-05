@@ -21,12 +21,15 @@ from __future__ import annotations
 
 import copy
 import numpy as np
-from qcommon import cmodel, pmove
+pass
 pass
 from client import cl_main, client
 from common.header import shared
 from common.shared import shared as shared_c
 from common import clientserver
+from common import collision
+from common.header import shared as shared_h
+from common import pmove
 
 def _copy_trace(src: shared.trace_t, dest: shared.trace_t):
     dest.allsolid = src.allsolid
@@ -112,13 +115,13 @@ def CL_ClipMoveToEntities(start, mins, maxs, end, tr):
             bmins[2] = -zd
             bmaxs[2] = zu
 
-            headnode = cmodel.CM_HeadnodeForBox(bmins, bmaxs)
+            headnode = collision.CM_HeadnodeForBox(bmins, bmaxs)
             angles = shared_c.vec3_origin
 
         if tr.allsolid:
             return
 
-        trace = cmodel.CM_TransformedBoxTrace(
+        trace = collision.CM_TransformedBoxTrace(
             start,
             end,
             mins,
@@ -145,7 +148,7 @@ CL_PMTrace
 ================
 """
 def CL_PMTrace(start, mins, maxs, end):
-    trace = cmodel.CM_BoxTrace(start, end, mins, maxs, 0, shared.MASK_PLAYERSOLID)
+    trace = collision.CM_BoxTrace(start, end, mins, maxs, 0, shared.MASK_PLAYERSOLID)
     if trace.fraction < 1.0:
         trace.ent = 1
     CL_ClipMoveToEntities(start, mins, maxs, end, trace)
@@ -157,7 +160,7 @@ CL_PMpointcontents
 ====================
 """
 def CL_PMpointcontents(point):
-    contents = cmodel.CM_PointContents(point, 0)
+    contents = collision.CM_PointContents(point, 0)
     for i in range(cl_main.cl.frame.num_entities):
         num = (cl_main.cl.frame.parse_entities + i) & (client.MAX_PARSE_ENTITIES - 1)
         ent = cl_main.cl_parse_entities[num]
@@ -169,7 +172,7 @@ def CL_PMpointcontents(point):
         if not cmodel_obj:
             continue
 
-        contents |= cmodel.CM_TransformedPointContents(
+        contents |= collision.CM_TransformedPointContents(
             point, cmodel_obj.headnode, ent.origin, ent.angles
         )
 
@@ -210,7 +213,7 @@ def CL_PredictMovement():
             clientserver.Com_Printf("exceeded CMD_BACKUP\n")
         return
 
-    pm = pmove.pmove_t()
+    pm = shared_h.pmove_t()
     pm.trace = CL_PMTrace
     pm.pointcontents = CL_PMpointcontents
 

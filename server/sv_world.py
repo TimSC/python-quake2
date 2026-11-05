@@ -1,53 +1,44 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+Interface to the world model. Clipping and stuff like that...
+
+=======================================================================
 """
 from __future__ import annotations
 
 import math
 import numpy as np
 from game import game
-from server import sv_init, sv_game
-from qcommon import cmodel
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
 from common import clientserver
+from common import collision
+from server.header import server as server_h
+from server import sv_game
+from server import sv_init
+
 """
-// world.c -- world query functions
-
-#include "server.h"
-
-/*
-===============================================================================
-
-ENTITY AREA CHECKING
-
-FIXME: this use of "area" is different from the bsp file use
-===============================================================================
-*/
-
-// (type *)STRUCT_FROM_LINK(link_t *link, type, member)
-// ent = STRUCT_FROM_LINK(link,entity_t,order)
-// FIXME: remove this mess!
-#define	STRUCT_FROM_LINK(l,t,m) ((t *)((byte *)l - (int)&(((t *)0).m)))
-
-#define	EDICT_FROM_AREA(l) STRUCT_FROM_LINK(l,edict_t,area)
+#include "header/server.h"
 """
 
 #typedef struct
@@ -58,6 +49,7 @@ FIXME: this use of "area" is different from the bsp file use
 #	link_t	trigger_edicts;
 #	link_t	solid_edicts;
 #} areanode_t;
+
 class areanode_t(object):
 
 	def __init__(self):
@@ -77,12 +69,6 @@ sv_areanodes = []
 for i in range(AREA_NODES):
 	sv_areanodes.append(areanode_t())
 sv_numareanodes = 0 #int
-"""
-float	*area_mins, *area_maxs;
-edict_t	**area_list;
-int		area_count, area_maxcount;
-
-"""
 area_mins = None #float *
 area_maxs = None #float *
 area_list = None #edict_t **
@@ -92,6 +78,12 @@ area_type = 0 #int
 
 
 # ClearLink is used for new headnodes
+"""
+float	*area_mins, *area_maxs;
+edict_t	**area_list;
+int		area_count, area_maxcount;
+
+"""
 def ClearLink (l): #link_t *
 	l.prev = l.next = l
 
@@ -292,18 +284,18 @@ def SV_LinkEdict (ent): #edict_t *
 	ent.areanum2 = 0
 
 	# get all leafs, including solids
-	num_leafs = cmodel.CM_BoxLeafnums (ent.absmin, ent.absmax,
+	num_leafs = collision.CM_BoxLeafnums (ent.absmin, ent.absmax,
 		leafs, MAX_TOTAL_ENT_LEAFS, topnode)
 
 	# set areas
 	for i in range(num_leafs):
-		clusters[i] = cmodel.CM_LeafCluster (leafs[i])
-		area = cmodel.CM_LeafArea (leafs[i])
+		clusters[i] = collision.CM_LeafCluster (leafs[i])
+		area = collision.CM_LeafArea (leafs[i])
 		if area:
 			# doors may legally straggle two areas,
 			# but nothing should evern need more than that
 			if ent.areanum and ent.areanum != area:
-				if ent.areanum2 and ent.areanum2 != area and sv_init.sv.state == sv_init.server_state_t.ss_loading:
+				if ent.areanum2 and ent.areanum2 != area and sv_init.sv.state == server_h.server_state_t.ss_loading:
 					clientserver.Com_DPrintf ("Object touching 3 areas at %f %f %f\n" % (
 						ent.absmin[0], ent.absmin[1], ent.absmin[2]))
 				ent.areanum2 = area
@@ -463,7 +455,7 @@ def SV_PointContents (p): #vec3_t
 	c2 = 0
 
 	# get base contents from world
-	contents = cmodel.CM_PointContents (p, sv_init.sv.models[1].headnode)
+	contents = collision.CM_PointContents (p, sv_init.sv.models[1].headnode)
 
 	# or in contents from all the other entities
 	num = SV_AreaEdicts (p, p, touch, shared.MAX_EDICTS, shared.AREA_SOLID)
@@ -477,7 +469,7 @@ def SV_PointContents (p): #vec3_t
 		if hit.solid != game.SOLID_BSP:
 			angles = shared_c.vec3_origin	# boxes don't rotate
 
-		c2 = cmodel.CM_TransformedPointContents (p, headnode, hit.s.origin, hit.s.angles)
+		c2 = collision.CM_TransformedPointContents (p, headnode, hit.s.origin, hit.s.angles)
 
 		contents |= c2
 
@@ -536,7 +528,7 @@ def SV_HullForEntity (ent): #edict_t *
 
 	# create a temp hull from bounding box sizes
 
-	return cmodel.CM_HeadnodeForBox (ent.mins, ent.maxs)
+	return collision.CM_HeadnodeForBox (ent.mins, ent.maxs)
 
 
 """
@@ -590,11 +582,11 @@ def SV_ClipMoveToEntities (clip): #moveclip_t *
 			angles = shared_c.vec3_origin	# boxes don't rotate
 
 		if touch.svflags & game.SVF_MONSTER:
-			trace = cmodel.CM_TransformedBoxTrace (clip.start, clip.end,
+			trace = collision.CM_TransformedBoxTrace (clip.start, clip.end,
 				clip.mins2, clip.maxs2, headnode, clip.contentmask,
 				touch.s.origin, angles)
 		else:
-			trace = cmodel.CM_TransformedBoxTrace (clip.start, clip.end,
+			trace = collision.CM_TransformedBoxTrace (clip.start, clip.end,
 				clip.mins, clip.maxs, headnode, clip.contentmask,
 				touch.s.origin, angles)
 
@@ -649,7 +641,7 @@ def SV_Trace (start, mins, maxs, end, passedict, contentmask): #vec3_t, vec3_t, 
 		maxs = shared_c.vec3_origin
 
 	# clip to world
-	clip.trace = cmodel.CM_BoxTrace (start, end, mins, maxs, 0, contentmask)
+	clip.trace = collision.CM_BoxTrace (start, end, mins, maxs, 0, contentmask)
 	clip.trace.ent = sv_game.ge.edicts[0]
 	if clip.trace.fraction == 0:
 		return clip.trace		# blocked by the world

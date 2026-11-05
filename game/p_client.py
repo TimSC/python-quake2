@@ -34,7 +34,7 @@ from game import p_view
 from game import p_hud
 from game import p_weapon
 from game import game
-from qcommon import pmove
+pass
 from common.shared.shared import Q_stricmp, Info_ValueForKey, Info_SetValueForKey, TO_SHORT
 from common.header.shared import MAX_INFO_STRING, PRINT_HIGH, PRINT_MEDIUM, CS_PLAYERSKINS, MASK_PLAYERSOLID, MASK_DEADSOLID, CHAN_VOICE, CHAN_BODY, ATTN_NORM, EV_PLAYER_TELEPORT, PMF_DUCKED, PMF_TIME_TELEPORT, PMF_NO_PREDICTION, PMF_JUMP_HELD, BUTTON_ANY, BUTTON_ATTACK, MZ_LOGIN, MZ_LOGOUT, ANGLE2SHORT, SHORT2ANGLE, DF_FIXED_FOV, DF_FORCE_RESPAWN, DF_SPAWN_FARTHEST, DF_QUAD_DROP, DF_MODELTEAMS, YAW, PITCH, ROLL
 from common.header.shared import multicast_t, pmtype_t
@@ -1261,7 +1261,7 @@ def ClientThink (ent, ucmd):
 		client.resp.cmd_angles[2] = SHORT2ANGLE(ucmd.angles[2])
 	else:
 		# set up for pmove
-		pm = pmove.pmove_t()
+		pm = shared_h.pmove_t()
 
 		if ent.movetype == MOVETYPE_NOCLIP:
 			client.ps.pmove.pm_type = PM_SPECTATOR
@@ -1437,3 +1437,5 @@ def ClientBeginServerFrame (ent):
 import numpy as np
 from common.header import shared
 from common.shared import shared as shared_c
+from common.header import shared as shared_h
+from common import pmove

@@ -22,7 +22,7 @@ from __future__ import annotations
 import copy
 import random
 import numpy as np
-from qcommon import net_chan
+pass
 pass
 import math
 pass
@@ -34,6 +34,7 @@ from common.shared import shared as shared_c
 from common import clientserver
 from common import filesystem
 from common import movemsg
+from common import netchan
 """
 // cl_ents.c -- entity parsing and management
 
@@ -97,9 +98,9 @@ Flechettes are passed as efficient temporary entities
 =====================
 """
 def CL_ParseProjectiles():
-	count = movemsg.MSG_ReadByte(net_chan.net_message)
+	count = movemsg.MSG_ReadByte(netchan.net_message)
 	for _ in range(count):
-		bits = [movemsg.MSG_ReadByte(net_chan.net_message) for _ in range(5)]
+		bits = [movemsg.MSG_ReadByte(netchan.net_message) for _ in range(5)]
 
 		pr_proj = projectile_t()
 		pr_proj.origin[0] = ((bits[0] + ((bits[1] & 15) << 8)) << 1) - 4096
@@ -115,21 +116,21 @@ def CL_ParseProjectiles():
 		old = False
 		if bits[4] & 128:
 			old = True
-			bits = [movemsg.MSG_ReadByte(net_chan.net_message) for _ in range(5)]
+			bits = [movemsg.MSG_ReadByte(netchan.net_message) for _ in range(5)]
 			pr_proj.oldorigin[0] = ((bits[0] + ((bits[1] & 15) << 8)) << 1) - 4096
 			pr_proj.oldorigin[1] = (((bits[1] >> 4) + (bits[2] << 4)) << 1) - 4096
 			pr_proj.oldorigin[2] = ((bits[3] + ((bits[4] & 15) << 8)) << 1) - 4096
 
-		bits = [movemsg.MSG_ReadByte(net_chan.net_message) for _ in range(3)]
+		bits = [movemsg.MSG_ReadByte(netchan.net_message) for _ in range(3)]
 
 		pr_proj.angles[0] = 360.0 * bits[0] / 256.0
 		pr_proj.angles[1] = 360.0 * bits[1] / 256.0
 		pr_proj.modelindex = bits[2]
 
-		b = movemsg.MSG_ReadByte(net_chan.net_message)
+		b = movemsg.MSG_ReadByte(netchan.net_message)
 		pr_proj.num = (b & 0x7f)
 		if b & 128:
-			pr_proj.num |= movemsg.MSG_ReadByte(net_chan.net_message) << 7
+			pr_proj.num |= movemsg.MSG_ReadByte(netchan.net_message) << 7
 
 		pr_proj.present = True
 
@@ -185,20 +186,20 @@ def CL_ParseEntityBits (): # (unsigned *bits)
 	# int			i;
 	# int			number;
 
-	total = movemsg.MSG_ReadByte (net_chan.net_message)
+	total = movemsg.MSG_ReadByte (netchan.net_message)
 	if total & common_h.U_MOREBITS1:
 	
-		b = movemsg.MSG_ReadByte (net_chan.net_message)
+		b = movemsg.MSG_ReadByte (netchan.net_message)
 		total |= b<<8
 	
 	if total & common_h.U_MOREBITS2:
 	
-		b = movemsg.MSG_ReadByte (net_chan.net_message)
+		b = movemsg.MSG_ReadByte (netchan.net_message)
 		total |= b<<16
 	
 	if total & common_h.U_MOREBITS3:
 	
-		b = movemsg.MSG_ReadByte (net_chan.net_message)
+		b = movemsg.MSG_ReadByte (netchan.net_message)
 		total |= b<<24
 	
 
@@ -208,9 +209,9 @@ def CL_ParseEntityBits (): # (unsigned *bits)
 			bitcounts[i]+=1
 
 	if total & common_h.U_NUMBER16:
-		number = movemsg.MSG_ReadShort (net_chan.net_message)
+		number = movemsg.MSG_ReadShort (netchan.net_message)
 	else:
-		number = movemsg.MSG_ReadByte (net_chan.net_message)
+		number = movemsg.MSG_ReadByte (netchan.net_message)
 
 	return number, total
 
@@ -230,67 +231,67 @@ def CL_ParseDelta (fromEnt, toEnt, number, bits): #entity_state_t *from, entity_
 	toEnt.number = number
 
 	if bits & common_h.U_MODEL:
-		toEnt.modelindex = movemsg.MSG_ReadByte (net_chan.net_message)
+		toEnt.modelindex = movemsg.MSG_ReadByte (netchan.net_message)
 	if bits & common_h.U_MODEL2:
-		toEnt.modelindex2 = movemsg.MSG_ReadByte (net_chan.net_message)
+		toEnt.modelindex2 = movemsg.MSG_ReadByte (netchan.net_message)
 	if bits & common_h.U_MODEL3:
-		toEnt.modelindex3 = movemsg.MSG_ReadByte (net_chan.net_message)
+		toEnt.modelindex3 = movemsg.MSG_ReadByte (netchan.net_message)
 	if bits & common_h.U_MODEL4:
-		toEnt.modelindex4 = movemsg.MSG_ReadByte (net_chan.net_message)
+		toEnt.modelindex4 = movemsg.MSG_ReadByte (netchan.net_message)
 		
 	if bits & common_h.U_FRAME8:
-		toEnt.frame = movemsg.MSG_ReadByte (net_chan.net_message)
+		toEnt.frame = movemsg.MSG_ReadByte (netchan.net_message)
 	if bits & common_h.U_FRAME16:
-		toEnt.frame = movemsg.MSG_ReadShort (net_chan.net_message)
+		toEnt.frame = movemsg.MSG_ReadShort (netchan.net_message)
 
 	if (bits & common_h.U_SKIN8) and (bits & common_h.U_SKIN16):		# used for laser colors
-		toEnt.skinnum = movemsg.MSG_ReadLong(net_chan.net_message)
+		toEnt.skinnum = movemsg.MSG_ReadLong(netchan.net_message)
 	elif bits & common_h.U_SKIN8:
-		toEnt.skinnum = movemsg.MSG_ReadByte(net_chan.net_message)
+		toEnt.skinnum = movemsg.MSG_ReadByte(netchan.net_message)
 	elif bits & common_h.U_SKIN16:
-		toEnt.skinnum = movemsg.MSG_ReadShort(net_chan.net_message)
+		toEnt.skinnum = movemsg.MSG_ReadShort(netchan.net_message)
 
 	if (bits & (common_h.U_EFFECTS8|common_h.U_EFFECTS16)) == (common_h.U_EFFECTS8|common_h.U_EFFECTS16):
-		toEnt.effects = movemsg.MSG_ReadLong(net_chan.net_message)
+		toEnt.effects = movemsg.MSG_ReadLong(netchan.net_message)
 	elif bits & common_h.U_EFFECTS8:
-		toEnt.effects = movemsg.MSG_ReadByte(net_chan.net_message)
+		toEnt.effects = movemsg.MSG_ReadByte(netchan.net_message)
 	elif bits & common_h.U_EFFECTS16:
-		toEnt.effects = movemsg.MSG_ReadShort(net_chan.net_message)
+		toEnt.effects = movemsg.MSG_ReadShort(netchan.net_message)
 
 	if (bits & (common_h.U_RENDERFX8|common_h.U_RENDERFX16)) == (common_h.U_RENDERFX8|common_h.U_RENDERFX16):
-		toEnt.renderfx = movemsg.MSG_ReadLong(net_chan.net_message)
+		toEnt.renderfx = movemsg.MSG_ReadLong(netchan.net_message)
 	elif bits & common_h.U_RENDERFX8:
-		toEnt.renderfx = movemsg.MSG_ReadByte(net_chan.net_message)
+		toEnt.renderfx = movemsg.MSG_ReadByte(netchan.net_message)
 	elif bits & common_h.U_RENDERFX16:
-		toEnt.renderfx = movemsg.MSG_ReadShort(net_chan.net_message)
+		toEnt.renderfx = movemsg.MSG_ReadShort(netchan.net_message)
 
 	if bits & common_h.U_ORIGIN1:
-		toEnt.origin[0] = movemsg.MSG_ReadCoord (net_chan.net_message)
+		toEnt.origin[0] = movemsg.MSG_ReadCoord (netchan.net_message)
 	if bits & common_h.U_ORIGIN2:
-		toEnt.origin[1] = movemsg.MSG_ReadCoord (net_chan.net_message)
+		toEnt.origin[1] = movemsg.MSG_ReadCoord (netchan.net_message)
 	if bits & common_h.U_ORIGIN3:
-		toEnt.origin[2] = movemsg.MSG_ReadCoord (net_chan.net_message)
+		toEnt.origin[2] = movemsg.MSG_ReadCoord (netchan.net_message)
 		
 	if bits & common_h.U_ANGLE1:
-		toEnt.angles[0] = movemsg.MSG_ReadAngle(net_chan.net_message)
+		toEnt.angles[0] = movemsg.MSG_ReadAngle(netchan.net_message)
 	if bits & common_h.U_ANGLE2:
-		toEnt.angles[1] = movemsg.MSG_ReadAngle(net_chan.net_message)
+		toEnt.angles[1] = movemsg.MSG_ReadAngle(netchan.net_message)
 	if bits & common_h.U_ANGLE3:
-		toEnt.angles[2] = movemsg.MSG_ReadAngle(net_chan.net_message)
+		toEnt.angles[2] = movemsg.MSG_ReadAngle(netchan.net_message)
 
 	if bits & common_h.U_OLDORIGIN:
-		toEnt.old_origin = movemsg.MSG_ReadPos (net_chan.net_message)
+		toEnt.old_origin = movemsg.MSG_ReadPos (netchan.net_message)
 
 	if bits & common_h.U_SOUND:
-		toEnt.sound = movemsg.MSG_ReadByte (net_chan.net_message)
+		toEnt.sound = movemsg.MSG_ReadByte (netchan.net_message)
 
 	if bits & common_h.U_EVENT:
-		toEnt.event = movemsg.MSG_ReadByte (net_chan.net_message)
+		toEnt.event = movemsg.MSG_ReadByte (netchan.net_message)
 	else:
 		toEnt.event = 0
 
 	if bits & common_h.U_SOLID:
-		toEnt.solid = movemsg.MSG_ReadShort (net_chan.net_message)
+		toEnt.solid = movemsg.MSG_ReadShort (netchan.net_message)
 
 
 	# ==================
@@ -389,7 +390,7 @@ def CL_ParsePacketEntities (oldframe, newframe): #frame_t *, frame_t *
 		if newnum >= shared.MAX_EDICTS:
 			clientserver.Com_Error (shared.ERR_DROP,"CL_ParsePacketEntities: bad number:{}".format(newnum))
 
-		if net_chan.net_message.readcount > net_chan.net_message.cursize:
+		if netchan.net_message.readcount > netchan.net_message.cursize:
 			clientserver.Com_Error (shared.ERR_DROP,"CL_ParsePacketEntities: end of message")
 
 		if newnum==0:
@@ -499,43 +500,43 @@ def CL_ParsePlayerstate (oldframe, newframe): #frame_t *, frame_t *
 
 	state = newframe.playerstate
 
-	flags = movemsg.MSG_ReadShort (net_chan.net_message)
+	flags = movemsg.MSG_ReadShort (netchan.net_message)
 
 	#
 	# parse the pmove_state_t
 	#
 	if flags & common_h.PS_M_TYPE:
-		state.pmove.pm_type = movemsg.MSG_ReadByte (net_chan.net_message)
+		state.pmove.pm_type = movemsg.MSG_ReadByte (netchan.net_message)
 
 
 	if flags & common_h.PS_M_ORIGIN:
 
-		state.pmove.origin[0] = movemsg.MSG_ReadShort (net_chan.net_message)
-		state.pmove.origin[1] = movemsg.MSG_ReadShort (net_chan.net_message)
-		state.pmove.origin[2] = movemsg.MSG_ReadShort (net_chan.net_message)
+		state.pmove.origin[0] = movemsg.MSG_ReadShort (netchan.net_message)
+		state.pmove.origin[1] = movemsg.MSG_ReadShort (netchan.net_message)
+		state.pmove.origin[2] = movemsg.MSG_ReadShort (netchan.net_message)
 
 
 	if flags & common_h.PS_M_VELOCITY:
 
-		state.pmove.velocity[0] = movemsg.MSG_ReadShort (net_chan.net_message)
-		state.pmove.velocity[1] = movemsg.MSG_ReadShort (net_chan.net_message)
-		state.pmove.velocity[2] = movemsg.MSG_ReadShort (net_chan.net_message)
+		state.pmove.velocity[0] = movemsg.MSG_ReadShort (netchan.net_message)
+		state.pmove.velocity[1] = movemsg.MSG_ReadShort (netchan.net_message)
+		state.pmove.velocity[2] = movemsg.MSG_ReadShort (netchan.net_message)
 
 
 	if flags & common_h.PS_M_TIME:
-		state.pmove.pm_time = movemsg.MSG_ReadByte (net_chan.net_message)
+		state.pmove.pm_time = movemsg.MSG_ReadByte (netchan.net_message)
 
 	if flags & common_h.PS_M_FLAGS:
-		state.pmove.pm_flags = movemsg.MSG_ReadByte (net_chan.net_message)
+		state.pmove.pm_flags = movemsg.MSG_ReadByte (netchan.net_message)
 
 	if flags & common_h.PS_M_GRAVITY:
-		state.pmove.gravity = movemsg.MSG_ReadShort (net_chan.net_message)
+		state.pmove.gravity = movemsg.MSG_ReadShort (netchan.net_message)
 
 	if flags & common_h.PS_M_DELTA_ANGLES:
 
-		state.pmove.delta_angles[0] = movemsg.MSG_ReadShort (net_chan.net_message)
-		state.pmove.delta_angles[1] = movemsg.MSG_ReadShort (net_chan.net_message)
-		state.pmove.delta_angles[2] = movemsg.MSG_ReadShort (net_chan.net_message)
+		state.pmove.delta_angles[0] = movemsg.MSG_ReadShort (netchan.net_message)
+		state.pmove.delta_angles[1] = movemsg.MSG_ReadShort (netchan.net_message)
+		state.pmove.delta_angles[2] = movemsg.MSG_ReadShort (netchan.net_message)
 
 
 	if cl_main.cl.attractloop:
@@ -546,60 +547,60 @@ def CL_ParsePlayerstate (oldframe, newframe): #frame_t *, frame_t *
 	#
 	if flags & common_h.PS_VIEWOFFSET:
 
-		state.viewoffset[0] = movemsg.MSG_ReadChar (net_chan.net_message) * 0.25
-		state.viewoffset[1] = movemsg.MSG_ReadChar (net_chan.net_message) * 0.25
-		state.viewoffset[2] = movemsg.MSG_ReadChar (net_chan.net_message) * 0.25
+		state.viewoffset[0] = movemsg.MSG_ReadChar (netchan.net_message) * 0.25
+		state.viewoffset[1] = movemsg.MSG_ReadChar (netchan.net_message) * 0.25
+		state.viewoffset[2] = movemsg.MSG_ReadChar (netchan.net_message) * 0.25
 
 
 	if flags & common_h.PS_VIEWANGLES:
 
-		state.viewangles[0] = movemsg.MSG_ReadAngle16 (net_chan.net_message)
-		state.viewangles[1] = movemsg.MSG_ReadAngle16 (net_chan.net_message)
-		state.viewangles[2] = movemsg.MSG_ReadAngle16 (net_chan.net_message)
+		state.viewangles[0] = movemsg.MSG_ReadAngle16 (netchan.net_message)
+		state.viewangles[1] = movemsg.MSG_ReadAngle16 (netchan.net_message)
+		state.viewangles[2] = movemsg.MSG_ReadAngle16 (netchan.net_message)
 
 
 	if flags & common_h.PS_KICKANGLES:
 
-		state.kick_angles[0] = movemsg.MSG_ReadChar (net_chan.net_message) * 0.25
-		state.kick_angles[1] = movemsg.MSG_ReadChar (net_chan.net_message) * 0.25
-		state.kick_angles[2] = movemsg.MSG_ReadChar (net_chan.net_message) * 0.25
+		state.kick_angles[0] = movemsg.MSG_ReadChar (netchan.net_message) * 0.25
+		state.kick_angles[1] = movemsg.MSG_ReadChar (netchan.net_message) * 0.25
+		state.kick_angles[2] = movemsg.MSG_ReadChar (netchan.net_message) * 0.25
 
 
 	if flags & common_h.PS_WEAPONINDEX:
 
-		state.gunindex = movemsg.MSG_ReadByte (net_chan.net_message)
+		state.gunindex = movemsg.MSG_ReadByte (netchan.net_message)
 
 
 	if flags & common_h.PS_WEAPONFRAME:
 
-		state.gunframe = movemsg.MSG_ReadByte (net_chan.net_message)
-		state.gunoffset[0] = movemsg.MSG_ReadChar (net_chan.net_message)*0.25
-		state.gunoffset[1] = movemsg.MSG_ReadChar (net_chan.net_message)*0.25
-		state.gunoffset[2] = movemsg.MSG_ReadChar (net_chan.net_message)*0.25
-		state.gunangles[0] = movemsg.MSG_ReadChar (net_chan.net_message)*0.25
-		state.gunangles[1] = movemsg.MSG_ReadChar (net_chan.net_message)*0.25
-		state.gunangles[2] = movemsg.MSG_ReadChar (net_chan.net_message)*0.25
+		state.gunframe = movemsg.MSG_ReadByte (netchan.net_message)
+		state.gunoffset[0] = movemsg.MSG_ReadChar (netchan.net_message)*0.25
+		state.gunoffset[1] = movemsg.MSG_ReadChar (netchan.net_message)*0.25
+		state.gunoffset[2] = movemsg.MSG_ReadChar (netchan.net_message)*0.25
+		state.gunangles[0] = movemsg.MSG_ReadChar (netchan.net_message)*0.25
+		state.gunangles[1] = movemsg.MSG_ReadChar (netchan.net_message)*0.25
+		state.gunangles[2] = movemsg.MSG_ReadChar (netchan.net_message)*0.25
 
 
 	if flags & common_h.PS_BLEND:
 
-		state.blend[0] = movemsg.MSG_ReadByte (net_chan.net_message)/255.0
-		state.blend[1] = movemsg.MSG_ReadByte (net_chan.net_message)/255.0
-		state.blend[2] = movemsg.MSG_ReadByte (net_chan.net_message)/255.0
-		state.blend[3] = movemsg.MSG_ReadByte (net_chan.net_message)/255.0
+		state.blend[0] = movemsg.MSG_ReadByte (netchan.net_message)/255.0
+		state.blend[1] = movemsg.MSG_ReadByte (netchan.net_message)/255.0
+		state.blend[2] = movemsg.MSG_ReadByte (netchan.net_message)/255.0
+		state.blend[3] = movemsg.MSG_ReadByte (netchan.net_message)/255.0
 
 
 	if flags & common_h.PS_FOV:
-		state.fov = movemsg.MSG_ReadByte (net_chan.net_message)
+		state.fov = movemsg.MSG_ReadByte (netchan.net_message)
 
 	if flags & common_h.PS_RDFLAGS:
-		state.rdflags = movemsg.MSG_ReadByte (net_chan.net_message)
+		state.rdflags = movemsg.MSG_ReadByte (netchan.net_message)
 
 	# parse stats
-	statbits = movemsg.MSG_ReadLong (net_chan.net_message)
+	statbits = movemsg.MSG_ReadLong (netchan.net_message)
 	for i in range(shared.MAX_STATS):
 		if statbits & (1<<i):
-			state.stats[i] = movemsg.MSG_ReadShort(net_chan.net_message)
+			state.stats[i] = movemsg.MSG_ReadShort(netchan.net_message)
 
 
 """
@@ -644,13 +645,13 @@ def CL_ParseFrame ():
 #	CL_ClearProjectiles(); // clear projectiles for new frame
 #endif
 
-	cl_main.cl.frame.serverframe = movemsg.MSG_ReadSLong (net_chan.net_message)
-	cl_main.cl.frame.deltaframe = movemsg.MSG_ReadSLong (net_chan.net_message)
+	cl_main.cl.frame.serverframe = movemsg.MSG_ReadSLong (netchan.net_message)
+	cl_main.cl.frame.deltaframe = movemsg.MSG_ReadSLong (netchan.net_message)
 	cl_main.cl.frame.servertime = cl_main.cl.frame.serverframe*100
 
 	# BIG HACK to let old demos continue to work
 	if cl_main.cls.serverProtocol != 26:
-		cl_main.cl.surpressCount = movemsg.MSG_ReadByte (net_chan.net_message)
+		cl_main.cl.surpressCount = movemsg.MSG_ReadByte (netchan.net_message)
 
 	if cl_main.cl_shownet.value == 3:
 		clientserver.Com_Printf ("   frame:{}  delta:{}\n".format(cl_main.cl.frame.serverframe,
@@ -693,18 +694,18 @@ def CL_ParseFrame ():
 		cl_main.cl.time = cl_main.cl.frame.servertime - 100
 
 	# read areabits
-	length = movemsg.MSG_ReadByte (net_chan.net_message)
-	cl_main.cl.frame.areabits = movemsg.MSG_ReadData (net_chan.net_message, length)
+	length = movemsg.MSG_ReadByte (netchan.net_message)
+	cl_main.cl.frame.areabits = movemsg.MSG_ReadData (netchan.net_message, length)
 
 	# read playerinfo
-	cmd = movemsg.MSG_ReadByte (net_chan.net_message)
+	cmd = movemsg.MSG_ReadByte (netchan.net_message)
 	cl_parse.SHOWNET(cl_parse.svc_strings[cmd])
 	if cmd != common_h.svc_ops_e.svc_playerinfo.value:
 		clientserver.Com_Error (shared.ERR_DROP, "CL_ParseFrame: not playerinfo")
 	CL_ParsePlayerstate (old, cl_main.cl.frame)
 
 	# read packet entities
-	cmd = movemsg.MSG_ReadByte (net_chan.net_message)
+	cmd = movemsg.MSG_ReadByte (netchan.net_message)
 	cl_parse.SHOWNET(cl_parse.svc_strings[cmd])
 	if cmd != common_h.svc_ops_e.svc_packetentities.value:
 		clientserver.Com_Error (shared.ERR_DROP, "CL_ParseFrame: not packetentities")

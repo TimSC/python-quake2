@@ -1,62 +1,44 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+Player movement code. This is the core of Quake IIs legendary physics
+engine
+
+=======================================================================
 """
 from __future__ import annotations
 
 import math
 import numpy as np
-pass
 from common.header import shared
 from common.shared import shared as shared_c
+from common.header import shared as shared_h
+
 """
-#include "qcommon.h"
-
-
-
-#define	STEPSIZE	18
-
-// all of the locals will be zeroed before each
-// pmove, just to make damn sure we don't have
-// any differences when running on client or server
-
-typedef struct
-{
-	vec3_t		origin;			// full float precision
-	vec3_t		velocity;		// full float precision
-
-	vec3_t		forward, right, up;
-	float		frametime;
-
-
-	csurface_t	*groundsurface;
-	cplane_t	groundplane;
-	int			groundcontents;
-
-	vec3_t		previous_origin;
-	qboolean	ladder;
-} pml_t;
-
-pmove_t		*pm;
-pml_t		pml;
-
+#include "header/common.h"
+#include "../client/sound/header/local.h"
+#include "../client/header/client.h"
 """
 # movement parameters
+
 pm_stopspeed: float = 100.0
 pm_maxspeed: float = 300.0
 pm_duckspeed: float = 100.0
@@ -71,7 +53,6 @@ STEPSIZE = 18
 STOP_EPSILON = 0.1
 MIN_STEP_NORMAL = 0.7
 MAX_CLIP_PLANES = 5
-MAXTOUCH = 32
 
 pm = None
 
@@ -106,25 +87,6 @@ class pml_t(object):
 
 
 pml = pml_t()
-
-
-class pmove_t(object):
-
-	def __init__(self):
-		self.s = shared.pmove_state_t()
-		self.cmd = shared.usercmd_t()
-		self.snapinitial = False
-		self.numtouch = 0
-		self.touchents = [None for _ in range(MAXTOUCH)]
-		self.viewangles = np.zeros((3,), dtype=np.float32)
-		self.viewheight = 0.0
-		self.mins = np.zeros((3,), dtype=np.float32)
-		self.maxs = np.zeros((3,), dtype=np.float32)
-		self.groundentity = None
-		self.watertype = 0
-		self.waterlevel = 0
-		self.trace = None
-		self.pointcontents = None
 
 
 def _pm_type_value(pm_type):
@@ -179,7 +141,7 @@ def PM_StepSlideMove_():
 		if trace.fraction == 1:
 			break
 
-		if pm.numtouch < MAXTOUCH and trace.ent is not None:
+		if pm.numtouch < shared_h.MAXTOUCH and trace.ent is not None:
 			pm.touchents[pm.numtouch] = trace.ent
 			pm.numtouch += 1
 
@@ -288,7 +250,7 @@ def PM_Friction():
 	global pm, pml
 
 	vel = pml.velocity
-	speed = math.sqrt(vel[0]*vel[0] + vel[1]*vel[1] + vel[2]*vel[2])
+	speed = np.float32(math.sqrt(vel[0]*vel[0] + vel[1]*vel[1] + vel[2]*vel[2]))
 	if speed < 1:
 		vel[0] = 0
 		vel[1] = 0
@@ -315,6 +277,15 @@ def PM_Friction():
 	vel[1] *= newspeed
 	vel[2] *= newspeed
 
+
+"""
+/* Used for speedoomter display. */
+void GetPlayerSpeed(float *speed, float *speedxy)
+{
+	*speedxy = sqrt(pml.velocity[0] * pml.velocity[0] + pml.velocity[1] * pml.velocity[1]);
+	*speed = VectorLength(pml.velocity);
+}
+"""
 
 """
 ==============
@@ -558,15 +529,15 @@ def PM_CatagorizePosition():
 					else:
 						pm.s.pm_time = 18
 
-		if pm.numtouch < MAXTOUCH and trace.ent is not None:
+		if pm.numtouch < shared_h.MAXTOUCH and trace.ent is not None:
 			pm.touchents[pm.numtouch] = trace.ent
 			pm.numtouch += 1
 
 	pm.waterlevel = 0
 	pm.watertype = 0
 
-	sample2 = int(pm.viewheight - pm.mins[2]) # int
-	sample1 = sample2 // 2 # int
+	sample2 = np.float32(pm.viewheight - pm.mins[2]) # float
+	sample1 = sample2 / 2 # float
 
 	point[2] = pml.origin[2] + pm.mins[2] + 1
 	cont = pm.pointcontents(point)
@@ -913,6 +884,66 @@ def PM_ClampAngles():
 	shared_c.AngleVectors(pm.viewangles, pml.forward, pml.right, pml.up)
 
 
+def PM_CalculateViewHeightForDemo(): #void
+
+	if pm.s.pm_type == shared.pmtype_t.PM_GIB.value:
+		pm.viewheight = 8
+	else:
+		if (pm.s.pm_flags & shared.PMF_DUCKED) != 0:
+			pm.viewheight = -2
+		else:
+			pm.viewheight = 22
+
+def PM_CalculateWaterLevelForDemo(): #void
+
+	"""
+	vec3_t point;
+	int cont;
+	"""
+	point = np.zeros((3,), dtype=np.float32)
+
+	point[0] = pml.origin[0]
+	point[1] = pml.origin[1]
+	point[2] = pml.origin[2] + pm.viewheight
+
+	pm.waterlevel = 0
+	pm.watertype = 0
+
+	cont = pm.pointcontents(point)
+
+	if (cont & shared.MASK_WATER) != 0:
+		pm.waterlevel = 3
+		pm.watertype = cont
+
+_underwater = 0 #static int, in PM_UpdateUnderwaterSfx
+
+def PM_UpdateUnderwaterSfx(): #void
+
+	global _underwater
+
+	from client import snd_dma	# Q2PORT: imported here; snd_is_underwater is in the client's sound code
+
+	#static int underwater;
+
+	if (pm.waterlevel == 3) and not _underwater:
+
+		_underwater = 1
+		snd_dma.snd_is_underwater = True
+
+		#ifdef USE_OPENAL
+		#AL_Underwater();
+		#endif
+
+
+	if (pm.waterlevel < 3) and _underwater:
+
+		_underwater = 0
+		snd_dma.snd_is_underwater = False
+
+		#ifdef USE_OPENAL
+		#AL_Overwater();
+		#endif
+
 """
 ================
 Pmove
@@ -951,7 +982,7 @@ def Pmove(pmove):
 
 	shared.VectorCopy(pm.s.origin, pml.previous_origin)
 
-	pml.frametime = pm.cmd.msec * 0.001
+	pml.frametime = pm.cmd.msec * np.float32(0.001)	# Q2PORT: float arithmetic, as msec * 0.001f
 
 	PM_ClampAngles()
 
@@ -967,7 +998,16 @@ def Pmove(pmove):
 		pm.cmd.upmove = 0
 
 	if pm_type == shared.pmtype_t.PM_FREEZE.value:
-		return
+
+		#if !defined(DEDICATED_ONLY)
+		from client import cl_main	# Q2PORT: imported here, the client imports pmove
+		if cl_main.cl.attractloop:
+			PM_CalculateViewHeightForDemo()
+			PM_CalculateWaterLevelForDemo()
+			PM_UpdateUnderwaterSfx()
+		#endif
+
+		return # no movement at all
 
 	PM_CheckDuck()
 
@@ -1016,7 +1056,13 @@ def Pmove(pmove):
 			shared_c.AngleVectors(angles, pml.forward, pml.right, pml.up)
 			PM_AirMove()
 
+	# set groundentity, watertype, and waterlevel for final spot
 	PM_CatagorizePosition()
+
+	#if !defined(DEDICATED_ONLY)
+	PM_UpdateUnderwaterSfx()
+	#endif
+
 	PM_SnapPosition()
 """
 /*
@@ -1024,34 +1070,6 @@ def Pmove(pmove):
   walking up a step should kill some velocity
 
 */
-"""
-"""
-/*
-==================
-PM_ClipVelocity
-
-Slide off of the impacting object
-returns the blocked flags (1 = floor, 2 = step / wall)
-==================
-*/
-#define	STOP_EPSILON	0.1
-
-void PM_ClipVelocity (vec3_t in, vec3_t normal, vec3_t out, float overbounce)
-{
-	float	backoff;
-	float	change;
-	int		i;
-	
-	backoff = DotProduct (in, normal) * overbounce;
-
-	for (i=0 ; i<3 ; i++)
-	{
-		change = normal[i]*backoff;
-		out[i] = in[i] - change;
-		if (out[i] > -STOP_EPSILON && out[i] < STOP_EPSILON)
-			out[i] = 0;
-	}
-}
 """
 """
 /*

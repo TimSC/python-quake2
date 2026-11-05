@@ -800,9 +800,11 @@ def R_SetupGL ():
 R_Clear
 =============
 """
+trickframe = 0 #static int, in R_Clear
+
 def R_Clear ():
 
-	global gldepthmin, gldepthmax
+	global gldepthmin, gldepthmax, trickframe
 
 	if gl_ztrick.value:
 	

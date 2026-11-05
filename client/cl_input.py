@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import numpy as np
-from qcommon import net_chan
+pass
 pass
 from client import cl_main, client, keys, client, cl_cin
 from linux import vid_so, sys_linux, q_shlinux
@@ -32,6 +32,7 @@ from common import crc
 from common import cvar
 from common import movemsg
 from common import szone
+from common import netchan
 """
 // cl_main.cl.input.c  -- builds an intended movement command to send to the server
 
@@ -677,7 +678,7 @@ def CL_SendCmd ():
 	if cl_main.cls.state == client.connstate_t.ca_connected:
 	
 		if cl_main.cls.netchan.message.cursize or q_shlinux.curtime - cl_main.cls.netchan.last_sent > 1000:
-			net_chan.Netchan_Transmit (cl_main.cls.netchan, b"")
+			netchan.Netchan_Transmit (cl_main.cls.netchan, b"")
 		return
 	
 	# send a userinfo update if needed
@@ -735,6 +736,6 @@ def CL_SendCmd ():
 	#
 	# deliver the message
 	#
-	net_chan.Netchan_Transmit (cl_main.cls.netchan, buf.data)
+	netchan.Netchan_Transmit (cl_main.cls.netchan, buf.data)
 
 

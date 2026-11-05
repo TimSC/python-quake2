@@ -1,27 +1,30 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+Server side user (player entity) moving.
+
+=======================================================================
 """
 from __future__ import annotations
 
-from server import sv_main, sv_init, sv_game
-from qcommon import net_chan
-pass
 from common.header import common as common_h
 from common.header import shared
 from common import argproc
@@ -32,11 +35,16 @@ from common import cvar
 from common import filesystem
 from common import movemsg
 from common import szone
-"""
-// sv_user.c -- server code for moving users
+from common import netchan
+from server.header import server as server_h
+from server import sv_game
+from server import sv_init
+from server import sv_main
 
-#include "server.h"
 """
+#include "header/server.h"
+"""
+
 sv_player = None #edict_t *
 """
 /*
@@ -47,6 +55,11 @@ USER STRINGCMD EXECUTION
 sv_client and sv_player will be valid.
 ============================================================
 */
+"""
+"""
+// sv_user.c -- server code for moving users
+
+#include "server.h"
 """
 """
 ==================
@@ -81,13 +94,13 @@ def SV_New_f (): #void
 
 	clientserver.Com_DPrintf ("New() from {}\n".format(sv_main.sv_client.name))
 
-	if sv_main.sv_client.state != sv_init.client_state_t.cs_connected:
+	if sv_main.sv_client.state != server_h.client_state_t.cs_connected:
 
 		clientserver.Com_Printf ("New not valid -- already spawned\n")
 		return
 
 	# demo servers just dump the file message
-	if sv_init.sv.state == sv_init.server_state_t.ss_demo:
+	if sv_init.sv.state == server_h.server_state_t.ss_demo:
 
 		SV_BeginDemoserver ()
 		return
@@ -105,7 +118,7 @@ def SV_New_f (): #void
 	movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, sv_init.sv.attractloop)
 	movemsg.MSG_WriteString (sv_main.sv_client.netchan.message, gamedir)
 
-	if sv_init.sv.state == sv_init.server_state_t.ss_cinematic or sv_init.sv.state == sv_init.server_state_t.ss_pic:
+	if sv_init.sv.state == server_h.server_state_t.ss_cinematic or sv_init.sv.state == server_h.server_state_t.ss_pic:
 		playernum = -1
 	else:
 		playernum = sv_init.svs.clients.index(sv_main.sv_client)
@@ -117,18 +130,129 @@ def SV_New_f (): #void
 	#
 	# game server
 	#
-	if sv_init.sv.state == sv_init.server_state_t.ss_game:
+	if sv_init.sv.state == server_h.server_state_t.ss_game:
 
 		# set up the entity for the client
-		ent = sv_init.EDICT_NUM(playernum+1)
+		ent = server_h.EDICT_NUM(playernum+1)
 		ent.s.number = playernum+1
-		sv_main.sv_client.edict = ent
 		sv_main.sv_client.lastcmd = shared.usercmd_t()
 
 		# begin fetching configstrings
 		movemsg.MSG_WriteByte (sv_main.sv_client.netchan.message, common_h.svc_ops_e.svc_stufftext.value)
 		movemsg.MSG_WriteString (sv_main.sv_client.netchan.message, "cmd configstrings {:d} 0\n".format(sv_init.svs.spawncount))
 
+
+"""
+static qboolean
+_EnoughSpaceInBuffer(const sizebuf_t *msg, size_t datalen, int is_opt)
+{
+	/* original check logic */
+	if (!is_opt && (msg->cursize >= (MAX_MSGLEN / 2)))
+	{
+		return false;
+	}
+
+	if ((msg->cursize + datalen) >
+		(MAX_MSGLEN - (CMD_MARGIN + SAFE_MARGIN)))
+	{
+		return false;
+	}
+
+	return true;
+}
+"""
+
+r"""
+static void
+PrintOverflowConfigstrings(void)
+{
+	int i, n;
+
+	n = StringList_Len(&sv.configstrings_overflow);
+
+	if (!n)
+	{
+		return;
+	}
+
+	Com_Printf("Failed to load %i resources: configstrings overflowed\n", n);
+
+	for (i = 0; i < n; i++)
+	{
+		Com_Printf("  %s\n", StringList_Elem(&sv.configstrings_overflow, i));
+	}
+}
+"""
+
+r"""
+static int
+_NumIndexSkips(int start, int end)
+{
+	int i;
+
+	for (i = start;
+		i < (end - 1) && sv.configstrings[i][sizeof(sv.configstrings[i]) - 1] != '\0';
+		i++);
+
+	return i - start;
+}
+"""
+
+r"""
+static void
+SV_AddBaselines(int start, qboolean allow_zero)
+{
+	sizebuf_t *msg;
+	int i, is_opt;
+
+	if (start < 0)
+	{
+		start = 0;
+	}
+
+	msg = &sv_client->netchan.message;
+	is_opt = SV_Optimizations() & OPTIMIZE_MSGUTIL;
+
+	for (i = start; i < sv.numbaselines; i++)
+	{
+		const entity_state_t *base = &sv.baselines[i];
+
+		if (base->modelindex || base->sound || base->effects)
+		{
+			if (!_EnoughSpaceInBuffer(msg,
+				MSG_DeltaEntity_Size(NULL, base, true, true), is_opt))
+			{
+				break;
+			}
+
+			MSG_WriteByte(msg, svc_spawnbaseline);
+			MSG_WriteDeltaEntity(NULL, base, msg, true, true);
+		}
+	}
+
+	if (!allow_zero &&
+		(i == start) && (i < sv.numbaselines))
+	{
+		Com_Printf("%s: skipping index %i: too big to send\n",
+			__func__, i);
+		i++;
+	}
+
+	/* send next command */
+	if (i >= sv.numbaselines)
+	{
+		MSG_WriteByte(msg, svc_stufftext);
+		MSG_WriteString(msg,
+				va("precache %i\n", svs.spawncount));
+	}
+	else
+	{
+		MSG_WriteByte(msg, svc_stufftext);
+		MSG_WriteString(msg,
+				va("cmd baselines %i %i\n", svs.spawncount, i));
+	}
+}
+"""
 
 """
 ==================
@@ -141,7 +265,7 @@ def SV_Configstrings_f ():
 
 	clientserver.Com_DPrintf ("Configstrings() from {}\n".format(sv_main.sv_client.name))
 
-	if sv_main.sv_client.state != sv_init.client_state_t.cs_connected:
+	if sv_main.sv_client.state != server_h.client_state_t.cs_connected:
 
 		clientserver.Com_Printf ("configstrings not valid -- already spawned\n")
 		return
@@ -197,7 +321,7 @@ def SV_Baselines_f ():
 
 	clientserver.Com_DPrintf ("Baselines() from {}\n".format(sv_main.sv_client.name))
 
-	if sv_main.sv_client.state != sv_init.client_state_t.cs_connected:
+	if sv_main.sv_client.state != server_h.client_state_t.cs_connected:
 
 		clientserver.Com_Printf ("baselines not valid -- already spawned\n")
 		return
@@ -255,7 +379,7 @@ def SV_Begin_f ():
 		SV_New_f ()
 		return
 
-	sv_main.sv_client.state = sv_init.client_state_t.cs_spawned
+	sv_main.sv_client.state = server_h.client_state_t.cs_spawned
 
 	# call the game begin function
 	sv_game.ge.ClientBegin (sv_player)
@@ -419,8 +543,8 @@ def SV_Nextserver ():
 	#char *v
 
 	#ZOID, ss_pic can be nextserver'd in coop mode
-	if sv_init.sv.state == sv_init.server_state_t.ss_game \
-		or (sv_init.sv.state == sv_init.server_state_t.ss_pic and not cvar.Cvar_VariableValue("coop")):
+	if sv_init.sv.state == server_h.server_state_t.ss_game \
+		or (sv_init.sv.state == server_h.server_state_t.ss_pic and not cvar.Cvar_VariableValue("coop")):
 		return		# can't nextserver while playing a normal game
 
 	sv_init.svs.spawncount+=1	# make sure another doesn't sneak in
@@ -488,13 +612,13 @@ def SV_ExecuteUserCommand (s): #char *
 	global sv_player
 
 	cmdparser.Cmd_TokenizeString (s, True)
-	sv_player = sv_main.sv_client.edict
+	sv_player = server_h.CL_EDICT(sv_main.sv_client)
 
 #	SV_BeginRedirect (RD_CLIENT)
 
 	if cmdparser.Cmd_Argv(0) in ucmds:
 		ucmds[cmdparser.Cmd_Argv(0)]()
-	elif sv_init.sv.state == sv_init.server_state_t.ss_game:
+	elif sv_init.sv.state == server_h.server_state_t.ss_game:
 		sv_game.ge.ClientCommand (sv_player)
 
 #	SV_EndRedirect ()
@@ -517,7 +641,7 @@ def SV_ClientThink (cl, cmd_): #client_t *, usercmd_t *
 		clientserver.Com_DPrintf ("commandMsec underflow from %s\n" % cl.name)
 		return
 
-	sv_game.ge.ClientThink (cl.edict, cmd_)
+	sv_game.ge.ClientThink (server_h.CL_EDICT(cl), cmd_)
 
 
 """
@@ -553,7 +677,7 @@ def SV_ExecuteClientMessage (cl): #client_t *
 	#int checksum = 0, calculatedChecksum = 0, checksumIndex = 0, lastframe = 0
 
 	sv_main.sv_client = cl
-	sv_player = sv_main.sv_client.edict
+	sv_player = server_h.CL_EDICT(sv_main.sv_client)
 
 	# only allow one move command
 	move_issued = False
@@ -561,13 +685,13 @@ def SV_ExecuteClientMessage (cl): #client_t *
 
 	while True:
 
-		if net_chan.net_message.readcount > net_chan.net_message.cursize:
+		if netchan.net_message.readcount > netchan.net_message.cursize:
 
 			clientserver.Com_Printf ("SV_ReadClientMessage: badread\n")
 			sv_main.SV_DropClient (cl)
 			return
 
-		c = movemsg.MSG_ReadByte (net_chan.net_message)
+		c = movemsg.MSG_ReadByte (netchan.net_message)
 		if c == -1:
 			break # nothing to read
 
@@ -575,7 +699,7 @@ def SV_ExecuteClientMessage (cl): #client_t *
 			pass
 
 		elif c == common_h.clc_ops_e.clc_userinfo.value:
-			cl.userinfo = movemsg.MSG_ReadString (net_chan.net_message)
+			cl.userinfo = movemsg.MSG_ReadString (netchan.net_message)
 			sv_main.SV_UserinfoChanged (cl)
 			break
 
@@ -585,13 +709,13 @@ def SV_ExecuteClientMessage (cl): #client_t *
 				return		# someone is trying to cheat...
 
 			move_issued = True
-			checksumIndex = net_chan.net_message.readcount
-			checksum = movemsg.MSG_ReadByte (net_chan.net_message)
-			lastframe = movemsg.MSG_ReadLong (net_chan.net_message)
+			checksumIndex = netchan.net_message.readcount
+			checksum = movemsg.MSG_ReadByte (netchan.net_message)
+			lastframe = movemsg.MSG_ReadLong (netchan.net_message)
 			if lastframe != cl.lastframe:
 				cl.lastframe = lastframe
 				if cl.lastframe > 0:
-					cl.frame_latency[cl.lastframe & (sv_init.LATENCY_COUNTS-1)] = \
+					cl.frame_latency[cl.lastframe & (server_h.LATENCY_COUNTS-1)] = \
 						sv_init.svs.realtime - cl.frames[cl.lastframe & common_h.UPDATE_MASK].senttime
 
 			nullcmd = shared.usercmd_t()
@@ -599,19 +723,19 @@ def SV_ExecuteClientMessage (cl): #client_t *
 			oldcmd = shared.usercmd_t()
 			newcmd = shared.usercmd_t()
 
-			movemsg.MSG_ReadDeltaUsercmd (net_chan.net_message, nullcmd, oldest)
-			movemsg.MSG_ReadDeltaUsercmd (net_chan.net_message, oldest, oldcmd)
-			movemsg.MSG_ReadDeltaUsercmd (net_chan.net_message, oldcmd, newcmd)
+			movemsg.MSG_ReadDeltaUsercmd (netchan.net_message, nullcmd, oldest)
+			movemsg.MSG_ReadDeltaUsercmd (netchan.net_message, oldest, oldcmd)
+			movemsg.MSG_ReadDeltaUsercmd (netchan.net_message, oldcmd, newcmd)
 
-			if cl.state != sv_init.client_state_t.cs_spawned:
+			if cl.state != server_h.client_state_t.cs_spawned:
 				cl.lastframe = -1
 				break
 
 			# if the checksum fails, ignore the rest of the packet
 			calculatedChecksum = crc.COM_BlockSequenceCRCByte (
-				net_chan.net_message.data,
+				netchan.net_message.data,
 				checksumIndex + 1,
-				net_chan.net_message.readcount - checksumIndex - 1,
+				netchan.net_message.readcount - checksumIndex - 1,
 				cl.netchan.incoming_sequence)
 
 			if calculatedChecksum[0] != checksum:
@@ -636,14 +760,14 @@ def SV_ExecuteClientMessage (cl): #client_t *
 
 		elif c == common_h.clc_ops_e.clc_stringcmd.value:
 
-			s = movemsg.MSG_ReadString (net_chan.net_message)
+			s = movemsg.MSG_ReadString (netchan.net_message)
 
 			# malicious users may try using too many string commands
 			stringCmdCount += 1
 			if stringCmdCount < MAX_STRINGCMDS:
 				SV_ExecuteUserCommand (s)
 
-			if cl.state == sv_init.client_state_t.cs_zombie:
+			if cl.state == server_h.client_state_t.cs_zombie:
 				return	# disconnect command
 
 		else:

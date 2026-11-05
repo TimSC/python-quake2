@@ -1,32 +1,34 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+Server startup.
+
+=======================================================================
 """
 from __future__ import annotations
 
 import copy
 import random
 import struct
-from enum import Enum
-from server import sv_main, sv_send, sv_game, sv_world, sv_game
 from client import cl_main, cl_scrn
-from qcommon import cmodel, pmove
-pass
 from linux import net_udp
 from common.header import common as common_h
 from common.header import shared
@@ -38,225 +40,45 @@ from common import cvar
 from common import frame
 from common import movemsg
 from common import szone
-"""
-#include "server.h"
+from common import collision
+from common import pmove
+from server.header import server as server_h
+from server import sv_game
+from server import sv_main
+from server import sv_send
+from server import sv_world
 
 """
-MAX_MASTERS	= 8				# max recipients for heartbeat packets
-
-class server_state_t(Enum):
-	ss_dead = 0			# no map loaded
-	ss_loading = 1			# spawning level edicts
-	ss_game = 2			# actively running
-	ss_cinematic = 3
-	ss_demo = 4
-	ss_pic = 5
-
-# some qc commands are only valid before the server has finished
-# initializing (precache commands, static sounds / objects, etc)
-
-class server_t(object):
-
-	def __init__(self):
-
-		self.clear()
-
-	def clear(self):
-
-		self.state = server_state_t.ss_dead #server_state_t, precache commands are only valid during load
-
-		self.attractloop = False # qboolean	;		// running cinematics and demos for the local system only
-		self.loadgame = False # qboolean	;			// client begins should reuse existing entity
-
-		self.time = 0 # unsigned	;				// always sv.framenum * 100 msec
-		self.framenum = 0 # int			;
-
-		self.name = None # char		[MAX_QPATH];			// map name, or cinematic name
-		self.models = [] # struct cmodel_s		*[q_shared.MAX_MODELS];
-		for i in range(shared.MAX_MODELS):
-			self.models.append(shared.cmodel_t())
-
-		self.configstrings = [] # char		[MAX_CONFIGSTRINGS][MAX_QPATH];
-		for i in range(shared.MAX_CONFIGSTRINGS):
-			self.configstrings.append("")
-		self.baselines = [] # entity_state_t	[MAX_EDICTS];
-		for i in range(shared.MAX_EDICTS):
-			self.baselines.append(shared.entity_state_t())
-
-		# the multicast buffer is used to send a message to a set of clients
-		# it is only used to marshall data until SV_Multicast is called
-		self.multicast = common_h.sizebuf_t() # sizebuf_t	;
-		#self.multicast_buf = None # byte		[MAX_MSGLEN];
-
-		# demo server information
-		self.demofile = 0 # fileHandle_t
-		self.timedemo = False # qboolean	;		// don't time sync
-
-		self.timebase = 0 #int, msec base for SV_GiveMsec
-		self.nextsignon = 0 #float
-		self.signonnum = 0 #int
-		self.lastframe = 0 #float
-
-def EDICT_NUM(n):
-	return sv_game.ge.edicts[n]
-
-#define NUM_FOR_EDICT(e) ( ((byte *)(e)-(byte *)ge->edicts ) / ge->edict_size)
-def NUM_FOR_EDICT(e):
-	return sv_game.ge.edicts.index(e)
-
-class client_state_t(Enum):
-
-	cs_free = 0			# can be reused for a new connection
-	cs_zombie = 1		# client has been disconnected, but don't reuse
-						# connection for a couple seconds
-	cs_connected = 2	# has been assigned to a client_t, but not in game yet
-	cs_spawned = 3		# client is fully in game
-
+#include "header/server.h"
+#include <limits.h>
 """
-typedef struct
+
+svs = server_h.server_static_t()				# persistant server info
+sv = server_h.server_t()					# local server
+"""
+static entity_state_t *
+SV_AllocBaseline(int entnum)
 {
-	int					areabytes;
-	byte				areabits[MAX_MAP_AREAS/8];		// portalarea visibility bits
-	player_state_t		ps;
-	int					num_entities;
-	int					first_entity;		// into the circular sv_packet_entities[]
-	int					senttime;			// for ping calculations
-} client_frame_t;
+	int nextpow2;
 
-#define	LATENCY_COUNTS	16
-#define	RATE_MESSAGES	10
+	if ((entnum < 0) || (entnum > MAX_SV_ENTNUM))
+	{
+		return NULL;
+	}
+
+	if (entnum >= sv.numbaselines)
+	{
+		nextpow2 = (sv.numbaselines || (entnum >= ALLOC_ENTITIES_MIN)) ?
+			(int)NextPow2gt(entnum) : ALLOC_ENTITIES_MIN;
+
+		sv.baselines = Z_Realloc(sv.baselines, nextpow2 * sizeof(entity_state_t));
+		sv.numbaselines = nextpow2;
+	}
+
+	return &sv.baselines[entnum];
+}
 """
-LATENCY_COUNTS	= 16
-RATE_MESSAGES	= 10
 
-#typedef struct
-#{
-#	int				areabytes;
-#	byte			areabits[MAX_MAP_AREAS/8];		// portalarea visibility bits
-#	player_state_t	ps;
-#	int				num_entities;
-#	int				first_entity;		// into the circular sv_packet_entities[]
-#	int				senttime;			// for ping calculations
-#} client_frame_t;
-class client_frame_t(object):
-
-	def __init__(self):
-		self.areabytes = 0 #int
-		self.areabits = bytearray(32) #byte[MAX_MAP_AREAS/8], portalarea visibility bits
-		self.ps = shared.player_state_t()
-		self.num_entities = 0 #int
-		self.first_entity = 0 #int, into the circular sv_packet_entities[]
-		self.senttime = 0 #int, for ping calculations
-
-class client_t(object):
-
-	def __init__(self):
-
-		self.state = client_state_t.cs_free
-
-		self.userinfo = "" #char[MAX_INFO_STRING], name, etc
-		self.lastframe = -1 #int, for delta compression
-		self.lastcmd = None #usercmd_t, for filling in big drops
-		self.commandMsec = 0 #int, every seconds this is reset, if user commands exhaust it, assume time cheating
-		self.frame_latency = [] #int[LATENCY_COUNTS]
-		for i in range(LATENCY_COUNTS):
-			self.frame_latency.append(0)
-		self.ping = 0 #int
-		self.message_size = [] #int[RATE_MESSAGES], used to rate drop packets
-		for i in range(RATE_MESSAGES):
-			self.message_size.append(0)
-		self.rate = 5000 #int
-		self.surpressCount = 0 #int, number of messages rate supressed
-
-		self.edict = None #edict_t*, EDICT_NUM(clientnum+1)
-		
-		self.name = None #char[32];			// extracted from userinfo, high bits masked
-		self.messagelevel = None #int;		// for filtering printed messages
-		
-		# The datagram is written to by sound calls, prints, temp ents, etc.
-		# It can be harmlessly overflowed.
-		
-		self.datagram = common_h.sizebuf_t()
-
-		self.download = None #byte *, file being downloaded
-		self.downloadsize = 0 #int, total bytes (can't use EOF because of paks)
-		self.downloadcount = 0 #int, bytes sent
-		self.lastmessage = 0 #int, sv.framenum when packet was last received
-		self.lastconnect = 0 #int
-		self.challenge = 0 #int, challenge of this user, randomly generated
-		self.frames = [client_frame_t() for _ in range(common_h.UPDATE_BACKUP)] #client_frame_t[UPDATE_BACKUP], updates can be delta'd from here
-
-		self.netchan = common_h.netchan_t()
-
-
-"""
-// a client can leave the server in one of four ways:
-// dropping properly by quiting or disconnecting
-// timing out if no valid messages are received for timeout.value seconds
-// getting kicked off by the server operator
-// a program error, like an overflowed reliable buffer
-
-//=============================================================================
-
-// MAX_CHALLENGES is made large to prevent a denial
-// of service attack that could cycle all of them
-// out before legitimate users connected
-#define	MAX_CHALLENGES	1024
-
-typedef struct
-{
-	netadr_t	adr;
-	int			challenge;
-	int			time;
-} challenge_t;
-
-"""
-MAX_CHALLENGES	= 1024
-
-class challenge_t(object):
-
-	def __init__(self):
-
-		self.adr = common_h.netadr_t() #netadr_t
-		self.challenge = 0 #int
-		self.time = 0 #int
-
-class server_static_t(object):
-
-	def __init__(self):
-
-		self.clear()
-
-	def clear(self): # memset (&svs, 0, sizeof(svs))
-
-		self.initialized = False # qboolean, sv_init has completed
-		self.realtime = 0 # int, always increasing, no clamping, etc
-
-		self.mapcmd = None # char [MAX_TOKEN_CHARS], ie: *intro.cin+base 
-
-		self.spawncount = 0 # int, incremented each server start
-												# used to check late spawns
-
-		self.clients = [] 					# client_t	*, [maxclients->value];
-		self.num_client_entities = 0 		# int, maxclients->value*UPDATE_BACKUP*MAX_PACKET_ENTITIES
-		self.next_client_entities = 0 		# int, next client_entity to use
-		self.client_entities = [] 			# entity_state_t	*, [num_client_entities]
-
-		self.last_heartbeat = 0 # int
-
-		self.challenges = [] # challenge_t	[MAX_CHALLENGES], to prevent invalid IPs from connecting
-		for i in range(MAX_CHALLENGES):
-			self.challenges.append(challenge_t())
-
-		# serverrecord values
-		self.demofile = None # FILE		*
-		self.demo_multicast = common_h.sizebuf_t() # sizebuf_t
-		self.demo_multicast_buf = None # byte		[MAX_MSGLEN]
-
-
-
-svs = server_static_t()				# persistant server info
-sv = server_t()					# local server
 """
 ================
 SV_FindIndex
@@ -284,7 +106,7 @@ def SV_FindIndex (name, start, max, create): #char *, int, int, qboolean
 
 	sv.configstrings[start+i] = name[:shared.MAX_QPATH] # strncpy (sv.configstrings[start+i], name, sizeof(sv.configstrings[i]));
 
-	if sv.state != server_state_t.ss_loading:
+	if sv.state != server_h.server_state_t.ss_loading:
 		# send the update to everyone
 		szone.SZ_Clear (sv.multicast)
 		movemsg.MSG_WriteChar (sv.multicast, struct.pack("b", common_h.svc_ops_e.svc_configstring.value))
@@ -330,7 +152,7 @@ def SV_CreateBaseline ():
 			num_edicts = shared.MAX_EDICTS
 
 	for entnum in range(1, num_edicts):
-		svent = EDICT_NUM(entnum)
+		svent = server_h.EDICT_NUM(entnum)
 		if not svent.inuse:
 			continue
 		if not svent.s.modelindex and not svent.s.sound and not svent.s.effects:
@@ -417,7 +239,7 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 
 	svs.spawncount+=1		# any partially connected client will be
 							# restarted
-	sv.state = server_state_t.ss_dead
+	sv.state = server_h.server_state_t.ss_dead
 	clientserver.Com_SetServerState (sv.state.value)
 
 	# wipe the entire per-level structure
@@ -448,8 +270,8 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 	for client in svs.clients: 
 	
 		# needs to reconnect
-		if client.state.value > client_state_t.cs_connected.value:
-			client.state = client_state_t.cs_connected
+		if client.state.value > server_h.client_state_t.cs_connected.value:
+			client.state = server_h.client_state_t.cs_connected
 		client.lastframe = -1
 
 	sv.time = 1000;
@@ -457,15 +279,15 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 	sv.name = server
 	sv.configstrings[shared.CS_NAME] = server
 	
-	if serverstate != server_state_t.ss_game:
+	if serverstate != server_h.server_state_t.ss_game:
 
 		while len(sv.models) < 2: sv.models.append(None)
-		sv.models[1], checksum = cmodel.CM_LoadMap ("", False)	# no real map
+		sv.models[1], checksum = collision.CM_LoadMap ("", False)	# no real map
 	
 	else:
 		sv.configstrings[shared.CS_MODELS+1] = "maps/{}.bsp".format(server)
 		while len(sv.models) < 2: sv.models.append(None)
-		sv.models[1], checksum = cmodel.CM_LoadMap (sv.configstrings[shared.CS_MODELS+1], False)
+		sv.models[1], checksum = collision.CM_LoadMap (sv.configstrings[shared.CS_MODELS+1], False)
 	
 	sv.configstrings[shared.CS_MAPCHECKSUM] = "{:d}".format(checksum)
 
@@ -474,10 +296,10 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 	#
 	sv_world.SV_ClearWorld ()
 	
-	for i in range(1, cmodel.CM_NumInlineModels()):
+	for i in range(1, collision.CM_NumInlineModels()):
 	
 		sv.configstrings[shared.CS_MODELS+1+i] = "*%i" % i
-		sv.models[i+1] = cmodel.CM_InlineModel (sv.configstrings[shared.CS_MODELS+1+i])
+		sv.models[i+1] = collision.CM_InlineModel (sv.configstrings[shared.CS_MODELS+1+i])
 	
 	#
 	# spawn the rest of the entities on the map
@@ -485,11 +307,11 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 
 	# precache and static commands can be issued during
 	# map initialization
-	sv.state = server_state_t.ss_loading
+	sv.state = server_h.server_state_t.ss_loading
 	clientserver.Com_SetServerState (sv.state.value)
 
 	# load and spawn all other entities
-	sv_game.ge.SpawnEntities (sv.name, cmodel.CM_EntityString(), spawnpoint)
+	sv_game.ge.SpawnEntities (sv.name, collision.CM_EntityString(), spawnpoint)
 
 	# run two frames to allow everything to settle
 	sv_game.ge.RunFrame ()
@@ -518,6 +340,81 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 
 	clientserver.Com_Printf ("-------------------------------------\n")
 
+
+"""
+/*
+ * A brand new game has been started
+ */
+static void
+SV_ClearGamemodeCvar(char *name, char *msg, int flags)
+{
+	Cvar_FullSet(name, "0", flags);
+
+	strcat(msg, name);
+	strcat(msg, " ");
+}
+"""
+
+r"""
+static int
+SV_ChooseGamemode(void)
+{
+	char msg[32], *choice;
+	int gamemode;
+
+	*msg = 0;
+
+	if (Cvar_VariableValue("deathmatch"))
+	{
+		if (Cvar_VariableValue("coop"))
+		{
+			SV_ClearGamemodeCvar("coop", msg, CVAR_SERVERINFO | CVAR_LATCH);
+		}
+
+		if (Cvar_VariableValue("singleplayer"))
+		{
+			SV_ClearGamemodeCvar("singleplayer", msg, 0);
+		}
+
+		choice = "deathmatch";
+		gamemode = GAMEMODE_DM;
+	}
+	else if (Cvar_VariableValue("coop"))
+	{
+		if (Cvar_VariableValue("singleplayer"))
+		{
+			SV_ClearGamemodeCvar("singleplayer", msg, 0);
+		}
+
+		choice = "coop";
+		gamemode = GAMEMODE_COOP;
+	}
+	else
+	{
+		if (dedicated->value && !Cvar_VariableValue("singleplayer"))
+		{
+			Cvar_FullSet("deathmatch", "1", CVAR_SERVERINFO | CVAR_LATCH);
+
+			choice = "deathmatch";
+			gamemode = GAMEMODE_DM;
+		}
+		else
+		{
+			Cvar_FullSet("singleplayer", "1", CVAR_SERVERINFO | CVAR_LATCH);
+
+			choice = "singleplayer";
+			gamemode = GAMEMODE_SP;
+		}
+	}
+
+	if (*msg)
+	{
+		Com_Printf("Gamemode ambiguity: Chose: %s, ignored: %s\n", choice, msg);
+	}
+
+	return gamemode;
+}
+"""
 
 """
 ==============
@@ -592,7 +489,7 @@ def SV_InitGame ():
 	svs.spawncount = random.randint(0, 1 << 32)
 	svs.clients = []
 	for i in range(int(sv_main.maxclients.value)):
-		svs.clients.append(client_t())
+		svs.clients.append(server_h.client_t())
 	svs.num_client_entities = int(sv_main.maxclients.value*common_h.UPDATE_BACKUP*64)
 	svs.client_entities = []
 	for i in range(svs.num_client_entities):
@@ -613,10 +510,8 @@ def SV_InitGame ():
 	{
 		ent = EDICT_NUM(i+1);
 		ent->s.number = i+1;
-		svs.clients[i].edict = ent;
 		memset (&svs.clients[i].lastcmd, 0, sizeof(svs.clients[i].lastcmd));
 	}
-
 
 
 /*
@@ -635,7 +530,7 @@ another level:
 	map tram.cin+jail_e3
 ======================
 """
-def SV_Map ( attractloop, levelstring, loadgame): #qboolean, char *, qboolean
+def SV_Map ( attractloop, levelstring, loadgame, isautosave=False): #qboolean, char *, qboolean, qboolean
 
 	#char	level[MAX_QPATH];
 	#char	*ch;
@@ -646,7 +541,7 @@ def SV_Map ( attractloop, levelstring, loadgame): #qboolean, char *, qboolean
 	sv.loadgame = loadgame
 	sv.attractloop = attractloop
 
-	if sv.state == server_state_t.ss_dead and not sv.loadgame:
+	if sv.state == server_h.server_state_t.ss_dead and not sv.loadgame:
 		SV_InitGame ()	# the game is just starting
 
 	level = levelstring
@@ -684,28 +579,26 @@ def SV_Map ( attractloop, levelstring, loadgame): #qboolean, char *, qboolean
 
 		cl_scrn.SCR_BeginLoadingPlaque ()			# for local system
 		sv_send.SV_BroadcastCommand ("changing\n")
-		SV_SpawnServer (level, spawnpoint, server_state_t.ss_cinematic, attractloop, loadgame)
+		SV_SpawnServer (level, spawnpoint, server_h.server_state_t.ss_cinematic, attractloop, loadgame)
 	
 	elif l > 4 and level[-4:] == ".dm2":
 
 		cl_scrn.SCR_BeginLoadingPlaque ()			# for local system
 		sv_send.SV_BroadcastCommand ("changing\n")
-		SV_SpawnServer (level, spawnpoint, server_state_t.ss_demo, attractloop, loadgame)
+		SV_SpawnServer (level, spawnpoint, server_h.server_state_t.ss_demo, attractloop, loadgame)
 	
 	elif l > 4 and level[-4:] == ".pcx":
 
 		cl_scrn.SCR_BeginLoadingPlaque ()			# for local system
 		sv_send.SV_BroadcastCommand ("changing\n")
-		SV_SpawnServer (level, spawnpoint, server_state_t.ss_pic, attractloop, loadgame)
+		SV_SpawnServer (level, spawnpoint, server_h.server_state_t.ss_pic, attractloop, loadgame)
 	
 	else:
 
 		cl_scrn.SCR_BeginLoadingPlaque ()			# for local system
 		sv_send.SV_BroadcastCommand ("changing\n")
 		sv_send.SV_SendClientMessages ()
-		SV_SpawnServer (level, spawnpoint, server_state_t.ss_game, attractloop, loadgame)
+		SV_SpawnServer (level, spawnpoint, server_h.server_state_t.ss_game, attractloop, loadgame)
 		cmdparser.Cbuf_CopyToDefer ()
 	
 	sv_send.SV_BroadcastCommand ("reconnect\n")
-
-

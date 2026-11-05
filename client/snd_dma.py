@@ -54,6 +54,7 @@ for i in range(snd_loc.MAX_CHANNELS):
 	channels.append(snd_loc.channel_t())
 
 snd_initialized = False #qboolean
+snd_is_underwater = False #qboolean, set by pmove (Yamagi)
 sound_started = False #int
 
 dma = snd_loc.dma_t()

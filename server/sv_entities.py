@@ -1,28 +1,34 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+Server entity handling. Just encodes the entties of a client side
+frame into network / local communication packages and sends them to
+the appropriate clients.
+
+=======================================================================
 """
 from __future__ import annotations
 
 import copy
 import numpy as np
-from server import sv_init, sv_main, sv_game
-from qcommon import cmodel
 from game import game
 from common.header import common as common_h
 from common.header import shared
@@ -30,21 +36,17 @@ from common.shared import shared as shared_c
 from common import clientserver
 from common import movemsg
 from common import szone
-"""
-#include "server.h"
-
-/*
-=============================================================================
-
-Encode a client frame onto the network channel
-
-=============================================================================
-*/
-"""
+from common import collision
+from server.header import server as server_h
+from server import sv_game
+from server import sv_init
+from server import sv_main
 
 """
-byte		fatpvs[65536/8];	// 32767 is MAX_MAP_LEAFS
+#include <stdint.h>
+#include "header/server.h"
 """
+
 fatpvs = bytearray(65536 // 8)
 
 
@@ -381,17 +383,17 @@ def SV_FatPVS (org): #vec3_t
 		maxs[i] = org[i] + 8
 
 	topnode = [0]
-	count = cmodel.CM_BoxLeafnums (mins, maxs, leafs, 64, topnode)
+	count = collision.CM_BoxLeafnums (mins, maxs, leafs, 64, topnode)
 	if count < 1:
 		clientserver.Com_Error (common_h.ERR_FATAL, "SV_FatPVS: count < 1")
-	longs = (cmodel.CM_NumClusters()+31)>>5
+	longs = (collision.CM_NumClusters()+31)>>5
 	n = longs<<2
 
 	# convert leafs to clusters
 	for i in range(count):
-		leafs[i] = cmodel.CM_LeafCluster(leafs[i])
+		leafs[i] = collision.CM_LeafCluster(leafs[i])
 
-	src = cmodel.CM_ClusterPVS(leafs[0])
+	src = collision.CM_ClusterPVS(leafs[0])
 	for j in range(n):
 		fatpvs[j] = src[j]
 	# or in all the other leaf bits
@@ -403,7 +405,7 @@ def SV_FatPVS (org): #vec3_t
 			j += 1
 		if j != i:
 			continue		# already have the cluster we want
-		src = cmodel.CM_ClusterPVS(leafs[i])
+		src = collision.CM_ClusterPVS(leafs[i])
 		for j in range(n):
 			fatpvs[j] |= src[j]
 
@@ -434,7 +436,7 @@ def SV_BuildClientFrame (client): #client_t *
 	"""
 	#int e, i, l, clientarea, clientcluster, leafnum, c_fullsend
 
-	clent = client.edict
+	clent = server_h.CL_EDICT(client)
 	if not clent.client:
 		return		# not in game yet
 
@@ -448,18 +450,18 @@ def SV_BuildClientFrame (client): #client_t *
 	for i in range(3):
 		org[i] = clent.client.ps.pmove.origin[i]*0.125 + clent.client.ps.viewoffset[i]
 
-	leafnum = cmodel.CM_PointLeafnum (org)
-	clientarea = cmodel.CM_LeafArea (leafnum)
-	clientcluster = cmodel.CM_LeafCluster (leafnum)
+	leafnum = collision.CM_PointLeafnum (org)
+	clientarea = collision.CM_LeafArea (leafnum)
+	clientcluster = collision.CM_LeafCluster (leafnum)
 
 	# calculate the visible areas
-	frame.areabytes = cmodel.CM_WriteAreaBits (frame.areabits, clientarea)
+	frame.areabytes = collision.CM_WriteAreaBits (frame.areabits, clientarea)
 
 	# grab the current player_state_t
 	frame.ps = copy.deepcopy(clent.client.ps) # struct assignment
 
 	SV_FatPVS (org)
-	clientphs = cmodel.CM_ClusterPHS (clientcluster)
+	clientphs = collision.CM_ClusterPHS (clientcluster)
 
 	# build up the list of visible entities
 	frame.num_entities = 0
@@ -468,7 +470,7 @@ def SV_BuildClientFrame (client): #client_t *
 	c_fullsend = 0
 
 	for e in range(1, sv_game.ge.num_edicts):
-		ent = sv_init.EDICT_NUM(e)
+		ent = server_h.EDICT_NUM(e)
 
 		# ignore ents without visible models
 		if ent.svflags & game.SVF_NOCLIENT:
@@ -482,11 +484,11 @@ def SV_BuildClientFrame (client): #client_t *
 		# ignore if not touching a PV leaf
 		if ent is not clent:
 			# check area
-			if not cmodel.CM_AreasConnected (clientarea, ent.areanum):
+			if not collision.CM_AreasConnected (clientarea, ent.areanum):
 				# doors can legally straddle two areas, so
 				# we may need to check another one
 				if not ent.areanum2 \
-					or not cmodel.CM_AreasConnected (clientarea, ent.areanum2):
+					or not collision.CM_AreasConnected (clientarea, ent.areanum2):
 					continue		# blocked by a door
 
 			# beams just check one point for PHS
@@ -504,7 +506,7 @@ def SV_BuildClientFrame (client): #client_t *
 
 				if ent.num_clusters == -1:
 					# too many leafs for individual check, go by headnode
-					if not cmodel.CM_HeadnodeVisible (ent.headnode, bitvector):
+					if not collision.CM_HeadnodeVisible (ent.headnode, bitvector):
 						continue
 					c_fullsend += 1
 				else:
@@ -534,7 +536,7 @@ def SV_BuildClientFrame (client): #client_t *
 		state.copy (ent.s)
 
 		# don't mark players missiles as solid
-		if ent.owner is client.edict:
+		if ent.owner is server_h.CL_EDICT(client):
 			state.solid = 0
 
 		sv_init.svs.next_client_entities += 1
@@ -575,7 +577,7 @@ def SV_RecordDemoMessage ():
 	movemsg.MSG_WriteByte (buf, common_h.svc_ops_e.svc_packetentities.value)
 
 	e = 1
-	ent = sv_init.EDICT_NUM(e)
+	ent = server_h.EDICT_NUM(e)
 	while e < sv_game.ge.num_edicts:
 		# ignore ents without visible models unless they have an effect
 		if ent.inuse \
@@ -585,7 +587,7 @@ def SV_RecordDemoMessage ():
 			movemsg.MSG_WriteDeltaEntity (nostate, ent.s, buf, False, True)
 
 		e += 1
-		ent = sv_init.EDICT_NUM(e)
+		ent = server_h.EDICT_NUM(e)
 
 	movemsg.MSG_WriteShort (buf, 0)		# end of packetentities
 
