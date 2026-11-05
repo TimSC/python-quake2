@@ -225,7 +225,7 @@ def M_WorldEffects (ent):
 					dmg = 2 + 2 * int(math.floor(g_main.level.time - ent.air_finished))
 					if dmg > 15:
 						dmg = 15
-					g_combat.T_Damage (ent, g_main.world, g_main.world, q_shared.vec3_origin, ent.s.origin, q_shared.vec3_origin, dmg, 0, DAMAGE_NO_ARMOR, MOD_WATER)
+					g_combat.T_Damage (ent, g_main.g_edicts[0], g_main.g_edicts[0], q_shared.vec3_origin, ent.s.origin, q_shared.vec3_origin, dmg, 0, DAMAGE_NO_ARMOR, MOD_WATER)
 					ent.pain_debounce_time = g_main.level.time + 1
 		else:
 			if ent.waterlevel > 0:
@@ -236,7 +236,7 @@ def M_WorldEffects (ent):
 					dmg = 2 + 2 * int(math.floor(g_main.level.time - ent.air_finished))
 					if dmg > 15:
 						dmg = 15
-					g_combat.T_Damage (ent, g_main.world, g_main.world, q_shared.vec3_origin, ent.s.origin, q_shared.vec3_origin, dmg, 0, DAMAGE_NO_ARMOR, MOD_WATER)
+					g_combat.T_Damage (ent, g_main.g_edicts[0], g_main.g_edicts[0], q_shared.vec3_origin, ent.s.origin, q_shared.vec3_origin, dmg, 0, DAMAGE_NO_ARMOR, MOD_WATER)
 					ent.pain_debounce_time = g_main.level.time + 1
 
 	if ent.waterlevel == 0:
@@ -248,11 +248,11 @@ def M_WorldEffects (ent):
 	if (ent.watertype & CONTENTS_LAVA) and not (ent.flags & FL_IMMUNE_LAVA):
 		if ent.damage_debounce_time < g_main.level.time:
 			ent.damage_debounce_time = g_main.level.time + 0.2
-			g_combat.T_Damage (ent, g_main.world, g_main.world, q_shared.vec3_origin, ent.s.origin, q_shared.vec3_origin, 10*ent.waterlevel, 0, 0, MOD_LAVA)
+			g_combat.T_Damage (ent, g_main.g_edicts[0], g_main.g_edicts[0], q_shared.vec3_origin, ent.s.origin, q_shared.vec3_origin, 10*ent.waterlevel, 0, 0, MOD_LAVA)
 	if (ent.watertype & CONTENTS_SLIME) and not (ent.flags & FL_IMMUNE_SLIME):
 		if ent.damage_debounce_time < g_main.level.time:
 			ent.damage_debounce_time = g_main.level.time + 1
-			g_combat.T_Damage (ent, g_main.world, g_main.world, q_shared.vec3_origin, ent.s.origin, q_shared.vec3_origin, 4*ent.waterlevel, 0, 0, MOD_SLIME)
+			g_combat.T_Damage (ent, g_main.g_edicts[0], g_main.g_edicts[0], q_shared.vec3_origin, ent.s.origin, q_shared.vec3_origin, 4*ent.waterlevel, 0, 0, MOD_SLIME)
 
 	if not (ent.flags & FL_INWATER) :
 		if not (ent.svflags & SVF_DEADMONSTER):

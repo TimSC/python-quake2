@@ -1261,7 +1261,7 @@ def UpdateSoundQualityFunc( unused ):
 	# the text box won't show up unless we do a buffer swap
 	vid_so.re.EndFrame()
 
-	snd_dma.CL_Snd_Restart_f()
+	cl_main.CL_Snd_Restart_f()
 
 
 def Options_MenuInit( ):

@@ -697,7 +697,7 @@ def CM_LoadMap (name, clientload): #char *, qboolean (returns cmodel_t *, unsign
 	#
 	length, buf = files.FS_LoadFile (name)
 	if buf is None:
-		common.common.Com_Error (q_shared.ERR_DROP, "Couldn't load {}".format(name))
+		common.Com_Error (q_shared.ERR_DROP, "Couldn't load {}".format(name))
 
 	last_checksum = q_shared.LittleLong (md4.Com_BlockChecksum (buf))
 	checksum = last_checksum
@@ -706,7 +706,7 @@ def CM_LoadMap (name, clientload): #char *, qboolean (returns cmodel_t *, unsign
 	header.parse(buf)
 
 	if header.version != qfiles.BSPVERSION:
-		common.common.Com_Error (q_shared.ERR_DROP, "CMod_LoadBrushModel: {} has wrong version number ({} should be {})".format( \
+		common.Com_Error (q_shared.ERR_DROP, "CMod_LoadBrushModel: {} has wrong version number ({} should be {})".format( \
 			name, header.version, qfiles.BSPVERSION))
 
 	cmod_base = buf
@@ -1389,7 +1389,7 @@ def CM_BoxTrace(start, end, mins, maxs, headnode, brushmask):
     trace_trace.endpos[:] = 0.0
 
     if not numnodes:
-        return trace_trace
+        return trace_trace.copy()	# trace_t is returned by value
 
     trace_contents = brushmask
     q_shared.VectorCopy(start, trace_start)
@@ -1413,7 +1413,7 @@ def CM_BoxTrace(start, end, mins, maxs, headnode, brushmask):
             if trace_trace.allsolid:
                 break
         q_shared.VectorCopy(start, trace_trace.endpos)
-        return trace_trace
+        return trace_trace.copy()	# trace_t is returned by value
 
     if (mins[0] == 0 and mins[1] == 0 and mins[2] == 0
             and maxs[0] == 0 and maxs[1] == 0 and maxs[2] == 0):
@@ -1433,7 +1433,7 @@ def CM_BoxTrace(start, end, mins, maxs, headnode, brushmask):
         for i in range(3):
             trace_trace.endpos[i] = start[i] + trace_trace.fraction * (end[i] - start[i])
 
-    return trace_trace
+    return trace_trace.copy()	# trace_t is returned by value
 
 def CM_TransformedBoxTrace(start, end, mins, maxs, headnode, brushmask, origin, angles):
     start_l = np.zeros((3,), dtype=np.float32)

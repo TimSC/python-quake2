@@ -573,7 +573,7 @@ def LoadPCX (filename): #char *, byte **, byte **, int *, int *
 		gl_rmain.ri.Con_Printf (q_shared.PRINT_DEVELOPER, "PCX file {} was malformed".format(filename))
 
 	if pic is None:
-		gl_rmain.ri.Con_Printf (q_shared.q_shared.PRINT_ALL, "Bad pcx file {}\n".format(filename))
+		gl_rmain.ri.Con_Printf (q_shared.PRINT_ALL, "Bad pcx file {}\n".format(filename))
 		return None, None, None, None
 
 	return pic, palette, width, height

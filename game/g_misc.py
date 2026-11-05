@@ -24,6 +24,7 @@ from game import g_main
 from game import g_utils
 from game import g_combat
 from game import g_monster
+from game import m_move
 from game import g_target
 from game import g_func
 from game.game import SVF_MONSTER, SVF_DEADMONSTER, SVF_NOCLIENT
@@ -744,7 +745,7 @@ def barrel_touch (self, other, plane, surf):
 
 	ratio = float(other.mass) / float(self.mass)
 	q_shared.VectorSubtract (self.s.origin, other.s.origin, v)
-	g_monster.M_walkmove (self, g_utils.vectoyaw(v), 20 * ratio * FRAMETIME)
+	m_move.M_walkmove (self, g_utils.vectoyaw(v), 20 * ratio * FRAMETIME)
 
 
 def barrel_explode (self):

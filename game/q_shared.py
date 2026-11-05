@@ -737,6 +737,22 @@ class trace_t(object):
 		self.contents = 0
 		self.ent = None
 
+	def copy(self): # Q2PORT: struct assignment; plane is copied by value, surface and ent are pointers
+		t = trace_t()
+		t.allsolid = self.allsolid
+		t.startsolid = self.startsolid
+		t.fraction = self.fraction
+		t.endpos = np.array(self.endpos, dtype=np.float32)
+		t.plane.normal = np.array(self.plane.normal, dtype=np.float32)
+		t.plane.dist = self.plane.dist
+		t.plane.type = self.plane.type
+		t.plane.signbits = self.plane.signbits
+		t.plane.pad = list(self.plane.pad)
+		t.surface = self.surface
+		t.contents = self.contents
+		t.ent = self.ent
+		return t
+
 
 # pmove_state_t is the information necessary for client side movement
 # prediction
@@ -1784,9 +1800,11 @@ class player_state_t(object):
 extern int vidref_val;
 // PGM
 // ==================
+"""
 VIDREF_GL = 1
 VIDREF_SOFT = 2
 VIDREF_OTHER = 3
+"""
 
 #define DEG2RAD( a ) ( a * M_PI ) / 180.0F
 

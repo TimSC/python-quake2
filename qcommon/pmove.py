@@ -519,8 +519,8 @@ def PM_CatagorizePosition():
 	pm.waterlevel = 0
 	pm.watertype = 0
 
-	sample2 = pm.viewheight - pm.mins[2]
-	sample1 = sample2 / 2
+	sample2 = int(pm.viewheight - pm.mins[2]) # int
+	sample1 = sample2 // 2 # int
 
 	point[2] = pml.origin[2] + pm.mins[2] + 1
 	cont = pm.pointcontents(point)

@@ -450,7 +450,7 @@ def FindTarget (self):
 """
 def FacingIdeal(self):
 	#float delta
-	delta = q_shared.angmod(self.s.angles[YAW] - self.ideal_yaw)
+	delta = q_shared.anglemod(self.s.angles[YAW] - self.ideal_yaw)
 	if delta > 45 and delta < 315:
 		return False
 	return True

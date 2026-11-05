@@ -33,11 +33,11 @@ from linux import vid_so
 
 
 extern	struct model_s	*cl_mod_powerscreen;
-
+"""
 # PGM
-vidref_val = q_shared.VIDREF_GL
-cl_mod_powerscreen = None
-
+vidref_val = q_shared.VIDREF_GL # int
+cl_mod_powerscreen = None # struct model_s *
+"""
 /*
 =========================================================================
 
