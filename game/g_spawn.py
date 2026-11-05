@@ -20,6 +20,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from game import q_shared
 from game import game as _gamemod
 from game import g_local, g_main, g_utils
+from game.q_shared import (CS_NAME, CS_SKY, CS_SKYROTATE, CS_SKYAXIS,
+	CS_CDTRACK, CS_MAXCLIENTS, CS_STATUSBAR, CS_LIGHTS)
 import numpy as np
 import math
 """
@@ -1116,342 +1118,312 @@ def SpawnEntities (mapname, entities, spawnpoint):
 		endif
 	
 	#endif
-	
-	char *single_statusbar = 
-	"yb	-24 "
-	
-	// health
-	"xv	0 "
-	"hnum "
-	"xv	50 "
-	"pic 0 "
-	
-	// ammo
-	"if 2 "
-	"	xv	100 "
-	"	anum "
-	"	xv	150 "
-	"	pic 2 "
-	"endif "
-	
-	// armor
-	"if 4 "
-	"	xv	200 "
-	"	rnum "
-	"	xv	250 "
-	"	pic 4 "
-	"endif "
-	
-	// selected item
-	"if 6 "
-	"	xv	296 "
-	"	pic 6 "
-	"endif "
-	
-	"yb	-50 "
-	
-	// picked up item
-	"if 7 "
-	"	xv	0 "
-	"	pic 7 "
-	"	xv	26 "
-	"	yb	-42 "
-	"	stat_string 8 "
-	"	yb	-50 "
-	"endif "
-	
-	// timer
-	"if 9 "
-	"	xv	262 "
-	"	num	2	10 "
-	"	xv	296 "
-	"	pic	9 "
-	"endif "
-	
-	//  help / weapon icon 
-	"if 11 "
-	"	xv	148 "
-	"	pic	11 "
-	"endif "
-	;
-	
-	char *dm_statusbar =
-	"yb	-24 "
-	
-	// health
-	"xv	0 "
-	"hnum "
-	"xv	50 "
-	"pic 0 "
-	
-	// ammo
-	"if 2 "
-	"	xv	100 "
-	"	anum "
-	"	xv	150 "
-	"	pic 2 "
-	"endif "
-	
-	// armor
-	"if 4 "
-	"	xv	200 "
-	"	rnum "
-	"	xv	250 "
-	"	pic 4 "
-	"endif "
-	
-	// selected item
-	"if 6 "
-	"	xv	296 "
-	"	pic 6 "
-	"endif "
-	
-	"yb	-50 "
-	
-	// picked up item
-	"if 7 "
-	"	xv	0 "
-	"	pic 7 "
-	"	xv	26 "
-	"	yb	-42 "
-	"	stat_string 8 "
-	"	yb	-50 "
-	"endif "
-	
-	// timer
-	"if 9 "
-	"	xv	246 "
-	"	num	2	10 "
-	"	xv	296 "
-	"	pic	9 "
-	"endif "
-	
-	//  help / weapon icon 
-	"if 11 "
-	"	xv	148 "
-	"	pic	11 "
-	"endif "
-	
-	//  frags
-	"xr	-50 "
-	"yt 2 "
-	"num 3 14 "
-	
-	// spectator
-	"if 17 "
-	  "xv 0 "
-	  "yb -58 "
-	  "string2 \"SPECTATOR MODE\" "
-	"endif "
-	
-	// chase camera
-	"if 16 "
-	  "xv 0 "
-	  "yb -68 "
-	  "string \"Chasing\" "
-	  "xv 64 "
-	  "stat_string 16 "
-	"endif "
-	;
-	
-	
-	/*QUAKED worldspawn (0 0 0) ?
-	
-	Only used for the world.
-	"sky"	environment map name
-	"skyaxis"	vector axis for rotating sky
-	"skyrotate"	speed of rotation in degrees/second
-	"sounds"	music cd track number
-	"gravity"	800 is default gravity
-	"message"	text to print at user logon
-	*/
-	void SP_worldspawn (edict_t *ent)
-	{
-		ent->movetype = MOVETYPE_PUSH;
-		ent->solid = SOLID_BSP;
-		ent->inuse = true;			// since the world doesn't use G_Spawn()
-		ent->s.modelindex = 1;		// world model is always index 1
-	
-		//---------------
-	
-		// reserve some spots for dead player bodies for coop / deathmatch
-		InitBodyQue ();
-	
-		// set configstrings for items
-		SetItemNames ();
-	
-		if (st.nextmap)
-			strcpy (level.nextmap, st.nextmap);
-	
-		// make some data visible to the server
-	
-		if (ent->message && ent->message[0])
-		{
-			gi.configstring (CS_NAME, ent->message);
-			strncpy (level.level_name, ent->message, sizeof(level.level_name));
-		}
-		else
-			strncpy (level.level_name, level.mapname, sizeof(level.level_name));
-	
-		if (st.sky && st.sky[0])
-			gi.configstring (CS_SKY, st.sky);
-		else
-			gi.configstring (CS_SKY, "unit1_");
-	
-		gi.configstring (CS_SKYROTATE, va("%f", st.skyrotate) );
-	
-		gi.configstring (CS_SKYAXIS, va("%f %f %f",
-			st.skyaxis[0], st.skyaxis[1], st.skyaxis[2]) );
-	
-		gi.configstring (CS_CDTRACK, va("%i", ent->sounds) );
-	
-		gi.configstring (CS_MAXCLIENTS, va("%i", (int)(maxclients->value) ) );
-	
-		// status bar program
-		if (deathmatch->value)
-			gi.configstring (CS_STATUSBAR, dm_statusbar);
-		else
-			gi.configstring (CS_STATUSBAR, single_statusbar);
-	
-		//---------------
-	
-	
-		// help icon for statusbar
-		gi.imageindex ("i_help");
-		level.pic_health = gi.imageindex ("i_health");
-		gi.imageindex ("help");
-		gi.imageindex ("field_3");
-	
-		if (!st.gravity)
-			gi.cvar_set("sv_gravity", "800");
-		else
-			gi.cvar_set("sv_gravity", st.gravity);
-	
-		snd_fry = gi.soundindex ("player/fry.wav");	// standing in lava / slime
-	
-		PrecacheItem (FindItem ("Blaster"));
-	
-		gi.soundindex ("player/lava1.wav");
-		gi.soundindex ("player/lava2.wav");
-	
-		gi.soundindex ("misc/pc_up.wav");
-		gi.soundindex ("misc/talk1.wav");
-	
-		gi.soundindex ("misc/udeath.wav");
-	
-		// gibs
-		gi.soundindex ("items/respawn1.wav");
-	
-		// sexed sounds
-		gi.soundindex ("*death1.wav");
-		gi.soundindex ("*death2.wav");
-		gi.soundindex ("*death3.wav");
-		gi.soundindex ("*death4.wav");
-		gi.soundindex ("*fall1.wav");
-		gi.soundindex ("*fall2.wav");	
-		gi.soundindex ("*gurp1.wav");		// drowning damage
-		gi.soundindex ("*gurp2.wav");	
-		gi.soundindex ("*jump1.wav");		// player jump
-		gi.soundindex ("*pain25_1.wav");
-		gi.soundindex ("*pain25_2.wav");
-		gi.soundindex ("*pain50_1.wav");
-		gi.soundindex ("*pain50_2.wav");
-		gi.soundindex ("*pain75_1.wav");
-		gi.soundindex ("*pain75_2.wav");
-		gi.soundindex ("*pain100_1.wav");
-		gi.soundindex ("*pain100_2.wav");
-	
-		// sexed models
-		// THIS ORDER MUST MATCH THE DEFINES IN g_local.h
-		// you can add more, max 15
-		gi.modelindex ("#w_blaster.md2");
-		gi.modelindex ("#w_shotgun.md2");
-		gi.modelindex ("#w_sshotgun.md2");
-		gi.modelindex ("#w_machinegun.md2");
-		gi.modelindex ("#w_chaingun.md2");
-		gi.modelindex ("#a_grenades.md2");
-		gi.modelindex ("#w_glauncher.md2");
-		gi.modelindex ("#w_rlauncher.md2");
-		gi.modelindex ("#w_hyperblaster.md2");
-		gi.modelindex ("#w_railgun.md2");
-		gi.modelindex ("#w_bfg.md2");
-	
-		//-------------------
-	
-		gi.soundindex ("player/gasp1.wav");		// gasping for air
-		gi.soundindex ("player/gasp2.wav");		// head breaking surface, not gasping
-	
-		gi.soundindex ("player/watr_in.wav");	// feet hitting water
-		gi.soundindex ("player/watr_out.wav");	// feet leaving water
-	
-		gi.soundindex ("player/watr_un.wav");	// head going underwater
-		
-		gi.soundindex ("player/u_breath1.wav");
-		gi.soundindex ("player/u_breath2.wav");
-	
-		gi.soundindex ("items/pkup.wav");		// bonus item pickup
-		gi.soundindex ("world/land.wav");		// landing thud
-		gi.soundindex ("misc/h2ohit1.wav");		// landing splash
-	
-		gi.soundindex ("items/damage.wav");
-		gi.soundindex ("items/protect.wav");
-		gi.soundindex ("items/protect4.wav");
-		gi.soundindex ("weapons/noammo.wav");
-	
-		gi.soundindex ("infantry/inflies1.wav");
-	
-		sm_meat_index = gi.modelindex ("models/objects/gibs/sm_meat/tris.md2");
-		gi.modelindex ("models/objects/gibs/arm/tris.md2");
-		gi.modelindex ("models/objects/gibs/bone/tris.md2");
-		gi.modelindex ("models/objects/gibs/bone2/tris.md2");
-		gi.modelindex ("models/objects/gibs/chest/tris.md2");
-		gi.modelindex ("models/objects/gibs/skull/tris.md2");
-		gi.modelindex ("models/objects/gibs/head2/tris.md2");
-	
-	//
-	// Setup light animation tables. 'a' is total darkness, 'z' is doublebright.
-	//
-	
-		// 0 normal
-		gi.configstring(CS_LIGHTS+0, "m");
-		
-		// 1 FLICKER (first variety)
-		gi.configstring(CS_LIGHTS+1, "mmnmmommommnonmmonqnmmo");
-		
-		// 2 SLOW STRONG PULSE
-		gi.configstring(CS_LIGHTS+2, "abcdefghijklmnopqrstuvwxyzyxwvutsrqponmlkjihgfedcba");
-		
-		// 3 CANDLE (first variety)
-		gi.configstring(CS_LIGHTS+3, "mmmmmaaaaammmmmaaaaaabcdefgabcdefg");
-		
-		// 4 FAST STROBE
-		gi.configstring(CS_LIGHTS+4, "mamamamamama");
-		
-		// 5 GENTLE PULSE 1
-		gi.configstring(CS_LIGHTS+5,"jklmnopqrstuvwxyzyxwvutsrqponmlkj");
-		
-		// 6 FLICKER (second variety)
-		gi.configstring(CS_LIGHTS+6, "nmonqnmomnmomomno");
-		
-		// 7 CANDLE (second variety)
-		gi.configstring(CS_LIGHTS+7, "mmmaaaabcdefgmmmmaaaammmaamm");
-		
-		// 8 CANDLE (third variety)
-		gi.configstring(CS_LIGHTS+8, "mmmaaammmaaammmabcdefaaaammmmabcdefmmmaaaa");
-		
-		// 9 SLOW STROBE (fourth variety)
-		gi.configstring(CS_LIGHTS+9, "aaaaaaaazzzzzzzz");
-		
-		// 10 FLUORESCENT FLICKER
-		gi.configstring(CS_LIGHTS+10, "mmamammmmammamamaaamammma");
-	
-		// 11 SLOW PULSE NOT FADE TO BLACK
-		gi.configstring(CS_LIGHTS+11, "abcdefghijklmnopqrrqponmlkjihgfedcba");
-		
-		// styles 32-62 are assigned by the light program for switchable lights
-	
-		// 63 testing
-		gi.configstring(CS_LIGHTS+63, "a");
-	}
-	
 	"""
+
+#
+# Status bar display programs (from g_spawn.c).
+#
+
+single_statusbar = \
+	"yb\t-24 " \
+	"xv\t0 " \
+	"hnum " \
+	"xv\t50 " \
+	"pic 0 " \
+	"if 2 " \
+	"\txv\t100 " \
+	"\tanum " \
+	"\txv\t150 " \
+	"\tpic 2 " \
+	"endif " \
+	"if 4 " \
+	"\txv\t200 " \
+	"\trnum " \
+	"\txv\t250 " \
+	"\tpic 4 " \
+	"endif " \
+	"if 6 " \
+	"\txv\t296 " \
+	"\tpic 6 " \
+	"endif " \
+	"yb\t-50 " \
+	"if 7 " \
+	"\txv\t0 " \
+	"\tpic 7 " \
+	"\txv\t26 " \
+	"\tyb\t-42 " \
+	"\tstat_string 8 " \
+	"\tyb\t-50 " \
+	"endif " \
+	"if 9 " \
+	"\txv\t262 " \
+	"\tnum\t2\t10 " \
+	"\txv\t296 " \
+	"\tpic\t9 " \
+	"endif " \
+	"if 11 " \
+	"\txv\t148 " \
+	"\tpic\t11 " \
+	"endif " \
+	;
+
+dm_statusbar = \
+	"yb\t-24 " \
+	"xv\t0 " \
+	"hnum " \
+	"xv\t50 " \
+	"pic 0 " \
+	"if 2 " \
+	"\txv\t100 " \
+	"\tanum " \
+	"\txv\t150 " \
+	"\tpic 2 " \
+	"endif " \
+	"if 4 " \
+	"\txv\t200 " \
+	"\trnum " \
+	"\txv\t250 " \
+	"\tpic 4 " \
+	"endif " \
+	"if 6 " \
+	"\txv\t296 " \
+	"\tpic 6 " \
+	"endif " \
+	"yb\t-50 " \
+	"if 7 " \
+	"\txv\t0 " \
+	"\tpic 7 " \
+	"\txv\t26 " \
+	"\tyb\t-42 " \
+	"\tstat_string 8 " \
+	"\tyb\t-50 " \
+	"endif " \
+	"if 9 " \
+	"\txv\t246 " \
+	"\tnum\t2\t10 " \
+	"\txv\t296 " \
+	"\tpic\t9 " \
+	"endif " \
+	"if 11 " \
+	"\txv\t148 " \
+	"\tpic\t11 " \
+	"endif " \
+	"xr\t-50 " \
+	"yt 2 " \
+	"num 3 14 " \
+	"if 17 " \
+	"  xv 0 " \
+	"  yb -58 " \
+	"  string2 \"SPECTATOR MODE\" " \
+	"endif " \
+	"if 16 " \
+	"  xv 0 " \
+	"  yb -68 " \
+	"  string \"Chasing\" " \
+	"  xv 64 " \
+	"  stat_string 16 " \
+	"endif " \
+	;
+
+
+"""
+=============
+SP_worldspawn
+
+Only used for the world.
+"sky"		environment map name
+"skyaxis"	vector axis for rotating sky
+"skyrotate"	speed of rotation in degrees/second
+"sounds"	music cd track number
+"gravity"	800 is default gravity
+"message"	text to print at user logon
+=============
+"""
+def SP_worldspawn (self):
+	from game import g_items, p_client
+	#edict_t *ent
+	gi = g_main.gi
+
+	self.movetype = g_local.MOVETYPE_PUSH
+	self.solid = _gamemod.SOLID_BSP
+	self.inuse = True  # since the world doesn't use G_Spawn()
+	self.s.modelindex = 1  # world model is always index 1
+
+	#---------------
+
+	# reserve some spots for dead player bodies for coop / deathmatch
+	p_client.InitBodyQue ()
+
+	# set configstrings for items
+	g_items.SetItemNames ()
+
+	if g_main.st.nextmap:
+		g_main.level.nextmap = g_main.st.nextmap
+
+	# make some data visible to the server
+
+	if self.message and self.message[0]:
+		gi.configstring (CS_NAME, self.message)
+		g_main.level.level_name = self.message
+	else:
+		g_main.level.level_name = g_main.level.mapname
+
+	if g_main.st.sky and g_main.st.sky[0]:
+		gi.configstring (CS_SKY, g_main.st.sky)
+	else:
+		gi.configstring (CS_SKY, "unit1_")
+
+	gi.configstring (CS_SKYROTATE, "%f" % g_main.st.skyrotate)
+
+	gi.configstring (CS_SKYAXIS, "%f %f %f" % (
+		g_main.st.skyaxis[0], g_main.st.skyaxis[1], g_main.st.skyaxis[2]) )
+
+	gi.configstring (CS_CDTRACK, "%i" % self.sounds)
+
+	gi.configstring (CS_MAXCLIENTS, "%i" % int(g_main.maxclients.value) )
+
+	# status bar program
+	if g_main.deathmatch.value:
+		gi.configstring (CS_STATUSBAR, dm_statusbar)
+	else:
+		gi.configstring (CS_STATUSBAR, single_statusbar)
+
+	#---------------
+
+
+	# help icon for statusbar
+	gi.imageindex ("i_help")
+	g_main.level.pic_health = gi.imageindex ("i_health")
+	gi.imageindex ("help")
+	gi.imageindex ("field_3")
+
+	if not g_main.st.gravity:
+		gi.cvar_set("sv_gravity", "800")
+	else:
+		gi.cvar_set("sv_gravity", str(g_main.st.gravity))
+
+	g_main.snd_fry = gi.soundindex ("player/fry.wav")  # standing in lava / slime
+
+	g_items.PrecacheItem (g_items.FindItem ("Blaster"))
+
+	gi.soundindex ("player/lava1.wav")
+	gi.soundindex ("player/lava2.wav")
+
+	gi.soundindex ("misc/pc_up.wav")
+	gi.soundindex ("misc/talk1.wav")
+
+	gi.soundindex ("misc/udeath.wav")
+
+	# gibs
+	gi.soundindex ("items/respawn1.wav")
+
+	# sexed sounds
+	gi.soundindex ("*death1.wav")
+	gi.soundindex ("*death2.wav")
+	gi.soundindex ("*death3.wav")
+	gi.soundindex ("*death4.wav")
+	gi.soundindex ("*fall1.wav")
+	gi.soundindex ("*fall2.wav")
+	gi.soundindex ("*gurp1.wav")  # drowning damage
+	gi.soundindex ("*gurp2.wav")
+	gi.soundindex ("*jump1.wav")  # player jump
+	gi.soundindex ("*pain25_1.wav")
+	gi.soundindex ("*pain25_2.wav")
+	gi.soundindex ("*pain50_1.wav")
+	gi.soundindex ("*pain50_2.wav")
+	gi.soundindex ("*pain75_1.wav")
+	gi.soundindex ("*pain75_2.wav")
+	gi.soundindex ("*pain100_1.wav")
+	gi.soundindex ("*pain100_2.wav")
+
+	# sexed models
+	# THIS ORDER MUST MATCH THE DEFINES IN g_local.h
+	# you can add more, max 15
+	gi.modelindex ("#w_blaster.md2")
+	gi.modelindex ("#w_shotgun.md2")
+	gi.modelindex ("#w_sshotgun.md2")
+	gi.modelindex ("#w_machinegun.md2")
+	gi.modelindex ("#w_chaingun.md2")
+	gi.modelindex ("#a_grenades.md2")
+	gi.modelindex ("#w_glauncher.md2")
+	gi.modelindex ("#w_rlauncher.md2")
+	gi.modelindex ("#w_hyperblaster.md2")
+	gi.modelindex ("#w_railgun.md2")
+	gi.modelindex ("#w_bfg.md2")
+
+	#-------------------
+
+	gi.soundindex ("player/gasp1.wav")  # gasping for air
+	gi.soundindex ("player/gasp2.wav")  # head breaking surface, not gasping
+
+	gi.soundindex ("player/watr_in.wav")  # feet hitting water
+	gi.soundindex ("player/watr_out.wav")  # feet leaving water
+
+	gi.soundindex ("player/watr_un.wav")  # head going underwater
+
+	gi.soundindex ("player/u_breath1.wav")
+	gi.soundindex ("player/u_breath2.wav")
+
+	gi.soundindex ("items/pkup.wav")  # bonus item pickup
+	gi.soundindex ("world/land.wav")  # landing thud
+	gi.soundindex ("misc/h2ohit1.wav")  # landing splash
+
+	gi.soundindex ("items/damage.wav")
+	gi.soundindex ("items/protect.wav")
+	gi.soundindex ("items/protect4.wav")
+	gi.soundindex ("weapons/noammo.wav")
+
+	gi.soundindex ("infantry/inflies1.wav")
+
+	g_main.sm_meat_index = gi.modelindex ("models/objects/gibs/sm_meat/tris.md2")
+	gi.modelindex ("models/objects/gibs/arm/tris.md2")
+	gi.modelindex ("models/objects/gibs/bone/tris.md2")
+	gi.modelindex ("models/objects/gibs/bone2/tris.md2")
+	gi.modelindex ("models/objects/gibs/chest/tris.md2")
+	gi.modelindex ("models/objects/gibs/skull/tris.md2")
+	gi.modelindex ("models/objects/gibs/head2/tris.md2")
+
+	#
+	# Setup light animation tables. 'a' is total darkness, 'z' is doublebright.
+	#
+
+	# 0 normal
+	gi.configstring(CS_LIGHTS+0, "m")
+
+	# 1 FLICKER (first variety)
+	gi.configstring(CS_LIGHTS+1, "mmnmmommommnonmmonqnmmo")
+
+	# 2 SLOW STRONG PULSE
+	gi.configstring(CS_LIGHTS+2, "abcdefghijklmnopqrstuvwxyzyxwvutsrqponmlkjihgfedcba")
+
+	# 3 CANDLE (first variety)
+	gi.configstring(CS_LIGHTS+3, "mmmmmaaaaammmmmaaaaaabcdefgabcdefg")
+
+	# 4 FAST STROBE
+	gi.configstring(CS_LIGHTS+4, "mamamamamama")
+
+	# 5 GENTLE PULSE 1
+	gi.configstring(CS_LIGHTS+5, "jklmnopqrstuvwxyzyxwvutsrqponmlkj")
+
+	# 6 FLICKER (second variety)
+	gi.configstring(CS_LIGHTS+6, "nmonqnmomnmomomno")
+
+	# 7 CANDLE (second variety)
+	gi.configstring(CS_LIGHTS+7, "mmmaaaabcdefgmmmmaaaammmaamm")
+
+	# 8 CANDLE (third variety)
+	gi.configstring(CS_LIGHTS+8, "mmmaaammmaaammmabcdefaaaammmmabcdefmmmaaaa")
+
+	# 9 SLOW STROBE (fourth variety)
+	gi.configstring(CS_LIGHTS+9, "aaaaaaaazzzzzzzz")
+
+	# 10 FLUORESCENT FLICKER
+	gi.configstring(CS_LIGHTS+10, "mmamammmmammamamaaamammma")
+
+	# 11 SLOW PULSE NOT FADE TO BLACK
+	gi.configstring(CS_LIGHTS+11, "abcdefghijklmnopqrrqponmlkjihgfedcba")
+
+	# styles 32-62 are assigned by the light program for switchable lights
+
+	# 63 testing
+	gi.configstring(CS_LIGHTS+63, "a")
