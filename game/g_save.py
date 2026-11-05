@@ -254,11 +254,13 @@ _FMT_CLIENT = _FMT_PLAYER + "i"              # gclient_s            = 180
 _FMT_GAME   = "<512s512sii512s5i"            # game_locals_t        = 1556
 
 def _pack_pmove(pm):
+	# origin/velocity/delta_angles may be float32 arrays at runtime, so cast
+	# each field to int explicitly (struct shorts/bytes require integers).
 	return struct.pack(_FMT_PMOVE,
-		pm.pm_type,
-		*pm.origin.tolist(),
-		pm.pm_flags, pm.pm_time, pm.gravity,
-		*pm.delta_angles.tolist())
+		int(pm.pm_type),
+		int(pm.origin[0]), int(pm.origin[1]), int(pm.origin[2]),
+		int(pm.pm_flags), int(pm.pm_time), int(pm.gravity),
+		int(pm.delta_angles[0]), int(pm.delta_angles[1]), int(pm.delta_angles[2]))
 
 def _pack_player(ps):
 	data = _pack_pmove(ps.pmove)

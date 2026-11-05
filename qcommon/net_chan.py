@@ -146,6 +146,11 @@ def Netchan_OutOfBandPrint (net_socket, adr, msg): #int, netadr_t, char *
 	#vsprintf (string, format,argptr);
 	#va_end (argptr);
 
+	# the C version vsprintfs into a char[] buffer and passes it as bytes. The
+	# callers pass an already-formatted value that may be a str or bytes, so
+	# normalise to bytes here (latin-1 keeps bytes 1:1 for the str case).
+	if isinstance(msg, str):
+		msg = msg.encode("latin-1")
 	Netchan_OutOfBand (net_socket, adr, msg)
 
 """
