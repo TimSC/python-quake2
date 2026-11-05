@@ -371,8 +371,7 @@ parsing textual entity definitions out of an ent file.
 */
 """
 
-# C: extern spawn_temp_t st; -- temp values only valid while the spawn func runs
-st = g_local.spawn_temp_t ()
+# C: extern spawn_temp_t st; -- defined in g_main.c, referenced here as g_main.st
 
 # C: field_t fields[] -- the fields parsed out of the .map file.
 # (name, type, flags).  FFL_NOSPAWN fields are save/load only and are skipped.
@@ -713,7 +712,7 @@ def ED_ParseField (key, value, ent):
 			elif name == "angles" or name == "angle":
 				ent.s.angles = v
 			elif flags & g_local.FFL_SPAWNTEMP:
-				setattr (st, name, v)
+				setattr (g_main.st, name, v)
 			else:
 				setattr (ent, name, v)
 			return
@@ -801,7 +800,7 @@ def ED_ParseEdict (data, ent, cursor):
 	#qboolean	init;
 	init = False
 	#memset (&st, 0, sizeof(st));
-	st.__dict__.update(g_local.spawn_temp_t().__dict__)
+	g_main.st.__dict__.update(g_local.spawn_temp_t().__dict__)
 
 	# go through all the dictionary pairs
 	while 1:
