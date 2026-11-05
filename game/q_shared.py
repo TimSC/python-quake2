@@ -1630,6 +1630,8 @@ ROGUE - VERSIONS
 */
 """
 def	ANGLE2SHORT(x):	return ((int)((x)*65536/360) & 65535)
+# Q2PORT: C truncation of an int to a short, as when storing ANGLE2SHORT into a short field
+def	TO_SHORT(x):	return ((int(x) + 32768) & 65535) - 32768
 def	SHORT2ANGLE(x):	return ((x)*(360.0/65536))
 
 

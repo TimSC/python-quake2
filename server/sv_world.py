@@ -646,7 +646,7 @@ def SV_Trace (start, mins, maxs, end, passedict, contentmask): #vec3_t, vec3_t, 
 
 	# clip to world
 	clip.trace = cmodel.CM_BoxTrace (start, end, mins, maxs, 0, contentmask)
-	clip.trace.ent = passedict
+	clip.trace.ent = sv_game.ge.edicts[0]
 	if clip.trace.fraction == 0:
 		return clip.trace		# blocked by the world
 

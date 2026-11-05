@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 import numpy as np
 from game import q_shared, g_main
 from game.q_shared import pmtype_t
-from game.q_shared import (PMF_NO_PREDICTION, MASK_SOLID, ANGLE2SHORT, PITCH,
+from game.q_shared import (PMF_NO_PREDICTION, MASK_SOLID, ANGLE2SHORT, TO_SHORT, PITCH,
 	YAW, ROLL, vec3_origin, VectorCopy, VectorMA, VectorNormalize, AngleVectors)
 """
 /*
@@ -118,7 +118,7 @@ def UpdateChaseCam (ent):
 
 	VectorCopy(goal, ent.s.origin)
 	for i in range(3):
-		ent.client.ps.pmove.delta_angles[i] = ANGLE2SHORT(targ.client.v_angle[i] - ent.client.resp.cmd_angles[i])
+		ent.client.ps.pmove.delta_angles[i] = TO_SHORT(ANGLE2SHORT(targ.client.v_angle[i] - ent.client.resp.cmd_angles[i]))
 
 	if targ.deadflag:
 		ent.client.ps.viewangles[ROLL] = 40

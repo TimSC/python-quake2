@@ -39,7 +39,7 @@ from game.q_shared import (Q_stricmp, Info_ValueForKey, Info_SetValueForKey,
 	EV_PLAYER_TELEPORT,
 	PMF_DUCKED, PMF_TIME_TELEPORT, PMF_NO_PREDICTION, PMF_JUMP_HELD,
 	BUTTON_ANY,
-	BUTTON_ATTACK, MZ_LOGIN, MZ_LOGOUT, ANGLE2SHORT, SHORT2ANGLE,
+	BUTTON_ATTACK, MZ_LOGIN, MZ_LOGOUT, ANGLE2SHORT, SHORT2ANGLE, TO_SHORT,
 	DF_FIXED_FOV, DF_FORCE_RESPAWN, DF_SPAWN_FARTHEST, DF_QUAD_DROP,
 	DF_MODELTEAMS, YAW, PITCH, ROLL)
 from game.q_shared import multicast_t, pmtype_t
@@ -1015,7 +1015,7 @@ def PutClientInServer (ent):
 
 	# set the delta angle
 	for i in range(3):
-		client.ps.pmove.delta_angles[i] = ANGLE2SHORT(spawn_angles[i] - client.resp.cmd_angles[i])
+		client.ps.pmove.delta_angles[i] = TO_SHORT(ANGLE2SHORT(spawn_angles[i] - client.resp.cmd_angles[i]))
 
 	ent.s.angles[PITCH] = 0
 	ent.s.angles[YAW] = spawn_angles[YAW]
@@ -1087,7 +1087,7 @@ def ClientBegin (ent):
 		# state when the game is saved, so we need to compensate
 		# with deltaangles
 		for i in range(3):
-			ent.client.ps.pmove.delta_angles[i] = ANGLE2SHORT(ent.client.ps.viewangles[i])
+			ent.client.ps.pmove.delta_angles[i] = TO_SHORT(ANGLE2SHORT(ent.client.ps.viewangles[i]))
 	else:
 		# a spawn point will completely reinitialize the entity
 		# except for the persistant data that was initialized at

@@ -185,7 +185,8 @@ def Cbuf_Execute ():
 # find a \n or ; line break
 
 		quotes = 0;
-		for i in range(cmd_text.cursize):
+		i = 0
+		while i < cmd_text.cursize:
 
 			if cmd_text.data[i] == ord('"'):
 				quotes+=1
@@ -193,6 +194,7 @@ def Cbuf_Execute ():
 				break	# don't break if inside a quoted string
 			if cmd_text.data[i] == ord('\n'):
 				break
+			i += 1
 		
 		line = cmd_text.data[:i]
 		#line[i] = 0

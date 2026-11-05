@@ -36,7 +36,7 @@ from game.q_shared import CS_LIGHTS
 from game.q_shared import (EF_GIB, EF_FLIES, EF_ROCKET, EF_TELEPORTER,
 	EF_ANIM_ALL, EF_ANIM_ALLFAST, EV_OTHER_TELEPORT, EV_PLAYER_TELEPORT,
 	PMF_TIME_TELEPORT, RF_FRAMELERP, RF_TRANSLUCENT, MASK_MONSTERSOLID,
-	ANGLE2SHORT, ATTN_NORM, CHAN_VOICE, CHAN_BODY, YAW, PITCH, ROLL)
+	ANGLE2SHORT, TO_SHORT, ATTN_NORM, CHAN_VOICE, CHAN_BODY, YAW, PITCH, ROLL)
 from game.q_shared import temp_event_t
 TE_EXPLOSION1 = temp_event_t.TE_EXPLOSION1.value
 TE_EXPLOSION2 = temp_event_t.TE_EXPLOSION2.value
@@ -1495,7 +1495,7 @@ def teleporter_touch (self, other, plane, surf):
 
 	# set angles
 	for i in range(3):
-		other.client.ps.pmove.delta_angles[i] = ANGLE2SHORT(dest.s.angles[i] - other.client.resp.cmd_angles[i])
+		other.client.ps.pmove.delta_angles[i] = TO_SHORT(ANGLE2SHORT(dest.s.angles[i] - other.client.resp.cmd_angles[i]))
 
 	q_shared.VectorClear (other.s.angles)
 	q_shared.VectorClear (other.client.ps.viewangles)

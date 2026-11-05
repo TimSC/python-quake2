@@ -460,14 +460,12 @@ def SV_SpawnServer (server, spawnpoint, serverstate, attractloop, loadgame): #ch
 	# clear physics interaction links
 	#
 	sv_world.SV_ClearWorld ()
-	"""
-	for (i=1 ; i< CM_NumInlineModels() ; i++)
-	{
-		Com_sprintf (sv.configstrings[CS_MODELS+1+i], sizeof(sv.configstrings[CS_MODELS+1+i]),
-			"*%i", i);
-		sv.models[i+1] = CM_InlineModel (sv.configstrings[CS_MODELS+1+i]);
-	}
-	"""
+	
+	for i in range(1, cmodel.CM_NumInlineModels()):
+	
+		sv.configstrings[q_shared.CS_MODELS+1+i] = "*%i" % i
+		sv.models[i+1] = cmodel.CM_InlineModel (sv.configstrings[q_shared.CS_MODELS+1+i])
+	
 	#
 	# spawn the rest of the entities on the map
 	#	
@@ -559,7 +557,7 @@ def SV_InitGame ():
 		if sv_main.maxclients.value <= 1:
 			cvar.Cvar_FullSet ("maxclients", "8", q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH)
 		elif sv_main.maxclients.value > MAX_CLIENTS:
-			cvar.Cvar_FullSet ("maxclients", va("%i", MAX_CLIENTS), q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH)
+			cvar.Cvar_FullSet ("maxclients", "%i" % MAX_CLIENTS, q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH)
 	
 	elif cvar.Cvar_VariableValue ("coop"):
 	

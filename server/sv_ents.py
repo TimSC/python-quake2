@@ -388,9 +388,11 @@ def SV_FatPVS (org): #vec3_t
 		fatpvs[j] = src[j]
 	# or in all the other leaf bits
 	for i in range(1, count):
-		for j in range(i):
+		j = 0
+		while j < i:
 			if leafs[i] == leafs[j]:
 				break
+			j += 1
 		if j != i:
 			continue		# already have the cluster we want
 		src = cmodel.CM_ClusterPVS(leafs[i])
@@ -499,10 +501,12 @@ def SV_BuildClientFrame (client): #client_t *
 					c_fullsend += 1
 				else:
 					# check individual leafs
-					for i in range(ent.num_clusters):
+					i = 0
+					while i < ent.num_clusters:
 						l = ent.clusternums[i]
 						if bitvector[l>>3] & (1<<(l&7)):
 							break
+						i += 1
 					if i == ent.num_clusters:
 						continue		# not visible
 

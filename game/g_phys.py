@@ -244,15 +244,19 @@ def SV_FlyMove (ent, time, mask):
 		#
 		# modify original_velocity so it parallels all of the clip planes
 		#
-		for i in range(numplanes):
+		i = 0
+		while i < numplanes:
 			ClipVelocity (original_velocity, planes[i], new_velocity, 1)
 
-			for j in range(numplanes):
+			j = 0
+			while j < numplanes:
 				if (j != i) and not q_shared.VectorCompare (planes[i], planes[j]):
 					if q_shared.DotProduct (new_velocity, planes[j]) < 0:
 						break	# not ok
+				j += 1
 			if j == numplanes:
 				break
+			i += 1
 
 		if i != numplanes:
 			# go along this plane
