@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 import struct
 import numpy as np
 from linux import q_shlinux
-from server import sv_init, sv_main, sv_user
+from server import sv_init, sv_main, sv_user, sv_ents
 from qcommon import qcommon, net_chan, cmodel, common
 from game import q_shared, game
 """
@@ -349,45 +349,44 @@ SV_SendClientDatagram
 """
 def SV_SendClientDatagram (client)-> bool: #sv_init.client_t
 
-	"""
-	byte		msg_buf[qcommon.MAX_MSGLEN];
-	sizebuf_t	msg;
+	#byte		msg_buf[qcommon.MAX_MSGLEN];
+	#sizebuf_t	msg;
+	msg = qcommon.sizebuf_t()
 
-	SV_BuildClientFrame (client);
+	sv_ents.SV_BuildClientFrame (client)
 
-	SZ_Init (&msg, msg_buf, sizeof(msg_buf));
-	msg.allowoverflow = true;
+	common.SZ_Init (msg, qcommon.MAX_MSGLEN)
+	msg.allowoverflow = True
 
-	// send over all the relevant entity_state_t
-	// and the player_state_t
-	SV_WriteFrameToClient (client, &msg);
+	# send over all the relevant entity_state_t
+	# and the player_state_t
+	sv_ents.SV_WriteFrameToClient (client, msg)
 
-	// copy the accumulated multicast datagram
-	// for this client out to the message
-	// it is necessary for this to be after the WriteEntities
-	// so that entity references will be current
-	if (client->datagram.overflowed)
-		Com_Printf ("WARNING: datagram overflowed for %s\n", client->name);
-	else
-		SZ_Write (&msg, client->datagram.data, client->datagram.cursize);
-	SZ_Clear (&client->datagram);
+	# copy the accumulated multicast datagram
+	# for this client out to the message
+	# it is necessary for this to be after the WriteEntities
+	# so that entity references will be current
+	if client.datagram.overflowed:
+		common.Com_Printf ("WARNING: datagram overflowed for {}\n".format(client.name))
+	else:
+		common.SZ_Write (msg, bytes(client.datagram.data[:client.datagram.cursize]))
+	common.SZ_Clear (client.datagram)
 
-	if (msg.overflowed)
-	{	// must have room left for the packet header
-		Com_Printf ("WARNING: msg overflowed for %s\n", client->name);
-		SZ_Clear (&msg);
-	}
+	if msg.overflowed:
+		# must have room left for the packet header
+		common.Com_Printf ("WARNING: msg overflowed for {}\n".format(client.name))
+		common.SZ_Clear (msg)
 
-	// send the datagram
-	net_chan.Netchan_Transmit (&client->netchan, msg.cursize, msg.data);
+	# send the datagram
+	net_chan.Netchan_Transmit (client.netchan, bytes(msg.data[:msg.cursize]))
 
-	// record the size for rate estimation
-	client->message_size[sv_init.sv.framenum % RATE_MESSAGES] = msg.cursize;
+	# record the size for rate estimation
+	client.message_size[sv_init.sv.framenum % sv_init.RATE_MESSAGES] = msg.cursize
 
-	return true;
-}
+	return True
 
 
+"""
 /*
 ==================
 SV_DemoCompleted

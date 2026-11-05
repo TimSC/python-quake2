@@ -1716,10 +1716,11 @@ class entity_state_t(object):
 
 	def copy(self, obj):
 
+		# struct assignment, so the vectors are copied by value
 		self.number = obj.number
-		self.origin: vec3_t = obj.origin
-		self.angles: vec3_t = obj.angles
-		self.old_origin: vec3_t = obj.old_origin
+		self.origin: vec3_t = np.array(obj.origin, dtype=np.float32)
+		self.angles: vec3_t = np.array(obj.angles, dtype=np.float32)
+		self.old_origin: vec3_t = np.array(obj.old_origin, dtype=np.float32)
 		self.modelindex: int = obj.modelindex
 		self.modelindex2, self.modelindex3, self.modelindex4 = obj.modelindex2, obj.modelindex3, obj.modelindex4
 		self.frame: int = obj.frame
@@ -2966,6 +2967,14 @@ def atoi (s): #const char * (returns int), C library atoi: leading whitespace, o
 		return 0
 	return int(m.group(1))
 
+def atof (s): #const char * (returns double), C library atof: leading whitespace, longest valid float prefix, else 0
+	# Q2PORT: helper for the C library function
+
+	m = re.match(r"\s*([+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?)", s)
+	if m is None:
+		return 0.0
+	return float(m.group(1))
+
 """
 
 int Q_strncasecmp (char *s1, char *s2, int n)
@@ -3043,7 +3052,7 @@ def Info_ValueForKey (s, key): #char *, char * (returns char *)
 	if key in data:
 		return data[key]
 
-	return None
+	return ""
 	"""
 	char	pkey[512];
 	static	char value[2][512];	// use two buffers so compares

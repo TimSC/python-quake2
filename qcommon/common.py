@@ -343,7 +343,7 @@ def MSG_WriteChar (sb: qcommon.sizebuf_t, c):
 		value = int(c) & 0xFF
 	offset = SZ_GetSpace(sb, 1)
 
-	struct.pack_into("b", sb.data, offset, value)
+	struct.pack_into("B", sb.data, offset, value)
 
 def MSG_WriteByte (sb: qcommon.sizebuf_t, c): #sizebuf_t *, int
 

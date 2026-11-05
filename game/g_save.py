@@ -645,6 +645,7 @@ def WriteGame (filename, autosave): #char *, qboolean
 	f = open(filename, "wb")
 	f.write(strdata.ljust(16, b"\0"))
 	f.write(_pack_game(g_main.game))
+	g_main.game.autosaved = False
 	for i in range(int(g_main.game.maxclients)):
 		f.write(_pack_client(g_main.game.clients[i]))
 	f.close()

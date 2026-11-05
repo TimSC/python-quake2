@@ -27,6 +27,7 @@ from game import g_ai
 from game import g_combat
 from game import g_cmds
 from game import g_misc
+from game import p_weapon
 from game.game import SVF_MONSTER, SVF_DEADMONSTER
 from game.game import solid_t
 SOLID_BBOX = solid_t.SOLID_BBOX.value
@@ -235,7 +236,7 @@ def fire_lead (self, start, aimdir, damage, kick, te_impact, hspread, vspread, m
 					g_main.gi.multicast (tr.endpos, MULTICAST_PVS)
 
 					if self.client:
-						g_cmds.PlayerNoise(self, tr.endpos, PNOISE_IMPACT)
+						p_weapon.PlayerNoise(self, tr.endpos, PNOISE_IMPACT)
 
 	# if went through water, determine where the end and make a bubble trail
 	if water:
@@ -301,7 +302,7 @@ def blaster_touch (self, other, plane, surf):
 		return
 
 	if self.owner.client:
-		g_cmds.PlayerNoise(self.owner, self.s.origin, PNOISE_IMPACT)
+		p_weapon.PlayerNoise(self.owner, self.s.origin, PNOISE_IMPACT)
 
 	if other.takedamage:
 		if self.spawnflags & 1:
@@ -372,7 +373,7 @@ def Grenade_Explode (ent):
 	dir = [0, 0, 0]
 
 	if ent.owner.client:
-		g_cmds.PlayerNoise(ent.owner, ent.s.origin, PNOISE_IMPACT)
+		p_weapon.PlayerNoise(ent.owner, ent.s.origin, PNOISE_IMPACT)
 
 	if ent.enemy:
 		#float points
@@ -532,7 +533,7 @@ def rocket_touch (ent, other, plane, surf):
 		return
 
 	if ent.owner.client:
-		g_cmds.PlayerNoise(ent.owner, ent.s.origin, PNOISE_IMPACT)
+		p_weapon.PlayerNoise(ent.owner, ent.s.origin, PNOISE_IMPACT)
 
 	# calculate position for the explosion entity
 	q_shared.VectorMA (ent.s.origin, -0.02, ent.velocity, origin)
@@ -640,7 +641,7 @@ def fire_rail (self, start, aimdir, damage, kick):
 		g_main.gi.multicast (tr.endpos, MULTICAST_PHS)
 
 	if self.client:
-		g_cmds.PlayerNoise(self, tr.endpos, PNOISE_IMPACT)
+		p_weapon.PlayerNoise(self, tr.endpos, PNOISE_IMPACT)
 
 
 """
@@ -696,7 +697,7 @@ def bfg_touch (self, other, plane, surf):
 		return
 
 	if self.owner.client:
-		g_cmds.PlayerNoise(self.owner, self.s.origin, PNOISE_IMPACT)
+		p_weapon.PlayerNoise(self.owner, self.s.origin, PNOISE_IMPACT)
 
 	# core explosion - prevents firing it into the wall/floor
 	if other.takedamage:

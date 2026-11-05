@@ -17,6 +17,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 """
+import copy
 import numpy as np
 from server import sv_init, sv_main, sv_game
 from qcommon import qcommon, common, cmodel
@@ -445,7 +446,7 @@ def SV_BuildClientFrame (client): #client_t *
 	frame.areabytes = cmodel.CM_WriteAreaBits (frame.areabits, clientarea)
 
 	# grab the current player_state_t
-	frame.ps = clent.client.ps
+	frame.ps = copy.deepcopy(clent.client.ps) # struct assignment
 
 	SV_FatPVS (org)
 	clientphs = cmodel.CM_ClusterPHS (clientcluster)

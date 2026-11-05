@@ -348,7 +348,7 @@ def SVC_DirectConnect_NewClient(newcl, adr, qport, userinfo, challenge):
 	# this is the only place a client_t is ever initialized
 	#*newcl = temp
 	sv_client = newcl
-	edictnum = sv_init.svs.clients.index(newcl)
+	edictnum = sv_init.svs.clients.index(newcl)+1 # (newcl-svs.clients)+1
 	ent = sv_init.EDICT_NUM(edictnum)
 	newcl.edict = ent
 	newcl.challenge = challenge # save challenge for checksumming

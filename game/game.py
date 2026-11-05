@@ -94,6 +94,10 @@ class gclient_s(object):
 
 	def __init__(self):
 
+		self.clear()
+
+	def clear(self): # memset (client, 0, sizeof(*client))
+
 		self.ps = q_shared.player_state_t()		# communicated by server to clients
 		self.ping: int = 0
 

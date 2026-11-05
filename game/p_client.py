@@ -947,12 +947,11 @@ def PutClientInServer (ent):
 
 	# clear everything but the persistant data
 	saved = client.pers
-	client = game.gclient_s()
+	client.clear() # memset (client, 0, sizeof(*client));
 	client.pers = saved
 	if client.pers.health <= 0:
 		InitClientPersistant(client)
 	client.resp = resp
-	ent.client = client
 
 	# copy some data from the client to the entity
 	FetchClientEntData (ent)
@@ -993,7 +992,7 @@ def PutClientInServer (ent):
 	if int(g_main.deathmatch.value) and (int(g_main.dmflags.value) & DF_FIXED_FOV):
 		client.ps.fov = 90
 	else:
-		client.ps.fov = int(Info_ValueForKey(client.pers.userinfo, "fov"))
+		client.ps.fov = q_shared.atoi(Info_ValueForKey(client.pers.userinfo, "fov"))
 		if client.ps.fov < 1:
 			client.ps.fov = 90
 		elif client.ps.fov > 160:
@@ -1144,7 +1143,7 @@ def ClientUserinfoChanged (ent, userinfo):
 	if int(g_main.deathmatch.value) and (int(g_main.dmflags.value) & DF_FIXED_FOV):
 		ent.client.ps.fov = 90
 	else:
-		ent.client.ps.fov = int(Info_ValueForKey(userinfo, "fov"))
+		ent.client.ps.fov = q_shared.atoi(Info_ValueForKey(userinfo, "fov"))
 		if ent.client.ps.fov < 1:
 			ent.client.ps.fov = 90
 		elif ent.client.ps.fov > 160:
@@ -1287,8 +1286,9 @@ def ClientThink (ent, ucmd):
 			pm.s.origin[i] = int(ent.s.origin[i]*8)
 			pm.s.velocity[i] = int(ent.velocity[i]*8)
 
-		if (pm.s.origin != client.old_pmove.origin) or \
-		   (pm.s.velocity != client.old_pmove.velocity) or \
+		# memcmp(&client->old_pmove, &pm.s, sizeof(pm.s))
+		if (list(pm.s.origin) != list(client.old_pmove.origin)) or \
+		   (list(pm.s.velocity) != list(client.old_pmove.velocity)) or \
 		   (pm.s.pm_flags != client.old_pmove.pm_flags) or \
 		   (pm.s.pm_time != client.old_pmove.pm_time) or \
 		   (pm.s.pm_type != client.old_pmove.pm_type) or \
@@ -1345,9 +1345,11 @@ def ClientThink (ent, ucmd):
 		# touch other objects
 		for i in range(pm.numtouch):
 			other = pm.touchents[i]
-			for j in range(i):
+			j = 0
+			while j < i:
 				if pm.touchents[j] == other:
 					break
+				j += 1
 			if j != i:
 				continue	# duplicated
 			if not other.touch:

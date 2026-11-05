@@ -143,10 +143,7 @@ def Cvar_Get (var_name, var_value, flags):  #char *, char *, int (returns cvar_t
 	var.name = var_name
 	var.string = var_value
 	var.modified = True
-	try:
-		var.value = float(var.string)
-	except ValueError:
-		var.value = None
+	var.value = q_shared.atof(var.string)
 	var.flags = flags
 
 	cvar_vars.insert(0, var)
@@ -200,10 +197,7 @@ def Cvar_Set2 (var_name, value, force): #char *, char *, qboolean (returns cvar_
 			else:
 			
 				var.string = value
-				try:
-					var.value = float(var.string)
-				except ValueError:
-					var.value = None
+				var.value = q_shared.atof(var.string)
 				if var.name == "game":
 				
 					FS_SetGamedir (var.string);
@@ -226,10 +220,7 @@ def Cvar_Set2 (var_name, value, force): #char *, char *, qboolean (returns cvar_
 		userinfo_modified = True	# transmit at next oportunity
 	
 	var.string = value
-	try:
-		var.value = float(var.string)
-	except ValueError:
-		var.value = None
+	var.value = q_shared.atof(var.string)
 
 	return var
 
@@ -272,10 +263,7 @@ def Cvar_FullSet (var_name, value, flags): #char *, char *, int (returns cvar_t 
 	#Z_Free (var.string);	# free the old value string
 	
 	var.string = value
-	try:
-		var.value = float(var.string)
-	except ValueError:
-		var.value = None
+	var.value = q_shared.atof(var.string)
 	var.flags = flags
 
 	return var
@@ -313,10 +301,7 @@ def Cvar_GetLatchedVars ():
 			continue
 		var.string = var.latched_string
 		var.latched_string = None
-		try:
-			var.value = float(var.string)
-		except ValueError:
-			var.value = None
+		var.value = q_shared.atof(var.string)
 		if var.name == "game":
 			files.FS_SetGamedir(var.string)
 			files.FS_ExecAutoexec()

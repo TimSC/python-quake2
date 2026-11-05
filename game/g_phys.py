@@ -396,25 +396,19 @@ def SV_Push (pusher, move, amove):
 	g_main.gi.linkentity (pusher)
 
 	# see if any solid entities are inside the final position
-	check = g_main.g_edicts[1]
-	for e in range(1, g_main.globals.num_edicts):
+	#check = g_edicts+1;
+	for e in range(1, g_main.glob.num_edicts): # for (e = 1; e < globals.num_edicts; e++, check++)
+		check = g_main.g_edicts[e]
 		if not check.inuse:
-			check = g_main.g_edicts[e+1] if e+1 < g_main.globals.num_edicts else None
-			if check is None:
-				break
 			continue
-		if check.movetype in (MOVETYPE_PUSH, MOVETYPE_STOP, MOVETYPE_NONE, MOVETYPE_NOCLIP):
-			check = g_main.g_edicts[e+1] if e+1 < g_main.globals.num_edicts else None
-			if check is None:
-				break
+		if (check.movetype == MOVETYPE_PUSH
+		or check.movetype == MOVETYPE_STOP
+		or check.movetype == MOVETYPE_NONE
+		or check.movetype == MOVETYPE_NOCLIP):
 			continue
 
 		if not check.area.prev:
-			# not linked in anywhere
-			check = g_main.g_edicts[e+1] if e+1 < g_main.globals.num_edicts else None
-			if check is None:
-				break
-			continue
+			continue		# not linked in anywhere
 
 		# if the entity is standing on the pusher, it will definitely be moved
 		if check.groundentity != pusher:
@@ -425,20 +419,11 @@ def SV_Push (pusher, move, amove):
 			or check.absmax[0] <= mins[0]
 			or check.absmax[1] <= mins[1]
 			or check.absmax[2] <= mins[2]):
-				check = g_main.g_edicts[e+1] if e+1 < g_main.globals.num_edicts else None
-				if check is None:
-					break
 				continue
 
 			# see if the ent's bbox is inside the pusher's final position
 			if not SV_TestEntityPosition (check):
-				check = g_main.g_edicts[e+1] if e+1 < g_main.globals.num_edicts else None
-				if check is None:
-					break
 				continue
-		check = g_main.g_edicts[e+1] if e+1 < g_main.globals.num_edicts else None
-		if check is None:
-			break
 
 		if (pusher.movetype == MOVETYPE_PUSH) or (check.groundentity == pusher):
 			# move this entity

@@ -42,7 +42,7 @@ from game.g_local import (MOD_FRIENDLY_FIRE, POWER_ARMOR_NONE, POWER_ARMOR_SCREE
 	FL_FLY, FL_SWIM, FL_NO_KNOCKBACK, FL_GODMODE,
 	MOVETYPE_PUSH, MOVETYPE_STOP, MOVETYPE_NONE, MOVETYPE_BOUNCE,
 	DEAD_DEAD, AI_GOOD_GUY, AI_SOUND_TARGET, AI_DUCKED)
-from game.game import SVF_MONSTER
+from game.game import SVF_MONSTER, SOLID_NOT
 from game.g_local import (DAMAGE_RADIUS, DAMAGE_NO_ARMOR, DAMAGE_ENERGY,
 	DAMAGE_NO_KNOCKBACK, DAMAGE_BULLET, DAMAGE_NO_PROTECTION)
 
@@ -507,7 +507,7 @@ def T_RadiusDamage (inflictor, attacker, damage, ignore, radius, mod):
 		ent = edicts[i]
 		if not ent.inuse:
 			continue
-		if ent.solid == q_shared.solid_t.SOLID_NOT:
+		if ent.solid == SOLID_NOT:
 			continue
 		eorg = np.zeros((3,), dtype=np.float32)
 		for j in range(3):

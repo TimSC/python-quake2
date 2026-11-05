@@ -23,7 +23,7 @@ from game import q_shared
 from game import g_local
 from game import g_main
 from game import g_combat
-from game.game import edict_t
+from game.game import edict_t, SOLID_NOT
 from game.q_shared import CHAN_AUTO, ATTN_NORM, CHAN_BODY, CHAN_VOICE
 from game.q_shared import AREA_TRIGGERS, AREA_SOLID, MASK_PLAYERSOLID
 from game.g_local import DAMAGE_NO_PROTECTION, MOD_TELEFRAG
@@ -111,7 +111,7 @@ def findradius (from_, org, rad):
 		e = edicts[i]
 		if not e.inuse:
 			continue
-		if e.solid == q_shared.solid_t.SOLID_NOT:
+		if e.solid == SOLID_NOT:
 			continue
 		for j in range(3):
 			eorg[j] = org[j] - (e.s.origin[j] + (e.mins[j] + e.maxs[j])*0.5)
@@ -381,6 +381,7 @@ def G_Spawn ():
 	if g_main.glob.num_edicts == g_main.game.maxentities:
 		g_main.gi.error ("ED_Alloc: no free edicts")
 
+	e = edicts[g_main.glob.num_edicts] # the C loop leaves e at g_edicts[i], i == num_edicts
 	g_main.glob.num_edicts += 1
 	G_InitEdict (e)
 	return e
