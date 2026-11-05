@@ -136,103 +136,102 @@ def V_AddLightStyle (style, r, g, b):
 	ls.rgb[1] = g
 	ls.rgb[2] = b
 """
-/*
 ================
 V_TestParticles
 
 If cl_testparticles is set, create 4096 particles in the view
 ================
-*/
-void V_TestParticles (void)
-{
-	particle_t	*p;
-	int			i, j;
-	float		d, r, u;
-
-	r_numparticles = MAX_PARTICLES;
-	for (i=0 ; i<r_numparticles ; i++)
-	{
-		d = i*0.25;
-		r = 4*((i&7)-3.5);
-		u = 4*(((i>>3)&7)-3.5);
-		p = &r_particles[i];
-
-		for (j=0 ; j<3 ; j++)
-			p->origin[j] = cl_main.cl.refdef.vieworg[j] + cl_main.cl.v_forward[j]*d +
-			cl_main.cl.v_right[j]*r + cl_main.cl.v_up[j]*u;
-
-		p->color = 8;
-		p->alpha = cl_testparticles->value;
-	}
-}
 """
+def V_TestParticles ():
+
+	global r_numparticles
+	#particle_t	*p;
+	#int			i, j;
+	#float		d, r, u;
+
+	r_numparticles = ref.MAX_PARTICLES
+	for i in range(r_numparticles):
+	
+		d = i*0.25
+		r = 4*((i&7)-3.5)
+		u = 4*(((i>>3)&7)-3.5)
+		p = r_particles[i]
+
+		for j in range(3):
+			p.origin[j] = cl_main.cl.refdef.vieworg[j] + cl_main.cl.v_forward[j]*d + \
+			cl_main.cl.v_right[j]*r + cl_main.cl.v_up[j]*u
+
+		p.color = 8
+		p.alpha = cl_testparticles.value
+	
+
 """
-/*
 ================
 V_TestEntities
 
 If cl_testentities is set, create 32 player models
 ================
-*/
-void V_TestEntities (void)
-{
-	int			i, j;
-	float		f, r;
-	entity_t	*ent;
-
-	r_numentities = 32;
-	memset (r_entities, 0, sizeof(r_entities));
-
-	for (i=0 ; i<r_numentities ; i++)
-	{
-		ent = &r_entities[i];
-
-		r = 64 * ( (i%4) - 1.5 );
-		f = 64 * (i/4) + 128;
-
-		for (j=0 ; j<3 ; j++)
-			ent->origin[j] = cl_main.cl.refdef.vieworg[j] + cl_main.cl.v_forward[j]*f +
-			cl_main.cl.v_right[j]*r;
-
-		ent->model = cl_main.cl.baseclientinfo.model;
-		ent->skin = cl_main.cl.baseclientinfo.skin;
-	}
-}
 """
+def V_TestEntities ():
+
+	global r_numentities
+	#int			i, j;
+	#float		f, r;
+	#entity_t	*ent;
+
+	r_numentities = 32
+	for i in range(len(r_entities)): # memset (r_entities, 0, sizeof(r_entities));
+		r_entities[i] = ref.entity_t()
+
+	for i in range(r_numentities):
+	
+		ent = r_entities[i]
+
+		r = 64 * ( (i%4) - 1.5 )
+		f = 64 * (i//4) + 128
+
+		for j in range(3):
+			ent.origin[j] = cl_main.cl.refdef.vieworg[j] + cl_main.cl.v_forward[j]*f + \
+			cl_main.cl.v_right[j]*r
+
+		ent.model = cl_main.cl.baseclientinfo.model
+		ent.skin = cl_main.cl.baseclientinfo.skin
+	
+
 """
-/*
 ================
 V_TestLights
 
 If cl_testlights is set, create 32 lights models
 ================
-*/
-void V_TestLights (void)
-{
-	int			i, j;
-	float		f, r;
-	dlight_t	*dl;
-
-	r_numdlights = 32;
-	memset (r_dlights, 0, sizeof(r_dlights));
-
-	for (i=0 ; i<r_numdlights ; i++)
-	{
-		dl = &r_dlights[i];
-
-		r = 64 * ( (i%4) - 1.5 );
-		f = 64 * (i/4) + 128;
-
-		for (j=0 ; j<3 ; j++)
-			dl->origin[j] = cl_main.cl.refdef.vieworg[j] + cl_main.cl.v_forward[j]*f +
-			cl_main.cl.v_right[j]*r;
-		dl->color[0] = ((i%6)+1) & 1;
-		dl->color[1] = (((i%6)+1) & 2)>>1;
-		dl->color[2] = (((i%6)+1) & 4)>>2;
-		dl->intensity = 200;
-	}
-}
 """
+def V_TestLights ():
+
+	global r_numdlights
+	#int			i, j;
+	#float		f, r;
+	#dlight_t	*dl;
+
+	r_numdlights = 32
+	for i in range(len(r_dlights)): # memset (r_dlights, 0, sizeof(r_dlights));
+		r_dlights[i] = ref.dlight_t()
+
+	for i in range(r_numdlights):
+	
+		dl = r_dlights[i]
+
+		r = 64 * ( (i%4) - 1.5 )
+		f = 64 * (i//4) + 128
+
+		for j in range(3):
+			dl.origin[j] = cl_main.cl.refdef.vieworg[j] + cl_main.cl.v_forward[j]*f + \
+			cl_main.cl.v_right[j]*r
+		dl.color[0] = ((i%6)+1) & 1
+		dl.color[1] = (((i%6)+1) & 2)>>1
+		dl.color[2] = (((i%6)+1) & 4)>>2
+		dl.intensity = 200
+	
+
 # ===================================================================
 # CL_PrepRefresh
 #

@@ -954,49 +954,47 @@ def	R_SetGL2D ():
 	GL.glColor4f (1,1,1,1)
 
 
-"""
-static void GL_DrawColoredStereoLinePair( float r, float g, float b, float y )
-{
-	qglColor3f( r, g, b );
-	qglVertex2f( 0, y );
-	qglVertex2f( vid.width, y );
-	qglColor3f( 0, 0, 0 );
-	qglVertex2f( 0, y + 1 );
-	qglVertex2f( vid.width, y + 1 );
-}
+def GL_DrawColoredStereoLinePair( r, g, b, y ): #float, float, float, float
 
-static void GL_DrawStereoPattern( void )
-{
-	int i;
+	GL.glColor3f( r, g, b )
+	GL.glVertex2f( 0, y )
+	GL.glVertex2f( vid.width, y )
+	GL.glColor3f( 0, 0, 0 )
+	GL.glVertex2f( 0, y + 1 )
+	GL.glVertex2f( vid.width, y + 1 )
 
-	if ( !( gl_config.renderer & GL_RENDERER_INTERGRAPH ) )
-		return;
 
-	if ( !gl_state.stereo_enabled )
-		return;
+def GL_DrawStereoPattern(): # static void
 
-	R_SetGL2D();
+	#int i;
 
-	qglDrawBuffer( GL_BACK_LEFT );
+	if not ( gl_config.renderer & GL_RENDERER_INTERGRAPH ):
+		return
 
-	for ( i = 0; i < 20; i++ )
-	{
-		qglBegin( GL_LINES );
-			GL_DrawColoredStereoLinePair( 1, 0, 0, 0 );
-			GL_DrawColoredStereoLinePair( 1, 0, 0, 2 );
-			GL_DrawColoredStereoLinePair( 1, 0, 0, 4 );
-			GL_DrawColoredStereoLinePair( 1, 0, 0, 6 );
-			GL_DrawColoredStereoLinePair( 0, 1, 0, 8 );
-			GL_DrawColoredStereoLinePair( 1, 1, 0, 10);
-			GL_DrawColoredStereoLinePair( 1, 1, 0, 12);
-			GL_DrawColoredStereoLinePair( 0, 1, 0, 14);
-		qglEnd();
+	if not gl_state.stereo_enabled:
+		return
+
+	R_SetGL2D()
+
+	GL.glDrawBuffer( GL.GL_BACK_LEFT )
+
+	for i in range(20):
+	
+		GL.glBegin( GL.GL_LINES )
+		GL_DrawColoredStereoLinePair( 1, 0, 0, 0 )
+		GL_DrawColoredStereoLinePair( 1, 0, 0, 2 )
+		GL_DrawColoredStereoLinePair( 1, 0, 0, 4 )
+		GL_DrawColoredStereoLinePair( 1, 0, 0, 6 )
+		GL_DrawColoredStereoLinePair( 0, 1, 0, 8 )
+		GL_DrawColoredStereoLinePair( 1, 1, 0, 10)
+		GL_DrawColoredStereoLinePair( 1, 1, 0, 12)
+		GL_DrawColoredStereoLinePair( 0, 1, 0, 14)
+		GL.glEnd()
 		
-		GLimp_EndFrame();
-	}
-}
+		gl_glx.GLimp_EndFrame()
+	
 
-
+"""
 /*
 ====================
 R_SetLightLevel
