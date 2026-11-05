@@ -69,6 +69,11 @@ To measure performance on a demo:
 python3 main.py +set basedir /path/to/quake2data/Data +demomap demo1.dm2 +timedemo 1
 ```
 
+PyOpenGL checks for an OpenGL error (`glGetError`) after every OpenGL call by
+default. That is useful for catching rendering bugs but costs performance. Set
+`PYOPENGL_ERROR_CHECKING=0` to turn it off; it is on by default, and setting it
+to `1`/`true` leaves it on.
+
 ### Dedicated server
 
 ```
