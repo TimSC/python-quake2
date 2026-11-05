@@ -323,14 +323,14 @@ def SV_StartSound (origin, entity, channel, soundindex, volume, attenuation, tim
 
 	if channel & q_shared.CHAN_RELIABLE:
 		if use_phs:
-			SV_Multicast (origin, q_shared.MULTICAST_PHS_R)
+			SV_Multicast (origin, q_shared.multicast_t.MULTICAST_PHS_R)
 		else:
-			SV_Multicast (origin, q_shared.MULTICAST_ALL_R)
+			SV_Multicast (origin, q_shared.multicast_t.MULTICAST_ALL_R)
 	else:
 		if use_phs:
-			SV_Multicast (origin, q_shared.MULTICAST_PHS)
+			SV_Multicast (origin, q_shared.multicast_t.MULTICAST_PHS)
 		else:
-			SV_Multicast (origin, q_shared.MULTICAST_ALL)
+			SV_Multicast (origin, q_shared.multicast_t.MULTICAST_ALL)
 
 """
 /*

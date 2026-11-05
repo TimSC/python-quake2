@@ -24,6 +24,7 @@ from game import g_local
 from game import g_main
 from game import g_utils
 from game import g_ai
+from game import m_move
 from game import g_items
 from game import g_weapon
 from game import g_combat
@@ -556,7 +557,7 @@ def walkmonster_start_go (self):
 		M_droptofloor (self)
 
 		if self.groundentity:
-			if not g_ai.M_walkmove (self, 0, 0):
+			if not m_move.M_walkmove (self, 0, 0):
 				g_main.gi.dprintf ("%s in solid at %s\n", self.classname, g_utils.vtos(self.s.origin))
 
 	if not self.yaw_speed:
@@ -575,7 +576,7 @@ def walkmonster_start (self):
 
 
 def flymonster_start_go (self):
-	if not g_ai.M_walkmove (self, 0, 0):
+	if not m_move.M_walkmove (self, 0, 0):
 		g_main.gi.dprintf ("%s in solid at %s\n", self.classname, g_utils.vtos(self.s.origin))
 
 	if not self.yaw_speed:

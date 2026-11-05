@@ -87,7 +87,10 @@ class server_t(object):
 
 def EDICT_NUM(n):
 	return sv_game.ge.edicts[n]
+
 #define NUM_FOR_EDICT(e) ( ((byte *)(e)-(byte *)ge->edicts ) / ge->edict_size)
+def NUM_FOR_EDICT(e):
+	return sv_game.ge.edicts.index(e)
 
 class client_state_t(Enum):
 

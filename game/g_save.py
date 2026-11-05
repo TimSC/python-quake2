@@ -19,8 +19,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 import struct
 import time
+import numpy as np
 
-from game import g_main, q_shared, game, g_items
+from game import g_main, q_shared, game, g_items, g_local
 """
 #include "g_local.h"
 
@@ -288,6 +289,338 @@ def _pack_game(gm):
 		int(gm.serverflags), int(gm.num_items),
 		1 if gm.autosaved else 0)
 
+#=========================================================
+# Field tables (port of fields[]/levelfields[]/clientfields[]).
+# In the C, field->ofs is a byte offset; here it is the Python
+# attribute path (e.g. "s.origin", "monsterinfo.stand") resolved
+# via getattr/setattr.
+#
+_ft = g_local.fieldtype_t
+
+
+def _fk (name, ofs, type, flags=0):
+	f = g_local.field_t()
+	f.name = name
+	f.ofs = ofs
+	f.type = type
+	f.flags = flags
+	return f
+
+
+_fields_nospawn = g_local.FFL_NOSPAWN
+
+fields = [
+	_fk("classname", "classname", _ft.F_LSTRING),
+	_fk("model", "model", _ft.F_LSTRING),
+	_fk("spawnflags", "spawnflags", _ft.F_INT),
+	_fk("speed", "speed", _ft.F_FLOAT),
+	_fk("accel", "accel", _ft.F_FLOAT),
+	_fk("decel", "decel", _ft.F_FLOAT),
+	_fk("target", "target", _ft.F_LSTRING),
+	_fk("targetname", "targetname", _ft.F_LSTRING),
+	_fk("pathtarget", "pathtarget", _ft.F_LSTRING),
+	_fk("deathtarget", "deathtarget", _ft.F_LSTRING),
+	_fk("killtarget", "killtarget", _ft.F_LSTRING),
+	_fk("combattarget", "combattarget", _ft.F_LSTRING),
+	_fk("message", "message", _ft.F_LSTRING),
+	_fk("team", "team", _ft.F_LSTRING),
+	_fk("wait", "wait", _ft.F_FLOAT),
+	_fk("delay", "delay", _ft.F_FLOAT),
+	_fk("random", "random", _ft.F_FLOAT),
+	_fk("move_origin", "move_origin", _ft.F_VECTOR),
+	_fk("move_angles", "move_angles", _ft.F_VECTOR),
+	_fk("style", "style", _ft.F_INT),
+	_fk("count", "count", _ft.F_INT),
+	_fk("health", "health", _ft.F_INT),
+	_fk("sounds", "sounds", _ft.F_INT),
+	_fk("light", None, _ft.F_IGNORE),
+	_fk("dmg", "dmg", _ft.F_INT),
+	_fk("mass", "mass", _ft.F_INT),
+	_fk("volume", "volume", _ft.F_FLOAT),
+	_fk("attenuation", "attenuation", _ft.F_FLOAT),
+	_fk("map", "map", _ft.F_LSTRING),
+	_fk("origin", "s.origin", _ft.F_VECTOR),
+	_fk("angles", "s.angles", _ft.F_VECTOR),
+	_fk("angle", "s.angles", _ft.F_ANGLEHACK),
+
+	_fk("goalentity", "goalentity", _ft.F_EDICT, _fields_nospawn),
+	_fk("movetarget", "movetarget", _ft.F_EDICT, _fields_nospawn),
+	_fk("enemy", "enemy", _ft.F_EDICT, _fields_nospawn),
+	_fk("oldenemy", "oldenemy", _ft.F_EDICT, _fields_nospawn),
+	_fk("activator", "activator", _ft.F_EDICT, _fields_nospawn),
+	_fk("groundentity", "groundentity", _ft.F_EDICT, _fields_nospawn),
+	_fk("teamchain", "teamchain", _ft.F_EDICT, _fields_nospawn),
+	_fk("teammaster", "teammaster", _ft.F_EDICT, _fields_nospawn),
+	_fk("owner", "owner", _ft.F_EDICT, _fields_nospawn),
+	_fk("mynoise", "mynoise", _ft.F_EDICT, _fields_nospawn),
+	_fk("mynoise2", "mynoise2", _ft.F_EDICT, _fields_nospawn),
+	_fk("target_ent", "target_ent", _ft.F_EDICT, _fields_nospawn),
+	_fk("chain", "chain", _ft.F_EDICT, _fields_nospawn),
+
+	_fk("prethink", "prethink", _ft.F_FUNCTION, _fields_nospawn),
+	_fk("think", "think", _ft.F_FUNCTION, _fields_nospawn),
+	_fk("blocked", "blocked", _ft.F_FUNCTION, _fields_nospawn),
+	_fk("touch", "touch", _ft.F_FUNCTION, _fields_nospawn),
+	_fk("use", "use", _ft.F_FUNCTION, _fields_nospawn),
+	_fk("pain", "pain", _ft.F_FUNCTION, _fields_nospawn),
+	_fk("die", "die", _ft.F_FUNCTION, _fields_nospawn),
+
+	_fk("stand", "monsterinfo.stand", _ft.F_FUNCTION, _fields_nospawn),
+	_fk("idle", "monsterinfo.idle", _ft.F_FUNCTION, _fields_nospawn),
+	_fk("search", "monsterinfo.search", _ft.F_FUNCTION, _fields_nospawn),
+	_fk("walk", "monsterinfo.walk", _ft.F_FUNCTION, _fields_nospawn),
+	_fk("run", "monsterinfo.run", _ft.F_FUNCTION, _fields_nospawn),
+	_fk("dodge", "monsterinfo.dodge", _ft.F_FUNCTION, _fields_nospawn),
+	_fk("attack", "monsterinfo.attack", _ft.F_FUNCTION, _fields_nospawn),
+	_fk("melee", "monsterinfo.melee", _ft.F_FUNCTION, _fields_nospawn),
+	_fk("sight", "monsterinfo.sight", _ft.F_FUNCTION, _fields_nospawn),
+	_fk("checkattack", "monsterinfo.checkattack", _ft.F_FUNCTION, _fields_nospawn),
+	_fk("currentmove", "monsterinfo.currentmove", _ft.F_MMOVE, _fields_nospawn),
+
+	_fk("endfunc", "moveinfo.endfunc", _ft.F_FUNCTION, _fields_nospawn),
+
+	# temp spawn vars -- only valid when the spawn function is called
+	_fk("lip", "st.lip", _ft.F_INT, g_local.FFL_SPAWNTEMP),
+	_fk("distance", "st.distance", _ft.F_INT, g_local.FFL_SPAWNTEMP),
+	_fk("height", "st.height", _ft.F_INT, g_local.FFL_SPAWNTEMP),
+	_fk("noise", "st.noise", _ft.F_LSTRING, g_local.FFL_SPAWNTEMP),
+	_fk("pausetime", "st.pausetime", _ft.F_FLOAT, g_local.FFL_SPAWNTEMP),
+	_fk("item", "st.item", _ft.F_LSTRING, g_local.FFL_SPAWNTEMP),
+
+	# need for item field in edict struct, FFL_SPAWNTEMP item will be skipped on saves
+	_fk("item", "item", _ft.F_ITEM),
+
+	_fk("gravity", "st.gravity", _ft.F_LSTRING, g_local.FFL_SPAWNTEMP),
+	_fk("sky", "st.sky", _ft.F_LSTRING, g_local.FFL_SPAWNTEMP),
+	_fk("skyrotate", "st.skyrotate", _ft.F_FLOAT, g_local.FFL_SPAWNTEMP),
+	_fk("skyaxis", "st.skyaxis", _ft.F_VECTOR, g_local.FFL_SPAWNTEMP),
+	_fk("minyaw", "st.minyaw", _ft.F_FLOAT, g_local.FFL_SPAWNTEMP),
+	_fk("maxyaw", "st.maxyaw", _ft.F_FLOAT, g_local.FFL_SPAWNTEMP),
+	_fk("minpitch", "st.minpitch", _ft.F_FLOAT, g_local.FFL_SPAWNTEMP),
+	_fk("maxpitch", "st.maxpitch", _ft.F_FLOAT, g_local.FFL_SPAWNTEMP),
+	_fk("nextmap", "st.nextmap", _ft.F_LSTRING, g_local.FFL_SPAWNTEMP),
+]
+
+levelfields = [
+	_fk("changemap", "changemap", _ft.F_LSTRING),
+	_fk("sight_client", "sight_client", _ft.F_EDICT),
+	_fk("sight_entity", "sight_entity", _ft.F_EDICT),
+	_fk("sound_entity", "sound_entity", _ft.F_EDICT),
+	_fk("sound2_entity", "sound2_entity", _ft.F_EDICT),
+]
+
+clientfields = [
+	_fk("pers.weapon", "pers.weapon", _ft.F_ITEM),
+	_fk("pers.lastweapon", "pers.lastweapon", _ft.F_ITEM),
+	_fk("newweapon", "newweapon", _ft.F_ITEM),
+]
+
+
+def _fld_get (obj, path):
+	o = obj
+	for part in path.split("."):
+		o = getattr(o, part)
+	return o
+
+
+def _fld_set (obj, path, val):
+	parts = path.split(".")
+	o = obj
+	for part in parts[:-1]:
+		o = getattr(o, part)
+	setattr(o, parts[-1], val)
+
+
+def _safe_index (lst, obj):
+	if obj is None:
+		return -1
+	try:
+		return lst.index(obj)
+	except ValueError:
+		return -1
+
+
+# function / mmove pointer relocation tables (port of the C code/data-segment offsets)
+_func_table = []
+_mmove_table = []
+
+
+def _func_index (fn):
+	if fn is None:
+		return -1
+	if fn in _func_table:
+		return _func_table.index(fn)
+	_func_table.append(fn)
+	return len(_func_table) - 1
+
+
+def _mmove_index (mv):
+	if mv is None:
+		return -1
+	if mv in _mmove_table:
+		return _mmove_table.index(mv)
+	_mmove_table.append(mv)
+	return len(_mmove_table) - 1
+
+
+def WriteField1 (f, field, base):
+	if field.flags & g_local.FFL_SPAWNTEMP:
+		return
+
+	t = field.type
+	if t == _ft.F_INT:
+		f.write(struct.pack("i", int(_fld_get(base, field.ofs))))
+	elif t == _ft.F_FLOAT:
+		f.write(struct.pack("f", float(_fld_get(base, field.ofs))))
+	elif t == _ft.F_ANGLEHACK:
+		pass	# aliased by the F_VECTOR "angles" field
+	elif t == _ft.F_VECTOR:
+		v = _fld_get(base, field.ofs)
+		f.write(struct.pack("3f", float(v[0]), float(v[1]), float(v[2])))
+	elif t == _ft.F_IGNORE:
+		pass
+	elif t == _ft.F_LSTRING:
+		s = _fld_get(base, field.ofs)
+		b = (s or "").encode("latin-1")
+		f.write(struct.pack("i", len(b)))
+	elif t == _ft.F_GSTRING:
+		f.write(struct.pack("i", 0))
+	elif t == _ft.F_EDICT:
+		f.write(struct.pack("i", _safe_index(g_main.g_edicts, _fld_get(base, field.ofs))))
+	elif t == _ft.F_CLIENT:
+		f.write(struct.pack("i", _safe_index(g_main.game.clients, _fld_get(base, field.ofs))))
+	elif t == _ft.F_ITEM:
+		f.write(struct.pack("i", _safe_index(g_items.itemlist, _fld_get(base, field.ofs))))
+	elif t == _ft.F_FUNCTION:
+		f.write(struct.pack("i", _func_index(_fld_get(base, field.ofs))))
+	elif t == _ft.F_MMOVE:
+		f.write(struct.pack("i", _mmove_index(_fld_get(base, field.ofs))))
+	else:
+		g_main.gi.error ("WriteEdict: unknown field type")
+
+
+def WriteField2 (f, field, base):
+	if field.flags & g_local.FFL_SPAWNTEMP:
+		return
+	if field.type == _ft.F_LSTRING:
+		s = _fld_get(base, field.ofs)
+		if s:
+			f.write(s.encode("latin-1"))
+
+
+def ReadField (f, field, base):
+	if field.flags & g_local.FFL_SPAWNTEMP:
+		return
+
+	t = field.type
+	if t == _ft.F_INT:
+		_fld_set(base, field.ofs, struct.unpack("i", f.read(4))[0])
+	elif t == _ft.F_FLOAT:
+		_fld_set(base, field.ofs, struct.unpack("f", f.read(4))[0])
+	elif t == _ft.F_ANGLEHACK:
+		pass	# aliased by the F_VECTOR "angles" field
+	elif t == _ft.F_VECTOR:
+		v = struct.unpack("3f", f.read(12))
+		cur = _fld_get(base, field.ofs)
+		cur[0], cur[1], cur[2] = v
+	elif t == _ft.F_IGNORE:
+		pass
+	elif t == _ft.F_LSTRING:
+		length = struct.unpack("i", f.read(4))[0]
+		if length == 0:
+			_fld_set(base, field.ofs, None)
+		else:
+			_fld_set(base, field.ofs, f.read(length).decode("latin-1"))
+	elif t == _ft.F_GSTRING:
+		f.read(4)
+	elif t == _ft.F_EDICT:
+		idx = struct.unpack("i", f.read(4))[0]
+		_fld_set(base, field.ofs, None if idx == -1 else g_main.g_edicts[idx])
+	elif t == _ft.F_CLIENT:
+		idx = struct.unpack("i", f.read(4))[0]
+		_fld_set(base, field.ofs, None if idx == -1 else g_main.game.clients[idx])
+	elif t == _ft.F_ITEM:
+		idx = struct.unpack("i", f.read(4))[0]
+		_fld_set(base, field.ofs, None if idx == -1 else g_items.itemlist[idx])
+	elif t == _ft.F_FUNCTION:
+		idx = struct.unpack("i", f.read(4))[0]
+		_fld_set(base, field.ofs, None if idx < 0 else _func_table[idx])
+	elif t == _ft.F_MMOVE:
+		idx = struct.unpack("i", f.read(4))[0]
+		_fld_set(base, field.ofs, None if idx < 0 else _mmove_table[idx])
+	else:
+		g_main.gi.error ("ReadEdict: unknown field type")
+
+
+#=================
+# WriteClient
+#
+# All pointer variables (except function pointers) must be
+# handled specially.
+#=================
+def WriteClient (f, client):
+	for field in clientfields:
+		WriteField1 (f, field, client)
+	for field in clientfields:
+		WriteField2 (f, field, client)
+
+
+#=================
+# ReadClient
+#
+# All pointer variables (except function pointers) must be
+# handled specially.
+#=================
+def ReadClient (f, client):
+	for field in clientfields:
+		ReadField (f, field, client)
+
+
+# unpacking helpers for the struct-based game.ssv written by WriteGame
+
+def _unpack_game (f):
+	gm = g_main.game
+	data = f.read(struct.calcsize(_FMT_GAME))
+	(hm1, hm2, helpchanged, clients_ptr, spawnpoint,
+	 maxclients, maxentities, serverflags, num_items, autosaved) = struct.unpack(_FMT_GAME, data)
+	gm.helpmessage1 = hm1.decode("latin-1").rstrip("\x00")
+	gm.helpmessage2 = hm2.decode("latin-1").rstrip("\x00")
+	gm.helpchanged = helpchanged
+	gm.spawnpoint = spawnpoint.decode("latin-1").rstrip("\x00")
+	gm.maxclients = maxclients
+	gm.maxentities = maxentities
+	gm.serverflags = serverflags
+	gm.num_items = num_items
+	gm.autosaved = bool(autosaved)
+
+
+def _unpack_player (f, ps):
+	data = f.read(struct.calcsize(_FMT_PLAYER))
+	(pm_type, ox, oy, oz, pm_flags, pm_time, gravity, dx, dy, dz) = struct.unpack(_FMT_PMOVE, data[:20])
+	pm = ps.pmove
+	pm.pm_type = pm_type
+	pm.origin = np.array((ox, oy, oz), dtype=np.float32)
+	pm.pm_flags = pm_flags
+	pm.pm_time = pm_time
+	pm.gravity = gravity
+	pm.delta_angles = np.array((dx, dy, dz), dtype=np.float32)
+	fl = struct.unpack("15f", data[20:80])
+	ps.viewangles = np.array(fl[0:3], dtype=np.float32)
+	ps.viewoffset = np.array(fl[3:6], dtype=np.float32)
+	ps.kick_angles = np.array(fl[6:9], dtype=np.float32)
+	ps.gunangles = np.array(fl[9:12], dtype=np.float32)
+	ps.gunoffset = np.array(fl[12:15], dtype=np.float32)
+	ps.gunindex, ps.gunframe = struct.unpack("ii", data[80:88])
+	ps.blend = np.array(struct.unpack("4f", data[88:104]), dtype=np.float32)
+	ps.fov = struct.unpack("f", data[104:108])[0]
+	ps.rdflags = struct.unpack("i", data[108:112])[0]
+	ps.stats = list(struct.unpack("32h", data[112:176]))
+
+
+def _unpack_client (f, cl):
+	_unpack_player (f, cl.ps)
+	cl.ping = struct.unpack("i", f.read(4))[0]
+
 """
 =========================================================
 WriteGame
@@ -316,21 +649,177 @@ def WriteGame (filename, autosave): #char *, qboolean
 		f.write(_pack_client(g_main.game.clients[i]))
 	f.close()
 
-#
-# Save/restore of level state (level.sav) and loadgame are not
-# ported yet -- they need the full edict_t field-table relocation
-# (WriteEdict/ReadEdict + the fields[] tables).  These stubs keep the
-# GetGameApi surface complete so the map-load path (which only calls
-# WriteGame) does not crash.
-#
 def ReadGame (filename): #char *
-	g_main.gi.dprintf ("ReadGame: not yet ported\n")
+	g_main.gi.dprintf ("Reading game %s\n", filename)
 
+	f = open(filename, "rb")
+	if not f:
+		g_main.gi.error ("Couldn't open %s", filename)
+
+	strdata = f.read(16)
+
+	# re-allocate the edicts
+	g_main.g_edicts = [game.edict_t() for _ in range(int(g_main.game.maxentities))]
+	g_main.glob.edicts = g_main.g_edicts
+	g_main.glob.max_edicts = int(g_main.game.maxentities)
+
+	# read the game locals
+	_unpack_game (f)
+
+	# read the clients
+	for i in range(int(g_main.game.maxclients)):
+		_unpack_client (f, g_main.game.clients[i])
+
+	f.close()
+
+
+#=================
+# WriteEdict
+#
+# All pointer variables (except function pointers) must be
+# handled specially.
+#=================
+def WriteEdict (f, ent):
+	for field in fields:
+		if field.name:
+			WriteField1 (f, field, ent)
+			WriteField2 (f, field, ent)
+
+
+#=================
+# WriteLevelLocals
+#
+# All pointer variables (except function pointers) must be
+# handled specially.
+#=================
+def WriteLevelLocals (f):
+	level = g_main.level
+	for field in levelfields:
+		if field.name:
+			WriteField1 (f, field, level)
+			WriteField2 (f, field, level)
+
+
+#=================
+# ReadEdict
+#
+# All pointer variables (except function pointers) must be
+# handled specially.
+#=================
+def ReadEdict (f, ent):
+	for field in fields:
+		if field.name:
+			ReadField (f, field, ent)
+
+
+#=================
+# ReadLevelLocals
+#
+# All pointer variables (except function pointers) must be
+# handled specially.
+#=================
+def ReadLevelLocals (f):
+	level = g_main.level
+	for field in levelfields:
+		if field.name:
+			ReadField (f, field, level)
+
+
+#=================
+# WriteLevel
+#=================
 def WriteLevel (filename): #char *
-	g_main.gi.dprintf ("WriteLevel: not yet ported\n")
+	g_main.gi.dprintf ("Writing level %s\n", filename)
 
+	f = open(filename, "wb")
+	if not f:
+		g_main.gi.error ("Couldn't open %s", filename)
+
+	# write out edict size and a function pointer base for checking
+	f.write(struct.pack("ii", 1, 0))
+
+	# write out level_locals_t
+	WriteLevelLocals (f)
+
+	# write out all the entities
+	for i in range(g_main.glob.num_edicts):
+		ent = g_main.g_edicts[i]
+		if not ent.inuse:
+			continue
+		f.write(struct.pack("i", i))
+		WriteEdict (f, ent)
+	f.write(struct.pack("i", -1))
+
+	f.close()
+
+
+#=================
+# ReadLevel
+#
+# SpawnEntities will already have been called on the level the
+# same way it was when the level was saved.  That is necessary to
+# get the baselines set up identically.  The server will have
+# cleared all of the world links before calling ReadLevel.  No
+# clients are connected yet.
+#=================
 def ReadLevel (filename): #char *
-	g_main.gi.dprintf ("ReadLevel: not yet ported\n")
+	g_main.gi.dprintf ("Reading level %s\n", filename)
+
+	f = open(filename, "rb")
+	if not f:
+		g_main.gi.error ("Couldn't open %s", filename)
+
+	# wipe all the entities
+	for i in range(len(g_main.g_edicts)):
+		g_main.g_edicts[i] = game.edict_t()
+	g_main.g_edicts[0].inuse = True
+	g_main.glob.num_edicts = int(g_main.maxclients.value) + 1
+
+	# check edict size and function pointer base address
+	edict_size, base = struct.unpack("ii", f.read(8))
+	g_main.gi.dprintf ("Function offsets %d\n", base)
+
+	# load the level locals
+	ReadLevelLocals (f)
+
+	# load all the entities
+	while True:
+		data = f.read(4)
+		if not data:
+			f.close()
+			g_main.gi.error ("ReadLevel: failed to read entnum")
+		entnum = struct.unpack("i", data)[0]
+		if entnum == -1:
+			break
+		if entnum >= g_main.glob.num_edicts:
+			g_main.glob.num_edicts = entnum + 1
+
+		ent = g_main.g_edicts[entnum]
+		ReadEdict (f, ent)
+
+		# let the server rebuild world links for this ent
+		ent.area = game.link_t()
+		g_main.gi.linkentity (ent)
+
+	f.close()
+
+	# mark all clients as unconnected
+	for i in range(int(g_main.maxclients.value)):
+		ent = g_main.g_edicts[i + 1]
+		ent.client = g_main.game.clients[i]
+		ent.client.pers.connected = False
+
+	# do any load time things at this point
+	for i in range(g_main.glob.num_edicts):
+		ent = g_main.g_edicts[i]
+
+		if not ent.inuse:
+			continue
+
+		# fire any cross-level triggers
+		if ent.classname:
+			if ent.classname == "target_crosslevel_target":
+				ent.nextthink = g_main.level.time + ent.delay
 """
 
 //=========================================================

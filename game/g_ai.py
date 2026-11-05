@@ -23,6 +23,7 @@ from game import g_local
 from game import g_main
 from game import g_utils
 from game import g_monster
+from game import m_move
 from game import p_trail
 from game.game import SVF_MONSTER
 from game.q_shared import (MASK_OPAQUE, MASK_PLAYERSOLID, CONTENTS_SOLID,
@@ -91,7 +92,7 @@ Move the specified distance at current facing.
 ==============
 """
 def ai_move (self, dist):
-	g_monster.M_walkmove (self, self.s.angles[YAW], dist)
+	m_move.M_walkmove (self, self.s.angles[YAW], dist)
 
 
 """
@@ -106,7 +107,7 @@ def ai_stand (self, dist):
 	v = [0, 0, 0]
 
 	if dist:
-		g_monster.M_walkmove (self, self.s.angles[YAW], dist)
+		m_move.M_walkmove (self, self.s.angles[YAW], dist)
 
 	if self.monsterinfo.aiflags & AI_STAND_GROUND:
 		if self.enemy:
@@ -115,7 +116,7 @@ def ai_stand (self, dist):
 			if self.s.angles[YAW] != self.ideal_yaw and self.monsterinfo.aiflags & AI_TEMP_STAND_GROUND:
 				self.monsterinfo.aiflags &= ~(AI_STAND_GROUND | AI_TEMP_STAND_GROUND)
 				self.monsterinfo.run (self)
-			g_monster.M_ChangeYaw (self)
+			m_move.M_ChangeYaw (self)
 			ai_checkattack (self, 0)
 		else:
 			FindTarget (self)
@@ -144,7 +145,7 @@ The monster is walking it's beat
 =============
 """
 def ai_walk (self, dist):
-	g_monster.M_MoveToGoal (self, dist)
+	m_move.M_MoveToGoal (self, dist)
 
 	# check for noticing a player
 	if FindTarget (self):
@@ -171,10 +172,10 @@ def ai_charge (self, dist):
 
 	q_shared.VectorSubtract (self.enemy.s.origin, self.s.origin, v)
 	self.ideal_yaw = g_utils.vectoyaw(v)
-	g_monster.M_ChangeYaw (self)
+	m_move.M_ChangeYaw (self)
 
 	if dist:
-		g_monster.M_walkmove (self, self.s.angles[YAW], dist)
+		m_move.M_walkmove (self, self.s.angles[YAW], dist)
 
 
 """
@@ -186,12 +187,12 @@ don't move, but turn towards ideal_yaw
 """
 def ai_turn (self, dist):
 	if dist:
-		g_monster.M_walkmove (self, self.s.angles[YAW], dist)
+		m_move.M_walkmove (self, self.s.angles[YAW], dist)
 
 	if FindTarget (self):
 		return
 
-	g_monster.M_ChangeYaw (self)
+	m_move.M_ChangeYaw (self)
 
 
 """
@@ -427,7 +428,7 @@ def FindTarget (self):
 				return False
 
 		self.ideal_yaw = g_utils.vectoyaw(temp)
-		g_monster.M_ChangeYaw (self)
+		m_move.M_ChangeYaw (self)
 
 		# hunt the sound for a bit; hopefully find the real player
 		self.monsterinfo.aiflags |= AI_SOUND_TARGET
@@ -532,7 +533,7 @@ ai_run_melee
 """
 def ai_run_melee(self):
 	self.ideal_yaw = enemy_yaw
-	g_monster.M_ChangeYaw (self)
+	m_move.M_ChangeYaw (self)
 
 	if FacingIdeal(self):
 		self.monsterinfo.melee (self)
@@ -546,7 +547,7 @@ ai_run_missile
 """
 def ai_run_missile(self):
 	self.ideal_yaw = enemy_yaw
-	g_monster.M_ChangeYaw (self)
+	m_move.M_ChangeYaw (self)
 
 	if FacingIdeal(self):
 		self.monsterinfo.attack (self)
@@ -568,13 +569,13 @@ def ai_run_slide(self, distance):
 		ofs = -90
 
 	self.ideal_yaw = enemy_yaw
-	g_monster.M_ChangeYaw (self)
+	m_move.M_ChangeYaw (self)
 
-	if g_monster.M_walkmove (self, self.ideal_yaw + ofs, distance):
+	if m_move.M_walkmove (self, self.ideal_yaw + ofs, distance):
 		return
 
 	self.monsterinfo.lefty = 1 - self.monsterinfo.lefty
-	g_monster.M_walkmove (self, self.ideal_yaw - ofs, distance)
+	m_move.M_walkmove (self, self.ideal_yaw - ofs, distance)
 
 
 """
@@ -688,7 +689,7 @@ def ai_run (self, dist):
 
 	# if we're going to a combat point, just proceed
 	if self.monsterinfo.aiflags & AI_COMBAT_POINT:
-		g_monster.M_MoveToGoal (self, dist)
+		m_move.M_MoveToGoal (self, dist)
 		return
 
 	if self.monsterinfo.aiflags & AI_SOUND_TARGET:
@@ -698,7 +699,7 @@ def ai_run (self, dist):
 			self.monsterinfo.stand (self)
 			return
 
-		g_monster.M_MoveToGoal (self, dist)
+		m_move.M_MoveToGoal (self, dist)
 
 		if not FindTarget (self):
 			return
@@ -711,7 +712,7 @@ def ai_run (self, dist):
 		return
 
 	if enemy_vis:
-		g_monster.M_MoveToGoal (self, dist)
+		m_move.M_MoveToGoal (self, dist)
 		self.monsterinfo.aiflags &= ~AI_LOST_SIGHT
 		q_shared.VectorCopy (self.enemy.s.origin, self.monsterinfo.last_sighting)
 		self.monsterinfo.trail_time = g_main.level.time
@@ -723,7 +724,7 @@ def ai_run (self, dist):
 			return
 
 	if (self.monsterinfo.search_time) and (g_main.level.time > (self.monsterinfo.search_time + 20)):
-		g_monster.M_MoveToGoal (self, dist)
+		m_move.M_MoveToGoal (self, dist)
 		self.monsterinfo.search_time = 0
 		return
 
@@ -817,7 +818,7 @@ def ai_run (self, dist):
 				q_shared.VectorSubtract (self.goalentity.s.origin, self.s.origin, v)
 				self.s.angles[YAW] = self.ideal_yaw = g_utils.vectoyaw(v)
 
-	g_monster.M_MoveToGoal (self, dist)
+	m_move.M_MoveToGoal (self, dist)
 
 	g_utils.G_FreeEdict(tempgoal)
 

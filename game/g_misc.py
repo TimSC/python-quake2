@@ -1059,8 +1059,8 @@ This is the Viper for the flyby bombing.
 """
 def misc_viper_use  (self, other, activator):
 	self.svflags &= ~SVF_NOCLIENT
-	self.use = g_target.train_use
-	g_target.train_use (self, other, activator)
+	self.use = g_func.train_use
+	g_func.train_use (self, other, activator)
 
 
 def SP_misc_viper (ent):
@@ -1170,8 +1170,8 @@ This is a Storgg ship for the flybys.
 """
 def misc_strogg_ship_use  (self, other, activator):
 	self.svflags &= ~SVF_NOCLIENT
-	self.use = g_target.train_use
-	g_target.train_use (self, other, activator)
+	self.use = g_func.train_use
+	g_func.train_use (self, other, activator)
 
 
 def SP_misc_strogg_ship (ent):

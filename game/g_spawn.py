@@ -546,8 +546,10 @@ def _find_spawn (classname):
 	if _spawn_cache is None:
 		from game import g_items, g_func, g_target, g_misc, g_turret, p_client
 		from game import m_actor, m_berserk, m_boss2, m_boss3, m_boss31, m_supertank
+		from game import g_trigger, m_infantry, m_soldier, m_boss32
 		srcs = (g_items, g_func, g_target, g_misc, p_client, g_turret,
-			m_actor, m_berserk, m_boss2, m_boss3, m_boss31, m_supertank)
+			m_actor, m_berserk, m_boss2, m_boss3, m_boss31, m_supertank,
+			g_trigger, m_infantry, m_soldier, m_boss32)
 		_spawn_cache = []
 		for _cls, _spname in _spawns_raw:
 			_fn = None
