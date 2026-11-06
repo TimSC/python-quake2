@@ -5,7 +5,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from linux import sys_linux
 from client import cl_main, cl_ents, client
 pass
-from game import g_main, g_weapon, g_utils, p_client
+from game import g_main, g_weapon, g_utils
+from game.player import client as p_client
 
 st = {"t0": None, "bolts": {}, "seq": 0, "fired": 0}
 def T(): return time.time() - st["t0"] if st["t0"] else 0

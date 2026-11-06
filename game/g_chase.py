@@ -1,21 +1,27 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+Chase cam. Only used in multiplayer mode.
+
+=======================================================================
 """
 from __future__ import annotations
 
@@ -24,42 +30,22 @@ from game import g_main
 from common.header.shared import pmtype_t
 from common.header.shared import PMF_NO_PREDICTION, MASK_SOLID, ANGLE2SHORT, PITCH, YAW, ROLL, VectorCopy
 from common.shared.shared import TO_SHORT, vec3_origin, VectorMA, VectorNormalize, AngleVectors
+
 """
-/*
-Copyright (C) 1997-2001 Id Software, Inc.
-
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
-
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
-*/
-#include "g_local.h"
-
-
-
-
-
+#include "header/local.h"
 """
 
 def UpdateChaseCam (ent):
 	ownerv = np.zeros((3,), dtype=np.float32)
-	oldgoal = np.zeros((3,), dtype=np.float32)
 	angles = np.zeros((3,), dtype=np.float32)
 	forward = np.zeros((3,), dtype=np.float32)
 	right = np.zeros((3,), dtype=np.float32)
 	o = np.zeros((3,), dtype=np.float32)
 	goal = np.zeros((3,), dtype=np.float32)
+
+	if not ent:
+
+		return
 
 	# is our chase target gone?
 	if (not ent.client.chase_target.inuse \
@@ -74,7 +60,6 @@ def UpdateChaseCam (ent):
 	targ = ent.client.chase_target
 
 	VectorCopy(targ.s.origin, ownerv)
-	VectorCopy(ent.s.origin, oldgoal)
 
 	ownerv[2] += targ.viewheight
 
@@ -135,6 +120,10 @@ def UpdateChaseCam (ent):
 	g_main.gi.linkentity(ent)
 
 def ChaseNext (ent):
+	if not ent:
+
+		return
+
 	if not ent.client.chase_target:
 		return
 
@@ -155,6 +144,10 @@ def ChaseNext (ent):
 	ent.client.update_chase = True
 
 def ChasePrev (ent):
+	if not ent:
+
+		return
+
 	if not ent.client.chase_target:
 		return
 
@@ -175,6 +168,10 @@ def ChasePrev (ent):
 	ent.client.update_chase = True
 
 def GetChaseTarget (ent):
+	if not ent:
+
+		return
+
 	for i in range(1, int(g_main.maxclients.value)+1):
 		other = g_main.g_edicts[i]
 		if other.inuse and not other.client.resp.spectator:

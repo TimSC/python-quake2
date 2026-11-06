@@ -20,19 +20,20 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, g_ai
+from game import g_main, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_combat import (T_Damage)
-from game.g_local import (AI_DUCKED, AI_STAND_GROUND, AS_MELEE, AS_MISSILE, DEAD_DEAD, GIB_ORGANIC, MELEE_DISTANCE, MOD_UNKNOWN, MOVETYPE_STEP, MOVETYPE_TOSS, RANGE_MELEE, damage_t)
+from game.header.local import AI_DUCKED, AI_STAND_GROUND, AS_MELEE, AS_MISSILE, DEAD_DEAD, GIB_ORGANIC, MELEE_DISTANCE, MOD_UNKNOWN, MOVETYPE_STEP, MOVETYPE_TOSS, RANGE_MELEE, damage_t
 from game.g_misc import (ThrowGib, ThrowHead)
 from game.g_monster import (M_FlyCheck, walkmonster_start)
-from game.g_utils import (G_FreeEdict)
+from game.g_utils import G_FreeEdict
 from game.g_weapon import (fire_hit)
-from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
+from game.header.game import SOLID_BBOX, SVF_DEADMONSTER
 from game.m_move import (M_CheckBottom)
 from common.header.shared import ATTN_IDLE, ATTN_NORM, CHAN_VOICE, CHAN_WEAPON
 from common.header import shared
 from common.shared import shared as shared_c
+from game.header import local
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 
 # m_mutant.h
@@ -189,14 +190,14 @@ MODEL_SCALE = 1.000000
 
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -259,7 +260,7 @@ def mutant_stand (self): #edict_t *
 
 def mutant_idle_loop (self): #edict_t *
 
-	if g_local.random() < 0.75:
+	if local.random() < 0.75:
 		self.monsterinfo.nextframe = FRAME_stand155
 
 
@@ -314,7 +315,7 @@ def mutant_check_refire (self): #edict_t *
 	if not self.enemy or not self.enemy.inuse or self.enemy.health <= 0:
 		return
 
-	if ((g_main.skill.value == 3) and (g_local.random() < 0.5)) or (g_ai.range(self, self.enemy) == RANGE_MELEE):
+	if ((g_main.skill.value == 3) and (local.random() < 0.5)) or (g_ai.range(self, self.enemy) == RANGE_MELEE):
 		self.monsterinfo.nextframe = FRAME_attack09
 
 
@@ -338,7 +339,7 @@ def mutant_jump_touch (self, other, plane, surf): #edict_t *, edict_t *, cplane_
 			shared.VectorCopy (self.velocity, normal)
 			shared_c.VectorNormalize(normal)
 			shared_c.VectorMA (self.s.origin, self.maxs[0], normal, point)
-			damage = 40 + 10 * g_local.random()
+			damage = 40 + 10 * local.random()
 			T_Damage (other, self, self, self.velocity, point, normal, damage, damage, 0, MOD_UNKNOWN)
 
 	if not M_CheckBottom (self):
@@ -410,7 +411,7 @@ def mutant_check_jump (self): #edict_t *
 	if distance < 100:
 		return False
 	if distance > 100:
-		if g_local.random() < 0.9:
+		if local.random() < 0.9:
 			return False
 
 	return True
@@ -448,7 +449,7 @@ def mutant_pain (self, other, kick, damage): #edict_t *, edict_t *, float, int
 	if g_main.skill.value == 3:
 		return	# no pain anims in nightmare
 
-	r = g_local.random()
+	r = local.random()
 	if r < 0.33:
 		g_main.gi.sound (self, CHAN_VOICE, sound_pain1, 1, ATTN_NORM, 0)
 		self.monsterinfo.currentmove = mutant_move_pain1
@@ -493,7 +494,7 @@ def mutant_die (self, inflictor, attacker, damage, point): #edict_t *, edict_t *
 	self.takedamage = DAMAGE_YES
 	self.s.skinnum = 1
 
-	if g_local.random() < 0.5:
+	if local.random() < 0.5:
 		self.monsterinfo.currentmove = mutant_move_death1
 	else:
 		self.monsterinfo.currentmove = mutant_move_death2

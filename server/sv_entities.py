@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import copy
 import numpy as np
-from game import game
+pass
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -41,6 +41,7 @@ from server.header import server as server_h
 from server import sv_game
 from server import sv_init
 from server import sv_main
+from game.header import game as game_h
 
 """
 #include <stdint.h>
@@ -83,15 +84,20 @@ def SV_EmitPacketEntities (frm, to, msg): #client_frame_t *, client_frame_t *, s
 
 	newindex = 0
 	oldindex = 0
+	newent = None
+	oldent = None
 	while newindex < to.num_entities or oldindex < from_num_entities:
+		if msg.cursize > common_h.MAX_MSGLEN - 150:
+			break
+
 		if newindex >= to.num_entities:
-			newnum = 9999
+			newnum = 99999
 		else:
 			newent = sv_init.svs.client_entities[(to.first_entity+newindex)%sv_init.svs.num_client_entities]
 			newnum = newent.number
 
 		if oldindex >= from_num_entities:
-			oldnum = 9999
+			oldnum = 99999
 		else:
 			oldent = sv_init.svs.client_entities[(frm.first_entity+oldindex)%sv_init.svs.num_client_entities]
 			oldnum = oldent.number
@@ -109,7 +115,7 @@ def SV_EmitPacketEntities (frm, to, msg): #client_frame_t *, client_frame_t *, s
 
 		if newnum < oldnum:
 			# this is a new entity, send it from the baseline
-			movemsg.MSG_WriteDeltaEntity (sv_init.sv.baselines[newnum], newent, msg, True, True)
+			movemsg.MSG_WriteDeltaEntity (sv_init.sv.baselines[newnum] if (newnum < sv_init.sv.numbaselines) else None, newent, msg, True, True)
 			newindex += 1
 			continue
 
@@ -217,7 +223,13 @@ def SV_WritePlayerstateToClient (frm, to, msg): #client_frame_t *, client_frame_
 	if ps.rdflags != ops.rdflags:
 		pflags |= common_h.PS_RDFLAGS
 
-	if ps.gunframe != ops.gunframe:
+	if (ps.gunframe != ops.gunframe) or \
+		(ps.gunoffset[0] != ops.gunoffset[0]) or \
+		(ps.gunoffset[1] != ops.gunoffset[1]) or \
+		(ps.gunoffset[2] != ops.gunoffset[2]) or \
+		(ps.gunangles[0] != ops.gunangles[0]) or \
+		(ps.gunangles[1] != ops.gunangles[1]) or \
+		(ps.gunangles[2] != ops.gunangles[2]):
 		pflags |= common_h.PS_WEAPONFRAME
 
 	pflags |= common_h.PS_WEAPONINDEX
@@ -467,13 +479,12 @@ def SV_BuildClientFrame (client): #client_t *
 	frame.num_entities = 0
 	frame.first_entity = sv_init.svs.next_client_entities
 
-	c_fullsend = 0
 
 	for e in range(1, sv_game.ge.num_edicts):
 		ent = server_h.EDICT_NUM(e)
 
 		# ignore ents without visible models
-		if ent.svflags & game.SVF_NOCLIENT:
+		if ent.svflags & game_h.SVF_NOCLIENT:
 			continue
 
 		# ignore ents without visible models unless they have an effect
@@ -497,18 +508,12 @@ def SV_BuildClientFrame (client): #client_t *
 				if not (clientphs[l>>3] & (1<<(l&7))):
 					continue
 			else:
-				# FIXME: if an ent has a model and a sound, but isn't
-				# in the PVS, only the PHS, clear the model
-				if ent.s.sound:
-					bitvector = fatpvs	#clientphs;
-				else:
-					bitvector = fatpvs
+				bitvector = fatpvs
 
 				if ent.num_clusters == -1:
 					# too many leafs for individual check, go by headnode
 					if not collision.CM_HeadnodeVisible (ent.headnode, bitvector):
 						continue
-					c_fullsend += 1
 				else:
 					# check individual leafs
 					i = 0
@@ -524,8 +529,7 @@ def SV_BuildClientFrame (client): #client_t *
 					# don't send sounds if they will be attenuated away
 					delta = np.zeros((3,), dtype=np.float32)
 					shared.VectorSubtract (org, ent.s.origin, delta)
-					length = shared_c.VectorLength (delta)
-					if length > 400:
+					if shared_c.VectorLengthSquared (delta) > 400.0 * 400.0:
 						continue
 
 		# add it to the circular client_entities array
@@ -583,7 +587,7 @@ def SV_RecordDemoMessage ():
 		if ent.inuse \
 			and ent.s.number \
 			and (ent.s.modelindex or ent.s.effects or ent.s.sound or ent.s.event) \
-			and not (ent.svflags & game.SVF_NOCLIENT):
+			and not (ent.svflags & game_h.SVF_NOCLIENT):
 			movemsg.MSG_WriteDeltaEntity (nostate, ent.s, buf, False, True)
 
 		e += 1

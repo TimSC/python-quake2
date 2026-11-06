@@ -28,7 +28,6 @@ from common.header import shared
 from common.shared import shared as shared_c
 from common import clientserver
 from common import collision
-from common.header import shared as shared_h
 from common import pmove
 
 def _copy_trace(src: shared.trace_t, dest: shared.trace_t):
@@ -213,7 +212,7 @@ def CL_PredictMovement():
             clientserver.Com_Printf("exceeded CMD_BACKUP\n")
         return
 
-    pm = shared_h.pmove_t()
+    pm = shared.pmove_t()
     pm.trace = CL_PMTrace
     pm.pointcontents = CL_PMpointcontents
 

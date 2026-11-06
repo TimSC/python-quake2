@@ -20,18 +20,19 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, g_ai, g_spawn
+from game import g_main, g_ai, g_spawn
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_ai import (FoundTarget, M_CheckAttack)
-from game.g_local import (AI_DUCKED, AI_GOOD_GUY, AI_HOLD_FRAME, AI_MEDIC, AI_RESURRECTING, AI_STAND_GROUND, DEAD_DEAD, GIB_ORGANIC, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t, svc_temp_entity)
+from game.header.local import AI_DUCKED, AI_GOOD_GUY, AI_HOLD_FRAME, AI_MEDIC, AI_RESURRECTING, AI_STAND_GROUND, DEAD_DEAD, GIB_ORGANIC, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t, svc_temp_entity
 from game.g_misc import (ThrowGib, ThrowHead)
 from game.g_monster import (monster_fire_blaster, walkmonster_start)
-from game.g_utils import (findradius, G_FreeEdict, G_ProjectSource, vectoangles)
-from game.game import (SOLID_BBOX, SVF_DEADMONSTER, SVF_MONSTER)
+from game.g_utils import findradius, G_FreeEdict, G_ProjectSource, vectoangles
+from game.header.game import SOLID_BBOX, SVF_DEADMONSTER, SVF_MONSTER
 from common.header.shared import ATTN_IDLE, ATTN_NORM, CHAN_AUTO, CHAN_VOICE, CHAN_WEAPON, EF_BLASTER, EF_HYPERBLASTER, MASK_SHOT, MZ2_MEDIC_BLASTER_1, multicast_t, temp_event_t
 from common.header import shared
 from common.shared import flash
 from common.shared import shared as shared_c
+from game.header import local
 DAMAGE_AIM = damage_t.DAMAGE_AIM.value
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 MULTICAST_PVS = multicast_t.MULTICAST_PVS.value
@@ -279,14 +280,14 @@ MODEL_SCALE = 1.000000
 
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -424,7 +425,7 @@ def medic_pain (self, other, kick, damage): #edict_t *, edict_t *, float, int
 	if g_main.skill.value == 3:
 		return	# no pain anims in nightmare
 
-	if g_local.random() < 0.5:
+	if local.random() < 0.5:
 		self.monsterinfo.currentmove = medic_move_pain1
 		g_main.gi.sound (self, CHAN_VOICE, sound_pain1, 1, ATTN_NORM, 0)
 	else:
@@ -527,7 +528,7 @@ def medic_duck_up (self): #edict_t *
 
 def medic_dodge (self, attacker, eta): #edict_t *, edict_t *, float
 
-	if g_local.random() > 0.25:
+	if local.random() > 0.25:
 		return
 
 	if not self.enemy:
@@ -539,7 +540,7 @@ def medic_dodge (self, attacker, eta): #edict_t *, edict_t *, float
 def medic_continue (self): #edict_t *
 
 	if g_ai.visible (self, self.enemy):
-		if g_local.random() <= 0.95:
+		if local.random() <= 0.95:
 			self.monsterinfo.currentmove = medic_move_attackHyperBlaster
 
 

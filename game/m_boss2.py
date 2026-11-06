@@ -21,20 +21,18 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_local, g_main, g_utils, g_monster, g_misc, g_ai, m_supertank
+from game import g_main, g_utils, g_monster, g_misc, g_ai, m_supertank
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge, infront, range
 from game.g_utils import G_ProjectSource, G_FreeEdict, vtos, vectoyaw
 from game.g_monster import monster_fire_bullet, monster_fire_rocket, flymonster_start
 from common.header.shared import CHAN_VOICE, ATTN_NONE, CONTENTS_SOLID, CONTENTS_MONSTER, CONTENTS_SLIME, CONTENTS_LAVA, MZ2_BOSS2_ROCKET_1, MZ2_BOSS2_ROCKET_2, MZ2_BOSS2_ROCKET_3, MZ2_BOSS2_ROCKET_4, MZ2_BOSS2_MACHINEGUN_R1, MZ2_BOSS2_MACHINEGUN_L1
-from game.g_local import (DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, FRAMETIME,
-	MOVETYPE_STEP, MOVETYPE_TOSS, AI_STAND_GROUND, FL_FLY, FL_IMMUNE_LASER,
-	RANGE_MELEE, RANGE_NEAR, RANGE_MID, RANGE_FAR, AS_MELEE, AS_MISSILE, AS_SLIDING,
-	AS_STRAIGHT, DEAD_DEAD, damage_t)
+from game.header.local import DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, FRAMETIME, MOVETYPE_STEP, MOVETYPE_TOSS, AI_STAND_GROUND, FL_FLY, FL_IMMUNE_LASER, RANGE_MELEE, RANGE_NEAR, RANGE_MID, RANGE_FAR, AS_MELEE, AS_MISSILE, AS_SLIDING, AS_STRAIGHT, DEAD_DEAD, damage_t
 DAMAGE_NO = damage_t.DAMAGE_NO.value
-from game.game import solid_t, SVF_DEADMONSTER
+from game.header.game import solid_t, SVF_DEADMONSTER
 from common.header import shared
 from common.shared import flash
 from common.shared import shared as shared_c
+from game.header import local
 
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 
@@ -47,14 +45,14 @@ sound_death = 0
 sound_search1 = 0
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -122,7 +120,7 @@ qboolean infront (edict_t *self, edict_t *other);
 """
 
 def boss2_search (self):
-	if g_local.random() < 0.5:
+	if local.random() < 0.5:
 		g_main.gi.sound (self, CHAN_VOICE, sound_search1, 1, ATTN_NONE, 0)
 
 def Boss2Rocket (self):
@@ -229,7 +227,7 @@ def boss2_attack (self):
 	if range_ <= 125:
 		self.monsterinfo.currentmove = boss2_move_attack_pre_mg
 	else:
-		if g_local.random() <= 0.6:
+		if local.random() <= 0.6:
 			self.monsterinfo.currentmove = boss2_move_attack_pre_mg
 		else:
 			self.monsterinfo.currentmove = boss2_move_attack_rocket
@@ -239,7 +237,7 @@ def boss2_attack_mg (self):
 
 def boss2_reattack_mg (self):
 	if infront(self, self.enemy):
-		if g_local.random() <= 0.7:
+		if local.random() <= 0.7:
 			self.monsterinfo.currentmove = boss2_move_attack_mg
 		else:
 			self.monsterinfo.currentmove = boss2_move_attack_post_mg
@@ -373,13 +371,13 @@ def Boss2_CheckAttack (self):
 	else:
 		return False
 
-	if g_local.random() < chance:
+	if local.random() < chance:
 		self.monsterinfo.attack_state = AS_MISSILE
-		self.monsterinfo.attack_finished = g_main.level.time + 2*g_local.random()
+		self.monsterinfo.attack_finished = g_main.level.time + 2*local.random()
 		return True
 
 	if self.flags & FL_FLY:
-		if g_local.random() < 0.3:
+		if local.random() < 0.3:
 			self.monsterinfo.attack_state = AS_SLIDING
 		else:
 			self.monsterinfo.attack_state = AS_STRAIGHT

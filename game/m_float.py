@@ -20,20 +20,21 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local
+from game import g_main
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_combat import (T_Damage)
-from game.g_local import (AI_STAND_GROUND, DAMAGE_ENERGY, MELEE_DISTANCE, MOD_UNKNOWN, MOVETYPE_STEP, MOVETYPE_TOSS, svc_temp_entity)
+from game.header.local import AI_STAND_GROUND, DAMAGE_ENERGY, MELEE_DISTANCE, MOD_UNKNOWN, MOVETYPE_STEP, MOVETYPE_TOSS, svc_temp_entity
 from game.g_misc import (BecomeExplosion1)
 from game.g_monster import (flymonster_start, monster_fire_blaster)
-from game.g_utils import (G_FreeEdict, G_ProjectSource)
+from game.g_utils import G_FreeEdict, G_ProjectSource
 from game.g_weapon import (fire_hit)
-from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
+from game.header.game import SOLID_BBOX, SVF_DEADMONSTER
 from common.header.shared import ATTN_IDLE, ATTN_NORM, CHAN_VOICE, CHAN_WEAPON, EF_HYPERBLASTER, MZ2_FLOAT_BLASTER_1, multicast_t, temp_event_t
 from common.shared.shared import vec3_origin
 from common.header import shared
 from common.shared import flash
 from common.shared import shared as shared_c
+from game.header import local
 MULTICAST_PVS = multicast_t.MULTICAST_PVS.value
 TE_SPLASH = temp_event_t.TE_SPLASH.value
 
@@ -290,14 +291,14 @@ MODEL_SCALE = 1.000000
 
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -355,7 +356,7 @@ def floater_fire_blaster (self): #edict_t *
 
 def floater_stand (self): #edict_t *
 
-	if g_local.random() <= 0.5:
+	if local.random() <= 0.5:
 		self.monsterinfo.currentmove = floater_move_stand1
 	else:
 		self.monsterinfo.currentmove = floater_move_stand2
@@ -418,7 +419,7 @@ def floater_attack (self): #edict_t *
 
 def floater_melee (self): #edict_t *
 
-	if g_local.random() < 0.5:
+	if local.random() < 0.5:
 		self.monsterinfo.currentmove = floater_move_attack3
 	else:
 		self.monsterinfo.currentmove = floater_move_attack2
@@ -508,7 +509,7 @@ def SP_monster_floater (self): #edict_t *
 
 	g_main.gi.linkentity (self)
 
-	if g_local.random() <= 0.5:
+	if local.random() <= 0.5:
 		self.monsterinfo.currentmove = floater_move_stand1
 	else:
 		self.monsterinfo.currentmove = floater_move_stand2

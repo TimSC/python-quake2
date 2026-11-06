@@ -40,13 +40,9 @@ from common import szone
 #include <limits.h>
 """
 
-"""
-size_t
-MSG_ConfigString_Size(const char *s)
-{
-	return strlen(s) + 4; /* string length + null char + message type + index */
-}
-"""
+def MSG_ConfigString_Size(s: str)->int: #const char * (returns size_t)
+
+	return len(s) + 4 # string length + null char + message type + index
 
 es_nullstate = shared.entity_state_t() #static const entity_state_t, {0}
 
@@ -136,177 +132,125 @@ def DeltaEntityBits(from_: shared.entity_state_t, to: shared.entity_state_t, new
 
 	return bits
 
-"""
-size_t
-MSG_DeltaEntity_Size(const entity_state_t *from, const entity_state_t *to,
-	qboolean force, qboolean newentity)
-{
+def MSG_DeltaEntity_Size(from_ent, to, force: bool, newentity: bool)->int: #const entity_state_t *, const entity_state_t *, qboolean, qboolean (returns size_t)
+
+	"""
 	size_t sz;
 	int bits;
+	"""
+	U = common_h
 
-	if (!from)
-	{
-		from = &es_nullstate;
-	}
+	if from_ent is None:
 
-	if (!to)
-	{
-		to = &es_nullstate;
-	}
+		from_ent = es_nullstate
 
-	bits = DeltaEntityBits(from, to, newentity);
 
-	if (!bits && !force)
-	{
-		return 0;
-	}
+	if to is None:
 
-	sz = 1;
+		to = es_nullstate
 
-	if (bits & 0xff000000)
-	{
-		sz += 3;
-	}
-	else if (bits & 0x00ff0000)
-	{
-		sz += 2;
-	}
-	else if (bits & 0x0000ff00)
-	{
-		sz++;
-	}
 
-	if (bits & U_NUMBER16)
-	{
-		sz += 2;
-	}
-	else
-	{
-		sz++;
-	}
+	bits = DeltaEntityBits(from_ent, to, newentity)
 
-	if (bits & U_MODEL)
-	{
-		sz++;
-	}
+	if not bits and not force:
 
-	if (bits & U_MODEL2)
-	{
-		sz++;
-	}
+		return 0
 
-	if (bits & U_MODEL3)
-	{
-		sz++;
-	}
 
-	if (bits & U_MODEL4)
-	{
-		sz++;
-	}
+	sz = 1
 
-	if (bits & U_FRAME8)
-	{
-		sz++;
-	}
+	if bits & 0xff000000:
 
-	if (bits & U_FRAME16)
-	{
-		sz += 2;
-	}
+		sz += 3
 
-	if ((bits & U_SKIN8) && (bits & U_SKIN16)) /*used for laser colors */
-	{
-		sz += 4;
-	}
-	else if (bits & U_SKIN8)
-	{
-		sz++;
-	}
-	else if (bits & U_SKIN16)
-	{
-		sz += 2;
-	}
+	elif bits & 0x00ff0000:
 
-	if ((bits & (U_EFFECTS8 | U_EFFECTS16)) == (U_EFFECTS8 | U_EFFECTS16))
-	{
-		sz += 4;
-	}
-	else if (bits & U_EFFECTS8)
-	{
-		sz++;
-	}
-	else if (bits & U_EFFECTS16)
-	{
-		sz += 2;
-	}
+		sz += 2
 
-	if ((bits & (U_RENDERFX8 | U_RENDERFX16)) == (U_RENDERFX8 | U_RENDERFX16))
-	{
-		sz += 4;
-	}
-	else if (bits & U_RENDERFX8)
-	{
-		sz++;
-	}
-	else if (bits & U_RENDERFX16)
-	{
-		sz += 2;
-	}
+	elif bits & 0x0000ff00:
 
-	if (bits & U_ORIGIN1)
-	{
-		sz += 2;
-	}
+		sz += 1
 
-	if (bits & U_ORIGIN2)
-	{
-		sz += 2;
-	}
 
-	if (bits & U_ORIGIN3)
-	{
-		sz += 2;
-	}
+	if bits & U.U_NUMBER16:
 
-	if (bits & U_ANGLE1)
-	{
-		sz++;
-	}
+		sz += 2
 
-	if (bits & U_ANGLE2)
-	{
-		sz++;
-	}
+	else:
 
-	if (bits & U_ANGLE3)
-	{
-		sz++;
-	}
+		sz += 1
 
-	if (bits & U_OLDORIGIN)
-	{
-		sz += 6;
-	}
 
-	if (bits & U_SOUND)
-	{
-		sz++;
-	}
+	if bits & U.U_MODEL:
+		sz += 1
 
-	if (bits & U_EVENT)
-	{
-		sz++;
-	}
+	if bits & U.U_MODEL2:
+		sz += 1
 
-	if (bits & U_SOLID)
-	{
-		sz += 2;
-	}
+	if bits & U.U_MODEL3:
+		sz += 1
 
-	return sz;
-}
-"""
+	if bits & U.U_MODEL4:
+		sz += 1
+
+	if bits & U.U_FRAME8:
+		sz += 1
+
+	if bits & U.U_FRAME16:
+		sz += 2
+
+	if (bits & U.U_SKIN8) and (bits & U.U_SKIN16): # used for laser colors
+		sz += 4
+	elif bits & U.U_SKIN8:
+		sz += 1
+	elif bits & U.U_SKIN16:
+		sz += 2
+
+	if (bits & (U.U_EFFECTS8 | U.U_EFFECTS16)) == (U.U_EFFECTS8 | U.U_EFFECTS16):
+		sz += 4
+	elif bits & U.U_EFFECTS8:
+		sz += 1
+	elif bits & U.U_EFFECTS16:
+		sz += 2
+
+	if (bits & (U.U_RENDERFX8 | U.U_RENDERFX16)) == (U.U_RENDERFX8 | U.U_RENDERFX16):
+		sz += 4
+	elif bits & U.U_RENDERFX8:
+		sz += 1
+	elif bits & U.U_RENDERFX16:
+		sz += 2
+
+	if bits & U.U_ORIGIN1:
+		sz += 2
+
+	if bits & U.U_ORIGIN2:
+		sz += 2
+
+	if bits & U.U_ORIGIN3:
+		sz += 2
+
+	if bits & U.U_ANGLE1:
+		sz += 1
+
+	if bits & U.U_ANGLE2:
+		sz += 1
+
+	if bits & U.U_ANGLE3:
+		sz += 1
+
+	if bits & U.U_OLDORIGIN:
+		sz += 6
+
+	if bits & U.U_SOUND:
+		sz += 1
+
+	if bits & U.U_EVENT:
+		sz += 1
+
+	if bits & U.U_SOLID:
+		sz += 2
+
+	return sz
 
 """
 ==============================================================================
@@ -461,14 +405,10 @@ def MSG_WriteAngle16 (sb, f): #sizebuf_t *, float
 
 	MSG_WriteShort (sb, shared.ANGLE2SHORT(f))
 
-"""
-void
-MSG_WriteConfigString(sizebuf_t *buf, short index, const char *s)
-{
-	MSG_WriteShort(buf, index);
-	MSG_WriteString(buf, s);
-}
-"""
+def MSG_WriteConfigString(buf: common_h.sizebuf_t, index: int, s: str): #sizebuf_t *, short, const char *
+
+	MSG_WriteShort(buf, index)
+	MSG_WriteString(buf, s)
 
 def MSG_WriteDeltaUsercmd (buf, from_cmd, cmd): #sizebuf_t *, usercmd_t *, usercmd_t *
 

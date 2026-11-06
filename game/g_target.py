@@ -19,8 +19,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from __future__ import annotations
 
-from game import game as _gamemod
-from game import g_local, g_main, g_utils, g_misc, g_combat, g_weapon, g_spawn, p_hud
+pass
+from game import g_main, g_utils, g_misc, g_combat, g_weapon, g_spawn
 from common.header.shared import CHAN_VOICE, CHAN_RELIABLE, CHAN_AUTO, ATTN_NORM, ATTN_NONE, RF_BEAM, RF_TRANSLUCENT, EF_BLASTER, EF_HYPERBLASTER, CS_CDTRACK, CS_LIGHTS, CONTENTS_SOLID, CONTENTS_MONSTER, CONTENTS_DEADMONSTER, DF_ALLOW_EXIT, PRINT_HIGH
 from common.header.shared import temp_event_t, multicast_t
 TE_EXPLOSION1 = temp_event_t.TE_EXPLOSION1.value
@@ -28,12 +28,12 @@ TE_SPLASH = temp_event_t.TE_SPLASH.value
 TE_LASER_SPARKS = temp_event_t.TE_LASER_SPARKS.value
 MULTICAST_PVS = multicast_t.MULTICAST_PVS.value
 MULTICAST_PHS = multicast_t.MULTICAST_PHS.value
-from game.g_local import (svc_temp_entity, FRAMETIME, crandom, FL_IMMUNE_LASER, DAMAGE_ENERGY,
-	MOD_EXPLOSIVE, MOD_EXIT, MOD_SPLASH, MOD_TARGET_BLASTER, MOD_TARGET_LASER,
-	SFL_CROSS_TRIGGER_MASK, MOVETYPE_NONE)
-from game.game import SVF_NOCLIENT, solid_t
+from game.header.local import svc_temp_entity, FRAMETIME, crandom, FL_IMMUNE_LASER, DAMAGE_ENERGY, MOD_EXPLOSIVE, MOD_EXIT, MOD_SPLASH, MOD_TARGET_BLASTER, MOD_TARGET_LASER, SFL_CROSS_TRIGGER_MASK, MOVETYPE_NONE
+from game.header.game import SVF_NOCLIENT, solid_t
 from common.header import shared
 from common.shared import shared as shared_c
+from game.header import game as game_h
+from game.player import hud as p_hud
 SOLID_NOT = solid_t.SOLID_NOT.value
 """
 #include "g_local.h"
@@ -684,7 +684,7 @@ def target_laser_think (self): #edict_t *
 			g_combat.T_Damage (tr.ent, self, self.activator, self.movedir, tr.endpos, shared_c.vec3_origin, self.dmg, 1, DAMAGE_ENERGY, MOD_TARGET_LASER)
 
 		# if we hit something that's not a monster or player or is immune to lasers, we're done
-		if not (tr.ent.svflags & _gamemod.SVF_MONSTER) and not tr.ent.client:
+		if not (tr.ent.svflags & game_h.SVF_MONSTER) and not tr.ent.client:
 			if self.spawnflags & 0x80000000:
 				self.spawnflags &= ~0x80000000
 				g_main.gi.WriteByte (svc_temp_entity)

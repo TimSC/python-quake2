@@ -1,95 +1,45 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+Main header file for the game module.
+
+=======================================================================
 """
 from __future__ import annotations
 
 from enum import Enum
 import math
 import numpy as np
-from game import game
+from common.shared import rand
 
 """
-// g_local.h -- local definitions for game module
-
-#include "q_shared.h"
-
-// define GAME_INCLUDE so that game.h does not define the
-// short, server-visible gclient_t and edict_t structures,
-// because we define the full size ones in this file
-#define	GAME_INCLUDE
+#include "../../common/header/shared.h"
 #include "game.h"
-
-// the "gameversion" client command will print this plus compile date
-#define	GAMEVERSION	"baseq2"
-
-// protocol bytes that can be directly added to messages
-#define	svc_muzzleflash		1
-#define	svc_muzzleflash2	2
-#define	svc_temp_entity		3
-#define	svc_layout			4
-#define	svc_inventory		5
-#define	svc_stufftext		11
-
-//==================================================================
-
-// view pitching times
-#define DAMAGE_TIME		0.5
-#define	FALL_TIME		0.3
-
-
-// edict->spawnflags
-// these are set with checkboxes on each entity in the map editor
-#define	SPAWNFLAG_NOT_EASY			0x00000100
-#define	SPAWNFLAG_NOT_MEDIUM		0x00000200
-#define	SPAWNFLAG_NOT_HARD			0x00000400
-#define	SPAWNFLAG_NOT_DEATHMATCH	0x00000800
-#define	SPAWNFLAG_NOT_COOP			0x00001000
-
-// edict->flags
-#define	FL_FLY					0x00000001
-#define	FL_SWIM					0x00000002	// implied immunity to drowining
-#define FL_IMMUNE_LASER			0x00000004
-#define	FL_INWATER				0x00000008
-#define	FL_GODMODE				0x00000010
-#define	FL_NOTARGET				0x00000020
-#define FL_IMMUNE_SLIME			0x00000040
-#define FL_IMMUNE_LAVA			0x00000080
-#define	FL_PARTIALGROUND		0x00000100	// not all corners are valid
-#define	FL_WATERJUMP			0x00000200	// player jumping out of water
-#define	FL_TEAMSLAVE			0x00000400	// not the first on the team
-#define FL_NO_KNOCKBACK			0x00000800
-#define FL_POWER_ARMOR			0x00001000	// power armor (if any) is active
-#define FL_RESPAWN				0x80000000	// used for item respawning
-
-
-#define	FRAMETIME		0.1
-
-// memory tags to allow dynamic memory to be cleaned up
-#define	TAG_GAME	765		// clear when unloading the dll
-#define	TAG_LEVEL	766		// clear when loading a new level
-
-
-#define MELEE_DISTANCE	80
-
-#define BODY_QUEUE_SIZE		8
-
+#if DEBUG
+#include "../savegame/savegame.h"
+#include "../savegame/tables/gamefunc_decs.h"
+#include "../savegame/tables/spawnfunc_decs.h"
+#endif
 """
+
 GAMEVERSION = "baseq2"
 
 # protocol bytes that can be directly added to messages
@@ -125,11 +75,17 @@ FL_WATERJUMP     = 0x00000200
 FL_TEAMSLAVE     = 0x00000400
 FL_NO_KNOCKBACK  = 0x00000800
 FL_POWER_ARMOR   = 0x00001000
+FL_COOP_TAKEN    = 0x00002000 # Another client has already taken it
 FL_RESPAWN       = 0x80000000
 
 FRAMETIME = 0.1
 DEFAULT_BULLET_HSPREAD = 300
 DEFAULT_BULLET_VSPREAD = 500
+DEFAULT_SHOTGUN_HSPREAD = 1000
+DEFAULT_SHOTGUN_VSPREAD = 500
+DEFAULT_DEATHMATCH_SHOTGUN_COUNT = 12
+DEFAULT_SHOTGUN_COUNT = 12
+DEFAULT_SSHOTGUN_COUNT = 20
 
 # memory tags to allow dynamic memory to be cleaned up
 TAG_GAME  = 765
@@ -434,6 +390,7 @@ IT_ARMOR     = 4
 IT_STAY_COOP = 8
 IT_KEY       = 16
 IT_POWERUP   = 32
+IT_INSTANT_USE = 64 # item is insta-used on pickup if dmflag is set
 
 # item spawnflags
 ITEM_TRIGGER_SPAWN = 0x00000001
@@ -550,6 +507,12 @@ MOD_TRIGGER_HURT   = 31
 MOD_HIT            = 32
 MOD_TARGET_BLASTER = 33
 MOD_FRIENDLY_FIRE  = 0x8000000
+
+# Easier handling of AI skill levels
+SKILL_EASY		= 0
+SKILL_MEDIUM	= 1
+SKILL_HARD		= 2
+SKILL_HARDPLUS	= 3
 
 
 """
@@ -766,17 +729,10 @@ class monsterinfo_t(object):
 		self.power_armor_power = 0
 
 
-"""
-#define random()	((rand () & 0x7fff) / ((float)0x7fff))
-#define crandom()	(2.0 * (random() - 0.5))
-"""
-import random as _pyrandom
 from common.header import shared
 
 
-def random():
-	# (rand() & 0x7fff) / 0x7fff
-	return (_pyrandom.randint(0, 0x7fff)) / 0x7fff
+def random(): return ((rand.randk() & 0x7fff) / np.float32(0x7fff)) #define random() ((randk() & 0x7fff) / ((float)0x7fff))
 
 
 def crandom():
@@ -798,50 +754,6 @@ ANIM_WAVE    = 1
 ANIM_JUMP    = 2
 ANIM_PAIN    = 3
 ANIM_ATTACK  = 4
-
-# player anim frames (from m_player.h) used by Cmd_Wave_f
-FRAME_flip01     = 72
-FRAME_flip12     = 83
-FRAME_salute01   = 84
-FRAME_salute11   = 94
-FRAME_taunt01    = 95
-FRAME_taunt17    = 111
-FRAME_wave01     = 112
-FRAME_wave11     = 122
-FRAME_point01    = 123
-FRAME_point12    = 134
-
-# player death anim frames (from m_player.h) used by player_die
-FRAME_crdeath1   = 173
-FRAME_crdeath5   = 177
-FRAME_death101   = 178
-FRAME_death106   = 183
-FRAME_death201   = 184
-FRAME_death206   = 189
-FRAME_death301   = 190
-FRAME_death308   = 197
-
-# player walk/jump/pain anim frames (from m_player.h) used by p_view
-FRAME_stand01    = 0
-FRAME_stand40    = 39
-FRAME_run1       = 40
-FRAME_run6       = 45
-FRAME_pain101    = 54
-FRAME_pain104    = 57
-FRAME_pain201    = 58
-FRAME_pain204    = 61
-FRAME_pain301    = 62
-FRAME_pain304    = 65
-FRAME_jump1      = 66
-FRAME_jump2      = 67
-FRAME_jump3      = 68
-FRAME_jump6      = 71
-FRAME_crstnd01   = 135
-FRAME_crstnd19   = 153
-FRAME_crwalk1    = 154
-FRAME_crwalk6    = 159
-FRAME_crpain1    = 169
-FRAME_crpain4    = 172
 ANIM_DEATH   = 5
 ANIM_REVERSE = 6
 
@@ -1103,3 +1015,17 @@ class spawn_temp_t(object):
 		self.maxyaw = 0.0
 		self.minpitch = 0.0
 		self.maxpitch = 0.0
+		self.music = None #char *
+
+VEC_UP        = np.array([0, -1, 0], dtype=np.float32)
+
+
+def FOFS (x):
+	# the C macro takes the byte offset of a field; in Python we pass the
+	# field name and G_Find uses getattr
+	return x
+
+def ITEM_INDEX (item):
+	# #define ITEM_INDEX(x) ((x) - itemlist)
+	from game import g_items # Q2PORT: imported here to avoid an import cycle
+	return g_items.itemlist.index(item)

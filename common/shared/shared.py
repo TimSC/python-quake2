@@ -515,13 +515,9 @@ def CrossProduct(v1, v2, cross):
 	cross[1] = v1[2]*v2[0] - v1[0]*v2[2]
 	cross[2] = v1[0]*v2[1] - v1[1]*v2[0]
 
-"""
-vec_t
-VectorLengthSquared(vec3_t v)
-{
-	return (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-}
-"""
+def VectorLengthSquared(v): #vec3_t (returns vec_t)
+
+	return (v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
 
 def VectorLength(v): #const vec3_t (returns vec_t)
 	# Q2PORT: float arithmetic as in the C; sqrtf is the double sqrt rounded to float
@@ -1648,39 +1644,31 @@ def Info_SetValueForKey(s: str, key: str, value: str)->str: #char *, const char 
 
 	return s + dest
 
-"""
-unsigned int
-NextPow2(unsigned int i)
-{
-	if (!i)
-	{
-		return 1U;
-	}
+def NextPow2(i: int)->int: #unsigned int (returns unsigned int)
 
-	i--;
+	if not i:
 
-	if (i & (1U << 31U))
-	{
-		return 0U;
-	}
+		return 1
 
-	i |= i >> 1U;
-	i |= i >> 2U;
-	i |= i >> 4U;
-	i |= i >> 8U;
-	i |= i >> 16U;
 
-	return i + 1U;
-}
-"""
+	i -= 1
 
-"""
-unsigned int
-NextPow2gt(unsigned int i)
-{
-	return NextPow2(i + 1U);
-}
-"""
+	if i & (1 << 31):
+
+		return 0
+
+
+	i |= i >> 1
+	i |= i >> 2
+	i |= i >> 4
+	i |= i >> 8
+	i |= i >> 16
+
+	return (i + 1) & 0xFFFFFFFF
+
+def NextPow2gt(i: int)->int: #unsigned int (returns unsigned int)
+
+	return NextPow2(i + 1)
 
 """
 void *

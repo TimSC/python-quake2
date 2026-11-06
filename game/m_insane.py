@@ -20,15 +20,16 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local
+from game import g_main
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
-from game.g_local import (AI_GOOD_GUY, AI_STAND_GROUND, DEAD_DEAD, FL_FLY, FL_NO_KNOCKBACK, GIB_ORGANIC, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t)
+from game.header.local import AI_GOOD_GUY, AI_STAND_GROUND, DEAD_DEAD, FL_FLY, FL_NO_KNOCKBACK, GIB_ORGANIC, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t
 from game.g_misc import (ThrowGib, ThrowHead)
 from game.g_monster import (flymonster_start, walkmonster_start)
-from game.g_utils import (G_FreeEdict)
-from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
+from game.g_utils import G_FreeEdict
+from game.header.game import SOLID_BBOX, SVF_DEADMONSTER
 from common.header.shared import ATTN_IDLE, CHAN_VOICE
 from common.header import shared
+from game.header import local
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 
 # m_insane.h
@@ -318,14 +319,14 @@ MODEL_SCALE = 1.000000
 
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -367,7 +368,7 @@ def insane_scream (self): #edict_t *
 
 def insane_cross (self): #edict_t *
 
-	if g_local.random() < 0.8:
+	if local.random() < 0.8:
 		self.monsterinfo.currentmove = insane_move_cross
 	else:
 		self.monsterinfo.currentmove = insane_move_struggle_cross
@@ -382,7 +383,7 @@ def insane_walk (self): #edict_t *
 			return
 	if self.spawnflags & 4:
 		self.monsterinfo.currentmove = insane_move_crawl
-	elif g_local.random() <= 0.5:
+	elif local.random() <= 0.5:
 		self.monsterinfo.currentmove = insane_move_walk_normal
 	else:
 		self.monsterinfo.currentmove = insane_move_walk_insane
@@ -398,7 +399,7 @@ def insane_run (self): #edict_t *
 	if self.spawnflags & 4:
 		# Crawling?
 		self.monsterinfo.currentmove = insane_move_runcrawl
-	elif g_local.random() <= 0.5:
+	elif local.random() <= 0.5:
 		# Else, mix it up
 		self.monsterinfo.currentmove = insane_move_run_normal
 	else:
@@ -454,8 +455,8 @@ def insane_checkdown (self): #edict_t *
 	if self.spawnflags & 32:
 		# Always stand
 		return
-	if g_local.random() < 0.3:
-		if g_local.random() < 0.5:
+	if local.random() < 0.3:
+		if local.random() < 0.5:
 			self.monsterinfo.currentmove = insane_move_uptodown
 		else:
 			self.monsterinfo.currentmove = insane_move_jumpdown
@@ -466,7 +467,7 @@ def insane_checkup (self): #edict_t *
 	# If Hold_Ground and Crawl are set
 	if (self.spawnflags & 4) and (self.spawnflags & 16):
 		return
-	if g_local.random() < 0.5:
+	if local.random() < 0.5:
 		self.monsterinfo.currentmove = insane_move_downtoup
 
 
@@ -479,7 +480,7 @@ def insane_stand (self): #edict_t *
 	# If Hold_Ground and Crawl are set
 	elif (self.spawnflags & 4) and (self.spawnflags & 16):
 		self.monsterinfo.currentmove = insane_move_down
-	elif g_local.random() < 0.5:
+	elif local.random() < 0.5:
 		self.monsterinfo.currentmove = insane_move_stand_normal
 	else:
 		self.monsterinfo.currentmove = insane_move_stand_insane

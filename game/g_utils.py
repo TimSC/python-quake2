@@ -1,44 +1,47 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+Misc. utility functions for the game logic.
+
+=======================================================================
 """
 from __future__ import annotations
 
 import math
 import numpy as np
-pass
-from game import g_local
 from game import g_main
 from game import g_combat
-from game.game import edict_t, SOLID_NOT, SVF_MONSTER
-from common.header.shared import CHAN_AUTO, ATTN_NORM, CHAN_BODY, CHAN_VOICE
+from game.header.game import edict_t, SOLID_NOT, SVF_MONSTER
+from common.header.shared import CHAN_AUTO, ATTN_NORM
 from common.header.shared import AREA_TRIGGERS, AREA_SOLID, MASK_PLAYERSOLID
-from game.g_local import DAMAGE_NO_PROTECTION, MOD_TELEFRAG
+from game.header.local import DAMAGE_NO_PROTECTION, MOD_TELEFRAG
 from common.header import shared
 from common.shared import shared as shared_c
+from game.header import local
+from common.shared import rand
 
 """
-// g_utils.c -- misc utility functions for game module
-
-#include "g_local.h"
+#include "header/local.h"
 """
 
-VEC_UP        = np.array([0, -1, 0], dtype=np.float32)
 MOVEDIR_UP    = np.array([0, 0, 1], dtype=np.float32)
 VEC_DOWN      = np.array([0, -2, 0], dtype=np.float32)
 MOVEDIR_DOWN  = np.array([0, 0, -1], dtype=np.float32)
@@ -56,12 +59,6 @@ def G_ProjectSource (point, distance, forward, right, result):
 	result[2] = point[2] + forward[2] * distance[0] + right[2] * distance[1] + distance[2]
 
 
-def FOFS (x):
-	# the C macro takes the byte offset of a field; in Python we pass the
-	# field name and G_Find uses getattr
-	return x
-
-
 """
 =============
 G_Find
@@ -75,6 +72,11 @@ NULL will be returned if the end of the list is reached.
 =============
 """
 def G_Find (from_, fieldofs, match):
+	if match is None:
+
+		return None
+
+
 	edicts = g_main.g_edicts
 	if from_:
 		i = edicts.index(from_) + 1
@@ -141,36 +143,56 @@ NULL will be returned if the end of the list is reached.
 MAXCHOICES = 8
 
 
-def G_PickTarget (targetname):
-	#edict_t *ent
-	#int num_choices
-	#edict_t *choice[MAXCHOICES]
-	import random as _r
+def G_PickTarget(targetname): #char * (returns edict_t *)
+
+	"""
+	edict_t *ent = NULL;
+	int num_choices = 0;
+	edict_t *choice[MAXCHOICES];
+	"""
 	ent = None
 	num_choices = 0
 	choice = [None] * MAXCHOICES
 
-	if not targetname:
+	if targetname is None:
+
 		g_main.gi.dprintf("G_PickTarget called with NULL targetname\n")
 		return None
 
-	while True:
-		ent = G_Find (ent, FOFS("targetname"), targetname)
+
+	while 1:
+
+		ent = G_Find(ent, local.FOFS("targetname"), targetname)
+
 		if not ent:
+
 			break
+
+
 		choice[num_choices] = ent
 		num_choices += 1
+
 		if num_choices == MAXCHOICES:
+
 			break
 
+
+
 	if not num_choices:
-		g_main.gi.dprintf("G_PickTarget: target {} not found\n".format(targetname))
+
+		g_main.gi.dprintf("G_PickTarget: target %s not found\n", targetname)
 		return None
 
-	return choice[_r.randint(0, num_choices-1)]
+
+	return choice[rand.randk() % num_choices]
 
 
 def Think_Delay (ent):
+	if not ent:
+
+		return
+
+
 	G_UseTargets (ent, ent.activator)
 	G_FreeEdict (ent)
 
@@ -191,62 +213,125 @@ match (string)self.target and call their .use function
 
 ==============================
 """
-def G_UseTargets (ent, activator):
-	#edict_t *t
+def G_UseTargets(ent, activator): #edict_t *, edict_t *
+
+	"""
+	edict_t *t;
+	"""
+
+	if not ent:
+
+		return
+
 
 	# check for a delay
 	if ent.delay:
+
 		# create a temp object to fire at a later time
 		t = G_Spawn()
 		t.classname = "DelayedUse"
 		t.nextthink = g_main.level.time + ent.delay
 		t.think = Think_Delay
 		t.activator = activator
+
 		if not activator:
-			g_main.gi.dprintf ("Think_Delay with no activator\n")
+
+			g_main.gi.dprintf("Think_Delay with no activator\n")
+
+
 		t.message = ent.message
 		t.target = ent.target
 		t.killtarget = ent.killtarget
 		return
 
+
 	# print the message
-	if (ent.message) and not (activator.svflags & SVF_MONSTER):
-		g_main.gi.centerprintf (activator, ent.message)
+	if activator and (ent.message) and not (activator.svflags & SVF_MONSTER):
+
+		g_main.gi.centerprintf(activator, "%s", ent.message)
+
 		if ent.noise_index:
-			g_main.gi.sound (activator, CHAN_AUTO, ent.noise_index, 1, ATTN_NORM, 0)
+
+			g_main.gi.sound(activator, CHAN_AUTO, ent.noise_index, 1, ATTN_NORM, 0)
+
 		else:
-			g_main.gi.sound (activator, CHAN_AUTO, g_main.gi.soundindex ("misc/talk1.wav"), 1, ATTN_NORM, 0)
+
+			g_main.gi.sound(activator, CHAN_AUTO, g_main.gi.soundindex(
+							"misc/talk1.wav"), 1, ATTN_NORM, 0)
+
+
 
 	# kill killtargets
 	if ent.killtarget:
+
 		t = None
+
 		while True:
-			t = G_Find (t, FOFS("targetname"), ent.killtarget)
+
+			t = G_Find(t, local.FOFS("targetname"), ent.killtarget)
 			if not t:
 				break
-			G_FreeEdict (t)
+
+			# decrement secret count if target_secret is removed
+			if not shared_c.Q_stricmp(t.classname, "target_secret"):
+
+				g_main.level.total_secrets -= 1
+
+
+			# same deal with target_goal, but also turn off CD music if applicable
+			elif not shared_c.Q_stricmp(t.classname, "target_goal"):
+
+				g_main.level.total_goals -= 1
+
+				if g_main.level.found_goals >= g_main.level.total_goals:
+
+					g_main.gi.configstring(shared.CS_CDTRACK, "0")
+
+
+
+			G_FreeEdict(t)
+
 			if not ent.inuse:
+
 				g_main.gi.dprintf("entity was removed while using killtargets\n")
 				return
 
+
+
+
 	# fire targets
 	if ent.target:
+
 		t = None
+
 		while True:
-			t = G_Find (t, FOFS("targetname"), ent.target)
+
+			t = G_Find(t, local.FOFS("targetname"), ent.target)
 			if not t:
 				break
+
 			# doors fire area portals in a specific way
 			if not shared_c.Q_stricmp(t.classname, "func_areaportal") and \
-				(not shared_c.Q_stricmp(ent.classname, "func_door") or not shared_c.Q_stricmp(ent.classname, "func_door_rotating")):
+				(not shared_c.Q_stricmp(ent.classname, "func_door") or
+				 not shared_c.Q_stricmp(ent.classname, "func_door_rotating")):
+
 				continue
 
+
 			if t == ent:
-				g_main.gi.dprintf ("WARNING: Entity used itself.\n")
+
+				g_main.gi.dprintf("WARNING: %s used itself.\n", t.classname)
+
 			else:
+
 				if t.use:
-					t.use (t, ent, activator)
+
+					t.use(t, ent, activator)
+
+
+
 			if not ent.inuse:
+
 				g_main.gi.dprintf("entity was removed while using targets\n")
 				return
 
@@ -293,7 +378,7 @@ def vtos (v):
 
 
 def G_SetMovedir (angles, movedir):
-	if shared_c.VectorCompare (angles, VEC_UP):
+	if shared_c.VectorCompare (angles, local.VEC_UP):
 		shared.VectorCopy (MOVEDIR_UP, movedir)
 	elif shared_c.VectorCompare (angles, VEC_DOWN):
 		shared.VectorCopy (MOVEDIR_DOWN, movedir)
@@ -350,15 +435,69 @@ def vectoangles (value1, angles):
 
 def G_CopyString (in_):
 	# strings are immutable in Python
+	if in_ is None:
+
+		return None
+
+
 	return in_
 
 
 def G_InitEdict (e):
+	if not e:
+
+		return
+
+
 	e.inuse = True
 	e.classname = "noclass"
 	e.gravity = 1.0
 	e.s.number = g_main.g_edicts.index(e)
 
+
+POLICY_DEFAULT = 0
+POLICY_DESPERATE = 1
+
+def G_FindFreeEdict(policy: int): #int (returns static edict_t *)
+
+	"""
+	edict_t *e;
+	"""
+
+	edicts = g_main.g_edicts
+	for i in range(g_main.game.maxclients + 1, g_main.glob.num_edicts):
+
+		e = edicts[i]
+		# the first couple seconds of server time can involve a lot of
+		# freeing and allocating, so relax the replacement policy
+		if not e.inuse and (policy == POLICY_DESPERATE or e.freetime < 2.0 or (g_main.level.time - e.freetime) > 0.5):
+
+			G_InitEdict(e)
+			return e
+
+
+
+	return None
+
+def G_SpawnOptional(): #(returns edict_t *)
+
+	e = G_FindFreeEdict(POLICY_DEFAULT)
+
+	if e:
+
+		return e
+
+
+	if g_main.glob.num_edicts >= g_main.game.maxentities:
+
+		return G_FindFreeEdict(POLICY_DESPERATE)
+
+
+	e = g_main.g_edicts[g_main.glob.num_edicts]
+	g_main.glob.num_edicts += 1
+	G_InitEdict(e)
+
+	return e
 
 """
 =================
@@ -371,23 +510,15 @@ instead of being removed and recreated, which can cause interpolated
 angles and bad trails.
 =================
 """
-def G_Spawn ():
-	edicts = g_main.g_edicts
-	e = edicts[int(g_main.maxclients.value)+1]
-	for i in range(int(g_main.maxclients.value)+1, g_main.glob.num_edicts):
-		e = edicts[i]
-		# the first couple seconds of server time can involve a lot of
-		# freeing and allocating, so relax the replacement policy
-		if not e.inuse and ( e.freetime < 2 or g_main.level.time - e.freetime > 0.5 ):
-			G_InitEdict (e)
-			return e
+def G_Spawn(): #(returns edict_t *)
 
-	if g_main.glob.num_edicts == g_main.game.maxentities:
-		g_main.gi.error ("ED_Alloc: no free edicts")
+	e = G_SpawnOptional()
 
-	e = edicts[g_main.glob.num_edicts] # the C loop leaves e at g_edicts[i], i == num_edicts
-	g_main.glob.num_edicts += 1
-	G_InitEdict (e)
+	if not e:
+
+		g_main.gi.error("%s: no free edicts", "G_Spawn")
+
+
 	return e
 
 
@@ -398,14 +529,31 @@ G_FreeEdict
 Marks the edict as free
 =================
 """
-def G_FreeEdict (ed):
-	g_main.gi.unlinkentity (ed)		# unlink from world
+def G_FreeEdict(ed): #edict_t *
 
-	if g_main.g_edicts.index(ed) <= (int(g_main.maxclients.value) + g_local.BODY_QUEUE_SIZE):
-		# tried to free special edict
+	if not ed:
+
 		return
 
-	ed.__dict__.update(edict_t().__dict__)
+
+	g_main.gi.unlinkentity(ed) # unlink from world
+
+	if g_main.deathmatch.value or g_main.coop.value:
+
+		if g_main.g_edicts.index(ed) <= (g_main.maxclients.value + local.BODY_QUEUE_SIZE):
+
+			return
+
+
+	else:
+
+		if g_main.g_edicts.index(ed) <= g_main.maxclients.value:
+
+			return
+
+
+
+	ed.__dict__.update(edict_t().__dict__) #memset(ed, 0, sizeof(*ed));
 	ed.classname = "freed"
 	ed.freetime = g_main.level.time
 	ed.inuse = False
@@ -421,6 +569,11 @@ def G_TouchTriggers (ent):
 	#int i, num
 
 	# dead things don't activate triggers!
+	if not ent:
+
+		return
+
+
 	if ((ent.client or (ent.svflags & SVF_MONSTER)) and (ent.health <= 0)):
 		return
 
@@ -448,6 +601,11 @@ to force all entities it covers to immediately touch it
 """
 def G_TouchSolids (ent):
 	#int i, num
+
+	if not ent:
+
+		return
+
 
 	touch = [None] * shared.MAX_EDICTS
 	num = g_main.gi.BoxEdicts (ent.absmin, ent.absmax, touch, shared.MAX_EDICTS, AREA_SOLID)
@@ -481,6 +639,11 @@ of ent.  Ent should be unlinked before calling this!
 =================
 """
 def KillBox (ent):
+	if not ent:
+
+		return False
+
+
 	while True:
 		tr = g_main.gi.trace (ent.s.origin, ent.mins, ent.maxs, ent.s.origin, None, MASK_PLAYERSOLID)
 		if not tr.ent:

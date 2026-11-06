@@ -28,14 +28,15 @@ import random as _r
 pass
 from game import g_main
 from game import g_utils
-from game import g_local
+pass
 from common.shared.shared import vec3_origin, anglemod
 from common.header.shared import CONTENTS_SOLID, MASK_MONSTERSOLID, MASK_WATER, YAW
-from game.g_local import FL_PARTIALGROUND
+from game.header.local import FL_PARTIALGROUND
 
 DI_NODIR = -1
-from game.g_local import FL_FLY, FL_SWIM, AI_NOSTEP
+from game.header.local import FL_FLY, FL_SWIM, AI_NOSTEP
 from common.header import shared
+from game.header import local
 
 STEPSIZE = 18
 c_yes = 0
@@ -232,7 +233,7 @@ def SV_movestep (ent, move, relink):
 
 	if trace.fraction == 1:
 		# if monster had the ground pulled out, go ahead and fall
-		if ent.flags & g_local.FL_PARTIALGROUND:
+		if ent.flags & local.FL_PARTIALGROUND:
 			shared.VectorAdd (ent.s.origin, move, ent.s.origin)
 			if relink:
 				g_main.gi.linkentity (ent)
@@ -246,7 +247,7 @@ def SV_movestep (ent, move, relink):
 	shared.VectorCopy (trace.endpos, ent.s.origin)
 
 	if not M_CheckBottom (ent):
-		if ent.flags & g_local.FL_PARTIALGROUND:
+		if ent.flags & local.FL_PARTIALGROUND:
 			# entity had floor mostly pulled out from underneath it
 			# and is trying to correct
 			if relink:
@@ -256,8 +257,8 @@ def SV_movestep (ent, move, relink):
 		shared.VectorCopy (oldorg, ent.s.origin)
 		return False
 
-	if ent.flags & g_local.FL_PARTIALGROUND:
-		ent.flags &= ~g_local.FL_PARTIALGROUND
+	if ent.flags & local.FL_PARTIALGROUND:
+		ent.flags &= ~local.FL_PARTIALGROUND
 
 	ent.groundentity = trace.ent
 	ent.groundentity_linkcount = trace.ent.linkcount

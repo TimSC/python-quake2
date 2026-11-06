@@ -23,8 +23,11 @@ import struct
 import time
 import numpy as np
 
-from game import g_main, game, g_items, g_local
+from game import g_main, g_items
 from common.header import shared
+from common.header import common as common_h
+from game.header import game as game_h
+from game.header import local
 """
 #include "g_local.h"
 
@@ -148,103 +151,113 @@ field_t		clientfields[] =
 	{NULL, 0, F_INT}
 };
 
-/*
-============
-InitGame
-
-This will be called when the dll is first loaded, which
-only happens when a new game is started or a save game
-is loaded.
-============
 """
-def InitGame ():
 
-	"""
-	g_main.gi.dprintf ("==== InitGame ====\n");
+"""
+ * Allocate the edicts and clients arrays.
+"""
+def InitAllocations(): #void (static)
 
-	gun_x = g_main.gi.cvar ("gun_x", "0", 0);
-	gun_y = g_main.gi.cvar ("gun_y", "0", 0);
-	gun_z = g_main.gi.cvar ("gun_z", "0", 0);
+	#int num_c = maxclients->value;
+	#int num_e = maxentities->value;
+	num_c = int(g_main.maxclients.value)
+	num_e = int(g_main.maxentities.value)
 
-	//FIXME: sv_ prefix is wrong for these
-	sv_rollspeed = g_main.gi.cvar ("sv_rollspeed", "200", 0);
-	sv_rollangle = g_main.gi.cvar ("sv_rollangle", "2", 0);
-	sv_maxvelocity = g_main.gi.cvar ("sv_maxvelocity", "2000", 0);
-	sv_gravity = g_main.gi.cvar ("sv_gravity", "800", 0);
+	if num_c < 1:
 
-	// noset vars
-	dedicated = g_main.gi.cvar ("dedicated", "0", CVAR_NOSET);
+		num_c = 1
+		g_main.gi.cvar_forceset("maxclients", "1")
 
-	// latched vars
-	sv_cheats = g_main.gi.cvar ("cheats", "0", q_shared.CVAR_SERVERINFO|q_shared.CVAR_LATCH);
-	g_main.gi.cvar ("gamename", GAMEVERSION , q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH);
-	g_main.gi.cvar ("gamedate", __DATE__ , q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH);
 
-	maxclients = g_main.gi.cvar ("maxclients", "4", q_shared.CVAR_SERVERINFO | q_shared.CVAR_LATCH);
-	maxspectators = g_main.gi.cvar ("maxspectators", "4", q_shared.CVAR_SERVERINFO);	
-	"""
-	g_main.deathmatch = g_main.gi.cvar ("deathmatch", "0", shared.CVAR_LATCH)
-	g_main.coop = g_main.gi.cvar ("coop", "0", shared.CVAR_LATCH)
-	g_main.skill = g_main.gi.cvar ("skill", "1", shared.CVAR_LATCH)
-	g_main.maxclients = g_main.gi.cvar ("maxclients", "4", shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
-	g_main.maxspectators = g_main.gi.cvar ("maxspectators", "4", shared.CVAR_SERVERINFO)
-	g_main.maxentities = g_main.gi.cvar ("maxentities", "1024", shared.CVAR_LATCH)
+	if num_e < (num_c + 1):
+
+		num_e = num_c + 1
+		g_main.gi.cvar_forceset("maxentities", "%d" % (num_c + 1))
+
+
+	g_main.g_edicts = [game_h.edict_t() for _ in range(num_e)] # gi.TagMalloc (num_e * sizeof(g_edicts[0]), TAG_GAME)
+	g_main.game.maxentities = num_e
+
+	g_main.glob.edicts = g_main.g_edicts
+	g_main.glob.num_edicts = num_c + 1
+	g_main.glob.max_edicts = num_e
+
+	g_main.game.clients = [game_h.gclient_s() for _ in range(num_c)] # gi.TagMalloc (num_c * sizeof(game.clients[0]), TAG_GAME)
+	g_main.game.maxclients = num_c
+
+"""
+ * This will be called when the dll is first loaded,
+ * which only happens when a new game is started or
+ * a save game is loaded.
+"""
+def InitGame(): #void
+
+	g_main.gi.dprintf("Game is starting up.\n")
+	g_main.gi.dprintf("Game is %s built on %s.\n", local.GAMEVERSION, common_h.BUILD_DATE)
+
+	g_main.gun_x = g_main.gi.cvar("gun_x", "0", 0)
+	g_main.gun_y = g_main.gi.cvar("gun_y", "0", 0)
+	g_main.gun_z = g_main.gi.cvar("gun_z", "0", 0)
+	g_main.sv_rollspeed = g_main.gi.cvar("sv_rollspeed", "200", 0)
+	g_main.sv_rollangle = g_main.gi.cvar("sv_rollangle", "2", 0)
+	g_main.sv_maxvelocity = g_main.gi.cvar("sv_maxvelocity", "2000", 0)
+	g_main.sv_gravity = g_main.gi.cvar("sv_gravity", "800", 0)
+
+	# noset vars
+	g_main.dedicated = g_main.gi.cvar("dedicated", "0", shared.CVAR_NOSET)
+
+	# latched vars
+	g_main.sv_cheats = g_main.gi.cvar("cheats", "0", shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
+	g_main.gi.cvar("gamename", local.GAMEVERSION, shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
+	g_main.gi.cvar("gamedate", common_h.BUILD_DATE, shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
+	g_main.maxclients = g_main.gi.cvar("maxclients", "4", shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
+	g_main.maxspectators = g_main.gi.cvar("maxspectators", "4", shared.CVAR_SERVERINFO)
+	g_main.deathmatch = g_main.gi.cvar("deathmatch", "0", shared.CVAR_LATCH)
+	g_main.coop = g_main.gi.cvar("coop", "0", shared.CVAR_LATCH)
+	g_main.coop_pickup_weapons = g_main.gi.cvar("coop_pickup_weapons", "1", shared.CVAR_ARCHIVE)
+	g_main.coop_elevator_delay = g_main.gi.cvar("coop_elevator_delay", "1.0", shared.CVAR_ARCHIVE)
+	g_main.skill = g_main.gi.cvar("skill", "1", shared.CVAR_LATCH)
+	g_main.maxentities = g_main.gi.cvar("maxentities", "1024", shared.CVAR_LATCH)
+	g_main.g_footsteps = g_main.gi.cvar("g_footsteps", "1", shared.CVAR_ARCHIVE)
+	g_main.g_monsterfootsteps = g_main.gi.cvar("g_monsterfootsteps", "0", shared.CVAR_ARCHIVE)
+	g_main.g_fix_triggered = g_main.gi.cvar ("g_fix_triggered", "0", 0)
+	g_main.g_commanderbody_nogod = g_main.gi.cvar("g_commanderbody_nogod", "0", shared.CVAR_ARCHIVE)
 
 	# change anytime vars
-	g_main.dmflags = g_main.gi.cvar ("dmflags", "0", shared.CVAR_SERVERINFO)
-	g_main.fraglimit = g_main.gi.cvar ("fraglimit", "0", shared.CVAR_SERVERINFO)
-	g_main.timelimit = g_main.gi.cvar ("timelimit", "0", shared.CVAR_SERVERINFO)
-	g_main.password = g_main.gi.cvar ("password", "", shared.CVAR_USERINFO)
-	g_main.spectator_password = g_main.gi.cvar ("spectator_password", "", shared.CVAR_USERINFO)
-	g_main.needpass = g_main.gi.cvar ("needpass", "0", shared.CVAR_SERVERINFO)
-	g_main.filterban = g_main.gi.cvar ("filterban", "1", 0)
-
-	g_main.g_select_empty = g_main.gi.cvar ("g_select_empty", "0", shared.CVAR_ARCHIVE)
-
-	g_main.run_pitch = g_main.gi.cvar ("run_pitch", "0.002", 0)
-	g_main.run_roll = g_main.gi.cvar ("run_roll", "0.005", 0)
-	g_main.bob_up = g_main.gi.cvar ("bob_up", "0.005", 0)
-	g_main.bob_pitch = g_main.gi.cvar ("bob_pitch", "0.002", 0)
-	g_main.bob_roll = g_main.gi.cvar ("bob_roll", "0.002", 0)
-
-	# gun position / sv_ movement vars
-	g_main.gun_x = g_main.gi.cvar ("gun_x", "0", 0)
-	g_main.gun_y = g_main.gi.cvar ("gun_y", "0", 0)
-	g_main.gun_z = g_main.gi.cvar ("gun_z", "0", 0)
-	g_main.sv_rollspeed = g_main.gi.cvar ("sv_rollspeed", "200", 0)
-	g_main.sv_rollangle = g_main.gi.cvar ("sv_rollangle", "2", 0)
-	g_main.sv_maxvelocity = g_main.gi.cvar ("sv_maxvelocity", "2000", 0)
-	g_main.sv_gravity = g_main.gi.cvar ("sv_gravity", "800", 0)
-	g_main.dedicated = g_main.gi.cvar ("dedicated", "0", shared.CVAR_NOSET)
-	g_main.sv_cheats = g_main.gi.cvar ("cheats", "0", shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
+	g_main.dmflags = g_main.gi.cvar("dmflags", "0", shared.CVAR_SERVERINFO)
+	g_main.fraglimit = g_main.gi.cvar("fraglimit", "0", shared.CVAR_SERVERINFO)
+	g_main.timelimit = g_main.gi.cvar("timelimit", "0", shared.CVAR_SERVERINFO)
+	g_main.password = g_main.gi.cvar("password", "", shared.CVAR_USERINFO)
+	g_main.spectator_password = g_main.gi.cvar("spectator_password", "", shared.CVAR_USERINFO)
+	g_main.needpass = g_main.gi.cvar("needpass", "0", shared.CVAR_SERVERINFO)
+	g_main.filterban = g_main.gi.cvar("filterban", "1", 0)
+	g_main.g_select_empty = g_main.gi.cvar("g_select_empty", "0", shared.CVAR_ARCHIVE)
+	g_main.run_pitch = g_main.gi.cvar("run_pitch", "0.002", 0)
+	g_main.run_roll = g_main.gi.cvar("run_roll", "0.005", 0)
+	g_main.bob_up = g_main.gi.cvar("bob_up", "0.005", 0)
+	g_main.bob_pitch = g_main.gi.cvar("bob_pitch", "0.002", 0)
+	g_main.bob_roll = g_main.gi.cvar("bob_roll", "0.002", 0)
 
 	# flood control
-	g_main.flood_msgs = g_main.gi.cvar ("flood_msgs", "4", 0)
-	g_main.flood_persecond = g_main.gi.cvar ("flood_persecond", "4", 0)
-	g_main.flood_waitdelay = g_main.gi.cvar ("flood_waitdelay", "10", 0)
+	g_main.flood_msgs = g_main.gi.cvar("flood_msgs", "4", 0)
+	g_main.flood_persecond = g_main.gi.cvar("flood_persecond", "4", 0)
+	g_main.flood_waitdelay = g_main.gi.cvar("flood_waitdelay", "10", 0)
 
 	# dm map list
-	g_main.sv_maplist = g_main.gi.cvar ("sv_maplist", "", 0)
+	g_main.sv_maplist = g_main.gi.cvar("sv_maplist", "", 0)
 
-	# items
-	g_items.InitItems ()
+	# others
+	g_main.aimfix = g_main.gi.cvar("aimfix", "0", shared.CVAR_ARCHIVE)
+	g_main.g_machinegun_norecoil = g_main.gi.cvar("g_machinegun_norecoil", "0", shared.CVAR_ARCHIVE)
+	g_main.g_quick_weap = g_main.gi.cvar("g_quick_weap", "1", shared.CVAR_ARCHIVE)
+	g_main.g_swap_speed = g_main.gi.cvar("g_swap_speed", "1", shared.CVAR_ARCHIVE)
 
-	g_main.game.helpmessage1 = ""
-	g_main.game.helpmessage2 = ""
+	g_main.game.__init__() #memset(&game, 0, sizeof(game));
 
-	# initialize all entities for this game
-	g_main.game.maxentities = int(g_main.maxentities.value)
-	g_main.g_edicts = [] # g_main.gi.TagMalloc (game.maxentities * sizeof(g_edicts[0]), TAG_GAME)
-	for i in range(g_main.game.maxentities):
-		g_main.g_edicts.append(game.edict_t())
-	g_main.g_edicts[0].inuse = True
-	g_main.glob.edicts = g_main.g_edicts
-	g_main.glob.max_edicts = g_main.game.maxentities
+	g_items.InitItems()
 
-	# initialize all clients for this game
-	g_main.game.maxclients = int(g_main.maxclients.value)
-	g_main.game.clients = [game.gclient_s() for _ in range(g_main.game.maxclients)]
-	g_main.glob.num_edicts = g_main.game.maxclients + 1
+	# initialize entities and clients arrays
+	InitAllocations()
 
 #
 # C-compatible savegame binary layout (32-bit Quake2).
@@ -300,11 +313,11 @@ def _pack_game(gm):
 # attribute path (e.g. "s.origin", "monsterinfo.stand") resolved
 # via getattr/setattr.
 #
-_ft = g_local.fieldtype_t
+_ft = local.fieldtype_t
 
 
 def _fk (name, ofs, type, flags=0):
-	f = g_local.field_t()
+	f = local.field_t()
 	f.name = name
 	f.ofs = ofs
 	f.type = type
@@ -312,7 +325,7 @@ def _fk (name, ofs, type, flags=0):
 	return f
 
 
-_fields_nospawn = g_local.FFL_NOSPAWN
+_fields_nospawn = local.FFL_NOSPAWN
 
 fields = [
 	_fk("classname", "classname", _ft.F_LSTRING),
@@ -385,25 +398,25 @@ fields = [
 	_fk("endfunc", "moveinfo.endfunc", _ft.F_FUNCTION, _fields_nospawn),
 
 	# temp spawn vars -- only valid when the spawn function is called
-	_fk("lip", "st.lip", _ft.F_INT, g_local.FFL_SPAWNTEMP),
-	_fk("distance", "st.distance", _ft.F_INT, g_local.FFL_SPAWNTEMP),
-	_fk("height", "st.height", _ft.F_INT, g_local.FFL_SPAWNTEMP),
-	_fk("noise", "st.noise", _ft.F_LSTRING, g_local.FFL_SPAWNTEMP),
-	_fk("pausetime", "st.pausetime", _ft.F_FLOAT, g_local.FFL_SPAWNTEMP),
-	_fk("item", "st.item", _ft.F_LSTRING, g_local.FFL_SPAWNTEMP),
+	_fk("lip", "st.lip", _ft.F_INT, local.FFL_SPAWNTEMP),
+	_fk("distance", "st.distance", _ft.F_INT, local.FFL_SPAWNTEMP),
+	_fk("height", "st.height", _ft.F_INT, local.FFL_SPAWNTEMP),
+	_fk("noise", "st.noise", _ft.F_LSTRING, local.FFL_SPAWNTEMP),
+	_fk("pausetime", "st.pausetime", _ft.F_FLOAT, local.FFL_SPAWNTEMP),
+	_fk("item", "st.item", _ft.F_LSTRING, local.FFL_SPAWNTEMP),
 
 	# need for item field in edict struct, FFL_SPAWNTEMP item will be skipped on saves
 	_fk("item", "item", _ft.F_ITEM),
 
-	_fk("gravity", "st.gravity", _ft.F_LSTRING, g_local.FFL_SPAWNTEMP),
-	_fk("sky", "st.sky", _ft.F_LSTRING, g_local.FFL_SPAWNTEMP),
-	_fk("skyrotate", "st.skyrotate", _ft.F_FLOAT, g_local.FFL_SPAWNTEMP),
-	_fk("skyaxis", "st.skyaxis", _ft.F_VECTOR, g_local.FFL_SPAWNTEMP),
-	_fk("minyaw", "st.minyaw", _ft.F_FLOAT, g_local.FFL_SPAWNTEMP),
-	_fk("maxyaw", "st.maxyaw", _ft.F_FLOAT, g_local.FFL_SPAWNTEMP),
-	_fk("minpitch", "st.minpitch", _ft.F_FLOAT, g_local.FFL_SPAWNTEMP),
-	_fk("maxpitch", "st.maxpitch", _ft.F_FLOAT, g_local.FFL_SPAWNTEMP),
-	_fk("nextmap", "st.nextmap", _ft.F_LSTRING, g_local.FFL_SPAWNTEMP),
+	_fk("gravity", "st.gravity", _ft.F_LSTRING, local.FFL_SPAWNTEMP),
+	_fk("sky", "st.sky", _ft.F_LSTRING, local.FFL_SPAWNTEMP),
+	_fk("skyrotate", "st.skyrotate", _ft.F_FLOAT, local.FFL_SPAWNTEMP),
+	_fk("skyaxis", "st.skyaxis", _ft.F_VECTOR, local.FFL_SPAWNTEMP),
+	_fk("minyaw", "st.minyaw", _ft.F_FLOAT, local.FFL_SPAWNTEMP),
+	_fk("maxyaw", "st.maxyaw", _ft.F_FLOAT, local.FFL_SPAWNTEMP),
+	_fk("minpitch", "st.minpitch", _ft.F_FLOAT, local.FFL_SPAWNTEMP),
+	_fk("maxpitch", "st.maxpitch", _ft.F_FLOAT, local.FFL_SPAWNTEMP),
+	_fk("nextmap", "st.nextmap", _ft.F_LSTRING, local.FFL_SPAWNTEMP),
 ]
 
 levelfields = [
@@ -469,7 +482,7 @@ def _mmove_index (mv):
 
 
 def WriteField1 (f, field, base):
-	if field.flags & g_local.FFL_SPAWNTEMP:
+	if field.flags & local.FFL_SPAWNTEMP:
 		return
 
 	t = field.type
@@ -505,7 +518,7 @@ def WriteField1 (f, field, base):
 
 
 def WriteField2 (f, field, base):
-	if field.flags & g_local.FFL_SPAWNTEMP:
+	if field.flags & local.FFL_SPAWNTEMP:
 		return
 	if field.type == _ft.F_LSTRING:
 		s = _fld_get(base, field.ofs)
@@ -514,7 +527,7 @@ def WriteField2 (f, field, base):
 
 
 def ReadField (f, field, base):
-	if field.flags & g_local.FFL_SPAWNTEMP:
+	if field.flags & local.FFL_SPAWNTEMP:
 		return
 
 	t = field.type
@@ -643,7 +656,7 @@ def WriteGame (filename, autosave): #char *, qboolean
 	if autosave:
 		strdata = b"Autosave"
 	else:
-		strdata = time.strftime("%M %h %d %I:%P", time.localtime())[:15]
+		strdata = time.strftime("%M %h %d %I:%P", time.localtime())[:15].encode("latin-1")	# Q2PORT: bytes, as the autosave branch; group 9 ports this file
 
 	g_main.game.autosaved = autosave
 
@@ -665,7 +678,7 @@ def ReadGame (filename): #char *
 	strdata = f.read(16)
 
 	# re-allocate the edicts
-	g_main.g_edicts = [game.edict_t() for _ in range(int(g_main.game.maxentities))]
+	g_main.g_edicts = [game_h.edict_t() for _ in range(int(g_main.game.maxentities))]
 	g_main.glob.edicts = g_main.g_edicts
 	g_main.glob.max_edicts = int(g_main.game.maxentities)
 
@@ -798,8 +811,9 @@ def ReadLevel (filename): #char *
 		g_main.gi.error ("Couldn't open %s", filename)
 
 	# wipe all the entities
+	#memset(g_edicts, 0, game.maxentities * sizeof(g_edicts[0]));
 	for i in range(len(g_main.g_edicts)):
-		g_main.g_edicts[i] = game.edict_t()
+		g_main.g_edicts[i].__init__()	# Q2PORT: cleared in place, so pointers to the edicts stay valid
 	g_main.g_edicts[0].inuse = True
 	g_main.glob.num_edicts = int(g_main.maxclients.value) + 1
 
@@ -826,7 +840,7 @@ def ReadLevel (filename): #char *
 		ReadEdict (f, ent)
 
 		# let the server rebuild world links for this ent
-		ent.area = game.link_t()
+		ent.area = game_h.link_t()
 		g_main.gi.linkentity (ent)
 
 	f.close()

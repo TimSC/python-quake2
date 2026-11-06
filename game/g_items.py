@@ -1,53 +1,59 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+Item handling and item definitions.
+
+=======================================================================
 """
 from __future__ import annotations
 
-import random as _r
-pass
-from game import g_local
+import copy
+import numpy as np
+
 from game import g_main
 from game import g_utils
-from game import g_combat
 from game import g_cmds
-from game import g_weapon
-from game import p_weapon
-from game.game import solid_t
-from game.g_local import (gitem_t, gitem_armor_t, ARMOR_JACKET, ARMOR_COMBAT,
-	ARMOR_BODY, ARMOR_SHARD, IT_WEAPON, IT_AMMO, IT_ARMOR, IT_STAY_COOP,
-	IT_KEY, IT_POWERUP, DROPPED_ITEM, DROPPED_PLAYER_ITEM, ITEM_TRIGGER_SPAWN,
-	ITEM_NO_TOUCH, ITEM_TARGETS_USED, POWER_ARMOR_NONE, POWER_ARMOR_SHIELD,
-	POWER_ARMOR_SCREEN)
-from game.g_local import ammo_t
+from game.header.game import solid_t
+from game.header.local import gitem_t, gitem_armor_t, ARMOR_JACKET, ARMOR_COMBAT, ARMOR_BODY, ARMOR_SHARD, IT_WEAPON, IT_AMMO, IT_ARMOR, IT_STAY_COOP, IT_KEY, IT_POWERUP, IT_INSTANT_USE, DROPPED_ITEM, DROPPED_PLAYER_ITEM, ITEM_TRIGGER_SPAWN, ITEM_NO_TOUCH, ITEM_TARGETS_USED, POWER_ARMOR_NONE, POWER_ARMOR_SHIELD, POWER_ARMOR_SCREEN
+from game.header.local import ammo_t
+from common.shared.shared import Q_stricmp
+from common.header.shared import EF_ROTATE, RF_GLOW, CHAN_ITEM, CHAN_AUTO, ATTN_NORM, PRINT_HIGH, CS_ITEMS, STAT_PICKUP_ICON, STAT_PICKUP_STRING, STAT_SELECTED_ITEM, MASK_SOLID, CONTENTS_SOLID, MAX_QPATH, EV_ITEM_RESPAWN
+from game.header.local import MOVETYPE_TOSS, FL_RESPAWN, FL_POWER_ARMOR, FL_TEAMSLAVE, FRAMETIME
+from game.header.game import SVF_NOCLIENT
+from common.header import shared
+from common.shared import shared as shared_c
+from common.shared import rand
+from game.header import local
+from game.player import weapon as p_weapon
+
+"""
+#include "header/local.h"
+"""
+
 AMMO_BULLETS  = ammo_t.AMMO_BULLETS.value
 AMMO_SHELLS   = ammo_t.AMMO_SHELLS.value
 AMMO_ROCKETS  = ammo_t.AMMO_ROCKETS.value
 AMMO_GRENADES = ammo_t.AMMO_GRENADES.value
 AMMO_CELLS    = ammo_t.AMMO_CELLS.value
 AMMO_SLUGS    = ammo_t.AMMO_SLUGS.value
-from common.shared.shared import Q_stricmp
-from common.header.shared import EF_ROTATE, RF_GLOW, CHAN_ITEM, CHAN_AUTO, ATTN_NORM, PRINT_HIGH, CS_ITEMS, STAT_PICKUP_ICON, STAT_PICKUP_STRING, STAT_SELECTED_ITEM, MASK_SOLID, CONTENTS_SOLID, MAX_QPATH, EV_ITEM_RESPAWN
-from game.g_local import (MOVETYPE_TOSS, FL_RESPAWN, FL_POWER_ARMOR,
-	FL_TEAMSLAVE, FRAMETIME)
-from game.game import SVF_NOCLIENT
-from common.header import shared
-from common.shared import shared as shared_c
 
 SOLID_TRIGGER = solid_t.SOLID_TRIGGER.value
 SOLID_BBOX = solid_t.SOLID_BBOX.value
@@ -112,11 +118,26 @@ GetItemByIndex
 ===============
 """
 def GetItemByIndex (index):
-	if index == 0 or index >= g_main.game.num_items:
+	if (index <= 0) or (index >= itemlist_len):
 		return None
 
 	return itemlist[index]
 
+
+def GetWeaponAmmoIndex(weap)->int: #const gitem_t * (returns int)
+
+	if weap and weap.ammo:
+
+		#const gitem_t *ammo = FindItem(weap->ammo);
+		ammo = FindItem(weap.ammo)
+
+		if ammo:
+
+			return local.ITEM_INDEX(ammo)
+
+
+
+	return 0
 
 """
 ===============
@@ -126,7 +147,12 @@ FindItemByClassname
 def FindItemByClassname (classname):
 	#int i
 	#gitem_t *it
-	for i in range(g_main.game.num_items):
+	if classname is None:
+
+		return None
+
+
+	for i in range(itemlist_len):
 		it = itemlist[i]
 		if not it.classname:
 			continue
@@ -144,7 +170,12 @@ FindItem
 def FindItem (pickup_name):
 	#int i
 	#gitem_t *it
-	for i in range(g_main.game.num_items):
+	if pickup_name is None:
+
+		return None
+
+
+	for i in range(itemlist_len):
 		it = itemlist[i]
 		if not it.pickup_name:
 			continue
@@ -154,17 +185,17 @@ def FindItem (pickup_name):
 	return None
 
 
-def ITEM_INDEX (item):
-	# #define ITEM_INDEX(x) ((x)-itemlist)
-	return itemlist.index(item)
-
-
 """
 ==========
 DoRespawn
 ==========
 """
 def DoRespawn (ent):
+	if not ent:
+
+		return
+
+
 	if ent.team:
 		#edict_t *master
 		#int count, choice
@@ -176,7 +207,7 @@ def DoRespawn (ent):
 			count += 1
 			tmp = tmp.chain
 
-		choice = _r.randint(0, 2147483647) % count
+		choice = rand.randk() % count
 
 		count = 0
 		tmp = master
@@ -194,6 +225,11 @@ def DoRespawn (ent):
 
 
 def SetRespawn (ent, delay):
+	if not ent:
+
+		return
+
+
 	ent.flags |= FL_RESPAWN
 	ent.svflags |= SVF_NOCLIENT
 	ent.solid = SOLID_NOT
@@ -207,31 +243,37 @@ def SetRespawn (ent, delay):
 """
 def Pickup_Powerup (ent, other):
 	#int quantity
-	quantity = other.client.pers.inventory[ITEM_INDEX(ent.item)]
-	if (g_main.skill.value == 1 and quantity >= 2) or (g_main.skill.value >= 2 and quantity >= 1):
+	if not ent or not other:
+
+		return False
+
+
+	quantity = other.client.pers.inventory[local.ITEM_INDEX(ent.item)]
+	if ((g_main.skill.value == local.SKILL_MEDIUM) and
+		 (quantity >= 2)) or ((g_main.skill.value >= local.SKILL_HARD) and (quantity >= 1)):
 		return False
 
 	if g_main.coop.value and (ent.item.flags & IT_STAY_COOP) and (quantity > 0):
 		return False
 
-	other.client.pers.inventory[ITEM_INDEX(ent.item)] += 1
+	other.client.pers.inventory[local.ITEM_INDEX(ent.item)] += 1
 
 	if g_main.deathmatch.value:
 		if not (ent.spawnflags & DROPPED_ITEM):
 			SetRespawn (ent, ent.item.quantity)
-		if (int(g_main.dmflags.value) & shared.DF_INSTANT_ITEMS) or ((ent.item.use == Use_Quad) and (ent.spawnflags & DROPPED_PLAYER_ITEM)):
-			if (ent.item.use == Use_Quad) and (ent.spawnflags & DROPPED_PLAYER_ITEM):
-				global quad_drop_timeout_hack
-				quad_drop_timeout_hack = (ent.nextthink - g_main.level.time) / FRAMETIME
-			ent.item.use (other, ent.item)
 
 	return True
 
 
 def Drop_General (ent, item):
+	if not ent or not item:
+
+		return
+
+
 	Drop_Item (ent, item)
-	ent.client.pers.inventory[ITEM_INDEX(item)] -= 1
-	g_cmds.ValidateSelectedItem (ent)
+	ent.client.pers.inventory[local.ITEM_INDEX(item)] -= 1
+	g_cmds.ValidateSelectedItem (ent.client)
 
 
 """
@@ -240,6 +282,11 @@ Pickup_Adrenaline
 ==========
 """
 def Pickup_Adrenaline (ent, other):
+	if not ent or not other:
+
+		return False
+
+
 	if not g_main.deathmatch.value:
 		other.max_health += 1
 
@@ -258,6 +305,11 @@ Pickup_AncientHead
 ==========
 """
 def Pickup_AncientHead (ent, other):
+	if not ent or not other:
+
+		return False
+
+
 	other.max_health += 2
 
 	if not (ent.spawnflags & DROPPED_ITEM) and g_main.deathmatch.value:
@@ -274,6 +326,11 @@ Pickup_Bandolier
 def Pickup_Bandolier (ent, other):
 	#gitem_t *item
 	#int index
+	if not ent or not other:
+
+		return False
+
+
 	if other.client.pers.max_bullets < 250:
 		other.client.pers.max_bullets = 250
 	if other.client.pers.max_shells < 150:
@@ -285,14 +342,14 @@ def Pickup_Bandolier (ent, other):
 
 	item = FindItem("Bullets")
 	if item:
-		index = ITEM_INDEX(item)
+		index = local.ITEM_INDEX(item)
 		other.client.pers.inventory[index] += item.quantity
 		if other.client.pers.inventory[index] > other.client.pers.max_bullets:
 			other.client.pers.inventory[index] = other.client.pers.max_bullets
 
 	item = FindItem("Shells")
 	if item:
-		index = ITEM_INDEX(item)
+		index = local.ITEM_INDEX(item)
 		other.client.pers.inventory[index] += item.quantity
 		if other.client.pers.inventory[index] > other.client.pers.max_shells:
 			other.client.pers.inventory[index] = other.client.pers.max_shells
@@ -311,6 +368,11 @@ Pickup_Pack
 def Pickup_Pack (ent, other):
 	#gitem_t *item
 	#int index
+	if not ent or not other:
+
+		return False
+
+
 	if other.client.pers.max_bullets < 300:
 		other.client.pers.max_bullets = 300
 	if other.client.pers.max_shells < 200:
@@ -326,42 +388,42 @@ def Pickup_Pack (ent, other):
 
 	item = FindItem("Bullets")
 	if item:
-		index = ITEM_INDEX(item)
+		index = local.ITEM_INDEX(item)
 		other.client.pers.inventory[index] += item.quantity
 		if other.client.pers.inventory[index] > other.client.pers.max_bullets:
 			other.client.pers.inventory[index] = other.client.pers.max_bullets
 
 	item = FindItem("Shells")
 	if item:
-		index = ITEM_INDEX(item)
+		index = local.ITEM_INDEX(item)
 		other.client.pers.inventory[index] += item.quantity
 		if other.client.pers.inventory[index] > other.client.pers.max_shells:
 			other.client.pers.inventory[index] = other.client.pers.max_shells
 
 	item = FindItem("Cells")
 	if item:
-		index = ITEM_INDEX(item)
+		index = local.ITEM_INDEX(item)
 		other.client.pers.inventory[index] += item.quantity
 		if other.client.pers.inventory[index] > other.client.pers.max_cells:
 			other.client.pers.inventory[index] = other.client.pers.max_cells
 
 	item = FindItem("Grenades")
 	if item:
-		index = ITEM_INDEX(item)
+		index = local.ITEM_INDEX(item)
 		other.client.pers.inventory[index] += item.quantity
 		if other.client.pers.inventory[index] > other.client.pers.max_grenades:
 			other.client.pers.inventory[index] = other.client.pers.max_grenades
 
 	item = FindItem("Rockets")
 	if item:
-		index = ITEM_INDEX(item)
+		index = local.ITEM_INDEX(item)
 		other.client.pers.inventory[index] += item.quantity
 		if other.client.pers.inventory[index] > other.client.pers.max_rockets:
 			other.client.pers.inventory[index] = other.client.pers.max_rockets
 
 	item = FindItem("Slugs")
 	if item:
-		index = ITEM_INDEX(item)
+		index = local.ITEM_INDEX(item)
 		other.client.pers.inventory[index] += item.quantity
 		if other.client.pers.inventory[index] > other.client.pers.max_slugs:
 			other.client.pers.inventory[index] = other.client.pers.max_slugs
@@ -380,8 +442,13 @@ Use_Quad
 def Use_Quad (ent, item):
 	#int timeout
 	global quad_drop_timeout_hack
-	ent.client.pers.inventory[ITEM_INDEX(item)] -= 1
-	g_cmds.ValidateSelectedItem (ent)
+	if not ent or not item or not ent.client:
+
+		return
+
+
+	ent.client.pers.inventory[local.ITEM_INDEX(item)] -= 1
+	g_cmds.ValidateSelectedItem (ent.client)
 
 	if quad_drop_timeout_hack:
 		timeout = quad_drop_timeout_hack
@@ -403,8 +470,13 @@ Use_Breather
 ==========
 """
 def Use_Breather (ent, item):
-	ent.client.pers.inventory[ITEM_INDEX(item)] -= 1
-	g_cmds.ValidateSelectedItem (ent)
+	if not ent or not item or not ent.client:
+
+		return
+
+
+	ent.client.pers.inventory[local.ITEM_INDEX(item)] -= 1
+	g_cmds.ValidateSelectedItem (ent.client)
 
 	if ent.client.breather_framenum > g_main.level.framenum:
 		ent.client.breather_framenum += 300
@@ -418,8 +490,13 @@ Use_Envirosuit
 ==========
 """
 def Use_Envirosuit (ent, item):
-	ent.client.pers.inventory[ITEM_INDEX(item)] -= 1
-	g_cmds.ValidateSelectedItem (ent)
+	if not ent or not item or not ent.client:
+
+		return
+
+
+	ent.client.pers.inventory[local.ITEM_INDEX(item)] -= 1
+	g_cmds.ValidateSelectedItem (ent.client)
 
 	if ent.client.enviro_framenum > g_main.level.framenum:
 		ent.client.enviro_framenum += 300
@@ -433,8 +510,13 @@ Use_Invulnerability
 ==========
 """
 def Use_Invulnerability (ent, item):
-	ent.client.pers.inventory[ITEM_INDEX(item)] -= 1
-	g_cmds.ValidateSelectedItem (ent)
+	if not ent or not item:
+
+		return
+
+
+	ent.client.pers.inventory[local.ITEM_INDEX(item)] -= 1
+	g_cmds.ValidateSelectedItem (ent.client)
 
 	if ent.client.invincible_framenum > g_main.level.framenum:
 		ent.client.invincible_framenum += 300
@@ -450,8 +532,13 @@ Use_Silencer
 ==========
 """
 def Use_Silencer (ent, item):
-	ent.client.pers.inventory[ITEM_INDEX(item)] -= 1
-	g_cmds.ValidateSelectedItem (ent)
+	if not ent or not item:
+
+		return
+
+
+	ent.client.pers.inventory[local.ITEM_INDEX(item)] -= 1
+	g_cmds.ValidateSelectedItem (ent.client)
 	ent.client.silencer_shots += 30
 
 
@@ -461,18 +548,23 @@ Pickup_Key
 ==========
 """
 def Pickup_Key (ent, other):
+	if not ent or not other:
+
+		return False
+
+
 	if g_main.coop.value:
 		if ent.classname == "key_power_cube":
 			if other.client.pers.power_cubes & ((ent.spawnflags & 0x0000ff00) >> 8):
 				return False
-			other.client.pers.inventory[ITEM_INDEX(ent.item)] += 1
+			other.client.pers.inventory[local.ITEM_INDEX(ent.item)] += 1
 			other.client.pers.power_cubes |= ((ent.spawnflags & 0x0000ff00) >> 8)
 		else:
-			if other.client.pers.inventory[ITEM_INDEX(ent.item)]:
+			if other.client.pers.inventory[local.ITEM_INDEX(ent.item)]:
 				return False
-			other.client.pers.inventory[ITEM_INDEX(ent.item)] = 1
+			other.client.pers.inventory[local.ITEM_INDEX(ent.item)] = 1
 		return True
-	other.client.pers.inventory[ITEM_INDEX(ent.item)] += 1
+	other.client.pers.inventory[local.ITEM_INDEX(ent.item)] += 1
 	return True
 
 
@@ -483,8 +575,10 @@ Add_Ammo
 """
 def Add_Ammo (ent, item, count):
 	#int index, max
-	if not ent.client:
+	if not ent or not item or not ent.client:
+
 		return False
+
 
 	if item.tag == AMMO_BULLETS:
 		max = ent.client.pers.max_bullets
@@ -501,7 +595,7 @@ def Add_Ammo (ent, item, count):
 	else:
 		return False
 
-	index = ITEM_INDEX(item)
+	index = local.ITEM_INDEX(item)
 
 	if ent.client.pers.inventory[index] == max:
 		return False
@@ -517,6 +611,11 @@ def Add_Ammo (ent, item, count):
 def Pickup_Ammo (ent, other):
 	#int oldcount, count
 	#qboolean weapon
+	if not ent or not other:
+
+		return False
+
+
 	weapon = (ent.item.flags & IT_WEAPON)
 	if weapon and (int(g_main.dmflags.value) & shared.DF_INFINITE_AMMO):
 		count = 1000
@@ -525,7 +624,7 @@ def Pickup_Ammo (ent, other):
 	else:
 		count = ent.item.quantity
 
-	oldcount = other.client.pers.inventory[ITEM_INDEX(ent.item)]
+	oldcount = other.client.pers.inventory[local.ITEM_INDEX(ent.item)]
 
 	if not Add_Ammo (other, ent.item, count):
 		return False
@@ -542,7 +641,12 @@ def Pickup_Ammo (ent, other):
 def Drop_Ammo (ent, item):
 	#edict_t *dropped
 	#int index
-	index = ITEM_INDEX(item)
+	if not ent or not item:
+
+		return
+
+
+	index = local.ITEM_INDEX(item)
 	dropped = Drop_Item (ent, item)
 	if ent.client.pers.inventory[index] >= item.quantity:
 		dropped.count = item.quantity
@@ -558,13 +662,18 @@ def Drop_Ammo (ent, item):
 		return
 
 	ent.client.pers.inventory[index] -= dropped.count
-	g_cmds.ValidateSelectedItem (ent)
+	g_cmds.ValidateSelectedItem (ent.client)
 
 
 """
 ================================================================
 """
 def MegaHealth_think (self):
+	if not self:
+
+		return
+
+
 	if self.owner.health > self.owner.max_health:
 		self.nextthink = g_main.level.time + 1
 		self.owner.health -= 1
@@ -577,6 +686,11 @@ def MegaHealth_think (self):
 
 
 def Pickup_Health (ent, other):
+	if not ent or not other:
+
+		return False
+
+
 	if not (ent.style & HEALTH_IGNORE_MAX):
 		if other.health >= other.max_health:
 			return False
@@ -605,8 +719,10 @@ def Pickup_Health (ent, other):
 ================================================================
 """
 def ArmorIndex (ent):
-	if not ent.client:
+	if not ent or not ent.client:
+
 		return 0
+
 
 	if ent.client.pers.inventory[jacket_armor_index] > 0:
 		return jacket_armor_index
@@ -625,6 +741,11 @@ def Pickup_Armor (ent, other):
 	#gitem_armor_t *oldinfo, *newinfo
 	#float salvage
 	# get info on new armor
+	if not ent or not other:
+
+		return False
+
+
 	newinfo = ent.item.info
 
 	old_armor_index = ArmorIndex (other)
@@ -638,7 +759,7 @@ def Pickup_Armor (ent, other):
 
 	# if player has no armor, just use it
 	elif not old_armor_index:
-		other.client.pers.inventory[ITEM_INDEX(ent.item)] = newinfo.base_count
+		other.client.pers.inventory[local.ITEM_INDEX(ent.item)] = newinfo.base_count
 
 	# use the better armor
 	else:
@@ -662,7 +783,7 @@ def Pickup_Armor (ent, other):
 			other.client.pers.inventory[old_armor_index] = 0
 
 			# change armor to new item with computed value
-			other.client.pers.inventory[ITEM_INDEX(ent.item)] = newcount
+			other.client.pers.inventory[local.ITEM_INDEX(ent.item)] = newcount
 		else:
 			# calc new armor values
 			salvage = newinfo.normal_protection / oldinfo.normal_protection
@@ -688,8 +809,15 @@ def Pickup_Armor (ent, other):
 ================================================================
 """
 def PowerArmorType (ent):
-	if not ent.client:
+	if not ent:
+
 		return POWER_ARMOR_NONE
+
+
+	if not ent.client:
+
+		return POWER_ARMOR_NONE
+
 
 	if not (ent.flags & FL_POWER_ARMOR):
 		return POWER_ARMOR_NONE
@@ -705,11 +833,16 @@ def PowerArmorType (ent):
 
 def Use_PowerArmor (ent, item):
 	#int index
+	if not ent or not item:
+
+		return
+
+
 	if ent.flags & FL_POWER_ARMOR:
 		ent.flags &= ~FL_POWER_ARMOR
 		g_main.gi.sound(ent, CHAN_AUTO, g_main.gi.soundindex("misc/power2.wav"), 1, ATTN_NORM, 0)
 	else:
-		index = ITEM_INDEX(FindItem("cells"))
+		index = local.ITEM_INDEX(FindItem("cells"))
 		if not ent.client.pers.inventory[index]:
 			g_main.gi.cprintf (ent, PRINT_HIGH, "No cells for power armor.\n")
 			return
@@ -719,9 +852,14 @@ def Use_PowerArmor (ent, item):
 
 def Pickup_PowerArmor (ent, other):
 	#int quantity
-	quantity = other.client.pers.inventory[ITEM_INDEX(ent.item)]
+	if not ent or not other:
 
-	other.client.pers.inventory[ITEM_INDEX(ent.item)] += 1
+		return False
+
+
+	quantity = other.client.pers.inventory[local.ITEM_INDEX(ent.item)]
+
+	other.client.pers.inventory[local.ITEM_INDEX(ent.item)] += 1
 
 	if g_main.deathmatch.value:
 		if not (ent.spawnflags & DROPPED_ITEM):
@@ -734,7 +872,12 @@ def Pickup_PowerArmor (ent, other):
 
 
 def Drop_PowerArmor (ent, item):
-	if (ent.flags & FL_POWER_ARMOR) and (ent.client.pers.inventory[ITEM_INDEX(item)] == 1):
+	if not ent or not item:
+
+		return
+
+
+	if (ent.flags & FL_POWER_ARMOR) and (ent.client.pers.inventory[local.ITEM_INDEX(item)] == 1):
 		Use_PowerArmor (ent, item)
 	Drop_General (ent, item)
 
@@ -746,8 +889,16 @@ Touch_Item
 """
 def Touch_Item (ent, other, plane, surf):
 	#qboolean taken
-	if not other.client:
+	if not ent or not other:
+
 		return
+
+
+	if not other.client:
+
+		return
+
+
 	if other.health < 1:
 		return		# dead people can't pickup
 	if not ent.item.pickup:
@@ -761,12 +912,12 @@ def Touch_Item (ent, other, plane, surf):
 
 		# show icon and name on status bar
 		other.client.ps.stats[STAT_PICKUP_ICON] = g_main.gi.imageindex(ent.item.icon)
-		other.client.ps.stats[STAT_PICKUP_STRING] = CS_ITEMS+ITEM_INDEX(ent.item)
+		other.client.ps.stats[STAT_PICKUP_STRING] = CS_ITEMS+local.ITEM_INDEX(ent.item)
 		other.client.pickup_msg_time = g_main.level.time + 3.0
 
 		# change selected item
 		if ent.item.use:
-			other.client.pers.selected_item = other.client.ps.stats[STAT_SELECTED_ITEM] = ITEM_INDEX(ent.item)
+			other.client.pers.selected_item = other.client.ps.stats[STAT_SELECTED_ITEM] = local.ITEM_INDEX(ent.item)
 
 		if ent.item.pickup == Pickup_Health:
 			if ent.count == 2:
@@ -779,6 +930,30 @@ def Touch_Item (ent, other, plane, surf):
 				g_main.gi.sound(other, CHAN_ITEM, g_main.gi.soundindex("items/m_health.wav"), 1, ATTN_NORM, 0)
 		elif ent.item.pickup_sound:
 			g_main.gi.sound(other, CHAN_ITEM, g_main.gi.soundindex(ent.item.pickup_sound), 1, ATTN_NORM, 0)
+
+		# activate item instantly if appropriate
+		# moved down here so activation sounds override the pickup sound
+		if g_main.deathmatch.value:
+
+			if (((int(g_main.dmflags.value) & shared.DF_INSTANT_ITEMS) and
+				 (ent.item.flags & IT_INSTANT_USE)) or
+				((ent.item.use == Use_Quad) and
+				 (ent.spawnflags & DROPPED_PLAYER_ITEM))):
+
+				if (ent.item.use == Use_Quad) and \
+					(ent.spawnflags & DROPPED_PLAYER_ITEM):
+
+					global quad_drop_timeout_hack
+					quad_drop_timeout_hack = \
+						int((ent.nextthink - g_main.level.time) / FRAMETIME) # int quad_drop_timeout_hack
+
+
+				if ent.item.use:
+
+					ent.item.use(other, ent.item)
+
+
+
 
 	if not (ent.spawnflags & ITEM_TARGETS_USED):
 		g_utils.G_UseTargets (ent, other)
@@ -798,6 +973,11 @@ def Touch_Item (ent, other, plane, surf):
 ================================================================
 """
 def drop_temp_touch (ent, other, plane, surf):
+	if not ent or not other:
+
+		return
+
+
 	if other == ent.owner:
 		return
 
@@ -805,6 +985,11 @@ def drop_temp_touch (ent, other, plane, surf):
 
 
 def drop_make_touchable (ent):
+	if not ent:
+
+		return
+
+
 	ent.touch = Touch_Item
 	if g_main.deathmatch.value:
 		ent.nextthink = g_main.level.time + 29
@@ -813,10 +998,14 @@ def drop_make_touchable (ent):
 
 def Drop_Item (ent, item):
 	#edict_t *dropped
-	#vec3_t forward, right, offset
-	forward = [0, 0, 0]
-	right = [0, 0, 0]
-	offset = [0, 0, 0]
+	#vec3_t forward, right
+	if not ent or not item:
+
+		return None
+
+
+	forward = np.zeros((3,), dtype=np.float32)
+	right = np.zeros((3,), dtype=np.float32)
 
 	dropped = g_utils.G_Spawn()
 
@@ -825,8 +1014,18 @@ def Drop_Item (ent, item):
 	dropped.spawnflags = DROPPED_ITEM
 	dropped.s.effects = item.world_model_flags
 	dropped.s.renderfx = RF_GLOW
-	shared.VectorSet (dropped.mins, -15, -15, -15)
-	shared.VectorSet (dropped.maxs, 15, 15, 15)
+
+	if rand.frandk() > 0.5:
+
+		dropped.s.angles[1] += rand.frandk()*45
+
+	else:
+
+		dropped.s.angles[1] -= rand.frandk()*45
+
+
+	shared.VectorSet (dropped.mins, -16, -16, -16)
+	shared.VectorSet (dropped.maxs, 16, 16, 16)
 	g_main.gi.setmodel (dropped, dropped.item.world_model)
 	dropped.solid = SOLID_TRIGGER
 	dropped.movetype = MOVETYPE_TOSS
@@ -834,7 +1033,9 @@ def Drop_Item (ent, item):
 	dropped.owner = ent
 
 	if ent.client:
+		#vec3_t offset;
 		#trace_t trace
+		offset = np.zeros((3,), dtype=np.float32)
 		shared_c.AngleVectors (ent.client.v_angle, forward, right, None)
 		shared.VectorSet(offset, 24, 0, -16)
 		g_utils.G_ProjectSource (ent.s.origin, offset, forward, right, dropped.s.origin)
@@ -857,6 +1058,11 @@ def Drop_Item (ent, item):
 
 
 def Use_Item (ent, other, activator):
+	if not ent:
+
+		return
+
+
 	ent.svflags &= ~SVF_NOCLIENT
 	ent.use = None
 
@@ -877,6 +1083,11 @@ def droptofloor (ent):
 	#trace_t tr
 	#vec3_t dest
 	#float *v
+	if not ent:
+
+		return
+
+
 	v = [0, 0, 0]
 	dest = [0, 0, 0]
 
@@ -898,7 +1109,7 @@ def droptofloor (ent):
 
 	tr = g_main.gi.trace (ent.s.origin, ent.mins, ent.maxs, dest, ent, MASK_SOLID)
 	if tr.startsolid:
-		g_main.gi.dprintf ("droptofloor: %s startsolid at %s\n", ent.classname, g_utils.vtos(ent.s.origin))
+		g_main.gi.dprintf ("%s: %s startsolid at %s\n", "droptofloor", ent.classname, g_utils.vtos(ent.s.origin))
 		g_utils.G_FreeEdict (ent)
 		return
 
@@ -971,6 +1182,7 @@ def PrecacheItem (it):
 		l = pos - start
 		if l >= MAX_QPATH or l < 5:
 			g_main.gi.error ("PrecacheItem: %s has bad precache string", it.classname)
+			return
 		data = s[start:pos]
 		if pos < len(s):
 			pos += 1
@@ -992,6 +1204,11 @@ SpawnItem
 ============
 """
 def SpawnItem (ent, item):
+	if not ent or not item:
+
+		return
+
+
 	PrecacheItem (item)
 
 	if ent.spawnflags:
@@ -1018,7 +1235,7 @@ def SpawnItem (ent, item):
 				g_utils.G_FreeEdict (ent)
 				return
 
-	if g_main.coop.value and (ent.classname == "key_power_cube"):
+	if g_main.coop.value and not (ent.spawnflags & ITEM_NO_TOUCH) and (ent.classname == "key_power_cube"):
 		ent.spawnflags |= (1 << (8 + g_main.level.power_cubes))
 		g_main.level.power_cubes += 1
 
@@ -1065,7 +1282,7 @@ def _mk (classname, pickup, use, drop, weaponthink, pickup_sound,
 	return it
 
 
-itemlist = [
+gameitemlist = [ #static const gitem_t []
 	# leave index 0 alone
 	_mk(None, None, None, None, None, None, None, 0, None, None, None,
 		0, 0, None, 0, 0, None, 0, ""),
@@ -1111,14 +1328,14 @@ itemlist = [
 	_mk("weapon_blaster", None, p_weapon.Use_Weapon, None,
 		p_weapon.Weapon_Blaster, "misc/w_pkup.wav", None, 0,
 		"models/weapons/v_blast/tris.md2", "w_blaster", "Blaster", 0, 0,
-		None, IT_WEAPON|IT_STAY_COOP, g_local.WEAP_BLASTER, None, 0,
+		None, IT_WEAPON|IT_STAY_COOP, local.WEAP_BLASTER, None, 0,
 		"weapons/blastf1a.wav misc/lasfly.wav"),
 
 	_mk("weapon_shotgun", p_weapon.Pickup_Weapon, p_weapon.Use_Weapon,
 		p_weapon.Drop_Weapon, p_weapon.Weapon_Shotgun, "misc/w_pkup.wav",
 		"models/weapons/g_shotg/tris.md2", EF_ROTATE,
 		"models/weapons/v_shotg/tris.md2", "w_shotgun", "Shotgun", 0, 1,
-		"Shells", IT_WEAPON|IT_STAY_COOP, g_local.WEAP_SHOTGUN, None, 0,
+		"Shells", IT_WEAPON|IT_STAY_COOP, local.WEAP_SHOTGUN, None, 0,
 		"weapons/shotgf1b.wav weapons/shotgr1b.wav"),
 
 	_mk("weapon_supershotgun", p_weapon.Pickup_Weapon, p_weapon.Use_Weapon,
@@ -1126,27 +1343,27 @@ itemlist = [
 		"misc/w_pkup.wav", "models/weapons/g_shotg2/tris.md2", EF_ROTATE,
 		"models/weapons/v_shotg2/tris.md2", "w_sshotgun", "Super Shotgun",
 		0, 2, "Shells", IT_WEAPON|IT_STAY_COOP,
-		g_local.WEAP_SUPERSHOTGUN, None, 0, "weapons/sshotf1b.wav"),
+		local.WEAP_SUPERSHOTGUN, None, 0, "weapons/sshotf1b.wav"),
 
 	_mk("weapon_machinegun", p_weapon.Pickup_Weapon, p_weapon.Use_Weapon,
 		p_weapon.Drop_Weapon, p_weapon.Weapon_Machinegun,
 		"misc/w_pkup.wav", "models/weapons/g_machn/tris.md2", EF_ROTATE,
 		"models/weapons/v_machn/tris.md2", "w_machinegun", "Machinegun", 0,
-		1, "Bullets", IT_WEAPON|IT_STAY_COOP, g_local.WEAP_MACHINEGUN, None,
+		1, "Bullets", IT_WEAPON|IT_STAY_COOP, local.WEAP_MACHINEGUN, None,
 		0, "weapons/machgf1b.wav weapons/machgf2b.wav weapons/machgf3b.wav weapons/machgf4b.wav weapons/machgf5b.wav"),
 
 	_mk("weapon_chaingun", p_weapon.Pickup_Weapon, p_weapon.Use_Weapon,
 		p_weapon.Drop_Weapon, p_weapon.Weapon_Chaingun, "misc/w_pkup.wav",
 		"models/weapons/g_chain/tris.md2", EF_ROTATE,
 		"models/weapons/v_chain/tris.md2", "w_chaingun", "Chaingun", 0, 1,
-		"Bullets", IT_WEAPON|IT_STAY_COOP, g_local.WEAP_CHAINGUN, None, 0,
+		"Bullets", IT_WEAPON|IT_STAY_COOP, local.WEAP_CHAINGUN, None, 0,
 		"weapons/chngnu1a.wav weapons/chngnl1a.wav weapons/machgf3b.wav` weapons/chngnd1a.wav"),
 
 	_mk("ammo_grenades", Pickup_Ammo, p_weapon.Use_Weapon, Drop_Ammo,
 		p_weapon.Weapon_Grenade, "misc/am_pkup.wav",
 		"models/items/ammo/grenades/medium/tris.md2", 0,
 		"models/weapons/v_handgr/tris.md2", "a_grenades", "Grenades", 3, 5,
-		"grenades", IT_AMMO|IT_WEAPON, g_local.WEAP_GRENADES, None,
+		"grenades", IT_AMMO|IT_WEAPON, local.WEAP_GRENADES, None,
 		AMMO_GRENADES,
 		"weapons/hgrent1a.wav weapons/hgrena1b.wav weapons/hgrenc1b.wav weapons/hgrenb1a.wav weapons/hgrenb2a.wav "),
 
@@ -1155,7 +1372,7 @@ itemlist = [
 		"misc/w_pkup.wav", "models/weapons/g_launch/tris.md2", EF_ROTATE,
 		"models/weapons/v_launch/tris.md2", "w_glauncher",
 		"Grenade Launcher", 0, 1, "Grenades", IT_WEAPON|IT_STAY_COOP,
-		g_local.WEAP_GRENADELAUNCHER, None, 0,
+		local.WEAP_GRENADELAUNCHER, None, 0,
 		"models/objects/grenade/tris.md2 weapons/grenlf1a.wav weapons/grenlr1b.wav weapons/grenlb1b.wav"),
 
 	_mk("weapon_rocketlauncher", p_weapon.Pickup_Weapon, p_weapon.Use_Weapon,
@@ -1163,7 +1380,7 @@ itemlist = [
 		"misc/w_pkup.wav", "models/weapons/g_rocket/tris.md2", EF_ROTATE,
 		"models/weapons/v_rocket/tris.md2", "w_rlauncher", "Rocket Launcher",
 		0, 1, "Rockets", IT_WEAPON|IT_STAY_COOP,
-		g_local.WEAP_ROCKETLAUNCHER, None, 0,
+		local.WEAP_ROCKETLAUNCHER, None, 0,
 		"models/objects/rocket/tris.md2 weapons/rockfly.wav weapons/rocklf1a.wav weapons/rocklr1b.wav models/objects/debris2/tris.md2"),
 
 	_mk("weapon_hyperblaster", p_weapon.Pickup_Weapon, p_weapon.Use_Weapon,
@@ -1171,21 +1388,21 @@ itemlist = [
 		"misc/w_pkup.wav", "models/weapons/g_hyperb/tris.md2", EF_ROTATE,
 		"models/weapons/v_hyperb/tris.md2", "w_hyperblaster",
 		"HyperBlaster", 0, 1, "Cells", IT_WEAPON|IT_STAY_COOP,
-		g_local.WEAP_HYPERBLASTER, None, 0,
+		local.WEAP_HYPERBLASTER, None, 0,
 		"weapons/hyprbu1a.wav weapons/hyprbl1a.wav weapons/hyprbf1a.wav weapons/hyprbd1a.wav misc/lasfly.wav"),
 
 	_mk("weapon_railgun", p_weapon.Pickup_Weapon, p_weapon.Use_Weapon,
 		p_weapon.Drop_Weapon, p_weapon.Weapon_Railgun, "misc/w_pkup.wav",
 		"models/weapons/g_rail/tris.md2", EF_ROTATE,
 		"models/weapons/v_rail/tris.md2", "w_railgun", "Railgun", 0, 1,
-		"Slugs", IT_WEAPON|IT_STAY_COOP, g_local.WEAP_RAILGUN, None, 0,
+		"Slugs", IT_WEAPON|IT_STAY_COOP, local.WEAP_RAILGUN, None, 0,
 		"weapons/rg_hum.wav"),
 
 	_mk("weapon_bfg", p_weapon.Pickup_Weapon, p_weapon.Use_Weapon,
 		p_weapon.Drop_Weapon, p_weapon.Weapon_BFG, "misc/w_pkup.wav",
 		"models/weapons/g_bfg/tris.md2", EF_ROTATE,
 		"models/weapons/v_bfg/tris.md2", "w_bfg", "BFG10K", 0, 50, "Cells",
-		IT_WEAPON|IT_STAY_COOP, g_local.WEAP_BFG, None, 0,
+		IT_WEAPON|IT_STAY_COOP, local.WEAP_BFG, None, 0,
 		"sprites/s_bfg1.sp2 sprites/s_bfg2.sp2 sprites/s_bfg3.sp2 weapons/bfg__f1y.wav weapons/bfg__l1a.wav weapons/bfg__x1b.wav weapons/bfg_hum.wav"),
 
 	#
@@ -1218,29 +1435,29 @@ itemlist = [
 	#
 	_mk("item_quad", Pickup_Powerup, Use_Quad, Drop_General, None,
 		"items/pkup.wav", "models/items/quaddama/tris.md2", EF_ROTATE, None,
-		"p_quad", "Quad Damage", 2, 60, None, IT_POWERUP, 0, None, 0,
+		"p_quad", "Quad Damage", 2, 60, None, IT_POWERUP | IT_INSTANT_USE, 0, None, 0,
 		"items/damage.wav items/damage2.wav items/damage3.wav"),
 
 	_mk("item_invulnerability", Pickup_Powerup, Use_Invulnerability,
 		Drop_General, None, "items/pkup.wav",
 		"models/items/invulner/tris.md2", EF_ROTATE, None,
-		"p_invulnerability", "Invulnerability", 2, 300, None, IT_POWERUP,
+		"p_invulnerability", "Invulnerability", 2, 300, None, IT_POWERUP | IT_INSTANT_USE,
 		0, None, 0,
 		"items/protect.wav items/protect2.wav items/protect4.wav"),
 
 	_mk("item_silencer", Pickup_Powerup, Use_Silencer, Drop_General, None,
 		"items/pkup.wav", "models/items/silencer/tris.md2", EF_ROTATE, None,
-		"p_silencer", "Silencer", 2, 60, None, IT_POWERUP, 0, None, 0, ""),
+		"p_silencer", "Silencer", 2, 60, None, IT_POWERUP | IT_INSTANT_USE, 0, None, 0, ""),
 
 	_mk("item_breather", Pickup_Powerup, Use_Breather, Drop_General, None,
 		"items/pkup.wav", "models/items/breather/tris.md2", EF_ROTATE, None,
-		"p_rebreather", "Rebreather", 2, 60, None, IT_STAY_COOP|IT_POWERUP,
+		"p_rebreather", "Rebreather", 2, 60, None, IT_STAY_COOP | IT_POWERUP | IT_INSTANT_USE,
 		0, None, 0, "items/airout.wav"),
 
 	_mk("item_enviro", Pickup_Powerup, Use_Envirosuit, Drop_General, None,
 		"items/pkup.wav", "models/items/enviro/tris.md2", EF_ROTATE, None,
 		"p_envirosuit", "Environment Suit", 2, 60, None,
-		IT_STAY_COOP|IT_POWERUP, 0, None, 0, "items/airout.wav"),
+		IT_STAY_COOP | IT_POWERUP | IT_INSTANT_USE, 0, None, 0, "items/airout.wav"),
 
 	_mk("item_ancient_head", Pickup_AncientHead, None, None, None,
 		"items/pkup.wav", "models/items/c_head/tris.md2", EF_ROTATE, None,
@@ -1312,7 +1529,9 @@ itemlist = [
 		0, 0, None, 0, 0, None, 0, ""),
 ]
 
-# the C table ends with a final {NULL} marker; num_items = len - 1
+itemlist = [gitem_t() for _ in range(shared.MAX_ITEMS)] #gitem_t [MAX_ITEMS]
+
+itemlist_len = len(gameitemlist) - 1 #const int, ARRLEN(gameitemlist) - 1 (the final {NULL} marker isn't counted)
 
 
 """
@@ -1320,6 +1539,11 @@ itemlist = [
 */
 """
 def SP_item_health (self):
+	if not self:
+
+		return
+
+
 	if g_main.deathmatch.value and (int(g_main.dmflags.value) & shared.DF_NO_HEALTH):
 		g_utils.G_FreeEdict (self)
 		return
@@ -1335,6 +1559,11 @@ def SP_item_health (self):
 */
 """
 def SP_item_health_small (self):
+	if not self:
+
+		return
+
+
 	if g_main.deathmatch.value and (int(g_main.dmflags.value) & shared.DF_NO_HEALTH):
 		g_utils.G_FreeEdict (self)
 		return
@@ -1351,6 +1580,11 @@ def SP_item_health_small (self):
 */
 """
 def SP_item_health_large (self):
+	if not self:
+
+		return
+
+
 	if g_main.deathmatch.value and (int(g_main.dmflags.value) & shared.DF_NO_HEALTH):
 		g_utils.G_FreeEdict (self)
 		return
@@ -1366,6 +1600,11 @@ def SP_item_health_large (self):
 */
 """
 def SP_item_health_mega (self):
+	if not self:
+
+		return
+
+
 	if g_main.deathmatch.value and (int(g_main.dmflags.value) & shared.DF_NO_HEALTH):
 		g_utils.G_FreeEdict (self)
 		return
@@ -1382,8 +1621,23 @@ def SP_item_health_mega (self):
 InitItems
 ==========
 """
-def InitItems ():
-	g_main.game.num_items = len(itemlist) - 1
+def InitItems (): #void
+
+	if len(gameitemlist) > len(itemlist): #sizeof(gameitemlist) > sizeof(itemlist)
+
+		g_main.gi.error("Defined items more than %d\n", shared.MAX_ITEMS)
+		return
+
+
+	for i in range(len(itemlist)): #memset(itemlist, 0, sizeof(itemlist));
+
+		itemlist[i] = gitem_t()
+
+
+	for i in range(len(gameitemlist)): #memcpy(itemlist, gameitemlist, sizeof(gameitemlist));
+
+		itemlist[i] = copy.copy(gameitemlist[i])
+
 
 
 """
@@ -1399,12 +1653,12 @@ def SetItemNames ():
 	global jacket_armor_index, combat_armor_index, body_armor_index
 	global power_screen_index, power_shield_index
 
-	for i in range(g_main.game.num_items):
+	for i in range(itemlist_len):
 		it = itemlist[i]
 		g_main.gi.configstring (CS_ITEMS+i, it.pickup_name)
 
-	jacket_armor_index = ITEM_INDEX(FindItem("Jacket Armor"))
-	combat_armor_index = ITEM_INDEX(FindItem("Combat Armor"))
-	body_armor_index   = ITEM_INDEX(FindItem("Body Armor"))
-	power_screen_index = ITEM_INDEX(FindItem("Power Screen"))
-	power_shield_index = ITEM_INDEX(FindItem("Power Shield"))
+	jacket_armor_index = local.ITEM_INDEX(FindItem("Jacket Armor"))
+	combat_armor_index = local.ITEM_INDEX(FindItem("Combat Armor"))
+	body_armor_index   = local.ITEM_INDEX(FindItem("Body Armor"))
+	power_screen_index = local.ITEM_INDEX(FindItem("Power Screen"))
+	power_shield_index = local.ITEM_INDEX(FindItem("Power Shield"))

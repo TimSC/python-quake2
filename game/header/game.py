@@ -1,30 +1,36 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+Here are the client, server and game are tied together.
+
+=======================================================================
 """
 from __future__ import annotations
 
 import numpy as np
 from enum import Enum
 from enum import Enum
-pass
-from game import g_local
 from common.header import shared
+from game.header import local
+
 """
 // game.h -- game dll information visible to server
 """
@@ -106,8 +112,8 @@ class gclient_s(object):
 
 		#================================
 		# private to game (from g_local.h struct gclient_s)
-		self.pers = g_local.client_persistant_t()
-		self.resp = g_local.client_respawn_t()
+		self.pers = local.client_persistant_t()
+		self.resp = local.client_respawn_t()
 		self.old_pmove = shared.pmove_state_t()	# for detecting out-of-pmove changes
 
 		self.showscores = False
@@ -135,7 +141,7 @@ class gclient_s(object):
 
 		self.killer_yaw = 0.0					# when dead, look at killer
 
-		self.weaponstate = g_local.weaponstate_t.WEAPON_READY
+		self.weaponstate = local.weaponstate_t.WEAPON_READY
 		self.kick_angles = np.zeros((3,), dtype=np.float32)	# weapon kicks
 		self.kick_origin = np.zeros((3,), dtype=np.float32)
 		self.v_dmg_roll = 0.0
@@ -193,7 +199,6 @@ class gclient_s(object):
 		self.flood_locktill = 0.0			# locked from talking
 		self.flood_when = [0.0 for _ in range(10)]	# when messages were said
 		self.flood_whenhead = 0			# head pointer for when said
-
 
 
 class edict_t(object):
@@ -311,7 +316,7 @@ class edict_t(object):
 		self.health = 0
 		self.max_health = 0
 		self.gib_health = 0
-		self.deadflag = g_local.DEAD_NO
+		self.deadflag = local.DEAD_NO
 		self.show_hostile = False
 
 		self.powerarmor_time = 0.0
@@ -348,7 +353,7 @@ class edict_t(object):
 		self.delay = 0.0				# before firing targets
 		self.random = 0.0
 
-		self.teleport_time = 0.0
+		self.last_sound_time = 0.0 #float
 
 		self.watertype = 0
 		self.waterlevel = 0
@@ -364,8 +369,8 @@ class edict_t(object):
 		self.item = None			# for bonus items
 
 		# common data blocks
-		self.moveinfo = g_local.moveinfo_t()
-		self.monsterinfo = g_local.monsterinfo_t()
+		self.moveinfo = local.moveinfo_t()
+		self.monsterinfo = local.monsterinfo_t()
 """
 #endif		// GAME_INCLUDE
 
@@ -519,4 +524,3 @@ class game_export_t(object):
 		self.max_edicts = 0 #int
 
 #game_export_t *GetGameApi (game_import_t *import);
-

@@ -14,7 +14,7 @@ fail=0
 run() {	# name timeout expected-regex args...
 	name=$1; t=$2; want=$3; shift 3
 	if [ -n "$ONLY" ] && ! echo " $ONLY " | grep -q " $name "; then return; fi
-	timeout "$t" $PY -u tests/$name.py "$@" > "$OUT/$name.log" 2>&1
+	timeout -k 10 "$t" $PY -u tests/$name.py "$@" > "$OUT/$name.log" 2>&1
 	if grep -q "Traceback\|Error:" "$OUT/$name.log" || ! grep -q "$want" "$OUT/$name.log"; then
 		echo "FAIL $name  (log: $OUT/$name.log)"; fail=1
 	else
@@ -43,6 +43,8 @@ run fire_test 90 "fire: done" +set basedir "$Q2DATA" +map base1
 run cin_play 60 "cin: finished" +set basedir "$Q2DATA" +map idlog.cin
 run menu_settings_test 120 "ms: after renderer restart" +set basedir "$Q2DATA" +map base1
 run vidrestart_shot 60 "vr: t=12 polys [1-9]" +set basedir "$Q2DATA" +map base1
+run dedicated 60 "dedicated: .* state ss_game, map base1" +set basedir "$Q2DATA" +set dedicated 1 +map base1
+run save_load 120 "save_load: back in game on base1, server state ss_game" +set basedir "$Q2DATA" +map base1
 # the map run again with every GL extension off
 NOEXT="+set gl_ext_multitexture 0 +set gl_ext_pointparameters 0 +set gl_ext_palettedtexture 0 +set gl_ext_swapinterval 0 +set gl_ext_compiled_vertex_array 0"
 if [ -z "$ONLY" ] || echo " $ONLY " | grep -q " noext "; then

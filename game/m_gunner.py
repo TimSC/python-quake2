@@ -20,21 +20,20 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_local, g_main, g_ai
+from game import g_main, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_utils import G_ProjectSource, G_FreeEdict
 from game.g_monster import monster_fire_bullet, monster_fire_grenade, walkmonster_start
 from game.g_misc import ThrowGib, ThrowHead
 from common.header.shared import CHAN_VOICE, ATTN_NORM, ATTN_IDLE, MZ2_GUNNER_MACHINEGUN_1, MZ2_GUNNER_GRENADE_1, MZ2_GUNNER_GRENADE_2, MZ2_GUNNER_GRENADE_3, MZ2_GUNNER_GRENADE_4
-from game.g_local import (GIB_ORGANIC, DEAD_DEAD, MOVETYPE_TOSS, MOVETYPE_STEP,
-	AI_STAND_GROUND, AI_HOLD_FRAME, AI_DUCKED, RANGE_MELEE,
-	DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, damage_t)
+from game.header.local import GIB_ORGANIC, DEAD_DEAD, MOVETYPE_TOSS, MOVETYPE_STEP, AI_STAND_GROUND, AI_HOLD_FRAME, AI_DUCKED, RANGE_MELEE, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, damage_t
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 DAMAGE_AIM = damage_t.DAMAGE_AIM.value
-from game.game import SOLID_BBOX, SVF_DEADMONSTER
+from game.header.game import SOLID_BBOX, SVF_DEADMONSTER
 from common.header import shared
 from common.shared import flash
 from common.shared import shared as shared_c
+from game.header import local
 
 # m_gunner.h
 FRAME_stand01 = 0
@@ -250,14 +249,14 @@ MODEL_SCALE = 1.150000
 
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -300,7 +299,7 @@ def gunner_fidget (self): #edict_t *
 
 	if self.monsterinfo.aiflags & AI_STAND_GROUND:
 		return
-	if g_local.random() <= 0.05:
+	if local.random() <= 0.05:
 		self.monsterinfo.currentmove = gunner_move_fidget
 
 
@@ -394,7 +393,7 @@ def gunner_duck_down (self): #edict_t *
 		return
 	self.monsterinfo.aiflags |= AI_DUCKED
 	if g_main.skill.value >= 2:
-		if g_local.random() > 0.5:
+		if local.random() > 0.5:
 			GunnerGrenade (self)
 
 	self.maxs[2] -= 32
@@ -421,7 +420,7 @@ def gunner_duck_up (self): #edict_t *
 
 def gunner_dodge (self, attacker, eta): #edict_t *, edict_t *, float
 
-	if g_local.random() > 0.25:
+	if local.random() > 0.25:
 		return
 
 	if not self.enemy:
@@ -490,7 +489,7 @@ def gunner_attack (self): #edict_t *
 	if g_ai.range (self, self.enemy) == RANGE_MELEE:
 		self.monsterinfo.currentmove = gunner_move_attack_chain
 	else:
-		if g_local.random() <= 0.5:
+		if local.random() <= 0.5:
 			self.monsterinfo.currentmove = gunner_move_attack_grenade
 		else:
 			self.monsterinfo.currentmove = gunner_move_attack_chain
@@ -505,7 +504,7 @@ def gunner_refire_chain (self): #edict_t *
 
 	if self.enemy.health > 0:
 		if g_ai.visible (self, self.enemy):
-			if g_local.random() <= 0.5:
+			if local.random() <= 0.5:
 				self.monsterinfo.currentmove = gunner_move_fire_chain
 				return
 	self.monsterinfo.currentmove = gunner_move_endfire_chain

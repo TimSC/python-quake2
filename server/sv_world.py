@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import math
 import numpy as np
-from game import game
+pass
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -36,6 +36,7 @@ from common import collision
 from server.header import server as server_h
 from server import sv_game
 from server import sv_init
+from game.header import game as game_h
 
 """
 #include "header/server.h"
@@ -59,8 +60,8 @@ class areanode_t(object):
 		self.axis = None # int, -1 = leaf node
 		self.dist = None #float
 		self.children = [None, None] #struct areanode_s	*[2]
-		self.trigger_edicts = game.link_t()
-		self.solid_edicts = game.link_t()
+		self.trigger_edicts = game_h.link_t()
+		self.solid_edicts = game_h.link_t()
 
 AREA_DEPTH = 4
 AREA_NODES = 32
@@ -167,7 +168,8 @@ def SV_ClearWorld ():
 	for n in sv_areanodes:
 		n.clear()
 	sv_numareanodes = 0
-	SV_CreateAreaNode (0, sv_init.sv.models[1].mins, sv_init.sv.models[1].maxs)
+	if sv_init.sv.models[1]:
+		SV_CreateAreaNode (0, sv_init.sv.models[1].mins, sv_init.sv.models[1].maxs)
 
 
 """
@@ -219,7 +221,7 @@ def SV_LinkEdict (ent): #edict_t *
 	shared.VectorSubtract (ent.maxs, ent.mins, ent.size)
 
 	# encode the size into the entity_state for client prediction
-	if ent.solid == game.SOLID_BBOX and not (ent.svflags & game.SVF_DEADMONSTER):
+	if ent.solid == game_h.SOLID_BBOX and not (ent.svflags & game_h.SVF_DEADMONSTER):
 		# assume that x/y are equal and symetric
 		i = int(ent.maxs[0]/8)
 		if i < 1:
@@ -243,13 +245,13 @@ def SV_LinkEdict (ent): #edict_t *
 
 		ent.s.solid = (k<<10) | (j<<5) | i
 
-	elif ent.solid == game.SOLID_BSP:
+	elif ent.solid == game_h.SOLID_BSP:
 		ent.s.solid = 31		# a solid_bbox will never create this value
 	else:
 		ent.s.solid = 0
 
 	# set the abs box
-	if (ent.solid == game.SOLID_BSP and
+	if (ent.solid == game_h.SOLID_BSP and
 		(ent.s.angles[0] or ent.s.angles[1] or ent.s.angles[2])):
 		# expand for rotation
 		maxv = 0
@@ -316,7 +318,7 @@ def SV_LinkEdict (ent): #edict_t *
 			while j < i and clusters[j] != clusters[i]:
 				j += 1
 			if j == i:
-				if ent.num_clusters == game.MAX_ENT_CLUSTERS:
+				if ent.num_clusters == game_h.MAX_ENT_CLUSTERS:
 					# assume we missed some leafs, and mark by headnode
 					ent.num_clusters = -1
 					ent.headnode = topnode[0]
@@ -331,7 +333,7 @@ def SV_LinkEdict (ent): #edict_t *
 
 	ent.linkcount += 1
 
-	if ent.solid == game.SOLID_NOT:
+	if ent.solid == game_h.SOLID_NOT:
 		return
 
 	# find the first node that the ent's box crosses
@@ -348,7 +350,7 @@ def SV_LinkEdict (ent): #edict_t *
 
 	# link it in
 	ent.area.owner = ent
-	if ent.solid == game.SOLID_TRIGGER:
+	if ent.solid == game_h.SOLID_TRIGGER:
 		InsertLinkBefore (ent.area, node.trigger_edicts)
 	else:
 		InsertLinkBefore (ent.area, node.solid_edicts)
@@ -382,7 +384,7 @@ def SV_AreaEdicts_r (node): #areanode_t *
 		next_l = l.next
 		check = l.owner
 
-		if check.solid == game.SOLID_NOT:
+		if check.solid == game_h.SOLID_NOT:
 			l = next_l
 			continue		# deactivated
 		if (check.absmin[0] > area_maxs[0]
@@ -466,7 +468,7 @@ def SV_PointContents (p): #vec3_t
 		# might intersect, so do an exact clip
 		headnode = SV_HullForEntity (hit)
 		angles = hit.s.angles
-		if hit.solid != game.SOLID_BSP:
+		if hit.solid != game_h.SOLID_BSP:
 			angles = shared_c.vec3_origin	# boxes don't rotate
 
 		c2 = collision.CM_TransformedPointContents (p, headnode, hit.s.origin, hit.s.angles)
@@ -517,14 +519,15 @@ testing object's origin to get a point to use with the returned hull.
 def SV_HullForEntity (ent): #edict_t *
 
 	# decide which clipping hull to use, based on the size
-	if ent.solid == game.SOLID_BSP:
+	if ent.solid == game_h.SOLID_BSP:
 		# explicit hulls in the BSP model
-		model = sv_init.sv.models[ent.s.modelindex]
+		#const cmodel_t *model;
+		#int mi;
 
-		if not model:
-			clientserver.Com_Error (common_h.ERR_FATAL, "MOVETYPE_PUSH with a non bsp model")
+		mi = ent.s.modelindex
+		model = sv_init.sv.models[mi] if ((mi >= 0) and (mi < shared.MAX_MODELS)) else None
 
-		return model.headnode
+		return model.headnode if model else 0
 
 	# create a temp hull from bounding box sizes
 
@@ -559,7 +562,7 @@ def SV_ClipMoveToEntities (clip): #moveclip_t *
 	# list removed before we get to it (killtriggered)
 	for i in range(num):
 		touch = touchlist[i]
-		if touch.solid == game.SOLID_NOT:
+		if touch.solid == game_h.SOLID_NOT:
 			continue
 		if touch is clip.passedict:
 			continue
@@ -572,16 +575,16 @@ def SV_ClipMoveToEntities (clip): #moveclip_t *
 				continue	# don't clip against owner
 
 		if not (clip.contentmask & shared.CONTENTS_DEADMONSTER) \
-		and (touch.svflags & game.SVF_DEADMONSTER):
+		and (touch.svflags & game_h.SVF_DEADMONSTER):
 			continue
 
 		# might intersect, so do an exact clip
 		headnode = SV_HullForEntity (touch)
 		angles = touch.s.angles
-		if touch.solid != game.SOLID_BSP:
+		if touch.solid != game_h.SOLID_BSP:
 			angles = shared_c.vec3_origin	# boxes don't rotate
 
-		if touch.svflags & game.SVF_MONSTER:
+		if touch.svflags & game_h.SVF_MONSTER:
 			trace = collision.CM_TransformedBoxTrace (clip.start, clip.end,
 				clip.mins2, clip.maxs2, headnode, clip.contentmask,
 				touch.s.origin, angles)
@@ -598,8 +601,6 @@ def SV_ClipMoveToEntities (clip): #moveclip_t *
 				clip.trace.startsolid = True
 			else:
 				clip.trace = trace
-		elif trace.startsolid:
-			clip.trace.startsolid = True
 
 
 """

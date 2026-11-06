@@ -21,18 +21,18 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_local, g_main, g_utils, g_monster, g_misc, g_ai
+from game import g_main, g_utils, g_monster, g_misc, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_utils import G_FreeEdict
 from game.g_weapon import fire_hit
 from game.g_monster import walkmonster_start
 from game.g_misc import ThrowGib, ThrowHead
 from common.header.shared import CHAN_VOICE, CHAN_WEAPON, ATTN_NORM, ATTN_IDLE, YAW
-from game.g_local import (MELEE_DISTANCE, GIB_ORGANIC, DEAD_DEAD, MOVETYPE_TOSS,
-	MOVETYPE_STEP, AI_STAND_GROUND, damage_t)
+from game.header.local import MELEE_DISTANCE, GIB_ORGANIC, DEAD_DEAD, MOVETYPE_TOSS, MOVETYPE_STEP, AI_STAND_GROUND, damage_t
 DAMAGE_YES = damage_t.DAMAGE_YES.value
-from game.game import solid_t, SVF_DEADMONSTER
+from game.header.game import solid_t, SVF_DEADMONSTER
 from common.header import shared
+from game.header import local
 
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 
@@ -46,14 +46,14 @@ sound_sight = 0
 sound_search = 0
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -176,7 +176,7 @@ def berserk_stand (self):
 def berserk_fidget (self):
 	if self.monsterinfo.aiflags & AI_STAND_GROUND:
 		return
-	if g_local.random() > 0.15:
+	if local.random() > 0.15:
 		return
 
 	self.monsterinfo.currentmove = berserk_move_stand_fidget
@@ -232,7 +232,7 @@ def berserk_pain (self, other, kick, damage):
 	if g_main.skill.value == 3:
 		return		# no pain anims in nightmare
 
-	if ((damage < 20) or (g_local.random() < 0.5)):
+	if ((damage < 20) or (local.random() < 0.5)):
 		self.monsterinfo.currentmove = berserk_move_pain1
 	else:
 		self.monsterinfo.currentmove = berserk_move_pain2

@@ -5,8 +5,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
 from linux import sys_linux
 from client import cl_main
-from game import g_main, g_utils, g_spawn, g_local, g_ai
+from game import g_main, g_utils, g_spawn, g_ai
 from game import m_brain, m_chick, m_flipper, m_float, m_gladiator, m_hover, m_insane, m_medic, m_mutant, m_parasite, m_supertank, m_tank
+from game.header import local
 
 SPAWNS = [("monster_brain", 0), ("monster_chick", 0), ("monster_flipper", 0), ("monster_floater", 0), ("monster_gladiator", 0),
 	("monster_hover", 0), ("misc_insane", 0), ("misc_insane", 4), ("misc_insane", 8), ("misc_insane", 16), ("monster_medic", 0),
@@ -76,7 +77,7 @@ def CL_Frame(msec):
 		for e, cls in [todo.pop(0)]:
 			mod = MODS[cls]
 			for k, v in sorted(vars(mod).items()):
-				if isinstance(v, g_local.mmove_t):
+				if isinstance(v, local.mmove_t):
 					for i, fr in enumerate(v.frame[:v.lastframe - v.firstframe + 1]):
 						if fr.thinkfunc and e.inuse:
 							e.enemy = player
@@ -89,7 +90,7 @@ def CL_Frame(msec):
 	elif st["phase"] == 3:
 		# cycle each monster through all its moves, letting the game run them
 		for e, cls in mons():
-			moves = st["moves"].setdefault(id(e), [v for k, v in sorted(vars(MODS[cls]).items()) if isinstance(v, g_local.mmove_t)])
+			moves = st["moves"].setdefault(id(e), [v for k, v in sorted(vars(MODS[cls]).items()) if isinstance(v, local.mmove_t)])
 			if moves and int((t - st["mt"]) * 4) < len(moves) * 1:
 				idx = int((t - st["mt"]) * 4) % len(moves)
 				if e.monsterinfo.currentmove is not moves[idx]:

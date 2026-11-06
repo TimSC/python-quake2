@@ -155,14 +155,31 @@ The current `ref_gl/` keeps the game running until group 15 replaces it.
   `VectorNormalize`, `VectorLength` and `pml.frametime` computing in
   double where the C uses float; they now use `np.float32` arithmetic.
 
+- **Group 4:** `SV_CheckForSavegame` is ported but switched off
+  (`SV_CHECKFORSAVEGAME_ENABLED` in `server/sv_init.py`): the game's
+  `ReadLevel` (g_save.py) saves and restores only some edict fields, so
+  restoring a level would empty it. Group 9 must port the save code and
+  turn it on (`tests/save_load.py` should then check the level contents).
+  The configstring and latched-cvar save layout now matches Yamagi
+  (`MAX_SAVE_TOKEN_CHARS`, `LATCH_CVAR_SAVELENGTH`).
+
+- **Group 5:** `game/game.py` and `game/g_local.py` moved to
+  `game/header/game.py` (`game_h`) and `game/header/local.py` (`local`).
+  The game now draws its random numbers from `rand.randk()` (seeded in
+  `GetGameAPI`). `g_phys` has Yamagi's pushed-entity API, real bounding
+  boxes for rotating bmodels, flying-monster friction and the
+  stuck-in-world revert in `SV_Physics_Step`. `AI_SetSightClient` looped
+  forever once `sight_client` was set (fixed). The move tools had added a
+  second `from game import g_utils` to many files; removed.
+
 ## Progress
 
 - [x] 0. Tooling and conventions
 - [x] 1. Shared code
 - [x] 2. Common engine code
 - [x] 3. Collision and player movement
-- [ ] 4. Network channel and server
-- [ ] 5. Game: core and physics
+- [x] 4. Network channel and server
+- [x] 5. Game: core and physics
 - [ ] 6. Game: player, weapons and items
 - [ ] 7. Game: doors, triggers, targets, misc
 - [ ] 8. Game: monsters and AI

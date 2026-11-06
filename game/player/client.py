@@ -1,27 +1,36 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+Interface between client <-> game and client calculations.
+
+=======================================================================
 """
 from __future__ import annotations
 
-import random as _r
-pass
-from game import g_local
+import copy
+import numpy as np
+from common.header import shared
+from common.shared import shared as shared_c
+from common.shared import rand
+from common import pmove
 from game import g_main
 from game import g_utils
 from game import g_items
@@ -29,50 +38,39 @@ from game import g_misc
 from game import g_chase
 from game import g_ai
 from game import g_weapon
-from game import p_trail
-from game import p_view
-from game import p_hud
-from game import p_weapon
-from game import game
-pass
 from common.shared.shared import Q_stricmp, Info_ValueForKey, Info_SetValueForKey, TO_SHORT
 from common.header.shared import MAX_INFO_STRING, PRINT_HIGH, PRINT_MEDIUM, CS_PLAYERSKINS, MASK_PLAYERSOLID, MASK_DEADSOLID, CHAN_VOICE, CHAN_BODY, ATTN_NORM, EV_PLAYER_TELEPORT, PMF_DUCKED, PMF_TIME_TELEPORT, PMF_NO_PREDICTION, PMF_JUMP_HELD, BUTTON_ANY, BUTTON_ATTACK, MZ_LOGIN, MZ_LOGOUT, ANGLE2SHORT, SHORT2ANGLE, DF_FIXED_FOV, DF_FORCE_RESPAWN, DF_SPAWN_FARTHEST, DF_QUAD_DROP, DF_MODELTEAMS, YAW, PITCH, ROLL
 from common.header.shared import multicast_t, pmtype_t
+
+"""
+#include "../header/local.h"
+#include "../monster/misc/player.h"
+"""
+
 MULTICAST_PVS = multicast_t.MULTICAST_PVS.value
 PM_FREEZE = pmtype_t.PM_FREEZE.value
 PM_SPECTATOR = pmtype_t.PM_SPECTATOR.value
 PM_GIB = pmtype_t.PM_GIB.value
 PM_DEAD = pmtype_t.PM_DEAD.value
 PM_NORMAL = pmtype_t.PM_NORMAL.value
-from game.g_local import (FRAMETIME, BODY_QUEUE_SIZE, MOD_FRIENDLY_FIRE,
-	MOD_SUICIDE, MOD_FALLING, MOD_CRUSH, MOD_WATER, MOD_SLIME, MOD_LAVA,
-	MOD_EXPLOSIVE, MOD_BARREL, MOD_EXIT, MOD_TARGET_LASER, MOD_TARGET_BLASTER,
-	MOD_BOMB, MOD_SPLASH, MOD_TRIGGER_HURT, MOD_HELD_GRENADE, MOD_HG_SPLASH,
-	MOD_G_SPLASH, MOD_R_SPLASH, MOD_BFG_BLAST, MOD_BLASTER, MOD_SHOTGUN,
-	MOD_SSHOTGUN, MOD_MACHINEGUN, MOD_CHAINGUN, MOD_GRENADE, MOD_ROCKET,
-	MOD_HYPERBLASTER, MOD_RAILGUN, MOD_BFG_LASER, MOD_BFG_EFFECT,
-	MOD_HANDGRENADE, MOD_TELEFRAG, IT_KEY, IT_AMMO,
-	DEAD_NO, DEAD_DEAD, MOVETYPE_TOSS, MOVETYPE_WALK,
-	MOVETYPE_NOCLIP, FL_NO_KNOCKBACK, FL_POWER_ARMOR, ANIM_DEATH,
-	GIB_ORGANIC, PNOISE_SELF, svc_muzzleflash, svc_stufftext,
-	FRAME_crdeath1, FRAME_crdeath5, FRAME_death101, FRAME_death106,
-	FRAME_death201, FRAME_death206, FRAME_death301, FRAME_death308)
-from game.g_local import damage_t
+from game.header.local import FRAMETIME, BODY_QUEUE_SIZE, MOD_FRIENDLY_FIRE, MOD_SUICIDE, MOD_FALLING, MOD_CRUSH, MOD_WATER, MOD_SLIME, MOD_LAVA, MOD_EXPLOSIVE, MOD_BARREL, MOD_EXIT, MOD_TARGET_LASER, MOD_TARGET_BLASTER, MOD_BOMB, MOD_SPLASH, MOD_TRIGGER_HURT, MOD_HELD_GRENADE, MOD_HG_SPLASH, MOD_G_SPLASH, MOD_R_SPLASH, MOD_BFG_BLAST, MOD_BLASTER, MOD_SHOTGUN, MOD_SSHOTGUN, MOD_MACHINEGUN, MOD_CHAINGUN, MOD_GRENADE, MOD_ROCKET, MOD_HYPERBLASTER, MOD_RAILGUN, MOD_BFG_LASER, MOD_BFG_EFFECT, MOD_HANDGRENADE, MOD_TELEFRAG, IT_KEY, IT_AMMO, DEAD_NO, DEAD_DEAD, MOVETYPE_TOSS, MOVETYPE_WALK, MOVETYPE_NOCLIP, FL_NO_KNOCKBACK, FL_POWER_ARMOR, ANIM_DEATH, GIB_ORGANIC, PNOISE_SELF, svc_muzzleflash, svc_stufftext
+from game.header.local import damage_t
 DAMAGE_NO = damage_t.DAMAGE_NO.value
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 DAMAGE_AIM = damage_t.DAMAGE_AIM.value
-from game.game import solid_t
+from game.header.game import solid_t
+from game.header import game as game_h
+from game.header import local
+from game.monster.misc import player as player_h
+from game import g_cmds
+from game.player import hud as p_hud
+from game.player import trail as p_trail
+from game.player import view as p_view
+from game.player import weapon as p_weapon
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 SOLID_NOT = solid_t.SOLID_NOT.value
-SVF_NOCLIENT = game.SVF_NOCLIENT
-SVF_DEADMONSTER = game.SVF_DEADMONSTER
-
-"""
-#include "g_local.h"
-#include "m_player.h"
-
-void SP_misc_teleporter_dest (edict_t *ent);
-"""
+SVF_NOCLIENT = game_h.SVF_NOCLIENT
+SVF_DEADMONSTER = game_h.SVF_DEADMONSTER
 
 pm_passent = None  # edict_t *
 
@@ -118,17 +116,22 @@ def _copy_pmove_state (src):
 def SP_FixCoopSpots (self):
 	#edict_t *spot
 	#vec3_t d
+	if not self:
+
+		return
+
+
 	spot = None
 
 	while True:
-		spot = g_utils.G_Find (spot, g_utils.FOFS("classname"), "info_player_start")
+		spot = g_utils.G_Find (spot, local.FOFS("classname"), "info_player_start")
 		if not spot:
 			return
 		if not spot.targetname:
 			continue
 		d = self.s.origin - spot.s.origin
-		if shared_c.VectorLength(d) < 384:
-			if (not self.targetname) or Q_stricmp(self.targetname, spot.targetname) != 0:
+		if shared_c.VectorLength(d) < 550:
+			if (not self.targetname) or (Q_stricmp(self.targetname, spot.targetname) != 0):
 				self.targetname = spot.targetname
 			return
 
@@ -138,6 +141,11 @@ def SP_FixCoopSpots (self):
 """
 def SP_CreateCoopSpots (self):
 	#edict_t *spot
+	if not self:
+
+		return
+
+
 	if Q_stricmp(g_main.level.mapname, "security") == 0:
 		spot = g_utils.G_Spawn()
 		spot.classname = "info_player_coop"
@@ -165,14 +173,76 @@ def SP_CreateCoopSpots (self):
 
 
 """
+ * Some maps have no unnamed (e.g. generic)
+ * info_player_start. This is no problem in
+ * normal gameplay, but if the map is loaded
+ * via console there is a huge chance that
+ * the player will spawn in the wrong point.
+ * Therefore create an unnamed info_player_start
+ * at the correct point.
+"""
+def CreateUnnamedSpawnpoint(self, mapname: str, spotname: str): #const edict_t *, const char *, const char * (static)
+
+	"""
+	edict_t *spot;
+	"""
+
+	if Q_stricmp(g_main.level.mapname, mapname) != 0:
+
+		return
+
+
+	if not self.targetname or Q_stricmp(self.targetname, spotname) != 0:
+
+		return
+
+
+	spot = g_utils.G_SpawnOptional()
+
+	if not spot:
+
+		return
+
+
+	spot.classname = "info_player_start"
+
+	shared.VectorCopy(self.s.origin, spot.s.origin)
+	spot.s.angles[1] = self.s.angles[1]
+
+def SP_CreateUnnamedSpawn(self): #edict_t *
+
+	if not self:
+
+		return
+
+
+	CreateUnnamedSpawnpoint(self, "mine1",  "mintro")
+	CreateUnnamedSpawnpoint(self, "mine2",  "mine1")
+	CreateUnnamedSpawnpoint(self, "mine3",  "mine2a")
+	CreateUnnamedSpawnpoint(self, "mine4",  "mine3")
+	CreateUnnamedSpawnpoint(self, "power2", "power1")
+	CreateUnnamedSpawnpoint(self, "waste1", "power2")
+	CreateUnnamedSpawnpoint(self, "waste2", "waste1")
+	CreateUnnamedSpawnpoint(self, "city2",  "city2NL")
+
+"""
 /*QUAKED info_player_start (1 0 0) (-16 -16 -24) (16 16 32)
 The normal starting point for a level.
 */
 """
 def SP_info_player_start (self):
-	if not int(g_main.coop.value):
+	if not self:
+
 		return
-	if Q_stricmp(g_main.level.mapname, "security") == 0:
+
+
+	# Call function to hack unnamed spawn points
+	self.think = SP_CreateUnnamedSpawn
+	self.nextthink = g_main.level.time + FRAMETIME
+
+	if g_main.coop.value and \
+		Q_stricmp(g_main.level.mapname, "security") == 0:
+
 		# invoke one of our gross, ugly, disgusting hacks
 		self.think = SP_CreateCoopSpots
 		self.nextthink = g_main.level.time + FRAMETIME
@@ -184,6 +254,11 @@ potential spawning position for deathmatch games
 */
 """
 def SP_info_player_deathmatch (self):
+	if not self:
+
+		return
+
+
 	if not int(g_main.deathmatch.value):
 		g_utils.G_FreeEdict (self)
 		return
@@ -196,24 +271,33 @@ potential spawning position for coop games
 */
 """
 def SP_info_player_coop (self):
+	if not self:
+
+		return
+
+
 	if not int(g_main.coop.value):
 		g_utils.G_FreeEdict (self)
 		return
 
 	if (Q_stricmp(g_main.level.mapname, "jail2") == 0)   or \
 	   (Q_stricmp(g_main.level.mapname, "jail4") == 0)   or \
+	   (Q_stricmp(g_main.level.mapname, "mintro") == 0)  or \
 	   (Q_stricmp(g_main.level.mapname, "mine1") == 0)   or \
 	   (Q_stricmp(g_main.level.mapname, "mine2") == 0)   or \
 	   (Q_stricmp(g_main.level.mapname, "mine3") == 0)   or \
 	   (Q_stricmp(g_main.level.mapname, "mine4") == 0)   or \
 	   (Q_stricmp(g_main.level.mapname, "lab") == 0)     or \
 	   (Q_stricmp(g_main.level.mapname, "boss1") == 0)   or \
+	   (Q_stricmp(g_main.level.mapname, "fact1") == 0)   or \
 	   (Q_stricmp(g_main.level.mapname, "fact3") == 0)   or \
+	   (Q_stricmp(g_main.level.mapname, "waste1") == 0)  or \
 	   (Q_stricmp(g_main.level.mapname, "biggun") == 0)  or \
 	   (Q_stricmp(g_main.level.mapname, "space") == 0)   or \
 	   (Q_stricmp(g_main.level.mapname, "command") == 0) or \
 	   (Q_stricmp(g_main.level.mapname, "power2") == 0)  or \
-	   (Q_stricmp(g_main.level.mapname, "strike") == 0):
+	   (Q_stricmp(g_main.level.mapname, "strike") == 0)  or \
+	   (Q_stricmp(g_main.level.mapname, "city2") == 0):
 		# invoke one of our gross, ugly, disgusting hacks
 		self.think = SP_FixCoopSpots
 		self.nextthink = g_main.level.time + FRAMETIME
@@ -235,23 +319,55 @@ def player_pain (self, other, kick, damage):
 
 def IsFemale (ent):
 	#char *info
-	if not ent.client:
+	if not ent:
+
 		return False
 
+
+	if not ent.client:
+
+		return False
+
+
 	info = Info_ValueForKey (ent.client.pers.userinfo, "gender")
-	if info[0] == 'f' or info[0] == 'F':
+
+	if "crakhor" in info:
+
 		return True
+
+
+	if (info[0:1] == 'f') or (info[0:1] == 'F'): # Q2PORT: info[0:1] is "" (C's '\0') for an empty string
+
+		return True
+
+
 	return False
 
 
 def IsNeutral (ent):
 	#char *info
-	if not ent.client:
+	if not ent:
+
 		return False
 
+
+	if not ent.client:
+
+		return False
+
+
 	info = Info_ValueForKey (ent.client.pers.userinfo, "gender")
-	if info[0] != 'f' and info[0] != 'F' and info[0] != 'm' and info[0] != 'M':
+
+	if "crakhor" in info:
+
+		return False
+
+
+	if (info[0:1] != 'f') and (info[0:1] != 'F') and (info[0:1] != 'm') and (info[0:1] != 'M'): # Q2PORT: as in IsFemale
+
 		return True
+
+
 	return False
 
 
@@ -260,7 +376,7 @@ def ClientObituary (self, inflictor, attacker):
 	#char *message
 	#char *message2
 	#qboolean ff
-	if int(g_main.coop.value) and attacker.client:
+	if int(g_main.coop.value) and attacker and attacker.client:
 		g_main.meansOfDeath |= MOD_FRIENDLY_FIRE
 
 	if int(g_main.deathmatch.value) or int(g_main.coop.value):
@@ -401,6 +517,11 @@ def TossClientWeapon (self):
 	#edict_t *drop
 	#qboolean quad
 	#float spread
+	if not self:
+
+		return
+
+
 	if not int(g_main.deathmatch.value):
 		return
 
@@ -424,13 +545,13 @@ def TossClientWeapon (self):
 		self.client.v_angle[YAW] -= spread
 		drop = g_items.Drop_Item (self, item)
 		self.client.v_angle[YAW] += spread
-		drop.spawnflags = g_local.DROPPED_PLAYER_ITEM
+		drop.spawnflags = local.DROPPED_PLAYER_ITEM
 
 	if quad:
 		self.client.v_angle[YAW] += spread
 		drop = g_items.Drop_Item (self, g_items.FindItemByClassname ("item_quad"))
 		self.client.v_angle[YAW] -= spread
-		drop.spawnflags |= g_local.DROPPED_PLAYER_ITEM
+		drop.spawnflags |= local.DROPPED_PLAYER_ITEM
 
 		drop.touch = g_items.Touch_Item
 		drop.nextthink = g_main.level.time + (self.client.quad_framenum - g_main.level.framenum) * FRAMETIME
@@ -439,6 +560,11 @@ def TossClientWeapon (self):
 
 def LookAtKiller (self, inflictor, attacker):
 	#vec3_t dir
+	if not self:
+
+		return
+
+
 	if attacker and attacker is not g_main.g_edicts[0] and attacker is not self:
 		dir_ = attacker.s.origin - self.s.origin
 	elif inflictor and inflictor is not g_main.g_edicts[0] and inflictor is not self:
@@ -462,6 +588,11 @@ def LookAtKiller (self, inflictor, attacker):
 
 def player_die (self, inflictor, attacker, damage, point):
 	#int n
+	if not self or not inflictor or not attacker:
+
+		return
+
+
 	shared.VectorClear (self.avelocity)
 
 	self.takedamage = DAMAGE_YES
@@ -486,11 +617,11 @@ def player_die (self, inflictor, attacker, damage, point):
 		ClientObituary (self, inflictor, attacker)
 		TossClientWeapon (self)
 		if int(g_main.deathmatch.value):
-			p_hud.Cmd_Help_f (self)	# show scores
+			g_cmds.Cmd_Help_f (self)	# show scores
 
 		# clear inventory
 		# this is kind of ugly, but it's how we want to handle keys in coop
-		for n in range(g_main.game.num_items):
+		for n in range(g_items.itemlist_len):
 			if int(g_main.coop.value) and g_items.itemlist[n].flags & IT_KEY:
 				self.client.resp.coop_respawn.inventory[n] = self.client.pers.inventory[n]
 			self.client.pers.inventory[n] = 0
@@ -503,8 +634,8 @@ def player_die (self, inflictor, attacker, damage, point):
 	self.flags &= ~FL_POWER_ARMOR
 
 	if self.health < -40:
-		# gib
-		g_main.gi.sound (self, CHAN_BODY, g_main.gi.soundindex ("misc/udeath.wav"), 1, ATTN_NORM, 0)
+		# gib (sound is played at end of server frame)
+		self.sounds = g_main.gi.soundindex("misc/udeath.wav")
 		for n in range(4):
 			g_misc.ThrowGib (self, "models/objects/gibs/sm_meat/tris.md2", damage, GIB_ORGANIC)
 		g_misc.ThrowClientHead (self, damage)
@@ -518,18 +649,23 @@ def player_die (self, inflictor, attacker, damage, point):
 			# start a death animation
 			self.client.anim_priority = ANIM_DEATH
 			if self.client.ps.pmove.pm_flags & PMF_DUCKED:
-				self.s.frame = FRAME_crdeath1-1
-				self.client.anim_end = FRAME_crdeath5
+				self.s.frame = player_h.FRAME_crdeath1-1
+				self.client.anim_end = player_h.FRAME_crdeath5
 			elif _death_anim_i == 0:
-				self.s.frame = FRAME_death101-1
-				self.client.anim_end = FRAME_death106
+				self.s.frame = player_h.FRAME_death101-1
+				self.client.anim_end = player_h.FRAME_death106
 			elif _death_anim_i == 1:
-				self.s.frame = FRAME_death201-1
-				self.client.anim_end = FRAME_death206
+				self.s.frame = player_h.FRAME_death201-1
+				self.client.anim_end = player_h.FRAME_death206
 			else:
-				self.s.frame = FRAME_death301-1
-				self.client.anim_end = FRAME_death308
-			g_main.gi.sound (self, CHAN_VOICE, g_main.gi.soundindex("*death%d.wav" % (_r.randint(0, 3)+1)), 1, ATTN_NORM, 0)
+				self.s.frame = player_h.FRAME_death301-1
+				self.client.anim_end = player_h.FRAME_death308
+
+			# sound is played at end of server frame
+			if not self.sounds:
+
+				self.sounds = g_main.gi.soundindex("*death%i.wav" % ((rand.randk() % 4) + 1))
+
 
 	self.deadflag = DEAD_DEAD
 
@@ -541,10 +677,15 @@ _death_anim_i = 0
 
 def InitClientPersistant (client):
 	#gitem_t *item
-	client.pers = g_local.client_persistant_t()
+	if not client:
+
+		return
+
+
+	client.pers = local.client_persistant_t()
 
 	item = g_items.FindItem("Blaster")
-	client.pers.selected_item = g_items.ITEM_INDEX(item)
+	client.pers.selected_item = local.ITEM_INDEX(item)
 	client.pers.inventory[client.pers.selected_item] = 1
 
 	client.pers.weapon = item
@@ -563,9 +704,14 @@ def InitClientPersistant (client):
 
 
 def InitClientResp (client):
-	client.resp = g_local.client_respawn_t()
+	if not client:
+
+		return
+
+
+	client.resp = local.client_respawn_t()
 	client.resp.enterframe = g_main.level.framenum
-	client.resp.coop_respawn = g_local.client_persistant_t()
+	client.resp.coop_respawn = local.client_persistant_t()
 	shared.VectorCopy(client.pers.cmd_angles, client.resp.cmd_angles) if False else None
 	client.resp.coop_respawn = client.pers
 
@@ -579,12 +725,17 @@ def SaveClientData ():
 			continue
 		g_main.game.clients[i].pers.health = ent.health
 		g_main.game.clients[i].pers.max_health = ent.max_health
-		g_main.game.clients[i].pers.savedFlags = (ent.flags & (g_local.FL_GODMODE | g_local.FL_NOTARGET | FL_POWER_ARMOR))
+		g_main.game.clients[i].pers.savedFlags = (ent.flags & (local.FL_GODMODE | local.FL_NOTARGET | FL_POWER_ARMOR))
 		if int(g_main.coop.value):
 			g_main.game.clients[i].pers.score = ent.client.resp.score
 
 
 def FetchClientEntData (ent):
+	if not ent:
+
+		return
+
+
 	ent.health = ent.client.pers.health
 	ent.max_health = ent.client.pers.max_health
 	ent.flags |= ent.client.pers.savedFlags
@@ -598,6 +749,11 @@ def PlayersRangeFromSpot (spot):
 	#vec3_t v
 	#int n
 	#float playerdistance
+	if not spot:
+
+		return 0.0
+
+
 	bestplayerdistance = 9999999
 
 	for n in range(1, int(g_main.maxclients.value)+1):
@@ -629,7 +785,7 @@ def SelectRandomDeathmatchSpawnPoint ():
 	count = 0
 
 	while True:
-		spot = g_utils.G_Find (spot, g_utils.FOFS("classname"), "info_player_deathmatch")
+		spot = g_utils.G_Find (spot, local.FOFS("classname"), "info_player_deathmatch")
 		if not spot:
 			break
 		count += 1
@@ -647,13 +803,21 @@ def SelectRandomDeathmatchSpawnPoint ():
 	if count <= 2:
 		spot1 = spot2 = None
 	else:
-		count -= 2
+		if spot1:
 
-	selection = _r.randint(0, 2147483647) % count
+			count -= 1
+
+
+		if spot2:
+
+			count -= 1
+
+
+	selection = rand.randk() % count
 
 	spot = None
 	while True:
-		spot = g_utils.G_Find (spot, g_utils.FOFS("classname"), "info_player_deathmatch")
+		spot = g_utils.G_Find (spot, local.FOFS("classname"), "info_player_deathmatch")
 		if spot is spot1 or spot is spot2:
 			selection += 1
 		selection -= 1
@@ -671,7 +835,7 @@ def SelectFarthestDeathmatchSpawnPoint ():
 	bestspot = None
 	bestdistance = 0
 	while True:
-		spot = g_utils.G_Find (spot, g_utils.FOFS("classname"), "info_player_deathmatch")
+		spot = g_utils.G_Find (spot, local.FOFS("classname"), "info_player_deathmatch")
 		if not spot:
 			break
 		bestplayerdistance = PlayersRangeFromSpot (spot)
@@ -685,7 +849,7 @@ def SelectFarthestDeathmatchSpawnPoint ():
 
 	# if there is a player just spawned on each and every start spot
 	# we have no choice to turn one into a telefrag meltdown
-	spot = g_utils.G_Find (None, g_utils.FOFS("classname"), "info_player_deathmatch")
+	spot = g_utils.G_Find (None, local.FOFS("classname"), "info_player_deathmatch")
 
 	return spot
 
@@ -701,6 +865,11 @@ def SelectCoopSpawnPoint (ent):
 	#int index
 	#edict_t *spot
 	#char *target
+	if not ent:
+
+		return None
+
+
 	index = g_main.g_edicts.index(ent) - 1
 
 	# player 0 starts in normal player spawn point
@@ -711,7 +880,7 @@ def SelectCoopSpawnPoint (ent):
 
 	# assume there are four coop spots at each spawnpoint
 	while True:
-		spot = g_utils.G_Find (spot, g_utils.FOFS("classname"), "info_player_coop")
+		spot = g_utils.G_Find (spot, local.FOFS("classname"), "info_player_coop")
 		if not spot:
 			return None	# we didn't have enough...
 
@@ -729,6 +898,14 @@ def SelectSpawnPoint (ent, origin, angles):
 	#edict_t *spot
 	spot = None
 
+	shared.VectorClear(origin)
+	shared.VectorClear(angles)
+
+	if not ent:
+
+		return
+
+
 	if int(g_main.deathmatch.value):
 		spot = SelectDeathmatchSpawnPoint ()
 	elif int(g_main.coop.value):
@@ -737,7 +914,7 @@ def SelectSpawnPoint (ent, origin, angles):
 	# find a single player start spot
 	if not spot:
 		while True:
-			spot = g_utils.G_Find (spot, g_utils.FOFS("classname"), "info_player_start")
+			spot = g_utils.G_Find (spot, local.FOFS("classname"), "info_player_start")
 			if not spot:
 				break
 			if not g_main.game.spawnpoint and not spot.targetname:
@@ -752,9 +929,58 @@ def SelectSpawnPoint (ent, origin, angles):
 		if not spot:
 			if not g_main.game.spawnpoint:
 				# there wasn't a spawnpoint without a target, so use any
-				spot = g_utils.G_Find (None, g_utils.FOFS("classname"), "info_player_start")
+				spot = g_utils.G_Find (None, local.FOFS("classname"), "info_player_start")
 			if not spot:
 				g_main.gi.error ("Couldn't find spawn point %s\n" % g_main.game.spawnpoint)
+				return
+
+	# If we are in coop and we didn't find a coop
+	# spawnpoint due to map bugs (not correctly
+	# connected or the map was loaded via console
+	# and thus no previously map is known to the
+	# client) use one in 550 units radius.
+	if g_main.coop.value:
+
+		#int index;
+
+		index = g_main.game.clients.index(ent.client)
+
+		if Q_stricmp(spot.classname, "info_player_start") == 0 and index != 0:
+
+			counter = 0
+
+			while counter < 3:
+
+				#edict_t *coopspot = NULL;
+				#vec3_t d;
+				# FIXME: as in the C, coopspot restarts at NULL on every pass, so this
+				# never ends if the first coop spot is 550 units or more away
+				coopspot = None
+				d = np.zeros((3,), dtype=np.float32)
+
+				coopspot = g_utils.G_Find(coopspot, local.FOFS("classname"), "info_player_coop")
+
+				if not coopspot:
+
+					break
+
+
+				shared.VectorSubtract(coopspot.s.origin, spot.s.origin, d)
+
+				if (shared_c.VectorLength(d) < 550):
+
+					if index == counter:
+
+						spot = coopspot
+						break
+
+					else:
+
+						counter += 1
+
+
+
+
 
 	shared.VectorCopy (spot.s.origin, origin)
 	origin[2] += 9
@@ -764,14 +990,24 @@ def SelectSpawnPoint (ent, origin, angles):
 def InitBodyQue ():
 	#int i
 	#edict_t *ent
-	g_main.level.body_que = 0
-	for i in range(BODY_QUEUE_SIZE):
-		ent = g_utils.G_Spawn()
-		ent.classname = "bodyque"
+	if g_main.deathmatch.value or g_main.coop.value:
+
+		g_main.level.body_que = 0
+
+		for i in range(BODY_QUEUE_SIZE):
+
+			ent = g_utils.G_Spawn()
+			ent.classname = "bodyque"
+
 
 
 def body_die (self, inflictor, attacker, damage, point):
 	#int n
+	if not self:
+
+		return
+
+
 	if self.health < -40:
 		g_main.gi.sound (self, CHAN_BODY, g_main.gi.soundindex ("misc/udeath.wav"), 1, ATTN_NORM, 0)
 		for n in range(4):
@@ -784,6 +1020,11 @@ def body_die (self, inflictor, attacker, damage, point):
 def CopyToBodyQue (ent):
 	#edict_t *body
 	# grab a body que and cycle to the next one
+	if not ent:
+
+		return
+
+
 	body = g_main.g_edicts[int(g_main.maxclients.value) + g_main.level.body_que + 1]
 	g_main.level.body_que = (g_main.level.body_que + 1) % BODY_QUEUE_SIZE
 
@@ -811,6 +1052,11 @@ def CopyToBodyQue (ent):
 
 
 def respawn (self):
+	if not self:
+
+		return
+
+
 	if int(g_main.deathmatch.value) or int(g_main.coop.value):
 		# spectator's don't leave bodies
 		if self.movetype != MOVETYPE_NOCLIP:
@@ -837,6 +1083,11 @@ def spectator_respawn (ent):
 	#int i, numspec
 	# if the user wants to become a spectator, make sure he doesn't
 	# exceed max_spectators
+	if not ent:
+
+		return
+
+
 	if ent.client.pers.spectator:
 		value = Info_ValueForKey (ent.client.pers.userinfo, "spectator")
 		_spec_pw = _cvar_string ("spectator_password")
@@ -905,6 +1156,11 @@ def PutClientInServer (ent):
 	#vec3_t spawn_origin, spawn_angles
 	#client_persistant_t saved
 	#client_respawn_t resp
+	if not ent:
+
+		return
+
+
 	mins = np.zeros((3,), dtype=np.float32)
 	mins[:] = [-16, -16, -24]
 	maxs = np.zeros((3,), dtype=np.float32)
@@ -931,12 +1187,13 @@ def PutClientInServer (ent):
 		resp = client.resp
 		resp.coop_respawn.game_helpchanged = client.pers.game_helpchanged
 		resp.coop_respawn.helpchanged = client.pers.helpchanged
-		client.pers = resp.coop_respawn
+		client.pers = copy.deepcopy(resp.coop_respawn) # C copies the struct
 		ClientUserinfoChanged (ent, userinfo)
 		if resp.score > client.pers.score:
 			client.pers.score = resp.score
 	else:
-		resp = g_local.client_respawn_t()
+		resp = local.client_respawn_t()
+		ClientUserinfoChanged(ent, None)
 
 	# clear everything but the persistant data
 	saved = client.pers
@@ -968,7 +1225,7 @@ def PutClientInServer (ent):
 	ent.waterlevel = 0
 	ent.watertype = 0
 	ent.flags &= ~FL_NO_KNOCKBACK
-	ent.svflags &= ~SVF_DEADMONSTER
+	ent.svflags = 0
 
 	shared.VectorCopy (mins, ent.mins)
 	shared.VectorCopy (maxs, ent.maxs)
@@ -1042,6 +1299,11 @@ def PutClientInServer (ent):
 
 
 def ClientBeginDeathmatch (ent):
+	if not ent:
+
+		return
+
+
 	g_utils.G_InitEdict (ent)
 
 	InitClientResp (ent.client)
@@ -1066,6 +1328,11 @@ def ClientBeginDeathmatch (ent):
 
 def ClientBegin (ent):
 	#int i
+	if not ent:
+
+		return
+
+
 	ent.client = g_main.game.clients[g_main.g_edicts.index(ent) - 1]
 
 	if int(g_main.deathmatch.value):
@@ -1108,13 +1375,23 @@ def ClientBegin (ent):
 
 def ClientUserinfoChanged (ent, userinfo):
 	#int playernum
+	if not ent:
+
+		return
+
+
+	if userinfo is None:
+
+		userinfo = ent.client.pers.userinfo
+
+
 	# check for malformed or illegal info strings
 	if not _info_validate(userinfo):
 		userinfo = "\\name\\badinfo\\skin\\male/grunt"
 
 	# set name
 	s = Info_ValueForKey (userinfo, "name")
-	ent.client.pers.netname = s
+	ent.client.pers.netname = s[:16 - 1] # Q_strlcpy into char netname[16]
 
 	# set spectator
 	s = Info_ValueForKey (userinfo, "spectator")
@@ -1145,15 +1422,22 @@ def ClientUserinfoChanged (ent, userinfo):
 	# handedness
 	s = Info_ValueForKey (userinfo, "hand")
 	if len(s):
-		ent.client.pers.hand = int(s)
+		ent.client.pers.hand = shared_c.atoi(s)
 
 	# save off the userinfo in case we want to check something later
-	ent.client.pers.userinfo = userinfo
+	if userinfo != ent.client.pers.userinfo:
+
+		ent.client.pers.userinfo = userinfo[:MAX_INFO_STRING - 1] # Q_strlcpy
 
 
 def ClientConnect (ent, userinfo):
 	#char *value
 	# check to see if they are on the banned IP list
+	if not ent or userinfo is None:
+
+		return False
+
+
 	value = Info_ValueForKey (userinfo, "ip")
 	if _SV_FilterPacket(value):
 		userinfo += r"\rejmsg\Banned."
@@ -1207,8 +1491,15 @@ def ClientConnect (ent, userinfo):
 
 def ClientDisconnect (ent):
 	#int playernum
-	if not ent.client:
+	if not ent:
+
 		return
+
+
+	if not ent.client:
+
+		return
+
 
 	g_main.gi.bprintf (PRINT_HIGH, "%s disconnected\n" % ent.client.pers.netname)
 
@@ -1236,10 +1527,54 @@ def PM_trace (start, mins, maxs, end):
 		return g_main.gi.trace (start, mins, maxs, end, pm_passent, MASK_DEADSOLID)
 
 
+"""
+unsigned
+CheckBlock(void *b, int c)
+{
+	int v, i;
+
+	if (!b)
+	{
+		return 0;
+	}
+
+	v = 0;
+
+	for (i = 0; i < c; i++)
+	{
+		v += ((byte *)b)[i];
+	}
+
+	return v;
+}
+"""
+
+r"""
+void
+PrintPmove(pmove_t *pm)
+{
+	unsigned c1, c2;
+
+	if (!pm)
+	{
+		return;
+	}
+
+	c1 = CheckBlock(&pm->s, sizeof(pm->s));
+	c2 = CheckBlock(&pm->cmd, sizeof(pm->cmd));
+	gi.dprintf("sv %3i:%i %i\n", pm->cmd.impulse, c1, c2);
+}
+"""
+
 def ClientThink (ent, ucmd):
 	global pm_passent
 	#edict_t *other
 	#int i, j
+	if not ent or not ucmd:
+
+		return
+
+
 	client = ent.client
 
 	g_main.level.current_entity = ent
@@ -1261,7 +1596,7 @@ def ClientThink (ent, ucmd):
 		client.resp.cmd_angles[2] = SHORT2ANGLE(ucmd.angles[2])
 	else:
 		# set up for pmove
-		pm = shared_h.pmove_t()
+		pm = shared.pmove_t()
 
 		if ent.movetype == MOVETYPE_NOCLIP:
 			client.ps.pmove.pm_type = PM_SPECTATOR
@@ -1391,6 +1726,11 @@ def ClientThink (ent, ucmd):
 
 def ClientBeginServerFrame (ent):
 	#int buttonMask
+	if not ent:
+
+		return
+
+
 	client = ent.client
 
 	if g_main.level.intermissiontime:
@@ -1431,11 +1771,3 @@ def ClientBeginServerFrame (ent):
 			p_trail.PlayerTrail_Add (ent.s.old_origin)
 
 	client.latched_buttons = 0
-
-
-# numpy import used above
-import numpy as np
-from common.header import shared
-from common.shared import shared as shared_c
-from common.header import shared as shared_h
-from common import pmove

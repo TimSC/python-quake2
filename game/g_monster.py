@@ -22,7 +22,7 @@ from __future__ import annotations
 import math
 import random as _r
 pass
-from game import g_local
+pass
 from game import g_main
 from game import g_utils
 from game import g_ai
@@ -30,20 +30,17 @@ from game import m_move
 from game import g_items
 from game import g_weapon
 from game import g_combat
-from game.game import SVF_MONSTER, SVF_DEADMONSTER, SVF_NOCLIENT
+from game.header.game import SVF_MONSTER, SVF_DEADMONSTER, SVF_NOCLIENT
 from common.header.shared import MASK_MONSTERSOLID, MASK_WATER, EF_FLIES, EF_COLOR_SHELL, EF_POWERSCREEN, RF_SHELL_RED, RF_SHELL_GREEN, RF_SHELL_BLUE, RF_FRAMELERP, CONTENTS_LAVA, CONTENTS_SLIME, CONTENTS_WATER, CHAN_BODY, ATTN_NORM, YAW
-from game.g_local import (MOD_UNKNOWN, MOD_WATER, MOD_LAVA, MOD_SLIME, FRAMETIME,
-	DAMAGE_NO_ARMOR, POWER_ARMOR_SCREEN,
-	POWER_ARMOR_SHIELD, FL_SWIM, FL_FLY, FL_INWATER, FL_IMMUNE_LAVA,
-	FL_IMMUNE_SLIME, FL_NOTARGET, DEAD_NO,
-	AI_GOOD_GUY, AI_RESURRECTING, AI_HOLD_FRAME,
-	MOVETYPE_NONE, MOVETYPE_STEP)
-from game.game import solid_t
+from game.header.local import MOD_UNKNOWN, MOD_WATER, MOD_LAVA, MOD_SLIME, FRAMETIME, DAMAGE_NO_ARMOR, POWER_ARMOR_SCREEN, POWER_ARMOR_SHIELD, FL_SWIM, FL_FLY, FL_INWATER, FL_IMMUNE_LAVA, FL_IMMUNE_SLIME, FL_NOTARGET, DEAD_NO, AI_GOOD_GUY, AI_RESURRECTING, AI_HOLD_FRAME, MOVETYPE_NONE, MOVETYPE_STEP
+from game.header.game import solid_t
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 SOLID_NOT = solid_t.SOLID_NOT.value
-from game.g_local import damage_t
+from game.header.local import damage_t
 from common.header import shared
 from common.shared import shared as shared_c
+from game.header import local
+from game import g_items
 DAMAGE_AIM = damage_t.DAMAGE_AIM.value
 
 """
@@ -58,7 +55,7 @@ DAMAGE_AIM = damage_t.DAMAGE_AIM.value
 def monster_fire_bullet (self, start, dir, damage, kick, hspread, vspread, flashtype):
 	g_weapon.fire_bullet (self, start, dir, damage, kick, hspread, vspread, MOD_UNKNOWN)
 
-	g_main.gi.WriteByte (g_local.svc_muzzleflash2)
+	g_main.gi.WriteByte (local.svc_muzzleflash2)
 	g_main.gi.WriteShort (g_main.g_edicts.index(self))
 	g_main.gi.WriteByte (flashtype)
 	g_main.gi.multicast (start, shared.multicast_t.MULTICAST_PVS.value)
@@ -67,7 +64,7 @@ def monster_fire_bullet (self, start, dir, damage, kick, hspread, vspread, flash
 def monster_fire_shotgun (self, start, aimdir, damage, kick, hspread, vspread, count, flashtype):
 	g_weapon.fire_shotgun (self, start, aimdir, damage, kick, hspread, vspread, count, MOD_UNKNOWN)
 
-	g_main.gi.WriteByte (g_local.svc_muzzleflash2)
+	g_main.gi.WriteByte (local.svc_muzzleflash2)
 	g_main.gi.WriteShort (g_main.g_edicts.index(self))
 	g_main.gi.WriteByte (flashtype)
 	g_main.gi.multicast (start, shared.multicast_t.MULTICAST_PVS.value)
@@ -76,7 +73,7 @@ def monster_fire_shotgun (self, start, aimdir, damage, kick, hspread, vspread, c
 def monster_fire_blaster (self, start, dir, damage, speed, flashtype, effect):
 	g_weapon.fire_blaster (self, start, dir, damage, speed, effect, False)
 
-	g_main.gi.WriteByte (g_local.svc_muzzleflash2)
+	g_main.gi.WriteByte (local.svc_muzzleflash2)
 	g_main.gi.WriteShort (g_main.g_edicts.index(self))
 	g_main.gi.WriteByte (flashtype)
 	g_main.gi.multicast (start, shared.multicast_t.MULTICAST_PVS.value)
@@ -85,7 +82,7 @@ def monster_fire_blaster (self, start, dir, damage, speed, flashtype, effect):
 def monster_fire_grenade (self, start, aimdir, damage, speed, flashtype):
 	g_weapon.fire_grenade (self, start, aimdir, damage, speed, 2.5, damage+40)
 
-	g_main.gi.WriteByte (g_local.svc_muzzleflash2)
+	g_main.gi.WriteByte (local.svc_muzzleflash2)
 	g_main.gi.WriteShort (g_main.g_edicts.index(self))
 	g_main.gi.WriteByte (flashtype)
 	g_main.gi.multicast (start, shared.multicast_t.MULTICAST_PVS.value)
@@ -94,7 +91,7 @@ def monster_fire_grenade (self, start, aimdir, damage, speed, flashtype):
 def monster_fire_rocket (self, start, dir, damage, speed, flashtype):
 	g_weapon.fire_rocket (self, start, dir, damage, speed, damage+20, damage)
 
-	g_main.gi.WriteByte (g_local.svc_muzzleflash2)
+	g_main.gi.WriteByte (local.svc_muzzleflash2)
 	g_main.gi.WriteShort (g_main.g_edicts.index(self))
 	g_main.gi.WriteByte (flashtype)
 	g_main.gi.multicast (start, shared.multicast_t.MULTICAST_PVS.value)
@@ -103,7 +100,7 @@ def monster_fire_rocket (self, start, dir, damage, speed, flashtype):
 def monster_fire_railgun (self, start, aimdir, damage, kick, flashtype):
 	g_weapon.fire_rail (self, start, aimdir, damage, kick)
 
-	g_main.gi.WriteByte (g_local.svc_muzzleflash2)
+	g_main.gi.WriteByte (local.svc_muzzleflash2)
 	g_main.gi.WriteShort (g_main.g_edicts.index(self))
 	g_main.gi.WriteByte (flashtype)
 	g_main.gi.multicast (start, shared.multicast_t.MULTICAST_PVS.value)
@@ -112,7 +109,7 @@ def monster_fire_railgun (self, start, aimdir, damage, kick, flashtype):
 def monster_fire_bfg (self, start, aimdir, damage, speed, kick, damage_radius, flashtype):
 	g_weapon.fire_bfg (self, start, aimdir, damage, speed, damage_radius)
 
-	g_main.gi.WriteByte (g_local.svc_muzzleflash2)
+	g_main.gi.WriteByte (local.svc_muzzleflash2)
 	g_main.gi.WriteShort (g_main.g_edicts.index(self))
 	g_main.gi.WriteByte (flashtype)
 	g_main.gi.multicast (start, shared.multicast_t.MULTICAST_PVS.value)
@@ -141,11 +138,11 @@ def M_FlyCheck (self):
 	if self.waterlevel:
 		return
 
-	if g_local.random() > 0.5:
+	if local.random() > 0.5:
 		return
 
 	self.think = M_FliesOn
-	self.nextthink = g_main.level.time + 5 + 10 * g_local.random()
+	self.nextthink = g_main.level.time + 5 + 10 * local.random()
 
 
 def AttackFinished (self, time):
@@ -258,7 +255,7 @@ def M_WorldEffects (ent):
 	if not (ent.flags & FL_INWATER) :
 		if not (ent.svflags & SVF_DEADMONSTER):
 			if ent.watertype & CONTENTS_LAVA:
-				if g_local.random() <= 0.5:
+				if local.random() <= 0.5:
 					g_main.gi.sound (ent, CHAN_BODY, g_main.gi.soundindex("player/lava1.wav"), 1, ATTN_NORM, 0)
 				else:
 					g_main.gi.sound (ent, CHAN_BODY, g_main.gi.soundindex("player/lava2.wav"), 1, ATTN_NORM, 0)

@@ -20,18 +20,19 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_local, g_main, g_ai
+from game import g_main, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_utils import G_ProjectSource, G_FreeEdict
 from game.g_weapon import fire_hit
 from game.g_monster import monster_fire_blaster, flymonster_start
 from game.g_misc import BecomeExplosion1
 from common.header.shared import CHAN_VOICE, CHAN_WEAPON, ATTN_NORM, ATTN_IDLE, EF_HYPERBLASTER, MZ2_FLYER_BLASTER_1, MZ2_FLYER_BLASTER_2
-from game.g_local import (MELEE_DISTANCE, MOVETYPE_STEP, AI_STAND_GROUND, RANGE_MELEE)
-from game.game import SOLID_BBOX
+from game.header.local import MELEE_DISTANCE, MOVETYPE_STEP, AI_STAND_GROUND, RANGE_MELEE
+from game.header.game import SOLID_BBOX
 from common.header import shared
 from common.shared import flash
 from common.shared import shared as shared_c
+from game.header import local
 
 # m_flyer.h
 ACTION_nothing = 0
@@ -194,14 +195,14 @@ MODEL_SCALE = 1.000000
 
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -365,7 +366,7 @@ def flyer_melee (self): #edict_t *
 def flyer_check_melee (self): #edict_t *
 
 	if g_ai.range (self, self.enemy) == RANGE_MELEE:
-		if g_local.random() <= 0.8:
+		if local.random() <= 0.8:
 			self.monsterinfo.currentmove = flyer_move_loop_melee
 		else:
 			self.monsterinfo.currentmove = flyer_move_end_melee

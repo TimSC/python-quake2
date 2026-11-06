@@ -20,18 +20,19 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, g_ai
+from game import g_main, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
-from game.g_local import (AI_DUCKED, AI_HOLD_FRAME, AI_STAND_GROUND, DEAD_DEAD, GIB_ORGANIC, MELEE_DISTANCE, MOVETYPE_STEP, MOVETYPE_TOSS, RANGE_MELEE, damage_t)
+from game.header.local import AI_DUCKED, AI_HOLD_FRAME, AI_STAND_GROUND, DEAD_DEAD, GIB_ORGANIC, MELEE_DISTANCE, MOVETYPE_STEP, MOVETYPE_TOSS, RANGE_MELEE, damage_t
 from game.g_misc import (ThrowGib, ThrowHead)
 from game.g_monster import (monster_fire_rocket, walkmonster_start)
-from game.g_utils import (G_FreeEdict, G_ProjectSource)
+from game.g_utils import G_FreeEdict, G_ProjectSource
 from game.g_weapon import (fire_hit)
-from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
+from game.header.game import SOLID_BBOX, SVF_DEADMONSTER
 from common.header.shared import ATTN_IDLE, ATTN_NORM, CHAN_VOICE, CHAN_WEAPON, MZ2_CHICK_ROCKET_1
 from common.header import shared
 from common.shared import flash
 from common.shared import shared as shared_c
+from game.header import local
 DAMAGE_AIM = damage_t.DAMAGE_AIM.value
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 
@@ -328,14 +329,14 @@ MODEL_SCALE = 1.000000
 
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -368,7 +369,7 @@ chick
 """
 def ChickMoan (self): #edict_t *
 
-	if g_local.random() < 0.5:
+	if local.random() < 0.5:
 		g_main.gi.sound (self, CHAN_VOICE, sound_idle1, 1, ATTN_IDLE, 0)
 	else:
 		g_main.gi.sound (self, CHAN_VOICE, sound_idle2, 1, ATTN_IDLE, 0)
@@ -378,7 +379,7 @@ def chick_fidget (self): #edict_t *
 
 	if self.monsterinfo.aiflags & AI_STAND_GROUND:
 		return
-	if g_local.random() <= 0.3:
+	if local.random() <= 0.3:
 		self.monsterinfo.currentmove = chick_move_fidget
 
 
@@ -416,7 +417,7 @@ def chick_pain (self, other, kick, damage): #edict_t *, edict_t *, float, int
 
 	self.pain_debounce_time = g_main.level.time + 3
 
-	r = g_local.random()
+	r = local.random()
 	if r < 0.33:
 		g_main.gi.sound (self, CHAN_VOICE, sound_pain1, 1, ATTN_NORM, 0)
 	elif r < 0.66:
@@ -505,7 +506,7 @@ def chick_duck_up (self): #edict_t *
 
 def chick_dodge (self, attacker, eta): #edict_t *, edict_t *, float
 
-	if g_local.random() > 0.25:
+	if local.random() > 0.25:
 		return
 
 	if not self.enemy:
@@ -557,7 +558,7 @@ def chick_rerocket (self): #edict_t *
 	if self.enemy.health > 0:
 		if g_ai.range (self, self.enemy) > RANGE_MELEE:
 			if g_ai.visible (self, self.enemy):
-				if g_local.random() <= 0.6:
+				if local.random() <= 0.6:
 					self.monsterinfo.currentmove = chick_move_attack1
 					return
 	self.monsterinfo.currentmove = chick_move_end_attack1
@@ -572,7 +573,7 @@ def chick_reslash (self): #edict_t *
 
 	if self.enemy.health > 0:
 		if g_ai.range (self, self.enemy) == RANGE_MELEE:
-			if g_local.random() <= 0.9:
+			if local.random() <= 0.9:
 				self.monsterinfo.currentmove = chick_move_slash
 				return
 			else:

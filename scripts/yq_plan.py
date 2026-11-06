@@ -66,7 +66,8 @@ def main(argv):
 				t = header if (kind in ("var", "class") and header) else default
 			final[name] = t
 		if len(set(final.values()) | {default}) == 1:
-			renames[m] = default
+			if m != default:
+				renames[m] = default
 		else:
 			splits[m] = {"default": default, "symbols": {k: v for k, v in final.items() if v != default}}
 		c = collections.Counter(final.values())

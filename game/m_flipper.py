@@ -20,16 +20,17 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local
+from game import g_main
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
-from game.g_local import (DEAD_DEAD, GIB_ORGANIC, MELEE_DISTANCE, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t)
+from game.header.local import DEAD_DEAD, GIB_ORGANIC, MELEE_DISTANCE, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t
 from game.g_misc import (ThrowGib, ThrowHead)
 from game.g_monster import (swimmonster_start)
-from game.g_utils import (G_FreeEdict)
+from game.g_utils import G_FreeEdict
 from game.g_weapon import (fire_hit)
-from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
+from game.header.game import SOLID_BBOX, SVF_DEADMONSTER
 from common.header.shared import ATTN_NORM, CHAN_VOICE, CHAN_WEAPON
 from common.header import shared
+from game.header import local
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 
 # m_flipper.h
@@ -197,14 +198,14 @@ MODEL_SCALE = 1.000000
 
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames

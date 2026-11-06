@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import math
 import numpy as np
-from game import g_local, g_main, g_utils, g_monster, g_misc, g_ai, g_items, m_infantry
+from game import g_main, g_utils, g_monster, g_misc, g_ai, g_items, m_infantry
 from game.g_ai import FindTarget, visible
 from game.g_utils import G_PickTarget, G_FreeEdict, vtos, vectoangles
 from game.g_combat import T_Damage
@@ -30,13 +30,12 @@ from game.g_monster import monster_use
 from game.g_items import FindItemByClassname
 from common.header.shared import PITCH, YAW, CHAN_WEAPON, ATTN_NORM, RF_FRAMELERP, MASK_MONSTERSOLID
 from common.shared.shared import vec3_origin
-from game.g_local import (FRAMETIME, MOD_CRUSH, FL_TEAMSLAVE, FL_NO_KNOCKBACK,
-	AI_LOST_SIGHT, AI_STAND_GROUND, AI_DUCKED, MOVETYPE_PUSH, MOVETYPE_STEP,
-	damage_t)
+from game.header.local import FRAMETIME, MOD_CRUSH, FL_TEAMSLAVE, FL_NO_KNOCKBACK, AI_LOST_SIGHT, AI_STAND_GROUND, AI_DUCKED, MOVETYPE_PUSH, MOVETYPE_STEP, damage_t
 DAMAGE_AIM = damage_t.DAMAGE_AIM.value
-from game.game import solid_t, SVF_MONSTER
+from game.header.game import solid_t, SVF_MONSTER
 from common.header import shared
 from common.shared import shared as shared_c
+from game.header import local
 
 SOLID_BSP = solid_t.SOLID_BSP.value
 SOLID_BBOX = solid_t.SOLID_BBOX.value
@@ -122,7 +121,7 @@ def turret_breach_fire (self): #edict_t *
 	shared_c.VectorMA (start, self.move_origin[1], r, start)
 	shared_c.VectorMA (start, self.move_origin[2], u, start)
 
-	damage = 100 + g_local.random() * 50
+	damage = 100 + local.random() * 50
 	speed = 550 + 50 * g_main.skill.value
 	fire_rocket (self.teammaster.owner, start, f, damage, speed, 150, damage)
 	g_main.gi.positioned_sound (start, self, CHAN_WEAPON, g_main.gi.soundindex("weapons/rocklf1a.wav"), 1, ATTN_NORM, 0)

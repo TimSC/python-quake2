@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import random as _r
 pass
-from game import g_local
+pass
 from game import g_main
 from game import g_utils
 from game import g_combat
@@ -29,8 +29,8 @@ from game import g_monster
 from game import m_move
 from game import g_target
 from game import g_func
-from game.game import SVF_MONSTER, SVF_DEADMONSTER, SVF_NOCLIENT
-from game.game import solid_t
+from game.header.game import SVF_MONSTER, SVF_DEADMONSTER, SVF_NOCLIENT
+from game.header.game import solid_t
 SOLID_TRIGGER = solid_t.SOLID_TRIGGER.value
 SOLID_BSP = solid_t.SOLID_BSP.value
 SOLID_BBOX = solid_t.SOLID_BBOX.value
@@ -41,21 +41,21 @@ from common.shared.shared import TO_SHORT
 from common.header.shared import temp_event_t
 TE_EXPLOSION1 = temp_event_t.TE_EXPLOSION1.value
 TE_EXPLOSION2 = temp_event_t.TE_EXPLOSION2.value
-from game.g_local import (GIB_ORGANIC, ANIM_DEATH,
-	MOVETYPE_NONE, MOVETYPE_PUSH, MOVETYPE_STEP, MOVETYPE_TOSS, MOVETYPE_BOUNCE,
-	FL_GODMODE, FL_NO_KNOCKBACK, FL_SWIM, FL_FLY, DEAD_DEAD,
-	AI_GOOD_GUY, AI_NOSTEP, AI_STAND_GROUND, AI_COMBAT_POINT,
-	MOD_CRUSH, MOD_EXPLOSIVE, MOD_BARREL, MOD_BOMB, svc_temp_entity)
-from game.g_local import damage_t
+from game.header.local import GIB_ORGANIC, ANIM_DEATH, MOVETYPE_NONE, MOVETYPE_PUSH, MOVETYPE_STEP, MOVETYPE_TOSS, MOVETYPE_BOUNCE, FL_GODMODE, FL_NO_KNOCKBACK, FL_SWIM, FL_FLY, DEAD_DEAD, AI_GOOD_GUY, AI_NOSTEP, AI_STAND_GROUND, AI_COMBAT_POINT, MOD_CRUSH, MOD_EXPLOSIVE, MOD_BARREL, MOD_BOMB, svc_temp_entity
+from game.header.local import damage_t
 DAMAGE_NO = damage_t.DAMAGE_NO.value
 DAMAGE_YES = damage_t.DAMAGE_YES.value
-from game.g_local import FRAMETIME
+from game.header.local import FRAMETIME
+from game.header import local
 
 """
 // g_misc.c
 
 #include "g_local.h"
 """
+
+debristhisframe = 0 #int
+gibsthisframe = 0 #int
 
 """QUAKED func_group (0 0 0) ?
 Used to group brushes together just for editor convenience.
@@ -81,9 +81,9 @@ Misc functions
 =================
 """
 def VelocityForDamage (damage, v):
-	v[0] = 100.0 * g_local.crandom()
-	v[1] = 100.0 * g_local.crandom()
-	v[2] = 200.0 + 100.0 * g_local.random()
+	v[0] = 100.0 * local.crandom()
+	v[1] = 100.0 * local.crandom()
+	v[2] = 200.0 + 100.0 * local.random()
 
 	if damage < 50:
 		shared_c.VectorScale (v, 0.7, v)
@@ -117,7 +117,7 @@ def gib_think (self):
 
 	if self.s.frame == 10:
 		self.think = g_utils.G_FreeEdict
-		self.nextthink = g_main.level.time + 8 + g_local.random()*10
+		self.nextthink = g_main.level.time + 8 + local.random()*10
 
 
 def gib_touch (self, other, plane, surf):
@@ -159,9 +159,9 @@ def ThrowGib (self, gibname, damage, type):
 
 	shared_c.VectorScale (self.size, 0.5, size)
 	shared.VectorAdd (self.absmin, size, origin)
-	gib.s.origin[0] = origin[0] + g_local.crandom() * size[0]
-	gib.s.origin[1] = origin[1] + g_local.crandom() * size[1]
-	gib.s.origin[2] = origin[2] + g_local.crandom() * size[2]
+	gib.s.origin[0] = origin[0] + local.crandom() * size[0]
+	gib.s.origin[1] = origin[1] + local.crandom() * size[1]
+	gib.s.origin[2] = origin[2] + local.crandom() * size[2]
 
 	g_main.gi.setmodel (gib, gibname)
 	gib.solid = SOLID_NOT
@@ -181,12 +181,12 @@ def ThrowGib (self, gibname, damage, type):
 	VelocityForDamage (damage, vd)
 	shared_c.VectorMA (self.velocity, vscale, vd, gib.velocity)
 	ClipGibVelocity (gib)
-	gib.avelocity[0] = g_local.random()*600
-	gib.avelocity[1] = g_local.random()*600
-	gib.avelocity[2] = g_local.random()*600
+	gib.avelocity[0] = local.random()*600
+	gib.avelocity[1] = local.random()*600
+	gib.avelocity[2] = local.random()*600
 
 	gib.think = g_utils.G_FreeEdict
-	gib.nextthink = g_main.level.time + 10 + g_local.random()*10
+	gib.nextthink = g_main.level.time + 10 + local.random()*10
 
 	g_main.gi.linkentity (gib)
 
@@ -224,10 +224,10 @@ def ThrowHead (self, gibname, damage, type):
 	shared_c.VectorMA (self.velocity, vscale, vd, self.velocity)
 	ClipGibVelocity (self)
 
-	self.avelocity[YAW] = g_local.crandom()*600
+	self.avelocity[YAW] = local.crandom()*600
 
 	self.think = g_utils.G_FreeEdict
-	self.nextthink = g_main.level.time + 10 + g_local.random()*10
+	self.nextthink = g_main.level.time + 10 + local.random()*10
 
 	g_main.gi.linkentity (self)
 
@@ -286,17 +286,17 @@ def ThrowDebris (self, modelname, speed, origin):
 	chunk = g_utils.G_Spawn()
 	shared.VectorCopy (origin, chunk.s.origin)
 	g_main.gi.setmodel (chunk, modelname)
-	v[0] = 100 * g_local.crandom()
-	v[1] = 100 * g_local.crandom()
-	v[2] = 100 + 100 * g_local.crandom()
+	v[0] = 100 * local.crandom()
+	v[1] = 100 * local.crandom()
+	v[2] = 100 + 100 * local.crandom()
 	shared_c.VectorMA (self.velocity, speed, v, chunk.velocity)
 	chunk.movetype = MOVETYPE_BOUNCE
 	chunk.solid = SOLID_NOT
-	chunk.avelocity[0] = g_local.random()*600
-	chunk.avelocity[1] = g_local.random()*600
-	chunk.avelocity[2] = g_local.random()*600
+	chunk.avelocity[0] = local.random()*600
+	chunk.avelocity[1] = local.random()*600
+	chunk.avelocity[2] = local.random()*600
 	chunk.think = g_utils.G_FreeEdict
-	chunk.nextthink = g_main.level.time + 5 + g_local.random()*5
+	chunk.nextthink = g_main.level.time + 5 + local.random()*5
 	chunk.s.frame = 0
 	chunk.flags = 0
 	chunk.classname = "debris"
@@ -659,9 +659,9 @@ def func_explosive_explode (self, inflictor, attacker, damage, point):
 		if count > 8:
 			count = 8
 		while count > 0:
-			chunkorigin[0] = origin[0] + g_local.crandom() * size[0]
-			chunkorigin[1] = origin[1] + g_local.crandom() * size[1]
-			chunkorigin[2] = origin[2] + g_local.crandom() * size[2]
+			chunkorigin[0] = origin[0] + local.crandom() * size[0]
+			chunkorigin[1] = origin[1] + local.crandom() * size[1]
+			chunkorigin[2] = origin[2] + local.crandom() * size[2]
 			ThrowDebris (self, "models/objects/debris1/tris.md2", 1, chunkorigin)
 			count -= 1
 
@@ -670,9 +670,9 @@ def func_explosive_explode (self, inflictor, attacker, damage, point):
 	if count > 16:
 		count = 16
 	while count > 0:
-		chunkorigin[0] = origin[0] + g_local.crandom() * size[0]
-		chunkorigin[1] = origin[1] + g_local.crandom() * size[1]
-		chunkorigin[2] = origin[2] + g_local.crandom() * size[2]
+		chunkorigin[0] = origin[0] + local.crandom() * size[0]
+		chunkorigin[1] = origin[1] + local.crandom() * size[1]
+		chunkorigin[2] = origin[2] + local.crandom() * size[2]
 		ThrowDebris (self, "models/objects/debris2/tris.md2", 2, chunkorigin)
 		count -= 1
 
@@ -761,13 +761,13 @@ def barrel_explode (self):
 
 	# a few big chunks
 	spd = 1.5 * float(self.dmg) / 200.0
-	org[0] = self.s.origin[0] + g_local.crandom() * self.size[0]
-	org[1] = self.s.origin[1] + g_local.crandom() * self.size[1]
-	org[2] = self.s.origin[2] + g_local.crandom() * self.size[2]
+	org[0] = self.s.origin[0] + local.crandom() * self.size[0]
+	org[1] = self.s.origin[1] + local.crandom() * self.size[1]
+	org[2] = self.s.origin[2] + local.crandom() * self.size[2]
 	ThrowDebris (self, "models/objects/debris1/tris.md2", spd, org)
-	org[0] = self.s.origin[0] + g_local.crandom() * self.size[0]
-	org[1] = self.s.origin[1] + g_local.crandom() * self.size[1]
-	org[2] = self.s.origin[2] + g_local.crandom() * self.size[2]
+	org[0] = self.s.origin[0] + local.crandom() * self.size[0]
+	org[1] = self.s.origin[1] + local.crandom() * self.size[1]
+	org[2] = self.s.origin[2] + local.crandom() * self.size[2]
 	ThrowDebris (self, "models/objects/debris1/tris.md2", spd, org)
 
 	# bottom corners
@@ -788,9 +788,9 @@ def barrel_explode (self):
 	# a bunch of little chunks
 	spd = 2 * self.dmg / 200
 	for _ in range(8):
-		org[0] = self.s.origin[0] + g_local.crandom() * self.size[0]
-		org[1] = self.s.origin[1] + g_local.crandom() * self.size[1]
-		org[2] = self.s.origin[2] + g_local.crandom() * self.size[2]
+		org[0] = self.s.origin[0] + local.crandom() * self.size[0]
+		org[1] = self.s.origin[1] + local.crandom() * self.size[1]
+		org[2] = self.s.origin[2] + local.crandom() * self.size[2]
 		ThrowDebris (self, "models/objects/debris2/tris.md2", spd, org)
 
 	shared.VectorCopy (save, self.s.origin)
@@ -1253,9 +1253,9 @@ def SP_misc_gib_arm (ent):
 	ent.movetype = MOVETYPE_TOSS
 	ent.svflags |= SVF_MONSTER
 	ent.deadflag = DEAD_DEAD
-	ent.avelocity[0] = g_local.random()*200
-	ent.avelocity[1] = g_local.random()*200
-	ent.avelocity[2] = g_local.random()*200
+	ent.avelocity[0] = local.random()*200
+	ent.avelocity[1] = local.random()*200
+	ent.avelocity[2] = local.random()*200
 	ent.think = g_utils.G_FreeEdict
 	ent.nextthink = g_main.level.time + 30
 	g_main.gi.linkentity (ent)
@@ -1273,9 +1273,9 @@ def SP_misc_gib_leg (ent):
 	ent.movetype = MOVETYPE_TOSS
 	ent.svflags |= SVF_MONSTER
 	ent.deadflag = DEAD_DEAD
-	ent.avelocity[0] = g_local.random()*200
-	ent.avelocity[1] = g_local.random()*200
-	ent.avelocity[2] = g_local.random()*200
+	ent.avelocity[0] = local.random()*200
+	ent.avelocity[1] = local.random()*200
+	ent.avelocity[2] = local.random()*200
 	ent.think = g_utils.G_FreeEdict
 	ent.nextthink = g_main.level.time + 30
 	g_main.gi.linkentity (ent)
@@ -1293,9 +1293,9 @@ def SP_misc_gib_head (ent):
 	ent.movetype = MOVETYPE_TOSS
 	ent.svflags |= SVF_MONSTER
 	ent.deadflag = DEAD_DEAD
-	ent.avelocity[0] = g_local.random()*200
-	ent.avelocity[1] = g_local.random()*200
-	ent.avelocity[2] = g_local.random()*200
+	ent.avelocity[0] = local.random()*200
+	ent.avelocity[1] = local.random()*200
+	ent.avelocity[2] = local.random()*200
 	ent.think = g_utils.G_FreeEdict
 	ent.nextthink = g_main.level.time + 30
 	g_main.gi.linkentity (ent)

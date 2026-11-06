@@ -29,6 +29,7 @@ import random
 from linux import net_udp, q_shlinux
 from common.header import common as common_h
 from common.shared import shared as shared_c
+from common.shared import rand
 from common import clientserver
 from common import cmdparser
 from common import movemsg
@@ -123,13 +124,13 @@ def SVC_GetChallenge ():
 
 	if i is None:
 		# overwrite the oldest
-		sv_init.svs.challenges[oldest].challenge = random.randint(0, 0x7fff)
+		sv_init.svs.challenges[oldest].challenge = rand.randk() & 0x7fff
 		sv_init.svs.challenges[oldest].adr = netchan.net_from
 		sv_init.svs.challenges[oldest].time = q_shlinux.curtime
 		i = oldest
 
 	# send it back
-	netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, netchan.net_from, "challenge {}".format(sv_init.svs.challenges[i].challenge))
+	netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, netchan.net_from, "challenge %i p=34", sv_init.svs.challenges[i].challenge)
 """
 /*
 ==================
@@ -161,7 +162,7 @@ def SVC_DirectConnect ():
 		version = None
 	if version != common_h.PROTOCOL_VERSION:
 	
-		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, adr, "print\nServer is version {:4.2f}.\n".format(common_h.VERSION))
+		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, adr, "print\nServer is protocol version 34.\n")
 		clientserver.Com_DPrintf ("    rejected connect from version {}\n".format(version))
 		return
 	
@@ -207,13 +208,13 @@ def SVC_DirectConnect ():
 	# if there is already a slot for this ip, reuse it
 	for cl in sv_init.svs.clients:
 	
-		if cl.state == server_h.client_state_t.cs_free:
+		if cl.state.value < server_h.client_state_t.cs_connected.value:
 			continue
 		if net_udp.NET_CompareBaseAdr (adr, cl.netchan.remote_address) \
 			and ( cl.netchan.qport == qport \
 			or adr.port == cl.netchan.remote_address.port ):
 		
-			if not net_udp.NET_IsLocalAddress (adr) and (sv_init.svs.realtime - cl.lastconnect) < int(sv_main.sv_reconnect_limit.value * 1000):
+			if not net_udp.NET_IsLocalAddress (adr):
 			
 				clientserver.Com_DPrintf ("{}:reconnect rejected : too soon\n".format(net_udp.NET_AdrToString (adr)))
 				return
@@ -273,7 +274,7 @@ def SVC_RemoteCommand ():
 	else:
 		clientserver.Com_Printf ("Rcon from {}:\n{}\n".format(net_udp.NET_AdrToString (netchan.net_from), netchan.net_message.data[4:].decode('ascii')))
 
-	clientserver.Com_BeginRedirect (clientserver.RD_PACKET, sv_send.sv_outputbuf, server_h.SV_OUTPUTBUF_LENGTH, sv_send.SV_FlushRedirect)
+	clientserver.Com_BeginRedirect (server_h.redirect_t.RD_PACKET.value, sv_send.sv_outputbuf, server_h.SV_OUTPUTBUF_LENGTH, sv_send.SV_FlushRedirect)
 
 	if not Rcon_Validate ():
 		clientserver.Com_Printf ("Bad rcon_password.\n")

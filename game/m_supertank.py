@@ -20,17 +20,18 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, g_ai
+from game import g_main, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
-from game.g_local import (AI_STAND_GROUND, DEAD_DEAD, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, GIB_METALLIC, GIB_ORGANIC, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t, svc_temp_entity)
+from game.header.local import AI_STAND_GROUND, DEAD_DEAD, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, GIB_METALLIC, GIB_ORGANIC, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t, svc_temp_entity
 from game.g_misc import (ThrowGib, ThrowHead)
 from game.g_monster import (monster_fire_bullet, monster_fire_rocket, walkmonster_start)
-from game.g_utils import (G_FreeEdict, G_ProjectSource)
-from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
+from game.g_utils import G_FreeEdict, G_ProjectSource
+from game.header.game import SOLID_BBOX, SVF_DEADMONSTER
 from common.header.shared import ATTN_NORM, CHAN_VOICE, MZ2_SUPERTANK_MACHINEGUN_1, MZ2_SUPERTANK_ROCKET_1, MZ2_SUPERTANK_ROCKET_2, MZ2_SUPERTANK_ROCKET_3, multicast_t, temp_event_t
 from common.header import shared
 from common.shared import flash
 from common.shared import shared as shared_c
+from game.header import local
 DAMAGE_NO = damage_t.DAMAGE_NO.value
 MULTICAST_PVS = multicast_t.MULTICAST_PVS.value
 TE_EXPLOSION1 = temp_event_t.TE_EXPLOSION1.value
@@ -294,14 +295,14 @@ MODEL_SCALE = 1.000000
 
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -331,7 +332,7 @@ def TreadSound (self): #edict_t *
 
 def supertank_search (self): #edict_t *
 
-	if g_local.random() < 0.5:
+	if local.random() < 0.5:
 		g_main.gi.sound (self, CHAN_VOICE, sound_search1, 1, ATTN_NORM, 0)
 	else:
 		g_main.gi.sound (self, CHAN_VOICE, sound_search2, 1, ATTN_NORM, 0)
@@ -363,7 +364,7 @@ def supertank_run (self): #edict_t *
 def supertank_reattack1 (self): #edict_t *
 
 	if g_ai.visible(self, self.enemy):
-		if g_local.random() < 0.9:
+		if local.random() < 0.9:
 			self.monsterinfo.currentmove = supertank_move_attack1
 		else:
 			self.monsterinfo.currentmove = supertank_move_end_attack1
@@ -381,7 +382,7 @@ def supertank_pain (self, other, kick, damage): #edict_t *, edict_t *, float, in
 
 	# Lessen the chance of him going into his pain frames
 	if damage <=25:
-		if g_local.random()<0.2:
+		if local.random()<0.2:
 			return
 
 	# Don't go into pain if he's firing his rockets
@@ -480,7 +481,7 @@ def supertank_attack (self): #edict_t *
 		self.monsterinfo.currentmove = supertank_move_attack1
 	else:
 		# fire rockets more often at distance
-		if g_local.random() < 0.3:
+		if local.random() < 0.3:
 			self.monsterinfo.currentmove = supertank_move_attack1
 		else:
 			self.monsterinfo.currentmove = supertank_move_attack2

@@ -25,7 +25,7 @@ Interface between the server and the game module.
 """
 from __future__ import annotations
 
-from game import game
+pass
 from linux import sys_linux
 from client import cl_scrn
 from common.header import common as common_h
@@ -44,6 +44,7 @@ from server import sv_init
 from server import sv_main
 from server import sv_send
 from server import sv_world
+from game.header import game as game_h
 
 """
 #include "header/server.h"
@@ -212,25 +213,62 @@ PF_Configstring
 ===============
 */
 """
-def PF_Configstring (index, val): #int, char *
+def PF_Configstring(index: int, val: str): #int, const char *
 
-	if index < 0 or index >= shared.MAX_CONFIGSTRINGS:
-		clientserver.Com_Error (common_h.ERR_DROP, "configstring: bad index %i\n", index)
+	"""
+	size_t len, space;
+	char *cs;
+	"""
+
+	if (index < 0) or (index >= shared.MAX_CONFIGSTRINGS):
+
+		clientserver.Com_Printf("%s: bad index %i\n", "PF_Configstring", index)
+		return
+
 
 	if not val:
+
 		val = ""
 
-	# change the string in sv
-	sv_init.sv.configstrings[index] = val
+
+	length = len(val)
+
+	# statusbar code covers several configstring indices
+	if (index >= shared.CS_STATUSBAR) and (index < shared.CS_STATUSBAR_END):
+
+		space = shared.CS_STATUSBAR_SPACE(index)
+
+		if length >= space:
+
+			clientserver.Com_Printf("%s: statusbar code too big: %d > %d\n",
+				"PF_Configstring", length, space - 1)
+			return
+
+
+		sv_init.sv.configstrings[index] = val #memcpy(cs, val, len + 1);
+
+	else:
+
+		space = shared.MAX_QPATH #sizeof(sv.configstrings[index]);
+
+		if length >= space:
+
+			clientserver.Com_Printf("%s; value too big: %d > %d\n",
+				"PF_Configstring", length, space - 1)
+			return
+
+
+		sv_init.sv.configstrings[index] = val #strcpy(cs, val);
+
 
 	if sv_init.sv.state != server_h.server_state_t.ss_loading:
-		# send the update to everyone
-		szone.SZ_Clear (sv_init.sv.multicast)
-		movemsg.MSG_WriteChar (sv_init.sv.multicast, common_h.svc_ops_e.svc_configstring.value)
-		movemsg.MSG_WriteShort (sv_init.sv.multicast, index)
-		movemsg.MSG_WriteString (sv_init.sv.multicast, val)
 
-		sv_send.SV_Multicast (shared_c.vec3_origin, shared.multicast_t.MULTICAST_ALL_R)
+		# send the update to everyone
+		szone.SZ_Clear(sv_init.sv.multicast)
+		movemsg.MSG_WriteChar(sv_init.sv.multicast, common_h.svc_ops_e.svc_configstring.value)
+		movemsg.MSG_WriteConfigString(sv_init.sv.multicast, index, val)
+
+		sv_send.SV_Multicast(shared_c.vec3_origin, shared.multicast_t.MULTICAST_ALL_R)
 
 
 def PF_WriteChar (c):
@@ -272,7 +310,7 @@ def PF_inPVS (p1, p2): #vec3_t, vec3_t
 	leafnum = collision.CM_PointLeafnum (p2)
 	cluster = collision.CM_LeafCluster (leafnum)
 	area2 = collision.CM_LeafArea (leafnum)
-	if mask and not (mask[cluster>>3] & (1<<(cluster&7))):
+	if cluster < 0 or (not (mask[cluster>>3] & (1<<(cluster&7)))):
 		return False
 	if not collision.CM_AreasConnected (area1, area2):
 		return False		# a door blocks sight
@@ -298,7 +336,7 @@ def PF_inPHS (p1, p2): #vec3_t, vec3_t
 	leafnum = collision.CM_PointLeafnum (p2)
 	cluster = collision.CM_LeafCluster (leafnum)
 	area2 = collision.CM_LeafArea (leafnum)
-	if mask and not (mask[cluster>>3] & (1<<(cluster&7))):
+	if cluster < 0 or (not (mask[cluster>>3] & (1<<(cluster&7)))):
 		return False		# more than one bounce away
 	if not collision.CM_AreasConnected (area1, area2):
 		return False		# a door blocks hearing
@@ -330,47 +368,36 @@ def SV_ShutdownGameProgs ():
 	sys_linux.Sys_UnloadGame ()
 	ge = None
 
-r"""
-/*
- * Init the game subsystem for a new map
- */
-static void *
-GI_TagMalloc(int size, int tag)
-{
-	if (size < 0)
-	{
-		Com_Error(ERR_FATAL, "%s: size < 0: %i\n",
-			__func__, size);
-		return NULL;
-	}
+def GI_TagMalloc(size: int, tag: int): #int, int (returns static void *)
 
-	if ((tag > USHRT_MAX) || (tag < 0))
-	{
-		Com_Printf("%s: tag outside [0, 65535]: %i\n",
-			__func__, tag);
+	if size < 0:
 
-		tag = 0;
-	}
+		clientserver.Com_Error(shared.ERR_FATAL, "%s: size < 0: %i\n",
+			"GI_TagMalloc", size)
+		return None
 
-	return Z_TagMalloc(size, (unsigned short)tag);
-}
-"""
 
-r"""
-static void
-GI_FreeTags(int tag)
-{
-	if ((tag > USHRT_MAX) || (tag <= 0))
-	{
-		Com_Printf("%s: tag outside [1, 65535]: %i\n",
-			__func__, tag);
+	if (tag > 65535) or (tag < 0): #USHRT_MAX
 
-		return;
-	}
+		clientserver.Com_Printf("%s: tag outside [0, 65535]: %i\n",
+			"GI_TagMalloc", tag)
 
-	Z_FreeTags((unsigned short)tag);
-}
-"""
+		tag = 0
+
+
+	return zone.Z_TagMalloc(size, tag)
+
+def GI_FreeTags(tag: int): #int
+
+	if (tag > 65535) or (tag <= 0): #USHRT_MAX
+
+		clientserver.Com_Printf("%s: tag outside [1, 65535]: %i\n",
+			"GI_FreeTags", tag)
+
+		return
+
+
+	zone.Z_FreeTags(tag)
 
 """
 /*
@@ -386,11 +413,13 @@ def SV_InitGameProgs ():
 
 	global ge
 
-	gimport = game.game_import_t()
+	gimport = game_h.game_import_t()
 
 	# unload anything we have now
 	if ge is not None:
 		SV_ShutdownGameProgs ()
+
+	clientserver.Com_Printf("-------- game initialization -------\n")
 
 	# load a new game dll
 	gimport.multicast = sv_send.SV_Multicast
@@ -429,9 +458,9 @@ def SV_InitGameProgs ():
 	gimport.WriteDir = PF_WriteDir
 	gimport.WriteAngle = PF_WriteAngle
 
-	gimport.TagMalloc = zone.Z_TagMalloc
+	gimport.TagMalloc = GI_TagMalloc
 	gimport.TagFree = zone.Z_Free
-	gimport.FreeTags = zone.Z_FreeTags
+	gimport.FreeTags = GI_FreeTags
 
 	gimport.cvar = cvar.Cvar_Get
 	gimport.cvar_set = cvar.Cvar_Set
@@ -451,7 +480,9 @@ def SV_InitGameProgs ():
 	#if (!ge)
 	#	Com_Error (qcommon.ERR_DROP, "failed to load game DLL")
 
-	if ge.apiversion != game.GAME_API_VERSION:
-		clientserver.Com_Error (common_h.ERR_DROP, "game is version {:d}, not {:d}".format(ge.apiversion, game.GAME_API_VERSION))
+	if ge.apiversion != game_h.GAME_API_VERSION:
+		clientserver.Com_Error (common_h.ERR_DROP, "game is version {:d}, not {:d}".format(ge.apiversion, game_h.GAME_API_VERSION))
 
 	ge.Init ()
+
+	clientserver.Com_Printf("------------------------------------\n\n")

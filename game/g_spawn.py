@@ -1,381 +1,51 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+Item spawning.
+
+=======================================================================
 """
 from __future__ import annotations
 
-pass
-from game import game as _gamemod
-from game import g_local, g_main, g_utils
+from game import g_main, g_utils
 from common.header.shared import CS_NAME, CS_SKY, CS_SKYROTATE, CS_SKYAXIS, CS_CDTRACK, CS_MAXCLIENTS, CS_STATUSBAR, CS_LIGHTS
 import numpy as np
 import math
 from common.shared import shared as shared_c
+from game.header import game as game_h
+from game.header import local
+
 """
-/*
-Copyright (C) 1997-2001 Id Software, Inc.
-
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
-
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
-*/
-
-#include "g_local.h"
-
-typedef struct
-{
-	char	*name;
-	void	(*spawn)(edict_t *ent);
-} spawn_t;
-
-void SP_item_health (edict_t *self);
-void SP_item_health_small (edict_t *self);
-void SP_item_health_large (edict_t *self);
-void SP_item_health_mega (edict_t *self);
-
-void SP_info_player_start (edict_t *ent);
-void SP_info_player_deathmatch (edict_t *ent);
-void SP_info_player_coop (edict_t *ent);
-void SP_info_player_intermission (edict_t *ent);
-
-void SP_func_plat (edict_t *ent);
-void SP_func_rotating (edict_t *ent);
-void SP_func_button (edict_t *ent);
-void SP_func_door (edict_t *ent);
-void SP_func_door_secret (edict_t *ent);
-void SP_func_door_rotating (edict_t *ent);
-void SP_func_water (edict_t *ent);
-void SP_func_train (edict_t *ent);
-void SP_func_conveyor (edict_t *self);
-void SP_func_wall (edict_t *self);
-void SP_func_object (edict_t *self);
-void SP_func_explosive (edict_t *self);
-void SP_func_timer (edict_t *self);
-void SP_func_areaportal (edict_t *ent);
-void SP_func_clock (edict_t *ent);
-void SP_func_killbox (edict_t *ent);
-
-void SP_trigger_always (edict_t *ent);
-void SP_trigger_once (edict_t *ent);
-void SP_trigger_multiple (edict_t *ent);
-void SP_trigger_relay (edict_t *ent);
-void SP_trigger_push (edict_t *ent);
-void SP_trigger_hurt (edict_t *ent);
-void SP_trigger_key (edict_t *ent);
-void SP_trigger_counter (edict_t *ent);
-void SP_trigger_elevator (edict_t *ent);
-void SP_trigger_gravity (edict_t *ent);
-void SP_trigger_monsterjump (edict_t *ent);
-
-void SP_target_temp_entity (edict_t *ent);
-void SP_target_speaker (edict_t *ent);
-void SP_target_explosion (edict_t *ent);
-void SP_target_changelevel (edict_t *ent);
-void SP_target_secret (edict_t *ent);
-void SP_target_goal (edict_t *ent);
-void SP_target_splash (edict_t *ent);
-void SP_target_spawner (edict_t *ent);
-void SP_target_blaster (edict_t *ent);
-void SP_target_crosslevel_trigger (edict_t *ent);
-void SP_target_crosslevel_target (edict_t *ent);
-void SP_target_laser (edict_t *self);
-void SP_target_help (edict_t *ent);
-void SP_target_actor (edict_t *ent);
-void SP_target_lightramp (edict_t *self);
-void SP_target_earthquake (edict_t *ent);
-void SP_target_character (edict_t *ent);
-void SP_target_string (edict_t *ent);
-
-void SP_viewthing (edict_t *ent);
-
-void SP_light (edict_t *self);
-void SP_light_mine1 (edict_t *ent);
-void SP_light_mine2 (edict_t *ent);
-void SP_info_null (edict_t *self);
-void SP_info_notnull (edict_t *self);
-void SP_path_corner (edict_t *self);
-void SP_point_combat (edict_t *self);
-
-void SP_misc_explobox (edict_t *self);
-void SP_misc_banner (edict_t *self);
-void SP_misc_satellite_dish (edict_t *self);
-void SP_misc_actor (edict_t *self);
-void SP_misc_gib_arm (edict_t *self);
-void SP_misc_gib_leg (edict_t *self);
-void SP_misc_gib_head (edict_t *self);
-void SP_misc_insane (edict_t *self);
-void SP_misc_deadsoldier (edict_t *self);
-void SP_misc_viper (edict_t *self);
-void SP_misc_viper_bomb (edict_t *self);
-void SP_misc_bigviper (edict_t *self);
-void SP_misc_strogg_ship (edict_t *self);
-void SP_misc_teleporter (edict_t *self);
-void SP_misc_teleporter_dest (edict_t *self);
-void SP_misc_blackhole (edict_t *self);
-void SP_misc_eastertank (edict_t *self);
-void SP_misc_easterchick (edict_t *self);
-void SP_misc_easterchick2 (edict_t *self);
-
-void SP_monster_berserk (edict_t *self);
-void SP_monster_gladiator (edict_t *self);
-void SP_monster_gunner (edict_t *self);
-void SP_monster_infantry (edict_t *self);
-void SP_monster_soldier_light (edict_t *self);
-void SP_monster_soldier (edict_t *self);
-void SP_monster_soldier_ss (edict_t *self);
-void SP_monster_tank (edict_t *self);
-void SP_monster_medic (edict_t *self);
-void SP_monster_flipper (edict_t *self);
-void SP_monster_chick (edict_t *self);
-void SP_monster_parasite (edict_t *self);
-void SP_monster_flyer (edict_t *self);
-void SP_monster_brain (edict_t *self);
-void SP_monster_floater (edict_t *self);
-void SP_monster_hover (edict_t *self);
-void SP_monster_mutant (edict_t *self);
-void SP_monster_supertank (edict_t *self);
-void SP_monster_boss2 (edict_t *self);
-void SP_monster_jorg (edict_t *self);
-void SP_monster_boss3_stand (edict_t *self);
-
-void SP_monster_commander_body (edict_t *self);
-
-void SP_turret_breach (edict_t *self);
-void SP_turret_base (edict_t *self);
-void SP_turret_driver (edict_t *self);
-
-spawn_t	spawns[] = {
-	{"item_health", SP_item_health},
-	{"item_health_small", SP_item_health_small},
-	{"item_health_large", SP_item_health_large},
-	{"item_health_mega", SP_item_health_mega},
-
-	{"info_player_start", SP_info_player_start},
-	{"info_player_deathmatch", SP_info_player_deathmatch},
-	{"info_player_coop", SP_info_player_coop},
-	{"info_player_intermission", SP_info_player_intermission},
-
-	{"func_plat", SP_func_plat},
-	{"func_button", SP_func_button},
-	{"func_door", SP_func_door},
-	{"func_door_secret", SP_func_door_secret},
-	{"func_door_rotating", SP_func_door_rotating},
-	{"func_rotating", SP_func_rotating},
-	{"func_train", SP_func_train},
-	{"func_water", SP_func_water},
-	{"func_conveyor", SP_func_conveyor},
-	{"func_areaportal", SP_func_areaportal},
-	{"func_clock", SP_func_clock},
-	{"func_wall", SP_func_wall},
-	{"func_object", SP_func_object},
-	{"func_timer", SP_func_timer},
-	{"func_explosive", SP_func_explosive},
-	{"func_killbox", SP_func_killbox},
-
-	{"trigger_always", SP_trigger_always},
-	{"trigger_once", SP_trigger_once},
-	{"trigger_multiple", SP_trigger_multiple},
-	{"trigger_relay", SP_trigger_relay},
-	{"trigger_push", SP_trigger_push},
-	{"trigger_hurt", SP_trigger_hurt},
-	{"trigger_key", SP_trigger_key},
-	{"trigger_counter", SP_trigger_counter},
-	{"trigger_elevator", SP_trigger_elevator},
-	{"trigger_gravity", SP_trigger_gravity},
-	{"trigger_monsterjump", SP_trigger_monsterjump},
-
-	{"target_temp_entity", SP_target_temp_entity},
-	{"target_speaker", SP_target_speaker},
-	{"target_explosion", SP_target_explosion},
-	{"target_changelevel", SP_target_changelevel},
-	{"target_secret", SP_target_secret},
-	{"target_goal", SP_target_goal},
-	{"target_splash", SP_target_splash},
-	{"target_spawner", SP_target_spawner},
-	{"target_blaster", SP_target_blaster},
-	{"target_crosslevel_trigger", SP_target_crosslevel_trigger},
-	{"target_crosslevel_target", SP_target_crosslevel_target},
-	{"target_laser", SP_target_laser},
-	{"target_help", SP_target_help},
-	{"target_actor", SP_target_actor},
-	{"target_lightramp", SP_target_lightramp},
-	{"target_earthquake", SP_target_earthquake},
-	{"target_character", SP_target_character},
-	{"target_string", SP_target_string},
-
-	{"worldspawn", SP_worldspawn},
-	{"viewthing", SP_viewthing},
-
-	{"light", SP_light},
-	{"light_mine1", SP_light_mine1},
-	{"light_mine2", SP_light_mine2},
-	{"info_null", SP_info_null},
-	{"func_group", SP_info_null},
-	{"info_notnull", SP_info_notnull},
-	{"path_corner", SP_path_corner},
-	{"point_combat", SP_point_combat},
-
-	{"misc_explobox", SP_misc_explobox},
-	{"misc_banner", SP_misc_banner},
-	{"misc_satellite_dish", SP_misc_satellite_dish},
-	{"misc_actor", SP_misc_actor},
-	{"misc_gib_arm", SP_misc_gib_arm},
-	{"misc_gib_leg", SP_misc_gib_leg},
-	{"misc_gib_head", SP_misc_gib_head},
-	{"misc_insane", SP_misc_insane},
-	{"misc_deadsoldier", SP_misc_deadsoldier},
-	{"misc_viper", SP_misc_viper},
-	{"misc_viper_bomb", SP_misc_viper_bomb},
-	{"misc_bigviper", SP_misc_bigviper},
-	{"misc_strogg_ship", SP_misc_strogg_ship},
-	{"misc_teleporter", SP_misc_teleporter},
-	{"misc_teleporter_dest", SP_misc_teleporter_dest},
-	{"misc_blackhole", SP_misc_blackhole},
-	{"misc_eastertank", SP_misc_eastertank},
-	{"misc_easterchick", SP_misc_easterchick},
-	{"misc_easterchick2", SP_misc_easterchick2},
-
-	{"monster_berserk", SP_monster_berserk},
-	{"monster_gladiator", SP_monster_gladiator},
-	{"monster_gunner", SP_monster_gunner},
-	{"monster_infantry", SP_monster_infantry},
-	{"monster_soldier_light", SP_monster_soldier_light},
-	{"monster_soldier", SP_monster_soldier},
-	{"monster_soldier_ss", SP_monster_soldier_ss},
-	{"monster_tank", SP_monster_tank},
-	{"monster_tank_commander", SP_monster_tank},
-	{"monster_medic", SP_monster_medic},
-	{"monster_flipper", SP_monster_flipper},
-	{"monster_chick", SP_monster_chick},
-	{"monster_parasite", SP_monster_parasite},
-	{"monster_flyer", SP_monster_flyer},
-	{"monster_brain", SP_monster_brain},
-	{"monster_floater", SP_monster_floater},
-	{"monster_hover", SP_monster_hover},
-	{"monster_mutant", SP_monster_mutant},
-	{"monster_supertank", SP_monster_supertank},
-	{"monster_boss2", SP_monster_boss2},
-	{"monster_boss3_stand", SP_monster_boss3_stand},
-	{"monster_jorg", SP_monster_jorg},
-
-	{"monster_commander_body", SP_monster_commander_body},
-
-	{"turret_breach", SP_turret_breach},
-	{"turret_base", SP_turret_base},
-	{"turret_driver", SP_turret_driver},
-
-	{NULL, NULL}
-};
-"""
-"""
-/*
-===============
-ED_CallSpawn
-
-Finds the spawn function for the entity and calls it
-===============
-*/
-"""
-"""
-/*
-=============
-ED_NewString
-=============
-*/
-"""
-"""
-/*
-===============
-ED_ParseField
-
-Takes a key/value pair and sets the binary values
-in an edict
-===============
-*/
-"""
-"""
-/*
-====================
-ED_ParseEdict
-
-Parses an edict out of the given string, returning the new position
-ed should be a properly initialized empty edict.
-====================
-*/
-			gi.error ("ED_ParseEntity: closing brace without data");
-
-		init = true;	
-
-	// keynames with a leading underscore are used for utility comments,
-	// and are immediately discarded by quake
-		if (keyname[0] == '_')
-			continue;
-
-		ED_ParseField (keyname, com_token, ent);
-	}
-
-	if (!init)
-		memset (ent, 0, sizeof(*ent));
-
-	return data;
-}
-"""
-"""
-/*
-================
-G_FindTeams
-
-Chain together all entities with a matching team field.
-
-All but the first will have the FL_TEAMSLAVE flag set.
-All but the last will have the teamchain field set to the next one
-================
-*/
-"""
-"""
-/*
-==============
-SpawnEntities
-
-Creates a server's entity / program execution context by
-parsing textual entity definitions out of an ent file.
-==============
-*/
+#include "header/local.h"
+#include "savegame/tables/spawnfunc_decs.h"
+#include "savegame/tables/spawnfunc_list.h"
 """
 
 # C: extern spawn_temp_t st; -- defined in g_main.c, referenced here as g_main.st
 
 # C: field_t fields[] -- the fields parsed out of the .map file.
 # (name, type, flags).  FFL_NOSPAWN fields are save/load only and are skipped.
-_ft = g_local.fieldtype_t
-_flt = g_local.FFL_SPAWNTEMP
+
+_ft = local.fieldtype_t
+_flt = local.FFL_SPAWNTEMP
 fields = [
 	("classname", _ft.F_LSTRING, 0),
 	("model", _ft.F_LSTRING, 0),
@@ -420,6 +90,7 @@ fields = [
 	("sky", _ft.F_LSTRING, _flt),
 	("skyrotate", _ft.F_FLOAT, _flt),
 	("skyaxis", _ft.F_VECTOR, _flt),
+	("music", _ft.F_LSTRING, _flt),
 	("minyaw", _ft.F_FLOAT, _flt),
 	("maxyaw", _ft.F_FLOAT, _flt),
 	("minpitch", _ft.F_FLOAT, _flt),
@@ -544,7 +215,12 @@ def _find_spawn (classname):
 	# resolve lazily so all the SP_ modules are fully loaded
 	global _spawn_cache
 	if _spawn_cache is None:
-		from game import g_items, g_func, g_target, g_misc, g_turret, p_client
+		from game import g_items
+		from game import g_func
+		from game import g_target
+		from game import g_misc
+		from game import g_turret
+		from game.player import client as p_client
 		from game import m_actor, m_berserk, m_boss2, m_boss3, m_boss31, m_supertank
 		from game import g_trigger, m_infantry, m_soldier, m_boss32, m_gunner, m_flyer
 		from game import m_brain, m_chick, m_flipper, m_float, m_gladiator, m_hover, m_insane, m_medic, m_mutant, m_parasite, m_tank
@@ -568,17 +244,23 @@ def _find_spawn (classname):
 	return None
 
 def ED_CallSpawn (ent):
+	if not ent:
+
+		return
+
+
 	from game import g_items
 	#spawn_t	*s;
 	#gitem_t	*item;
 	#int		i;
 
 	if not ent.classname:
-		g_main.gi.dprintf ("ED_CallSpawn: NULL classname\n")
+		g_main.gi.dprintf ("%s: NULL classname\n", "ED_CallSpawn")
+		g_utils.G_FreeEdict (ent)
 		return
 
 	# check item spawn functions
-	for i in range(g_main.game.num_items):
+	for i in range(g_items.itemlist_len):
 		item = g_items.itemlist[i]
 		if not item.classname:
 			continue
@@ -599,6 +281,11 @@ def ED_NewString (string):
 
 	# C copies into TAG_LEVEL memory; in Python the string is the value.
 	# Only backslash-n needs translating.
+	if string is None:
+
+		return None
+
+
 	out = []
 	i = 0
 	while i < len(string):
@@ -615,13 +302,23 @@ def ED_NewString (string):
 
 def ED_ParseField (key, value, ent):
 	#field_t	*f;
+	if not ent or value is None or key is None:
+
+		return
+
+
 	for name, ftype, flags in fields:
-		if not (flags & g_local.FFL_NOSPAWN) and shared_c.Q_stricmp (name, key) == 0:	# found it
+		if not (flags & local.FFL_NOSPAWN) and shared_c.Q_stricmp (name, key) == 0:	# found it
 			if ftype == _ft.F_LSTRING:
 				v = ED_NewString (value)
 			elif ftype == _ft.F_VECTOR:
-				parts = value.split ()
-				v = np.array([float(parts[0]), float(parts[1]), float(parts[2])], dtype=np.float32)
+				# sscanf(value, "%f %f %f", ...) != 3
+				try:
+					parts = value.split ()
+					v = np.array([float(parts[0]), float(parts[1]), float(parts[2])], dtype=np.float32)
+				except (ValueError, IndexError):
+					v = np.zeros((3,), dtype=np.float32)
+					g_main.gi.dprintf ("%s: entity %d: incomplete '%s' field\n", "ED_ParseField", ent.s.number, name)
 			elif ftype == _ft.F_INT:
 				try:
 					v = int(float(value))
@@ -646,21 +343,26 @@ def ED_ParseField (key, value, ent):
 				ent.s.origin = v
 			elif name == "angles" or name == "angle":
 				ent.s.angles = v
-			elif flags & g_local.FFL_SPAWNTEMP:
+			elif flags & local.FFL_SPAWNTEMP:
 				setattr (g_main.st, name, v)
 			else:
 				setattr (ent, name, v)
 			return
-	g_main.gi.dprintf ("%s is not a field\n", key)
+	g_main.gi.dprintf ("'%s' is not a field. Value is '%s'\n", key, value)
 """
 ')
 """
 
 def ED_ParseEdict (data, ent, cursor):
 	#qboolean	init;
+	if not ent:
+
+		return None
+
+
 	init = False
 	#memset (&st, 0, sizeof(st));
-	g_main.st.__dict__.update(g_local.spawn_temp_t().__dict__)
+	g_main.st.__dict__.update(local.spawn_temp_t().__dict__)
 
 	# go through all the dictionary pairs
 	while 1:
@@ -687,7 +389,7 @@ def ED_ParseEdict (data, ent, cursor):
 		ED_ParseField (keyname, com_token, ent)
 
 	if not init:
-		ent.__dict__.update(_gamemod.edict_t().__dict__)
+		ent.__dict__.update(game_h.edict_t().__dict__)
 
 	return cursor
 
@@ -705,7 +407,7 @@ def G_FindTeams ():
 			continue
 		if not e.team:
 			continue
-		if e.flags & g_local.FL_TEAMSLAVE:
+		if e.flags & local.FL_TEAMSLAVE:
 			continue
 		chain = e
 		e.teammaster = e
@@ -717,19 +419,25 @@ def G_FindTeams ():
 				continue
 			if not e2.team:
 				continue
-			if e2.flags & g_local.FL_TEAMSLAVE:
+			if e2.flags & local.FL_TEAMSLAVE:
 				continue
 			if e.team == e2.team:
 				c2 += 1
 				chain.teamchain = e2
 				e2.teammaster = e
 				chain = e2
-				e2.flags |= g_local.FL_TEAMSLAVE
+				e2.flags |= local.FL_TEAMSLAVE
 
-	g_main.gi.dprintf ("%i teams with %i entities\n", c, c2)
+	g_main.gi.dprintf ("%i teams with %i entities.\n", c, c2)
 
 def SpawnEntities (mapname, entities, spawnpoint):
-	from game import p_client, p_trail
+	if mapname is None or entities is None or spawnpoint is None:
+
+		return
+
+
+	from game.player import client as p_client
+	from game.player import trail as p_trail
 	#edict_t		*ent;
 	#int			inhibit;
 	#int			i;
@@ -747,9 +455,9 @@ def SpawnEntities (mapname, entities, spawnpoint):
 
 	# gi.FreeTags (TAG_LEVEL);  -- Python GC handles this
 
-	g_main.level.__dict__.update(g_local.level_locals_t().__dict__)
+	g_main.level.__dict__.update(local.level_locals_t().__dict__)
 	for i in range(g_main.game.maxentities):
-		g_main.g_edicts[i].__dict__.update(_gamemod.edict_t().__dict__)
+		g_main.g_edicts[i].__dict__.update(game_h.edict_t().__dict__)
 
 	g_main.level.mapname = mapname
 	g_main.game.spawnpoint = spawnpoint
@@ -779,163 +487,37 @@ def SpawnEntities (mapname, entities, spawnpoint):
 
 		# yet another map hack
 		if shared_c.Q_stricmp(g_main.level.mapname, "command") == 0 and shared_c.Q_stricmp(ent.classname, "trigger_once") == 0 and shared_c.Q_stricmp(ent.model, "*27") == 0:
-			ent.spawnflags &= ~g_local.SPAWNFLAG_NOT_HARD
+			ent.spawnflags &= ~local.SPAWNFLAG_NOT_HARD
 
 		# remove things (except the world) from different skill levels / deathmatch
 		if ent is not g_main.g_edicts[0]:
 			if g_main.deathmatch.value:
-				if ( ent.spawnflags & g_local.SPAWNFLAG_NOT_DEATHMATCH ):
+				if ( ent.spawnflags & local.SPAWNFLAG_NOT_DEATHMATCH ):
 					g_utils.G_FreeEdict (ent)
 					inhibit += 1
 					continue
 			else:
 				if (
-					((g_main.skill.value == 0) and (ent.spawnflags & g_local.SPAWNFLAG_NOT_EASY)) or
-					((g_main.skill.value == 1) and (ent.spawnflags & g_local.SPAWNFLAG_NOT_MEDIUM)) or
-					(((g_main.skill.value == 2) or (g_main.skill.value == 3)) and (ent.spawnflags & g_local.SPAWNFLAG_NOT_HARD))
+					((g_main.skill.value == local.SKILL_EASY) and (ent.spawnflags & local.SPAWNFLAG_NOT_EASY)) or
+					((g_main.skill.value == local.SKILL_MEDIUM) and (ent.spawnflags & local.SPAWNFLAG_NOT_MEDIUM)) or
+					(((g_main.skill.value == local.SKILL_HARD) or (g_main.skill.value == local.SKILL_HARDPLUS)) and (ent.spawnflags & local.SPAWNFLAG_NOT_HARD))
 					):
 					g_utils.G_FreeEdict (ent)
 					inhibit += 1
 					continue
 
-			ent.spawnflags &= ~(g_local.SPAWNFLAG_NOT_EASY|g_local.SPAWNFLAG_NOT_MEDIUM|g_local.SPAWNFLAG_NOT_HARD|g_local.SPAWNFLAG_NOT_COOP|g_local.SPAWNFLAG_NOT_DEATHMATCH)
+			ent.spawnflags &= ~(local.SPAWNFLAG_NOT_EASY|local.SPAWNFLAG_NOT_MEDIUM|local.SPAWNFLAG_NOT_HARD|local.SPAWNFLAG_NOT_COOP|local.SPAWNFLAG_NOT_DEATHMATCH)
 
 		ED_CallSpawn (ent)
 
-	g_main.gi.dprintf ("%i entities inhibited\n", inhibit)
+	# in case the last entity in the entstring has spawntemp fields
+	g_main.st.__init__() #memset(&st, 0, sizeof(st));
+
+	g_main.gi.dprintf ("%i entities inhibited.\n", inhibit)
 
 	G_FindTeams ()
 
 	p_trail.PlayerTrail_Init ()
-	"""
-	void SpawnEntities (char *mapname, char *entities, char *spawnpoint)
-	{
-		edict_t		*ent;
-		int			inhibit;
-		char		*com_token;
-		int			i;
-		float		skill_level;
-	
-		skill_level = floor (skill->value);
-		if (skill_level < 0)
-			skill_level = 0;
-		if (skill_level > 3)
-			skill_level = 3;
-		if (skill->value != skill_level)
-			gi.cvar_forceset("skill", va("%f", skill_level));
-	
-		SaveClientData ();
-	
-		gi.FreeTags (TAG_LEVEL);
-	
-		memset (&level, 0, sizeof(level));
-		memset (g_edicts, 0, game.maxentities * sizeof (g_edicts[0]));
-	
-		strncpy (level.mapname, mapname, sizeof(level.mapname)-1);
-		strncpy (game.spawnpoint, spawnpoint, sizeof(game.spawnpoint)-1);
-	
-		// set client fields on player ents
-		for (i=0 ; i<game.maxclients ; i++)
-			g_edicts[i+1].client = game.clients + i;
-	
-		ent = NULL;
-		inhibit = 0;
-	
-	// parse ents
-		while (1)
-		{
-			// parse the opening brace	
-			com_token = COM_Parse (&entities);
-			if (!entities)
-				break;
-			if (com_token[0] != '{')
-				gi.error ("ED_LoadFromFile: found %s when expecting {",com_token);
-	
-			if (!ent)
-				ent = g_edicts;
-			else
-				ent = G_Spawn ();
-			entities = ED_ParseEdict (entities, ent);
-	
-			// yet another map hack
-			if (!Q_stricmp(level.mapname, "command") && !Q_stricmp(ent->classname, "trigger_once") && !Q_stricmp(ent->model, "*27"))
-				ent->spawnflags &= ~SPAWNFLAG_NOT_HARD;
-	
-			// remove things (except the world) from different skill levels or deathmatch
-			if (ent != g_edicts)
-			{
-				if (deathmatch->value)
-				{
-					if ( ent->spawnflags & SPAWNFLAG_NOT_DEATHMATCH )
-					{
-						G_FreeEdict (ent);	
-						inhibit++;
-						continue;
-					}
-				}
-				else
-				{
-					if ( /* ((coop->value) && (ent->spawnflags & SPAWNFLAG_NOT_COOP)) || */
-						((skill->value == 0) && (ent->spawnflags & SPAWNFLAG_NOT_EASY)) ||
-						((skill->value == 1) && (ent->spawnflags & SPAWNFLAG_NOT_MEDIUM)) ||
-						(((skill->value == 2) || (skill->value == 3)) && (ent->spawnflags & SPAWNFLAG_NOT_HARD))
-						)
-						{
-							G_FreeEdict (ent);	
-							inhibit++;
-							continue;
-						}
-				}
-	
-				ent->spawnflags &= ~(SPAWNFLAG_NOT_EASY|SPAWNFLAG_NOT_MEDIUM|SPAWNFLAG_NOT_HARD|SPAWNFLAG_NOT_COOP|SPAWNFLAG_NOT_DEATHMATCH);
-			}
-	
-			ED_CallSpawn (ent);
-		}	
-	
-		gi.dprintf ("%i entities inhibited\n", inhibit);
-	
-	#ifdef DEBUG
-		i = 1;
-		ent = EDICT_NUM(i);
-		while (i < globals.num_edicts) {
-			if (ent->inuse != 0 || ent->inuse != 1)
-				Com_DPrintf("Invalid entity %d\n", i);
-			i++, ent++;
-		}
-	#endif
-	
-		G_FindTeams ();
-	
-		PlayerTrail_Init ();
-	}
-	
-	
-	//===================================================================
-	
-	#if 0
-		// cursor positioning
-		xl <value>
-		xr <value>
-		yb <value>
-		yt <value>
-		xv <value>
-		yv <value>
-	
-		// drawing
-		statpic <name>
-		pic <stat>
-		num <fieldwidth> <stat>
-		string <stat>
-	
-		// control
-		if <stat>
-		ifeq <stat> <value>
-		ifbit <stat> <value>
-		endif
-	
-	#endif
-	"""
 
 #
 # Status bar display programs (from g_spawn.c).
@@ -1057,12 +639,18 @@ Only used for the world.
 =============
 """
 def SP_worldspawn (self):
-	from game import g_items, p_client
+	if not self:
+
+		return
+
+
+	from game import g_items
+	from game.player import client as p_client
 	#edict_t *ent
 	gi = g_main.gi
 
-	self.movetype = g_local.MOVETYPE_PUSH
-	self.solid = _gamemod.SOLID_BSP
+	self.movetype = local.MOVETYPE_PUSH
+	self.solid = game_h.SOLID_BSP
 	self.inuse = True  # since the world doesn't use G_Spawn()
 	self.s.modelindex = 1  # world model is always index 1
 
@@ -1095,7 +683,14 @@ def SP_worldspawn (self):
 	gi.configstring (CS_SKYAXIS, "%f %f %f" % (
 		g_main.st.skyaxis[0], g_main.st.skyaxis[1], g_main.st.skyaxis[2]) )
 
-	gi.configstring (CS_CDTRACK, "%i" % self.sounds)
+	if g_main.st.music:
+
+		gi.configstring (CS_CDTRACK, g_main.st.music)
+
+	else:
+
+		gi.configstring (CS_CDTRACK, "%i" % self.sounds)
+
 
 	gi.configstring (CS_MAXCLIENTS, "%i" % int(g_main.maxclients.value) )
 
@@ -1156,7 +751,10 @@ def SP_worldspawn (self):
 	# sexed models
 	# THIS ORDER MUST MATCH THE DEFINES IN g_local.h
 	# you can add more, max 15
-	gi.modelindex ("#w_blaster.md2")
+	if g_main.coop.value or g_main.deathmatch.value:
+
+		gi.modelindex ("#w_blaster.md2")
+
 	gi.modelindex ("#w_shotgun.md2")
 	gi.modelindex ("#w_sshotgun.md2")
 	gi.modelindex ("#w_machinegun.md2")

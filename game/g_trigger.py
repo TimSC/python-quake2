@@ -32,13 +32,13 @@ from __future__ import annotations
 
 import random as _r
 pass
-from game import g_local
+pass
 from game import g_main
 from game import g_utils
 from game import g_combat
 from game import g_items
-from game.game import SVF_MONSTER, SVF_DEADMONSTER, SVF_NOCLIENT
-from game.game import solid_t
+from game.header.game import SVF_MONSTER, SVF_DEADMONSTER, SVF_NOCLIENT
+from game.header.game import solid_t
 SOLID_TRIGGER = solid_t.SOLID_TRIGGER.value
 SOLID_BSP = solid_t.SOLID_BSP.value
 SOLID_BBOX = solid_t.SOLID_BBOX.value
@@ -46,6 +46,8 @@ SOLID_NOT = solid_t.SOLID_NOT.value
 from common.header.shared import ATTN_NORM, CHAN_AUTO, YAW
 from common.header import shared
 from common.shared import shared as shared_c
+from game.header import local
+from game import g_items
 
 PUSH_ONCE = 1
 windsound = None  # int
@@ -56,7 +58,7 @@ def InitTrigger (self):
 		g_utils.G_SetMovedir (self.s.angles, self.movedir)
 
 	self.solid = SOLID_TRIGGER
-	self.movetype = g_local.MOVETYPE_NONE
+	self.movetype = local.MOVETYPE_NONE
 	g_main.gi.setmodel (self, self.model)
 	self.svflags = SVF_NOCLIENT
 
@@ -84,7 +86,7 @@ def multi_trigger (ent):
 		# we can't just remove (self) here, because this is a touch function
 		# called while looping through area links...
 		ent.touch = None
-		ent.nextthink = g_main.level.time + g_local.FRAMETIME
+		ent.nextthink = g_main.level.time + local.FRAMETIME
 		ent.think = g_utils.G_FreeEdict
 
 def Use_Multi (ent, other, activator):
@@ -130,7 +132,7 @@ def SP_trigger_multiple (ent):
 	if not ent.wait:
 		ent.wait = 0.2
 	ent.touch = Touch_Multi
-	ent.movetype = g_local.MOVETYPE_NONE
+	ent.movetype = local.MOVETYPE_NONE
 	ent.svflags |= SVF_NOCLIENT
 
 	if ent.spawnflags & 4:
@@ -177,7 +179,7 @@ def trigger_key_use (self, other, activator):
 	if not activator.client:
 		return
 
-	index = g_items.ITEM_INDEX(self.item)
+	index = local.ITEM_INDEX(self.item)
 	if not activator.client.pers.inventory[index]:
 		if g_main.level.time < self.touch_debounce_time:
 			return
@@ -326,17 +328,17 @@ def hurt_touch (self, other, plane, surf):
 	if self.spawnflags & 16:
 		self.timestamp = g_main.level.time + 1
 	else:
-		self.timestamp = g_main.level.time + g_local.FRAMETIME
+		self.timestamp = g_main.level.time + local.FRAMETIME
 
 	if not (self.spawnflags & 4):
 		if (g_main.level.framenum % 10) == 0:
 			g_main.gi.sound (other, CHAN_AUTO, self.noise_index, 1, ATTN_NORM, 0)
 
 	if self.spawnflags & 8:
-		dflags = g_local.DAMAGE_NO_PROTECTION
+		dflags = local.DAMAGE_NO_PROTECTION
 	else:
 		dflags = 0
-	g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, self.dmg, self.dmg, dflags, g_local.MOD_TRIGGER_HURT)
+	g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, self.dmg, self.dmg, dflags, local.MOD_TRIGGER_HURT)
 
 def SP_trigger_hurt (self):
 	#edict_t *self
@@ -375,7 +377,7 @@ def SP_trigger_gravity (self):
 
 def trigger_monsterjump_touch (self, other, plane, surf):
 	#edict_t *self, *other; cplane_t *plane; csurface_t *surf
-	if other.flags & (g_local.FL_FLY | g_local.FL_SWIM):
+	if other.flags & (local.FL_FLY | local.FL_SWIM):
 		return
 	if other.svflags & SVF_DEADMONSTER:
 		return

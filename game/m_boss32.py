@@ -20,22 +20,20 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import numpy as np
-from game import g_local, g_main, g_utils, g_monster, g_misc, g_ai
+from game import g_main, g_utils, g_monster, g_misc, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge, infront, range, visible
 from game.g_utils import G_ProjectSource, G_FreeEdict, vectoyaw, vectoangles
 from game.g_monster import monster_fire_bullet, monster_fire_bfg, monster_fire_railgun, monster_fire_blaster, walkmonster_start
 from game.g_misc import ThrowGib, ThrowHead
 from common.header.shared import CHAN_AUTO, CHAN_VOICE, CHAN_BODY, CHAN_WEAPON, ATTN_NONE, ATTN_NORM, CONTENTS_SOLID, CONTENTS_MONSTER, CONTENTS_SLIME, CONTENTS_LAVA, MZ2_MAKRON_BFG, MZ2_MAKRON_RAILGUN_1, MZ2_MAKRON_BLASTER_1, EF_BLASTER
-from game.g_local import (FRAMETIME, MOVETYPE_NONE, MOVETYPE_STEP, MOVETYPE_TOSS,
-	AI_STAND_GROUND, FL_FLY,
-	RANGE_MELEE, RANGE_NEAR, RANGE_MID, RANGE_FAR, AS_MELEE, AS_MISSILE, AS_SLIDING,
-	AS_STRAIGHT, DEAD_DEAD, GIB_ORGANIC, GIB_METALLIC, damage_t)
+from game.header.local import FRAMETIME, MOVETYPE_NONE, MOVETYPE_STEP, MOVETYPE_TOSS, AI_STAND_GROUND, FL_FLY, RANGE_MELEE, RANGE_NEAR, RANGE_MID, RANGE_FAR, AS_MELEE, AS_MISSILE, AS_SLIDING, AS_STRAIGHT, DEAD_DEAD, GIB_ORGANIC, GIB_METALLIC, damage_t
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 DAMAGE_NO = damage_t.DAMAGE_NO.value
-from game.game import solid_t, SVF_DEADMONSTER
+from game.header.game import solid_t, SVF_DEADMONSTER
 from common.header import shared
 from common.shared import flash
 from common.shared import shared as shared_c
+from game.header import local
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 SOLID_NOT = solid_t.SOLID_NOT.value
 
@@ -57,14 +55,14 @@ sound_taunt3 = 0
 sound_hit = 0
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -177,7 +175,7 @@ Jorg is just about dead, so set up to launch Makron out
 """
 
 def makron_taunt (self):
-	r = g_local.random()
+	r = local.random()
 	if r <= 0.3:
 		g_main.gi.sound (self, CHAN_AUTO, sound_taunt1, 1, ATTN_NONE, 0)
 	elif r <= 0.6:
@@ -296,7 +294,7 @@ def makron_pain (self, other, kick, damage):
 
 	# Lessen the chance of him going into his pain frames
 	if damage <= 25:
-		if g_local.random() < 0.2:
+		if local.random() < 0.2:
 			return
 
 	self.pain_debounce_time = g_main.level.time + 3
@@ -311,11 +309,11 @@ def makron_pain (self, other, kick, damage):
 		self.monsterinfo.currentmove = makron_move_pain5
 	else:
 		if damage <= 150:
-			if g_local.random() <= 0.45:
+			if local.random() <= 0.45:
 				g_main.gi.sound (self, CHAN_VOICE, sound_pain6, 1, ATTN_NONE, 0)
 				self.monsterinfo.currentmove = makron_move_pain6
 		else:
-			if g_local.random() <= 0.35:
+			if local.random() <= 0.35:
 				g_main.gi.sound (self, CHAN_VOICE, sound_pain6, 1, ATTN_NONE, 0)
 				self.monsterinfo.currentmove = makron_move_pain6
 	"""
@@ -331,7 +329,7 @@ def makron_sight (self, other):
 def makron_attack (self):
 	vec = np.zeros((3,), dtype=np.float32)
 	range_ = 0.0
-	r = g_local.random()
+	r = local.random()
 
 	shared.VectorSubtract (self.enemy.s.origin, self.s.origin, vec)
 	range_ = shared_c.VectorLength (vec)
@@ -463,13 +461,13 @@ def Makron_CheckAttack (self):
 	else:
 		return False
 
-	if g_local.random() < chance:
+	if local.random() < chance:
 		self.monsterinfo.attack_state = AS_MISSILE
-		self.monsterinfo.attack_finished = g_main.level.time + 2*g_local.random()
+		self.monsterinfo.attack_finished = g_main.level.time + 2*local.random()
 		return True
 
 	if self.flags & FL_FLY:
-		if g_local.random() < 0.3:
+		if local.random() < 0.3:
 			self.monsterinfo.attack_state = AS_SLIDING
 		else:
 			self.monsterinfo.attack_state = AS_STRAIGHT

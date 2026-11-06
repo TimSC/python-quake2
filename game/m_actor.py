@@ -21,21 +21,20 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_local, g_main, g_utils, g_monster, g_misc, g_ai
-from game import game as _game
+from game import g_main, g_utils, g_monster, g_misc, g_ai
+pass
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_turn, ai_charge
 from game.g_utils import G_ProjectSource, G_PickTarget, G_UseTargets, vtos, G_SetMovedir, vectoyaw, G_FreeEdict
 from game.g_monster import monster_fire_bullet, walkmonster_start
 from game.g_misc import ThrowGib, ThrowHead
 from common.header.shared import YAW, PRINT_CHAT, ATTN_NORM, CHAN_VOICE, MZ2_ACTOR_MACHINEGUN_1
-from game.g_local import (FRAMETIME, GIB_ORGANIC, DEAD_DEAD, MOVETYPE_STEP,
-	MOVETYPE_TOSS, AI_GOOD_GUY, AI_BRUTAL, AI_STAND_GROUND, AI_HOLD_FRAME,
-	DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, damage_t)
+from game.header.local import FRAMETIME, GIB_ORGANIC, DEAD_DEAD, MOVETYPE_STEP, MOVETYPE_TOSS, AI_GOOD_GUY, AI_BRUTAL, AI_STAND_GROUND, AI_HOLD_FRAME, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, damage_t
 DAMAGE_YES = damage_t.DAMAGE_YES.value
-from game.game import solid_t, SVF_NOCLIENT, SVF_DEADMONSTER
+from game.header.game import solid_t, SVF_NOCLIENT, SVF_DEADMONSTER
 from common.header import shared
 from common.shared import flash
 from common.shared import shared as shared_c
+from game.header import local
 
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 SOLID_TRIGGER = solid_t.SOLID_TRIGGER.value
@@ -49,14 +48,14 @@ actor_names = ["Hellrot", "Tokay", "Killme", "Disruptor", "Adrianator",
 messages = ["Watch it", "#$@*&", "Idiot", "Check your targets"]
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -184,13 +183,13 @@ def actor_pain (self, other, kick, damage):
 
 	self.pain_debounce_time = g_main.level.time + 3
 
-	if ((other.client) and (g_local.random() < 0.4)):
+	if ((other.client) and (local.random() < 0.4)):
 		v = np.zeros((3,), dtype=np.float32)
 		name = ""
 
 		shared.VectorSubtract (other.s.origin, self.s.origin, v)
 		self.ideal_yaw = vectoyaw (v)
-		if g_local.random() < 0.5:
+		if local.random() < 0.5:
 			self.monsterinfo.currentmove = actor_move_flipoff
 		else:
 			self.monsterinfo.currentmove = actor_move_taunt

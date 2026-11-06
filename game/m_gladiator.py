@@ -20,18 +20,19 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local
+from game import g_main
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
-from game.g_local import (AI_STAND_GROUND, DEAD_DEAD, GIB_ORGANIC, MELEE_DISTANCE, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t)
+from game.header.local import AI_STAND_GROUND, DEAD_DEAD, GIB_ORGANIC, MELEE_DISTANCE, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t
 from game.g_misc import (ThrowGib, ThrowHead)
 from game.g_monster import (monster_fire_railgun, walkmonster_start)
-from game.g_utils import (G_FreeEdict, G_ProjectSource)
+from game.g_utils import G_FreeEdict, G_ProjectSource
 from game.g_weapon import (fire_hit)
-from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
+from game.header.game import SOLID_BBOX, SVF_DEADMONSTER
 from common.header.shared import ATTN_IDLE, ATTN_NORM, CHAN_AUTO, CHAN_VOICE, CHAN_WEAPON, MZ2_GLADIATOR_RAILGUN_1
 from common.header import shared
 from common.shared import flash
 from common.shared import shared as shared_c
+from game.header import local
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 
 # m_gladiator.h
@@ -129,14 +130,14 @@ MODEL_SCALE = 1.000000
 
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -263,7 +264,7 @@ def gladiator_pain (self, other, kick, damage): #edict_t *, edict_t *, float, in
 
 	self.pain_debounce_time = g_main.level.time + 3
 
-	if g_local.random() < 0.5:
+	if local.random() < 0.5:
 		g_main.gi.sound (self, CHAN_VOICE, sound_pain1, 1, ATTN_NORM, 0)
 	else:
 		g_main.gi.sound (self, CHAN_VOICE, sound_pain2, 1, ATTN_NORM, 0)

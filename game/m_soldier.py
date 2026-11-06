@@ -20,21 +20,20 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_local, g_main, g_utils, g_monster, g_misc, g_ai
+from game import g_main, g_utils, g_monster, g_misc, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
 from game.g_utils import G_ProjectSource, G_FreeEdict, vectoangles
 from game.g_monster import monster_fire_bullet, monster_fire_blaster, monster_fire_shotgun, walkmonster_start
 from game.g_misc import ThrowGib, ThrowHead
 from common.header.shared import CHAN_VOICE, CHAN_WEAPON, ATTN_NORM, ATTN_IDLE, EF_BLASTER, MZ2_SOLDIER_BLASTER_1, MZ2_SOLDIER_BLASTER_2, MZ2_SOLDIER_BLASTER_3, MZ2_SOLDIER_BLASTER_4, MZ2_SOLDIER_BLASTER_5, MZ2_SOLDIER_BLASTER_6, MZ2_SOLDIER_BLASTER_7, MZ2_SOLDIER_BLASTER_8, MZ2_SOLDIER_SHOTGUN_1, MZ2_SOLDIER_SHOTGUN_2, MZ2_SOLDIER_SHOTGUN_3, MZ2_SOLDIER_SHOTGUN_4, MZ2_SOLDIER_SHOTGUN_5, MZ2_SOLDIER_SHOTGUN_6, MZ2_SOLDIER_SHOTGUN_7, MZ2_SOLDIER_SHOTGUN_8, MZ2_SOLDIER_MACHINEGUN_1, MZ2_SOLDIER_MACHINEGUN_2, MZ2_SOLDIER_MACHINEGUN_3, MZ2_SOLDIER_MACHINEGUN_4, MZ2_SOLDIER_MACHINEGUN_5, MZ2_SOLDIER_MACHINEGUN_6, MZ2_SOLDIER_MACHINEGUN_7, MZ2_SOLDIER_MACHINEGUN_8
-from game.g_local import (FRAMETIME, GIB_ORGANIC, DEAD_DEAD, MOVETYPE_TOSS,
-	MOVETYPE_STEP, AI_STAND_GROUND, AI_HOLD_FRAME, AI_DUCKED, RANGE_MELEE, RANGE_MID,
-	DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, crandom, damage_t)
+from game.header.local import FRAMETIME, GIB_ORGANIC, DEAD_DEAD, MOVETYPE_TOSS, MOVETYPE_STEP, AI_STAND_GROUND, AI_HOLD_FRAME, AI_DUCKED, RANGE_MELEE, RANGE_MID, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, crandom, damage_t
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 DAMAGE_AIM = damage_t.DAMAGE_AIM.value
-from game.game import solid_t, SVF_DEADMONSTER
+from game.header.game import solid_t, SVF_DEADMONSTER
 from common.header import shared
 from common.shared import flash
 from common.shared import shared as shared_c
+from game.header import local
 
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 
@@ -57,14 +56,14 @@ sound_death_ss = 0
 sound_cock = 0
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -304,7 +303,7 @@ mmove_t soldier_move_attack5 = {FRAME_attak501, FRAME_attak508, soldier_frames_a
 
 def soldier_idle (self):
 	#edict_t *self
-	if g_local.random() > 0.8:
+	if local.random() > 0.8:
 		g_main.gi.sound (self, CHAN_VOICE, sound_idle, 1, ATTN_IDLE, 0)
 
 def soldier_cock (self):
@@ -317,19 +316,19 @@ def soldier_cock (self):
 
 def soldier_stand (self):
 	#edict_t *self
-	if (self.monsterinfo.currentmove == soldier_move_stand3) or (g_local.random() < 0.8):
+	if (self.monsterinfo.currentmove == soldier_move_stand3) or (local.random() < 0.8):
 		self.monsterinfo.currentmove = soldier_move_stand1
 	else:
 		self.monsterinfo.currentmove = soldier_move_stand3
 
 def soldier_walk1_random (self):
 	#edict_t *self
-	if g_local.random() > 0.1:
+	if local.random() > 0.1:
 		self.monsterinfo.nextframe = FRAME_walk101
 
 def soldier_walk (self):
 	#edict_t *self
-	if g_local.random() < 0.5:
+	if local.random() < 0.5:
 		self.monsterinfo.currentmove = soldier_move_walk1
 	else:
 		self.monsterinfo.currentmove = soldier_move_walk2
@@ -377,7 +376,7 @@ def soldier_pain (self, other, kick, damage):
 	if g_main.skill.value == 3:
 		return  # no pain anims in nightmare
 
-	r = g_local.random()
+	r = local.random()
 
 	if r < 0.33:
 		self.monsterinfo.currentmove = soldier_move_pain1
@@ -419,8 +418,8 @@ def soldier_fire (self, flash_number):
 		g_utils.vectoangles (aim, dir)
 		shared_c.AngleVectors (dir, forward, right, up)
 
-		r = g_local.crandom() * 1000
-		u = g_local.crandom() * 500
+		r = local.crandom() * 1000
+		u = local.crandom() * 500
 		shared_c.VectorMA (start, 8192, forward, end)
 		shared_c.VectorMA (end, r, right, end)
 		shared_c.VectorMA (end, u, up, end)
@@ -455,7 +454,7 @@ def soldier_attack1_refire1 (self):
 	if self.enemy.health <= 0:
 		return
 
-	if ((g_main.skill.value == 3) and (g_local.random() < 0.5)) or (g_ai.range (self, self.enemy) == RANGE_MELEE):
+	if ((g_main.skill.value == 3) and (local.random() < 0.5)) or (g_ai.range (self, self.enemy) == RANGE_MELEE):
 		self.monsterinfo.nextframe = FRAME_attak102
 	else:
 		self.monsterinfo.nextframe = FRAME_attak110
@@ -468,7 +467,7 @@ def soldier_attack1_refire2 (self):
 	if self.enemy.health <= 0:
 		return
 
-	if ((g_main.skill.value == 3) and (g_local.random() < 0.5)) or (g_ai.range (self, self.enemy) == RANGE_MELEE):
+	if ((g_main.skill.value == 3) and (local.random() < 0.5)) or (g_ai.range (self, self.enemy) == RANGE_MELEE):
 		self.monsterinfo.nextframe = FRAME_attak102
 
 def soldier_fire2 (self):
@@ -483,7 +482,7 @@ def soldier_attack2_refire1 (self):
 	if self.enemy.health <= 0:
 		return
 
-	if ((g_main.skill.value == 3) and (g_local.random() < 0.5)) or (g_ai.range (self, self.enemy) == RANGE_MELEE):
+	if ((g_main.skill.value == 3) and (local.random() < 0.5)) or (g_ai.range (self, self.enemy) == RANGE_MELEE):
 		self.monsterinfo.nextframe = FRAME_attak204
 	else:
 		self.monsterinfo.nextframe = FRAME_attak216
@@ -496,7 +495,7 @@ def soldier_attack2_refire2 (self):
 	if self.enemy.health <= 0:
 		return
 
-	if ((g_main.skill.value == 3) and (g_local.random() < 0.5)) or (g_ai.range (self, self.enemy) == RANGE_MELEE):
+	if ((g_main.skill.value == 3) and (local.random() < 0.5)) or (g_ai.range (self, self.enemy) == RANGE_MELEE):
 		self.monsterinfo.nextframe = FRAME_attak204
 
 def soldier_duck_down (self):
@@ -554,7 +553,7 @@ def soldier_attack6_refire (self):
 def soldier_attack (self):
 	#edict_t *self
 	if self.s.skinnum < 4:
-		if g_local.random() < 0.5:
+		if local.random() < 0.5:
 			self.monsterinfo.currentmove = soldier_move_attack1
 		else:
 			self.monsterinfo.currentmove = soldier_move_attack2
@@ -563,13 +562,13 @@ def soldier_attack (self):
 
 def soldier_sight (self, other):
 	#edict_t *self, *other
-	if g_local.random() < 0.5:
+	if local.random() < 0.5:
 		g_main.gi.sound (self, CHAN_VOICE, sound_sight1, 1, ATTN_NORM, 0)
 	else:
 		g_main.gi.sound (self, CHAN_VOICE, sound_sight2, 1, ATTN_NORM, 0)
 
 	if (g_main.skill.value > 0) and (g_ai.range (self, self.enemy) >= RANGE_MID):
-		if g_local.random() > 0.5:
+		if local.random() > 0.5:
 			self.monsterinfo.currentmove = soldier_move_attack6
 
 def soldier_duck_hold (self):
@@ -583,7 +582,7 @@ def soldier_dodge (self, attacker, eta):
 	#edict_t *self, *attacker; float eta
 	r = 0.0
 
-	r = g_local.random()
+	r = local.random()
 	if r > 0.25:
 		return
 
@@ -595,7 +594,7 @@ def soldier_dodge (self, attacker, eta):
 		return
 
 	self.monsterinfo.pausetime = g_main.level.time + eta + 0.3
-	r = g_local.random()
+	r = local.random()
 
 	if g_main.skill.value == 1:
 		if r > 0.33:

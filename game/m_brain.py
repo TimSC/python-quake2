@@ -20,16 +20,17 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local
+from game import g_main
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
-from game.g_local import (AI_DUCKED, AI_HOLD_FRAME, AI_STAND_GROUND, DEAD_DEAD, GIB_ORGANIC, MELEE_DISTANCE, MOVETYPE_STEP, MOVETYPE_TOSS, POWER_ARMOR_NONE, POWER_ARMOR_SCREEN, damage_t)
+from game.header.local import AI_DUCKED, AI_HOLD_FRAME, AI_STAND_GROUND, DEAD_DEAD, GIB_ORGANIC, MELEE_DISTANCE, MOVETYPE_STEP, MOVETYPE_TOSS, POWER_ARMOR_NONE, POWER_ARMOR_SCREEN, damage_t
 from game.g_misc import (ThrowGib, ThrowHead)
 from game.g_monster import (walkmonster_start)
-from game.g_utils import (G_FreeEdict)
+from game.g_utils import G_FreeEdict
 from game.g_weapon import (fire_hit)
-from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
+from game.header.game import SOLID_BBOX, SVF_DEADMONSTER
 from common.header.shared import ATTN_IDLE, ATTN_NORM, CHAN_AUTO, CHAN_BODY, CHAN_VOICE, CHAN_WEAPON
 from common.header import shared
+from game.header import local
 DAMAGE_AIM = damage_t.DAMAGE_AIM.value
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 
@@ -260,14 +261,14 @@ MODEL_SCALE = 1.000000
 
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -354,7 +355,7 @@ def brain_duck_up (self): #edict_t *
 
 def brain_dodge (self, attacker, eta): #edict_t *, edict_t *, float
 
-	if g_local.random() > 0.25:
+	if local.random() > 0.25:
 		return
 
 	if not self.enemy:
@@ -419,7 +420,7 @@ def brain_chest_closed (self): #edict_t *
 
 def brain_melee (self): #edict_t *
 
-	if g_local.random() <= 0.5:
+	if local.random() <= 0.5:
 		self.monsterinfo.currentmove = brain_move_attack1
 	else:
 		self.monsterinfo.currentmove = brain_move_attack2
@@ -448,7 +449,7 @@ def brain_pain (self, other, kick, damage): #edict_t *, edict_t *, float, int
 	if g_main.skill.value == 3:
 		return	# no pain anims in nightmare
 
-	r = g_local.random()
+	r = local.random()
 	if r < 0.33:
 		g_main.gi.sound (self, CHAN_VOICE, sound_pain1, 1, ATTN_NORM, 0)
 		self.monsterinfo.currentmove = brain_move_pain1
@@ -495,7 +496,7 @@ def brain_die (self, inflictor, attacker, damage, point): #edict_t *, edict_t *,
 	g_main.gi.sound (self, CHAN_VOICE, sound_death, 1, ATTN_NORM, 0)
 	self.deadflag = DEAD_DEAD
 	self.takedamage = DAMAGE_YES
-	if g_local.random() <= 0.5:
+	if local.random() <= 0.5:
 		self.monsterinfo.currentmove = brain_move_death1
 	else:
 		self.monsterinfo.currentmove = brain_move_death2

@@ -565,6 +565,11 @@ def SV_ServerRecord_f ():
 		clientserver.Com_Printf ("You must be in a level to record.\n")
 		return
 
+	if ".." in cmdparser.Cmd_Argv(1) or "/" in cmdparser.Cmd_Argv(1) or "\\" in cmdparser.Cmd_Argv(1):
+
+		clientserver.Com_Printf("Illegal filename.\n")
+		return
+
 	#
 	# open the demo file
 	#
@@ -572,7 +577,7 @@ def SV_ServerRecord_f ():
 
 	clientserver.Com_Printf ("recording to %s.\n", name)
 	filesystem.FS_CreatePath (name)
-	sv_init.svs.demofile = open(name, "wb")
+	sv_init.svs.demofile = filesystem.Q_fopen(name, "wb")
 	if not sv_init.svs.demofile:
 		clientserver.Com_Printf ("ERROR: couldn't open.\n")
 		return
@@ -604,8 +609,14 @@ def SV_ServerRecord_f ():
 	for i in range(shared.MAX_CONFIGSTRINGS):
 		if sv_init.sv.configstrings[i]:  # C: empty string has [0]=='\0'
 			movemsg.MSG_WriteByte (buf, common_h.svc_ops_e.svc_configstring.value)
-			movemsg.MSG_WriteShort (buf, i)
-			movemsg.MSG_WriteString (buf, sv_init.sv.configstrings[i])
+			movemsg.MSG_WriteConfigString (buf, i, sv_init.sv.configstrings[i])
+
+			if buf.cursize + 67 >= buf.maxsize:
+
+				clientserver.Com_Printf("not enough buffer space available.\n")
+				sv_init.svs.demofile.close()
+				sv_init.svs.demofile = None
+				return
 
 	# write it to the demo file
 	clientserver.Com_DPrintf ("signon message length: %i\n", buf.cursize)

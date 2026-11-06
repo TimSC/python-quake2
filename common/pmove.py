@@ -30,7 +30,6 @@ import math
 import numpy as np
 from common.header import shared
 from common.shared import shared as shared_c
-from common.header import shared as shared_h
 
 """
 #include "header/common.h"
@@ -141,7 +140,7 @@ def PM_StepSlideMove_():
 		if trace.fraction == 1:
 			break
 
-		if pm.numtouch < shared_h.MAXTOUCH and trace.ent is not None:
+		if pm.numtouch < shared.MAXTOUCH and trace.ent is not None:
 			pm.touchents[pm.numtouch] = trace.ent
 			pm.numtouch += 1
 
@@ -529,7 +528,7 @@ def PM_CatagorizePosition():
 					else:
 						pm.s.pm_time = 18
 
-		if pm.numtouch < shared_h.MAXTOUCH and trace.ent is not None:
+		if pm.numtouch < shared.MAXTOUCH and trace.ent is not None:
 			pm.touchents[pm.numtouch] = trace.ent
 			pm.numtouch += 1
 

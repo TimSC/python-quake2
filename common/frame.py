@@ -516,7 +516,7 @@ def Qcommon_Frame (msec): #int
 		if host_speeds.value:
 			time_before = q_shlinux.Sys_Milliseconds ()
 	
-		sv_main.SV_Frame (msec)
+		sv_main.SV_Frame (msec * 1000)	# Q2PORT: Yamagi's SV_Frame takes microseconds
 	
 		if host_speeds.value:
 			time_between = q_shlinux.Sys_Milliseconds ()

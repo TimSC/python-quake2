@@ -128,6 +128,7 @@ def enclosing_functions(node, par):
 # --------------------------------------------------------------- the plan
 class Plan:
 	def __init__(self, renames, splits):
+		renames = {o: n for o, n in renames.items() if o != n}	# a module that keeps its path isn't moved
 		self.renames = renames
 		self.splits = splits
 		self.owner = {}		# (old_mod, symbol) -> new_mod
@@ -413,6 +414,7 @@ def rewrite_file(path, src, plan, self_mod=None, self_old=None, own_mod=None):
 		# insert after the last top-level import (or after the module docstring / __future__)
 		pos_node = None
 		for st in tree.body:
+			if isinstance(st, (ast.FunctionDef, ast.ClassDef)): break	# only the imports at the top
 			if isinstance(st, (ast.Import, ast.ImportFrom)): pos_node = st
 		if pos_node is not None:
 			at = ed.off(pos_node.end_lineno, pos_node.end_col_offset)

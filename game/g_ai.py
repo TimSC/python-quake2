@@ -21,22 +21,20 @@ from __future__ import annotations
 
 import random as _r
 pass
-from game import g_local
+pass
 from game import g_main
 from game import g_utils
 from game import g_monster
 from game import m_move
-from game import p_trail
-from game.game import SVF_MONSTER
+pass
+from game.header.game import SVF_MONSTER
 from common.header.shared import MASK_OPAQUE, MASK_PLAYERSOLID, CONTENTS_SOLID, CONTENTS_MONSTER, CONTENTS_SLIME, CONTENTS_LAVA, CONTENTS_WINDOW, YAW
 from common.shared.shared import vec3_origin
-from game.g_local import (FL_NOTARGET, MELEE_DISTANCE, RANGE_MELEE, RANGE_NEAR,
-	RANGE_MID, RANGE_FAR, AI_STAND_GROUND, AI_TEMP_STAND_GROUND, AI_GOOD_GUY,
-	AI_COMBAT_POINT, AI_SOUND_TARGET, AI_MEDIC, AI_BRUTAL, AI_LOST_SIGHT,
-	AI_PURSUE_NEXT, AI_PURSUE_TEMP, AI_PURSUIT_LAST_SEEN,
-	AS_MELEE, AS_MISSILE, AS_SLIDING, AS_STRAIGHT, FL_FLY)
+from game.header.local import FL_NOTARGET, MELEE_DISTANCE, RANGE_MELEE, RANGE_NEAR, RANGE_MID, RANGE_FAR, AI_STAND_GROUND, AI_TEMP_STAND_GROUND, AI_GOOD_GUY, AI_COMBAT_POINT, AI_SOUND_TARGET, AI_MEDIC, AI_BRUTAL, AI_LOST_SIGHT, AI_PURSUE_NEXT, AI_PURSUE_TEMP, AI_PURSUIT_LAST_SEEN, AS_MELEE, AS_MISSILE, AS_SLIDING, AS_STRAIGHT, FL_FLY
 from common.header import shared
 from common.shared import shared as shared_c
+from game.header import local
+from game.player import trail as p_trail
 
 """
 // g_ai.c
@@ -70,7 +68,7 @@ def AI_SetSightClient ():
 	if g_main.level.sight_client is None:
 		start = 1
 	else:
-		start = g_main.level.sight_client.s.number
+		start = edicts.index(g_main.level.sight_client) #level.sight_client - g_edicts;
 
 	check = start
 	while True:
@@ -134,9 +132,9 @@ def ai_stand (self, dist):
 	if not (self.spawnflags & 1) and (self.monsterinfo.idle) and (g_main.level.time > self.monsterinfo.idle_time):
 		if self.monsterinfo.idle_time:
 			self.monsterinfo.idle (self)
-			self.monsterinfo.idle_time = g_main.level.time + 15 + g_local.random() * 15
+			self.monsterinfo.idle_time = g_main.level.time + 15 + local.random() * 15
 		else:
-			self.monsterinfo.idle_time = g_main.level.time + g_local.random() * 15
+			self.monsterinfo.idle_time = g_main.level.time + local.random() * 15
 
 
 """
@@ -156,9 +154,9 @@ def ai_walk (self, dist):
 	if (self.monsterinfo.search) and (g_main.level.time > self.monsterinfo.idle_time):
 		if self.monsterinfo.idle_time:
 			self.monsterinfo.search (self)
-			self.monsterinfo.idle_time = g_main.level.time + 15 + g_local.random() * 15
+			self.monsterinfo.idle_time = g_main.level.time + 15 + local.random() * 15
 		else:
-			self.monsterinfo.idle_time = g_main.level.time + g_local.random() * 15
+			self.monsterinfo.idle_time = g_main.level.time + local.random() * 15
 
 
 """
@@ -514,13 +512,13 @@ def M_CheckAttack (self):
 	elif g_main.skill.value >= 2:
 		chance *= 2
 
-	if g_local.random () < chance:
+	if local.random () < chance:
 		self.monsterinfo.attack_state = AS_MISSILE
-		self.monsterinfo.attack_finished = g_main.level.time + 2*g_local.random()
+		self.monsterinfo.attack_finished = g_main.level.time + 2*local.random()
 		return True
 
 	if self.flags & FL_FLY:
-		if g_local.random() < 0.3:
+		if local.random() < 0.3:
 			self.monsterinfo.attack_state = AS_SLIDING
 		else:
 			self.monsterinfo.attack_state = AS_STRAIGHT
@@ -599,7 +597,7 @@ def ai_checkattack (self, dist):
 			return False
 
 		if self.monsterinfo.aiflags & AI_SOUND_TARGET:
-			if (g_main.level.time - self.enemy.teleport_time) > 5.0:
+			if (g_main.level.time - self.enemy.last_sound_time) > 5.0:
 				if self.goalentity == self.enemy:
 					if self.movetarget:
 						self.goalentity = self.movetarget

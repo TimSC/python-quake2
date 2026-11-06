@@ -20,17 +20,18 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, g_ai
+from game import g_main, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
-from game.g_local import (AI_BRUTAL, AI_STAND_GROUND, DEAD_DEAD, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, GIB_METALLIC, GIB_ORGANIC, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t)
+from game.header.local import AI_BRUTAL, AI_STAND_GROUND, DEAD_DEAD, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, GIB_METALLIC, GIB_ORGANIC, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t
 from game.g_misc import (ThrowGib, ThrowHead)
 from game.g_monster import (monster_fire_blaster, monster_fire_bullet, monster_fire_rocket, walkmonster_start)
-from game.g_utils import (G_FreeEdict, G_ProjectSource, vectoangles)
-from game.game import (SOLID_BBOX, SVF_DEADMONSTER)
+from game.g_utils import G_FreeEdict, G_ProjectSource, vectoangles
+from game.header.game import SOLID_BBOX, SVF_DEADMONSTER
 from common.header.shared import ATTN_IDLE, ATTN_NORM, CHAN_BODY, CHAN_VOICE, CHAN_WEAPON, EF_BLASTER, MZ2_TANK_BLASTER_1, MZ2_TANK_BLASTER_2, MZ2_TANK_BLASTER_3, MZ2_TANK_MACHINEGUN_1, MZ2_TANK_ROCKET_1, MZ2_TANK_ROCKET_2, MZ2_TANK_ROCKET_3
 from common.header import shared
 from common.shared import flash
 from common.shared import shared as shared_c
+from game.header import local
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 
 # m_tank.h
@@ -332,14 +333,14 @@ MODEL_SCALE = 1.000000
 
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -427,7 +428,7 @@ def tank_pain (self, other, kick, damage): #edict_t *, edict_t *, float, int
 		return
 
 	if damage <= 30:
-		if g_local.random() > 0.2:
+		if local.random() > 0.2:
 			return
 
 	# If hard or nightmare, don't go into pain while attacking
@@ -549,7 +550,7 @@ def tank_reattack_blaster (self): #edict_t *
 	if g_main.skill.value >= 2:
 		if g_ai.visible (self, self.enemy):
 			if self.enemy.health > 0:
-				if g_local.random() <= 0.6:
+				if local.random() <= 0.6:
 					self.monsterinfo.currentmove = tank_move_reattack_blast
 					return
 	self.monsterinfo.currentmove = tank_move_attack_post_blast
@@ -567,7 +568,7 @@ def tank_refire_rocket (self): #edict_t *
 	if g_main.skill.value >= 2:
 		if self.enemy.health > 0:
 			if g_ai.visible(self, self.enemy):
-				if g_local.random() <= 0.4:
+				if local.random() <= 0.4:
 					self.monsterinfo.currentmove = tank_move_attack_fire_rocket
 					return
 	self.monsterinfo.currentmove = tank_move_attack_post_rocket
@@ -592,7 +593,7 @@ def tank_attack (self): #edict_t *
 	shared.VectorSubtract (self.enemy.s.origin, self.s.origin, vec)
 	range = shared_c.VectorLength (vec)
 
-	r = g_local.random()
+	r = local.random()
 
 	if range <= 125:
 		if r < 0.4:

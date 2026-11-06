@@ -99,21 +99,21 @@ Netchan_OutOfBandPrint
 Sends a text message in an out-of-band datagram
 ================
 """
-def Netchan_OutOfBandPrint (net_socket: int, adr: common_h.netadr_t, msg: str | bytes)->None: #int, netadr_t, char *
+def Netchan_OutOfBandPrint (net_socket: int, adr: common_h.netadr_t, format: str | bytes, *args)->None: #int, netadr_t, const char *, ...
 
-	#va_list		argptr;
-	#static char		string[qcommon.MAX_MSGLEN - 4];
-	
-	#va_start (argptr, format);
-	#vsprintf (string, format,argptr);
-	#va_end (argptr);
+	#va_list argptr;
+	#static char string[MAX_MSGLEN - 4];
 
-	# the C version vsprintfs into a char[] buffer and passes it as bytes. The
-	# callers pass an already-formatted value that may be a str or bytes, so
-	# normalise to bytes here (latin-1 keeps bytes 1:1 for the str case).
-	if isinstance(msg, str):
-		msg = msg.encode("latin-1")
-	Netchan_OutOfBand (net_socket, adr, msg)
+	#va_start(argptr, format);
+	#vsnprintf(string, MAX_MSGLEN - 4, format, argptr);
+	#va_end(argptr);
+	# Q2PORT: the format may be str or bytes; the string goes out as latin-1 bytes
+	if isinstance(format, (bytes, bytearray)):
+		format = format.decode("latin-1")
+	string = (format % args) if args else format
+	string = string.encode("latin-1")[:common_h.MAX_MSGLEN - 4 - 1]
+
+	Netchan_OutOfBand (net_socket, adr, string)
 
 """
 ==============

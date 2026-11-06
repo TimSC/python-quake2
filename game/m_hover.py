@@ -20,17 +20,18 @@ from __future__ import annotations
 
 import random as _r
 import numpy as np
-from game import g_main, g_local, g_ai
+from game import g_main, g_ai
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge
-from game.g_local import (AI_STAND_GROUND, DEAD_DEAD, FRAMETIME, GIB_ORGANIC, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t)
+from game.header.local import AI_STAND_GROUND, DEAD_DEAD, FRAMETIME, GIB_ORGANIC, MOVETYPE_STEP, MOVETYPE_TOSS, damage_t
 from game.g_misc import (BecomeExplosion1, ThrowGib, ThrowHead)
 from game.g_monster import (flymonster_start, monster_fire_blaster)
-from game.g_utils import (G_FreeEdict, G_ProjectSource)
-from game.game import (SOLID_BBOX)
+from game.g_utils import G_FreeEdict, G_ProjectSource
+from game.header.game import SOLID_BBOX
 from common.header.shared import ATTN_NORM, CHAN_VOICE, EF_HYPERBLASTER, MZ2_HOVER_BLASTER_1
 from common.header import shared
 from common.shared import flash
 from common.shared import shared as shared_c
+from game.header import local
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 
 # m_hover.h
@@ -243,14 +244,14 @@ MODEL_SCALE = 1.000000
 
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -280,7 +281,7 @@ def hover_sight (self, other): #edict_t *, edict_t *
 
 def hover_search (self): #edict_t *
 
-	if g_local.random() < 0.5:
+	if local.random() < 0.5:
 		g_main.gi.sound (self, CHAN_VOICE, sound_search1, 1, ATTN_NORM, 0)
 	else:
 		g_main.gi.sound (self, CHAN_VOICE, sound_search2, 1, ATTN_NORM, 0)
@@ -290,7 +291,7 @@ def hover_reattack (self): #edict_t *
 
 	if self.enemy.health > 0:
 		if g_ai.visible (self, self.enemy):
-			if g_local.random() <= 0.6:
+			if local.random() <= 0.6:
 				self.monsterinfo.currentmove = hover_move_attack1
 				return
 	self.monsterinfo.currentmove = hover_move_end_attack
@@ -362,7 +363,7 @@ def hover_pain (self, other, kick, damage): #edict_t *, edict_t *, float, int
 		return	# no pain anims in nightmare
 
 	if damage <= 25:
-		if g_local.random() < 0.5:
+		if local.random() < 0.5:
 			g_main.gi.sound (self, CHAN_VOICE, sound_pain1, 1, ATTN_NORM, 0)
 			self.monsterinfo.currentmove = hover_move_pain3
 		else:
@@ -411,7 +412,7 @@ def hover_die (self, inflictor, attacker, damage, point): #edict_t *, edict_t *,
 		return
 
 	# regular death
-	if g_local.random() < 0.5:
+	if local.random() < 0.5:
 		g_main.gi.sound (self, CHAN_VOICE, sound_death1, 1, ATTN_NORM, 0)
 	else:
 		g_main.gi.sound (self, CHAN_VOICE, sound_death2, 1, ATTN_NORM, 0)

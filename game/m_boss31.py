@@ -20,20 +20,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import numpy as np
-from game import g_local, g_main, g_utils, g_monster, g_misc, g_ai, m_boss32, m_supertank
+from game import g_main, g_utils, g_monster, g_misc, g_ai, m_boss32, m_supertank
 from game.g_ai import ai_stand, ai_walk, ai_run, ai_move, ai_charge, infront, range, visible
 from game.g_utils import G_ProjectSource, G_FreeEdict, vectoyaw
 from game.g_monster import monster_fire_bullet, monster_fire_bfg, walkmonster_start
 from common.header.shared import CHAN_VOICE, CHAN_BODY, ATTN_NORM, CONTENTS_SOLID, CONTENTS_MONSTER, CONTENTS_SLIME, CONTENTS_LAVA, MZ2_JORG_BFG_1, MZ2_JORG_MACHINEGUN_R1, MZ2_JORG_MACHINEGUN_L1
-from game.g_local import (DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, FRAMETIME,
-	MOVETYPE_STEP, AI_STAND_GROUND, FL_FLY,
-	RANGE_MELEE, RANGE_NEAR, RANGE_MID, RANGE_FAR, AS_MELEE, AS_MISSILE, AS_SLIDING,
-	AS_STRAIGHT, DEAD_DEAD, damage_t)
+from game.header.local import DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, FRAMETIME, MOVETYPE_STEP, AI_STAND_GROUND, FL_FLY, RANGE_MELEE, RANGE_NEAR, RANGE_MID, RANGE_FAR, AS_MELEE, AS_MISSILE, AS_SLIDING, AS_STRAIGHT, DEAD_DEAD, damage_t
 DAMAGE_NO = damage_t.DAMAGE_NO.value
-from game.game import solid_t
+from game.header.game import solid_t
 from common.header import shared
 from common.shared import flash
 from common.shared import shared as shared_c
+from game.header import local
 
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 
@@ -55,14 +53,14 @@ sound_step_right = 0
 sound_death_hit = 0
 
 def _mf(aifunc, dist, thinkfunc):
-	f = g_local.mframe_t()
+	f = local.mframe_t()
 	f.aifunc = aifunc
 	f.dist = dist
 	f.thinkfunc = thinkfunc
 	return f
 
 def _mm(first, last, frames, endfunc):
-	m = g_local.mmove_t()
+	m = local.mmove_t()
 	m.firstframe = first
 	m.lastframe = last
 	m.frame = frames
@@ -149,7 +147,7 @@ void MakronPrecache (void);
 """
 
 def jorg_search (self):
-	r = g_local.random()
+	r = local.random()
 
 	if r <= 0.3:
 		g_main.gi.sound (self, CHAN_VOICE, sound_search1, 1, ATTN_NORM, 0)
@@ -184,7 +182,7 @@ def jorg_run (self):
 
 def jorg_reattack1 (self):
 	if visible(self, self.enemy):
-		if g_local.random() < 0.9:
+		if local.random() < 0.9:
 			self.monsterinfo.currentmove = jorg_move_attack1
 		else:
 			self.s.sound = 0
@@ -207,19 +205,19 @@ def jorg_pain (self, other, kick, damage):
 
 	# Lessen the chance of him going into his pain frames if he takes little damage
 	if damage <= 40:
-		if g_local.random() <= 0.6:
+		if local.random() <= 0.6:
 			return
 
 	if (self.s.frame >= FRAME_attak101) and (self.s.frame <= FRAME_attak108):
-		if g_local.random() <= 0.005:
+		if local.random() <= 0.005:
 			return
 
 	if (self.s.frame >= FRAME_attak109) and (self.s.frame <= FRAME_attak114):
-		if g_local.random() <= 0.00005:
+		if local.random() <= 0.00005:
 			return
 
 	if (self.s.frame >= FRAME_attak201) and (self.s.frame <= FRAME_attak208):
-		if g_local.random() <= 0.005:
+		if local.random() <= 0.005:
 			return
 
 	self.pain_debounce_time = g_main.level.time + 3
@@ -233,7 +231,7 @@ def jorg_pain (self, other, kick, damage):
 		g_main.gi.sound (self, CHAN_VOICE, sound_pain2, 1, ATTN_NORM, 0)
 		self.monsterinfo.currentmove = jorg_move_pain2
 	else:
-		if g_local.random() <= 0.3:
+		if local.random() <= 0.3:
 			g_main.gi.sound (self, CHAN_VOICE, sound_pain3, 1, ATTN_NORM, 0)
 			self.monsterinfo.currentmove = jorg_move_pain3
 	"""
@@ -306,7 +304,7 @@ def jorg_attack (self):
 	shared.VectorSubtract (self.enemy.s.origin, self.s.origin, vec)
 	range_ = shared_c.VectorLength (vec)
 
-	if g_local.random() <= 0.75:
+	if local.random() <= 0.75:
 		g_main.gi.sound (self, CHAN_VOICE, sound_attack1, 1, ATTN_NORM, 0)
 		self.s.sound = g_main.gi.soundindex ("boss3/w_loop.wav")
 		self.monsterinfo.currentmove = jorg_move_start_attack1
@@ -413,13 +411,13 @@ def Jorg_CheckAttack (self):
 	else:
 		return False
 
-	if g_local.random() < chance:
+	if local.random() < chance:
 		self.monsterinfo.attack_state = AS_MISSILE
-		self.monsterinfo.attack_finished = g_main.level.time + 2*g_local.random()
+		self.monsterinfo.attack_finished = g_main.level.time + 2*local.random()
 		return True
 
 	if self.flags & FL_FLY:
-		if g_local.random() < 0.3:
+		if local.random() < 0.3:
 			self.monsterinfo.attack_state = AS_SLIDING
 		else:
 			self.monsterinfo.attack_state = AS_STRAIGHT
