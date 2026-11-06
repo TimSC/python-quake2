@@ -25,6 +25,9 @@ from client import cl_main, cl_scrn, cl_view, client, cl_cin, cl_ents, cl_fx, sn
 from game import q_shared
 from qcommon import net_chan, qcommon, common, cmd, files, cmodel, cvar
 from linux import cd_linux, sys_linux, vid_so
+# DEV: files the server told us it does not have (svc_download size -1).
+# Remembered so we do not re-request one per map surface that uses it.
+_download_notavailable = set ()
 """
 // cl_parse.c  -- parse a message received from the server
 
@@ -90,7 +93,13 @@ def CL_CheckOrDownloadFile (filename): #char * (returns qboolean)
 	if files.FS_LoadFile (filename)[0] != -1:
 		# it exists, no need to download
 		return True
-	
+
+	# DEV: the C re-requests a file the server lacks once per map surface that
+	# uses it (FS_LoadFile keeps failing), spamming "Server does not have this
+	# file". We skip files we already know the server does not have.
+	if filename in _download_notavailable:
+		return True
+
 	cl_main.cls.downloadname = filename
 
 	# download to a temp name, and only rename
@@ -220,6 +229,9 @@ def CL_ParseDownload ():
 			# if here, we tried to resume a file but the server said no
 			cl_main.cls.download.close ()
 			cl_main.cls.download = None
+		
+		# DEV: do not re-request this file for the other surfaces that use it
+		_download_notavailable.add (cl_main.cls.downloadname)
 		
 		cl_main.CL_RequestNextDownload ()
 		return

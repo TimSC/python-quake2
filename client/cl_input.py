@@ -688,6 +688,12 @@ def CL_SendCmd ():
 		cl_cin.SCR_FinishCinematic ()
 	
 	# begin a client move command
+	# DEV: this writes the stock Quake2 3.21 usercmd protocol (checksum byte +
+	# lastframe + 3 delta usercmds). Modded servers (e.g. q2pro) use a divergent
+	# usercmd format; connecting to one can fail with the server-side drop
+	# "Player was dropped: unknown command byte". That is a protocol
+	# incompatibility with the modded server, not a client bug -- a stock
+	# Quake2 client hits the same drop.
 	common.MSG_WriteByte (buf, qcommon.clc_ops_e.clc_move.value.to_bytes(1, 'big'))
 
 	# save the position for a checksum byte
