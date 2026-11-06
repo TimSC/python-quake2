@@ -32,6 +32,7 @@ from common import cvar
 from common import frame, filesystem, clientserver
 from common.header import common as common_h
 from common.header import shared
+from client import cl_main
 """
 #include <unistd.h>
 #include <signal.h>

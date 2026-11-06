@@ -1088,8 +1088,8 @@ def Cmd_ExecuteString(text): #const char *
 
 	#ifndef DEDICATED_ONLY
 	# send it as a server command if we are connected
-	from client import cl_main # Cmd_ForwardToServer is defined in cl_main.c
-	cl_main.Cmd_ForwardToServer()
+	from client import cl_network # Cmd_ForwardToServer is defined in cl_network.c
+	cl_network.Cmd_ForwardToServer()
 	#endif
 
 """

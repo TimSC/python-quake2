@@ -1,33 +1,40 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+ =======================================================================
+
+This file implements the camera, e.g the player's view
+
+=======================================================================
 """
 from __future__ import annotations
 
-# cl_view.c -- player rendering positioning
+
+"""
+#include "header/client.h"
+#include "input/header/input.h"
+"""
 
 import math
 import functools
-import copy
 import numpy as np
-pass
-pass
-from client import cl_tent, cl_main, client, console, cl_scrn, cl_ents, ref
+from client import cl_tent, cl_main, ref
 from linux import q_shlinux, vid_so, cd_linux, sys_linux
 from common.header import shared
 from common.shared import shared as shared_c
@@ -36,6 +43,14 @@ from common import cmdparser
 from common import cvar
 from common import frame
 from common import collision
+from client import cl_console
+from client import cl_entities
+from client import cl_main
+from client import cl_screen
+from client.header import client as client_h
+
+pass
+pass
 """
 #include "client.h"
 
@@ -56,7 +71,7 @@ cl_testblend = None #cvar_t *
 
 cl_stats = None #cvar_t *
 
-cl_weaponmodels = [""] * client.MAX_CLIENTWEAPONMODELS
+cl_weaponmodels = [""] * client_h.MAX_CLIENTWEAPONMODELS
 num_cl_weaponmodels = 0
 
 
@@ -96,7 +111,6 @@ def V_ClearScene ():
 	r_numdlights = 0
 	r_numentities = 0
 	r_numparticles = 0
-
 
 
 def V_AddEntity (ent):
@@ -253,8 +267,8 @@ def CL_PrepRefresh ():
 	if not cl_main.cl.configstrings[shared.CS_MODELS+1]:
 		return		# no map loaded
 
-	cl_scrn.SCR_AddDirtyPoint (0, 0)
-	cl_scrn.SCR_AddDirtyPoint (vid_so.viddef.width-1, vid_so.viddef.height-1)
+	cl_screen.SCR_AddDirtyPoint (0, 0)
+	cl_screen.SCR_AddDirtyPoint (vid_so.viddef.width-1, vid_so.viddef.height-1)
 
 	# let the render dll load the map
 	mapname = cl_main.cl.configstrings[shared.CS_MODELS+1]
@@ -267,14 +281,14 @@ def CL_PrepRefresh ():
 	num_cl_weaponmodels = 1
 
 	clientserver.Com_Printf ("Map: {}\r".format(mapname))
-	cl_scrn.SCR_UpdateScreen ()
+	cl_screen.SCR_UpdateScreen ()
 	vid_so.re.BeginRegistration (mapname)
 	clientserver.Com_Printf ("                                     \r")
 
 	# precache status bar pics
 	clientserver.Com_Printf ("pics\r")
-	cl_scrn.SCR_UpdateScreen ()
-	cl_scrn.SCR_TouchPics ()
+	cl_screen.SCR_UpdateScreen ()
+	cl_screen.SCR_TouchPics ()
 	clientserver.Com_Printf ("                                     \r")
 
 	cl_tent.CL_RegisterTEntModels ()
@@ -287,10 +301,10 @@ def CL_PrepRefresh ():
 		name = model_name[:37]
 		if not model_name.startswith('*'):
 			clientserver.Com_Printf ("{}\r".format(name))
-		cl_scrn.SCR_UpdateScreen ()
+		cl_screen.SCR_UpdateScreen ()
 		sys_linux.Sys_SendKeyEvents ()
 		if model_name.startswith('#'):
-			if num_cl_weaponmodels < client.MAX_CLIENTWEAPONMODELS:
+			if num_cl_weaponmodels < client_h.MAX_CLIENTWEAPONMODELS:
 				cl_weaponmodels[num_cl_weaponmodels] = model_name[1:]
 				num_cl_weaponmodels += 1
 			if not model_name.startswith('*'):
@@ -306,7 +320,7 @@ def CL_PrepRefresh ():
 
 	# precache images
 	clientserver.Com_Printf ("images\r")
-	cl_scrn.SCR_UpdateScreen ()
+	cl_screen.SCR_UpdateScreen ()
 	for i in range(1, shared.MAX_IMAGES):
 		image_name = cl_main.cl.configstrings[shared.CS_IMAGES + i]
 		if not image_name:
@@ -323,7 +337,7 @@ def CL_PrepRefresh ():
 		if not info:
 			continue
 		clientserver.Com_Printf ("client {}\r".format(i))
-		cl_scrn.SCR_UpdateScreen ()
+		cl_screen.SCR_UpdateScreen ()
 		sys_linux.Sys_SendKeyEvents ()
 		cl_parse_mod.CL_ParseClientinfo (i)
 		clientserver.Com_Printf ("                                     \r")
@@ -332,7 +346,7 @@ def CL_PrepRefresh ():
 
 	# set sky textures and speed
 	clientserver.Com_Printf ("sky\r")
-	cl_scrn.SCR_UpdateScreen ()
+	cl_screen.SCR_UpdateScreen ()
 	try:
 		rotate = float(cl_main.cl.configstrings[shared.CS_SKYROTATE] or 0.0)
 	except (TypeError, ValueError):
@@ -353,9 +367,9 @@ def CL_PrepRefresh ():
 	vid_so.re.EndRegistration ()
 
 	# clear any lines of console text
-	console.Con_ClearNotify ()
+	cl_console.Con_ClearNotify ()
 
-	cl_scrn.SCR_UpdateScreen ()
+	cl_screen.SCR_UpdateScreen ()
 	cl_main.cl.refresh_prepped = True
 	cl_main.cl.force_refdef = True # make sure we have a valid refdef
 
@@ -400,37 +414,92 @@ def V_Gun_Prev_f ():
 def V_Gun_Model_f ():
 
 	pass
-	# C implementation is still unported.
-
-# =============================================================================
-# SCR_DrawCrosshair
-# =============================================================================
-def SCR_DrawCrosshair ():
-
-	if not crosshair.value:
-		return
-
-	if crosshair.modified:
-	
-		crosshair.modified = False
-		cl_scrn.SCR_TouchPics ()
-	
-	if not cl_scrn.crosshair_pic:
-		return
-
-	vid_so.re.DrawPic (cl_scrn.scr_vrect.x + ((cl_scrn.scr_vrect.width - cl_scrn.crosshair_width)>>1)
-	, cl_scrn.scr_vrect.y + ((cl_scrn.scr_vrect.height - cl_scrn.crosshair_height)>>1), cl_scrn.crosshair_pic)
 
 # ==================
 # V_RenderView
 # ==================
+"""
+================
+SCR_TimeRefresh_f
+================
+"""
+def entitycmpfnc( a, b )-> int: #(const entity_t *, const entity_t *)
+
+	#
+	# all other models are sorted by model then skin
+	#
+
+	amid = id(a.model)
+	bmid = id(b.model)
+
+	if amid == bmid:
+		
+		aid = id(a.skin)
+		bid = id(b.skin)
+		if aid == bid: return 0
+
+		if aid > bid: return 1
+		return -1
+	
+	else:
+		if amid > bmid: return 1
+		return -1
+
+"""
+static void
+V_Render3dCrosshair(void)
+{
+	trace_t crosshair_trace;
+	vec3_t end;
+
+	crosshair_3d = Cvar_Get("crosshair_3d", "0", CVAR_ARCHIVE);
+	crosshair_3d_glow = Cvar_Get("crosshair_3d_glow", "0", CVAR_ARCHIVE);
+
+
+	if(crosshair_3d->value || crosshair_3d_glow->value){
+		VectorMA(cl.refdef.vieworg, 8192, cl.v_forward,end);
+		crosshair_trace = CL_PMTrace(cl.refdef.vieworg, vec3_origin, vec3_origin, end);
+
+		if(crosshair_3d_glow->value){
+			crosshair_3d_glow_r = Cvar_Get("crosshair_3d_glow_r", "5", CVAR_ARCHIVE);
+			crosshair_3d_glow_g = Cvar_Get("crosshair_3d_glow_g", "1", CVAR_ARCHIVE);
+			crosshair_3d_glow_b = Cvar_Get("crosshair_3d_glow_b", "4", CVAR_ARCHIVE);
+
+			V_AddLight(
+				crosshair_trace.endpos,
+				crosshair_3d_glow->value,
+				crosshair_3d_glow_r->value,
+				crosshair_3d_glow_g->value,
+				crosshair_3d_glow_b->value
+			);
+		}
+
+		if(crosshair_3d->value){
+			entity_t crosshair_ent = {0};
+
+			crosshair_ent.origin[0] = crosshair_trace.endpos[0];
+			crosshair_ent.origin[1] = crosshair_trace.endpos[1];
+			crosshair_ent.origin[2] = crosshair_trace.endpos[2];
+
+			crosshair_ent.model = R_RegisterModel("models/crosshair/tris.md2");
+			//crosshair_ent.skin = R_RegisterSkin("models/crosshair/skin.pcx");
+
+			AngleVectors2(crosshair_trace.plane.normal, crosshair_ent.angles);
+			crosshair_ent.flags = RF_DEPTHHACK | RF_FULLBRIGHT | RF_NOSHADOW;
+
+			V_AddEntity(&crosshair_ent);
+		}
+	}
+}
+"""
+
 def V_RenderView( stereo_separation: float ):
 
 	global r_numdlights, r_numentities, r_numparticles
 
 	#extern int entitycmpfnc( const entity_t *, const entity_t * );
 
-	if cl_main.cls.state != client.connstate_t.ca_active:
+	if cl_main.cls.state != client_h.connstate_t.ca_active:
 		return
 
 	if not cl_main.cl.refresh_prepped:
@@ -453,7 +522,7 @@ def V_RenderView( stereo_separation: float ):
 		# build a refresh entity list and calc cl_main.cl.sim*
 		# this also calls CL_CalcViewValues which loads
 		# v_forward, etc.
-		cl_ents.CL_AddEntities ()
+		cl_entities.CL_AddEntities ()
 
 		if int(cl_testparticles.value):
 			V_TestParticles ()
@@ -485,10 +554,10 @@ def V_RenderView( stereo_separation: float ):
 		cl_main.cl.refdef.vieworg[1] += 1.0/16
 		cl_main.cl.refdef.vieworg[2] += 1.0/16
 
-		cl_main.cl.refdef.x = cl_scrn.scr_vrect.x
-		cl_main.cl.refdef.y = cl_scrn.scr_vrect.y
-		cl_main.cl.refdef.width = cl_scrn.scr_vrect.width
-		cl_main.cl.refdef.height = cl_scrn.scr_vrect.height
+		cl_main.cl.refdef.x = cl_screen.scr_vrect.x
+		cl_main.cl.refdef.y = cl_screen.scr_vrect.y
+		cl_main.cl.refdef.width = cl_screen.scr_vrect.width
+		cl_main.cl.refdef.height = cl_screen.scr_vrect.height
 		cl_main.cl.refdef.fov_y = CalcFov (cl_main.cl.refdef.fov_x, cl_main.cl.refdef.width, cl_main.cl.refdef.height)
 		cl_main.cl.refdef.time = cl_main.cl.time*0.001
 
@@ -515,7 +584,7 @@ def V_RenderView( stereo_separation: float ):
 
 		# sort entities for better cache locality
 		# qsort( cl.refdef.entities, cl.refdef.num_entities, ... ): only the first num_entities are live
-		cl_main.cl.refdef.entities[:r_numentities] = sorted(cl_main.cl.refdef.entities[:r_numentities], key=functools.cmp_to_key(cl_scrn.entitycmpfnc))
+		cl_main.cl.refdef.entities[:r_numentities] = sorted(cl_main.cl.refdef.entities[:r_numentities], key=functools.cmp_to_key(entitycmpfnc))
 	
 	vid_so.re.RenderFrame (cl_main.cl.refdef)
 	if cl_stats.value:
@@ -523,12 +592,11 @@ def V_RenderView( stereo_separation: float ):
 	if frame.log_stats.value and ( frame.log_stats_file is not None ):
 		frame.log_stats_file.write("%i,%i,%i," % (r_numentities, r_numdlights, r_numparticles))
 
-	cl_scrn.SCR_AddDirtyPoint (cl_scrn.scr_vrect.x, cl_scrn.scr_vrect.y)
-	cl_scrn.SCR_AddDirtyPoint (cl_scrn.scr_vrect.x+cl_scrn.scr_vrect.width-1,
-		cl_scrn.scr_vrect.y+cl_scrn.scr_vrect.height-1)
+	cl_screen.SCR_AddDirtyPoint (cl_screen.scr_vrect.x, cl_screen.scr_vrect.y)
+	cl_screen.SCR_AddDirtyPoint (cl_screen.scr_vrect.x+cl_screen.scr_vrect.width-1,
+		cl_screen.scr_vrect.y+cl_screen.scr_vrect.height-1)
 
-	SCR_DrawCrosshair ()
-
+	cl_screen.SCR_DrawCrosshair ()
 
 
 # =============
@@ -561,4 +629,3 @@ def V_Init ():
 	cl_testlights = cvar.Cvar_Get ("cl_testlights", "0", 0)
 
 	cl_stats = cvar.Cvar_Get ("cl_stats", "0", 0)
-

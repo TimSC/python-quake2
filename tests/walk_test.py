@@ -15,6 +15,7 @@ from common.shared.shared import TO_SHORT
 from common.header import shared
 from server import sv_world
 from game.player import client as p_client
+from client import cl_main
 
 st = {"phase": 0, "t0": None, "n": 0, "last": None}
 o_think = p_client.ClientThink

@@ -1,29 +1,34 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+This file implements the .cin video codec and the corresponding .pcx
+bitmap decoder. .cin files are just a bunch of .pcx images.
+
+=======================================================================
 """
 from __future__ import annotations
 
 import os
 import struct
-from client import cl_main, cl_scrn, client, snd_dma
-pass
-pass
+from client import cl_main, snd_dma
 from linux import q_shlinux, vid_so, cd_linux
 from common.header import common as common_h
 from common.header import files as files_h
@@ -34,15 +39,15 @@ from common import cvar
 from common import filesystem
 from common import movemsg
 from common import szone
-"""
-#include "client.h"
+from client import cl_main
+from client import cl_screen
+from client.header import client as client_h
 
-typedef struct
-{
-	byte	*data;
-	int		count;
-} cblock_t;
 """
+#include "header/client.h"
+#include "input/header/input.h"
+"""
+
 class cinematics_t(object):
 	def __init__(self):
 
@@ -202,8 +207,6 @@ def SCR_StopCinematic ():
 	
 
 
-
-
 """
 ====================
 SCR_FinishCinematic
@@ -249,7 +252,6 @@ def	SmallestNode1 (numhnodes): #int
 
 	cin.h_used[bestnode] = True
 	return bestnode
-
 
 
 """
@@ -437,7 +439,6 @@ def SCR_ReadNextFrame (): #byte *
 	return pic
 
 
-
 """
 ==================
 SCR_RunCinematic
@@ -457,7 +458,7 @@ def SCR_RunCinematic ():
 	if cl_main.cl.cinematicframe == -1:
 		return		# static image
 
-	if cl_main.cls.key_dest != client.keydest_t.key_game:
+	if cl_main.cls.key_dest != client_h.keydest_t.key_game:
 		# pause if menu or console is up
 		cl_main.cl.cinematictime = cl_main.cls.realtime - cl_main.cl.cinematicframe*1000//14
 		return
@@ -482,11 +483,37 @@ def SCR_RunCinematic ():
 		SCR_StopCinematic ()
 		SCR_FinishCinematic ()
 		cl_main.cl.cinematictime = 1	# hack to get the black screen behind loading
-		cl_scrn.SCR_BeginLoadingPlaque ()
+		cl_screen.SCR_BeginLoadingPlaque ()
 		cl_main.cl.cinematictime = 0
 		return
 	
 
+
+"""
+static int
+SCR_MinimalColor(void)
+{
+	int i, min_color, min_index;
+
+	min_color = 255 * 3;
+	min_index = 0;
+
+	for(i=0; i<255; i++)
+	{
+		int current_color = (cl.cinematicpalette[i*3+0] +
+				     cl.cinematicpalette[i*3+1] +
+				     cl.cinematicpalette[i*3+2]);
+
+		if (min_color > current_color)
+		{
+			min_color = current_color;
+			min_index = i;
+		}
+	}
+
+	return min_index;
+}
+"""
 
 """
 ==================
@@ -504,7 +531,7 @@ def SCR_DrawCinematic (): #(qboolean)
 		return False
 	
 
-	if cl_main.cls.key_dest == client.keydest_t.key_menu:
+	if cl_main.cls.key_dest == client_h.keydest_t.key_menu:
 		# blank screen and pause if menu is up
 		vid_so.re.CinematicSetPalette(None)
 		cl_main.cl.cinematicpalette_active = False
@@ -525,6 +552,41 @@ def SCR_DrawCinematic (): #(qboolean)
 
 	return True
 
+
+"""
+static byte *
+SCR_LoadHiColor(const char* namewe, const char *ext, int *width, int *height,
+	byte **palette, int *bitsPerPixel)
+{
+	byte *pic, *data = NULL, *palette_in = NULL;
+	char filename[256];
+
+	Q_strlcpy(filename, namewe, sizeof(filename));
+	Q_strlcat(filename, ".", sizeof(filename));
+	Q_strlcat(filename, ext, sizeof(filename));
+
+	SCR_LoadImageWithPalette(filename, &data, &palette_in,
+		width, height, bitsPerPixel);
+	if (data == NULL)
+	{
+		return NULL;
+	}
+
+	if (palette_in)
+	{
+		/* pcx file could have palette */
+		*palette = Z_Malloc(768);
+		memcpy(*palette, palette_in, 768);
+		free(palette_in);
+	}
+
+	pic = Z_Malloc(cin.height * cin.width * (*bitsPerPixel) / 8);
+	memcpy(pic, data, cin.height * cin.width * (*bitsPerPixel) / 8);
+	free(data);
+
+	return pic;
+}
+"""
 
 """
 ==================
@@ -560,8 +622,8 @@ def SCR_PlayCinematic (arg): # char *
 		cin.pic, palette, cin.width, cin.height = SCR_LoadPCX (name)
 		cl_main.cl.cinematicframe = -1
 		cl_main.cl.cinematictime = 1
-		cl_scrn.SCR_EndLoadingPlaque ()
-		cl_main.cls.state = client.connstate_t.ca_active
+		cl_screen.SCR_EndLoadingPlaque ()
+		cl_main.cls.state = client_h.connstate_t.ca_active
 		if cin.pic is None:
 		
 			clientserver.Com_Printf ("{} not found.\n".format(name))
@@ -581,9 +643,9 @@ def SCR_PlayCinematic (arg): # char *
 		cl_main.cl.cinematictime = 0	# done
 		return
 	
-	cl_scrn.SCR_EndLoadingPlaque ()
+	cl_screen.SCR_EndLoadingPlaque ()
 
-	cl_main.cls.state = client.connstate_t.ca_active
+	cl_main.cls.state = client_h.connstate_t.ca_active
 
 	width = filesystem.FS_Read (4, cl_main.cl.cinematic_file)
 	height = filesystem.FS_Read (4, cl_main.cl.cinematic_file)

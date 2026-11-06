@@ -3,9 +3,10 @@ import os, sys, collections
 sys.argv = ["main.py"] + sys.argv[1:]
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from linux import sys_linux
-from client import cl_main, cl_parse, client, cl_ents
+from client import cl_main, cl_parse
 from common import movemsg
 from server import sv_entities, sv_send
+from client import cl_main
 seen = {"state": None, "n": 0}
 msgs = collections.Counter()
 calls = collections.Counter()
@@ -27,10 +28,10 @@ def CL_Frame(msec):
 cl_main.CL_Frame = CL_Frame
 orig_rb = movemsg.MSG_ReadByte
 for name in ("CL_ParseFrame",):
-	o = getattr(cl_ents, name)
+	o = getattr(cl_parse, name)
 	def w(*a, _o=o, _n=name):
 		calls[_n] += 1; return _o(*a)
-	setattr(cl_ents, name, w)
+	setattr(cl_parse, name, w)
 for name in ("SV_WriteFrameToClient", "SV_BuildClientFrame", "SV_SendClientDatagram"):
 	mod = sv_entities if hasattr(sv_entities, name) else sv_send
 	o = getattr(mod, name)

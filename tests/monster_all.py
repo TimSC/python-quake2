@@ -19,6 +19,7 @@ from game.monster.mutant import mutant as m_mutant
 from game.monster.parasite import parasite as m_parasite
 from game.monster.supertank import supertank as m_supertank
 from game.monster.tank import tank as m_tank
+from client import cl_main
 
 SPAWNS = [("monster_brain", 0), ("monster_chick", 0), ("monster_flipper", 0), ("monster_floater", 0), ("monster_gladiator", 0),
 	("monster_hover", 0), ("misc_insane", 0), ("misc_insane", 4), ("misc_insane", 8), ("misc_insane", 16), ("monster_medic", 0),

@@ -1702,7 +1702,8 @@ def FS_BuildGameSpecificSearchPath(dir: str): #const char *
 
 	global fs_gamedir
 
-	from client import cl_main, menu	# Q2PORT: imported here, the client imports the filesystem
+	from client import cl_main
+	from client import menu	# Q2PORT: imported here, the client imports the filesystem
 
 	# We may not use the va() function from shared.c
 	# since its buffersize is 1024 while most OS have

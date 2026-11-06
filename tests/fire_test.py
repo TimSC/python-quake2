@@ -3,10 +3,12 @@ import os, sys, time
 sys.argv = ["main.py"] + sys.argv[1:]
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from linux import sys_linux
-from client import cl_main, cl_ents, client
+from client import cl_main
 pass
 from game import g_main, g_weapon, g_utils
 from game.player import client as p_client
+from client import cl_main
+from client.header import client as client_h
 
 st = {"t0": None, "bolts": {}, "seq": 0, "fired": 0}
 def T(): return time.time() - st["t0"] if st["t0"] else 0
@@ -82,7 +84,7 @@ def CL_Frame(msec):
 	fr = cl_main.cl.frame
 	nums = set()
 	for i in range(fr.num_entities):
-		s = cl_main.cl_parse_entities[(fr.parse_entities + i) & (client.MAX_PARSE_ENTITIES - 1)]
+		s = cl_main.cl_parse_entities[(fr.parse_entities + i) & (client_h.MAX_PARSE_ENTITIES - 1)]
 		nums.add(s.number)
 	for b in st["bolts"].values():
 		if b["alive"] and b["num"] in nums: b["recv"] += 1

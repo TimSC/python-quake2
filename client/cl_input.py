@@ -1,28 +1,32 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+This file implements the input handling like mouse events and
+keyboard strokes.
+
+=======================================================================
 """
 from __future__ import annotations
 
-import numpy as np
-pass
-pass
-from client import cl_main, client, keys, client, cl_cin
+from client import cl_main, cl_cin
 from linux import vid_so, sys_linux, q_shlinux
 from common.header import common as common_h
 from common.header import shared
@@ -33,312 +37,55 @@ from common import cvar
 from common import movemsg
 from common import szone
 from common import netchan
+from client import cl_keyboard
+from client import cl_main
+from client.header import client as client_h
+
+"""
+#include "header/client.h"
+#include "input/header/input.h"
+"""
+
+cl_nodelta = None #cvar_t *
+old_sys_frame_time = 0
+frame_msec = 0
+
+
+in_klook = client_h.kbutton_t()
+in_left = client_h.kbutton_t()
+in_right = client_h.kbutton_t()
+in_forward = client_h.kbutton_t()
+in_back = client_h.kbutton_t()
+in_lookup = client_h.kbutton_t()
+in_lookdown = client_h.kbutton_t()
+in_moveleft = client_h.kbutton_t()
+in_moveright = client_h.kbutton_t()
+in_strafe = client_h.kbutton_t()
+in_speed = client_h.kbutton_t()
+in_use = client_h.kbutton_t()
+in_attack = client_h.kbutton_t()
+in_up = client_h.kbutton_t()
+in_down = client_h.kbutton_t()
+
+in_impulse = 0
+
+cl_upspeed = None
+cl_forwardspeed = None
+cl_sidespeed = None
+cl_yawspeed = None
+cl_pitchspeed = None
+cl_run = None
+cl_anglespeedkey = None
+
+
 """
 // cl_main.cl.input.c  -- builds an intended movement command to send to the server
 
 #include "client.h"
 """
-cl_nodelta = None #cvar_t *
 """
 extern	unsigned	sys_frame_time;
 """
-old_sys_frame_time = 0
-frame_msec = 0
-"""
-/*
-===============================================================================
-
-KEY BUTTONS
-
-Continuous button event tracking is complicated by the fact that two different
-input sources (say, mouse button 1 and the control key) can both press the
-same button, but the button should only be released when both of the
-pressing key have been released.
-
-When a key event issues a button command (+forward, +attack, etc), it appends
-its key number as a parameter to the command so it can be matched up with
-the release.
-
-state bit 0 is the current state of the key
-state bit 1 is edge triggered on the up to down transition
-state bit 2 is edge triggered on the down to up transition
-
-Key_Event (int key, qboolean down, unsigned time);
-
-  +mlook src time
-
-===============================================================================
-*/
-class kbutton_t(object):
-
-	def __init__(self):
-		self.down = [0, 0]
-		self.state = 0
-		self.downtime = 0
-		self.msec = 0
-
-in_klook = kbutton_t()
-in_left = kbutton_t()
-in_right = kbutton_t()
-in_forward = kbutton_t()
-in_back = kbutton_t()
-in_lookup = kbutton_t()
-in_lookdown = kbutton_t()
-in_moveleft = kbutton_t()
-in_moveright = kbutton_t()
-in_strafe = kbutton_t()
-in_speed = kbutton_t()
-in_use = kbutton_t()
-in_attack = kbutton_t()
-in_up = kbutton_t()
-in_down = kbutton_t()
-
-in_impulse = 0
-
-cl_upspeed = None
-cl_forwardspeed = None
-cl_sidespeed = None
-cl_yawspeed = None
-cl_pitchspeed = None
-cl_run = None
-cl_anglespeedkey = None
-
-def KeyDown(b):
-	c = cmd.Cmd_Argv(1)
-	if c:
-		k = int(c)
-	else:
-		k = -1
-
-	if k == b.down[0] or k == b.down[1]:
-		return
-
-	if not b.down[0]:
-		b.down[0] = k
-	elif not b.down[1]:
-		b.down[1] = k
-	else:
-		common.Com_Printf("Three keys down for a button!\n")
-		return
-
-	if b.state & 1:
-		return
-
-	c = cmd.Cmd_Argv(2)
-	b.downtime = int(c) if c else 0
-	if not b.downtime:
-		b.downtime = sys_linux.sys_frame_time - 100
-
-	b.state |= 1 + 2
-
-def KeyUp(b):
-	c = cmd.Cmd_Argv(1)
-	if c:
-		k = int(c)
-	else:
-		b.down[0] = 0
-		b.down[1] = 0
-		b.state = 4
-		return
-
-	if b.down[0] == k:
-		b.down[0] = 0
-	elif b.down[1] == k:
-		b.down[1] = 0
-	else:
-		return
-	if b.down[0] or b.down[1]:
-		return
-
-	if not (b.state & 1):
-		return
-
-	c = cmd.Cmd_Argv(2)
-	uptime = int(c) if c else 0
-	if uptime:
-		b.msec += uptime - b.downtime
-	else:
-		b.msec += 10
-
-	b.state &= ~1
-	b.state |= 4
-
-def IN_KLookDown(): KeyDown(in_klook)
-def IN_KLookUp(): KeyUp(in_klook)
-def IN_UpDown(): KeyDown(in_up)
-def IN_UpUp(): KeyUp(in_up)
-def IN_DownDown(): KeyDown(in_down)
-def IN_DownUp(): KeyUp(in_down)
-def IN_LeftDown(): KeyDown(in_left)
-def IN_LeftUp(): KeyUp(in_left)
-def IN_RightDown(): KeyDown(in_right)
-def IN_RightUp(): KeyUp(in_right)
-def IN_ForwardDown(): KeyDown(in_forward)
-def IN_ForwardUp(): KeyUp(in_forward)
-def IN_BackDown(): KeyDown(in_back)
-def IN_BackUp(): KeyUp(in_back)
-def IN_LookupDown(): KeyDown(in_lookup)
-def IN_LookupUp(): KeyUp(in_lookup)
-def IN_LookdownDown(): KeyDown(in_lookdown)
-def IN_LookdownUp(): KeyUp(in_lookdown)
-def IN_MoveleftDown(): KeyDown(in_moveleft)
-def IN_MoveleftUp(): KeyUp(in_moveleft)
-def IN_MoverightDown(): KeyDown(in_moveright)
-def IN_MoverightUp(): KeyUp(in_moveright)
-def IN_SpeedDown(): KeyDown(in_speed)
-def IN_SpeedUp(): KeyUp(in_speed)
-def IN_StrafeDown(): KeyDown(in_strafe)
-def IN_StrafeUp(): KeyUp(in_strafe)
-def IN_AttackDown(): KeyDown(in_attack)
-def IN_AttackUp(): KeyUp(in_attack)
-def IN_UseDown(): KeyDown(in_use)
-def IN_UseUp(): KeyUp(in_use)
-
-def IN_Impulse():
-	global in_impulse
-	c = cmd.Cmd_Argv(1)
-	in_impulse = int(c) if c else 0
-
-def CL_KeyState(key):
-	global frame_msec
-
-	key.state &= 1
-
-	msec = key.msec
-	key.msec = 0
-
-	if key.state:
-		msec += sys_linux.sys_frame_time - key.downtime
-		key.downtime = sys_linux.sys_frame_time
-
-	val = float(msec) / float(frame_msec) if frame_msec else 0.0
-	if val < 0:
-		val = 0
-	if val > 1:
-		val = 1
-
-	return val
-
-def CL_AdjustAngles():
-	if in_speed.state & 1:
-		speed = cl_main.cls.frametime * cl_anglespeedkey.value
-	else:
-		speed = cl_main.cls.frametime
-
-	if not (in_strafe.state & 1):
-		cl_main.cl.viewangles[q_shared.YAW] -= speed * cl_yawspeed.value * CL_KeyState(in_right)
-		cl_main.cl.viewangles[q_shared.YAW] += speed * cl_yawspeed.value * CL_KeyState(in_left)
-	if in_klook.state & 1:
-		cl_main.cl.viewangles[q_shared.PITCH] -= speed * cl_pitchspeed.value * CL_KeyState(in_forward)
-		cl_main.cl.viewangles[q_shared.PITCH] += speed * cl_pitchspeed.value * CL_KeyState(in_back)
-
-	up = CL_KeyState(in_lookup)
-	down = CL_KeyState(in_lookdown)
-
-	cl_main.cl.viewangles[q_shared.PITCH] -= speed * cl_pitchspeed.value * up
-	cl_main.cl.viewangles[q_shared.PITCH] += speed * cl_pitchspeed.value * down
-
-kbutton_t	in_klook;
-kbutton_t	in_left, in_right, in_forward, in_back;
-kbutton_t	in_lookup, in_lookdown, in_moveleft, in_moveright;
-kbutton_t	in_strafe, in_speed, in_use, in_attack;
-kbutton_t	in_up, in_down;
-
-void IN_KLookDown (void) {KeyDown(&in_klook);}
-void IN_KLookUp (void) {KeyUp(&in_klook);}
-void IN_UpDown(void) {KeyDown(&in_up);}
-void IN_UpUp(void) {KeyUp(&in_up);}
-void IN_DownDown(void) {KeyDown(&in_down);}
-void IN_DownUp(void) {KeyUp(&in_down);}
-void IN_LeftDown(void) {KeyDown(&in_left);}
-void IN_LeftUp(void) {KeyUp(&in_left);}
-void IN_RightDown(void) {KeyDown(&in_right);}
-void IN_RightUp(void) {KeyUp(&in_right);}
-void IN_ForwardDown(void) {KeyDown(&in_forward);}
-void IN_ForwardUp(void) {KeyUp(&in_forward);}
-void IN_BackDown(void) {KeyDown(&in_back);}
-void IN_BackUp(void) {KeyUp(&in_back);}
-void IN_LookupDown(void) {KeyDown(&in_lookup);}
-void IN_LookupUp(void) {KeyUp(&in_lookup);}
-void IN_LookdownDown(void) {KeyDown(&in_lookdown);}
-void IN_LookdownUp(void) {KeyUp(&in_lookdown);}
-void IN_MoveleftDown(void) {KeyDown(&in_moveleft);}
-void IN_MoveleftUp(void) {KeyUp(&in_moveleft);}
-void IN_MoverightDown(void) {KeyDown(&in_moveright);}
-void IN_MoverightUp(void) {KeyUp(&in_moveright);}
-
-void IN_SpeedDown(void) {KeyDown(&in_speed);}
-void IN_SpeedUp(void) {KeyUp(&in_speed);}
-void IN_StrafeDown(void) {KeyDown(&in_strafe);}
-void IN_StrafeUp(void) {KeyUp(&in_strafe);}
-
-void IN_AttackDown(void) {KeyDown(&in_attack);}
-void IN_AttackUp(void) {KeyUp(&in_attack);}
-
-void IN_UseDown (void) {KeyDown(&in_use);}
-void IN_UseUp (void) {KeyUp(&in_use);}
-
-void IN_Impulse (void) {in_impulse=atoi(Cmd_Argv(1));}
-"""
-"""
-
-//==========================================================================
-
-cvar_t	*cl_upspeed;
-cvar_t	*cl_forwardspeed;
-cvar_t	*cl_sidespeed;
-
-cvar_t	*cl_yawspeed;
-cvar_t	*cl_pitchspeed;
-
-cvar_t	*cl_run;
-
-cvar_t	*cl_anglespeedkey;
-"""
-"""
-/*
-================
-CL_BaseMove
-
-Send the intended movement message to the server
-================
-"""
-class kbutton_t(object):
-
-	def __init__(self):
-		self.down = [0, 0]
-		self.state = 0
-		self.downtime = 0
-		self.msec = 0
-
-
-in_klook = kbutton_t()
-in_left = kbutton_t()
-in_right = kbutton_t()
-in_forward = kbutton_t()
-in_back = kbutton_t()
-in_lookup = kbutton_t()
-in_lookdown = kbutton_t()
-in_moveleft = kbutton_t()
-in_moveright = kbutton_t()
-in_strafe = kbutton_t()
-in_speed = kbutton_t()
-in_use = kbutton_t()
-in_attack = kbutton_t()
-in_up = kbutton_t()
-in_down = kbutton_t()
-
-in_impulse = 0
-
-cl_upspeed = None
-cl_forwardspeed = None
-cl_sidespeed = None
-cl_yawspeed = None
-cl_pitchspeed = None
-cl_run = None
-cl_anglespeedkey = None
-
-
 def KeyDown(b):
 	c = cmdparser.Cmd_Argv(1)
 	if c:
@@ -545,7 +292,7 @@ def CL_FinishMove (cmd): #usercmd_t *
 		cmd.buttons |= shared.BUTTON_USE
 	in_use.state &= ~2
 
-	if keys.anykeydown and cl_main.cls.key_dest == client.keydest_t.key_game:
+	if cl_keyboard.anykeydown and cl_main.cls.key_dest == client_h.keydest_t.key_game:
 		cmd.buttons |= shared.BUTTON_ANY
 
 	ms = cl_main.cls.frametime * 1000
@@ -592,6 +339,17 @@ def IN_CenterView ():
 	cl_main.cl.viewangles[shared.PITCH] = -shared.SHORT2ANGLE(
 		cl_main.cl.frame.playerstate.pmove.delta_angles[shared.PITCH]
 	)
+
+"""
+/*
+ * Centers the view
+ */
+static void
+IN_ForceCenterView(void)
+{
+	cl.viewangles[PITCH] = 0;
+}
+"""
 
 def CL_InitInput ():
 
@@ -643,8 +401,128 @@ def CL_InitInput ():
 	cl_anglespeedkey = cvar.Cvar_Get ("cl_anglespeedkey", "1.5", 0)
 
 
+"""
+void
+CL_RefreshCmd(void)
+{
+	int ms;
+	usercmd_t *cmd;
 
+	// CMD to fill
+	cmd = &cl.cmds[cls.netchan.outgoing_sequence & (CMD_BACKUP - 1)];
 
+	// Calculate delta
+	frame_msec = sys_frame_time - old_sys_frame_time;
+
+	// Check bounds
+	if (frame_msec < 1)
+	{
+		return;
+	}
+	else if (frame_msec > 200)
+	{
+		frame_msec = 200;
+	}
+
+	// Add movement
+	CL_BaseMove(cmd);
+	IN_Move(cmd);
+
+	// Clamp angels for prediction
+	CL_ClampPitch();
+
+	cmd->angles[0] = ANGLE2SHORT(cl.viewangles[0]);
+	cmd->angles[1] = ANGLE2SHORT(cl.viewangles[1]);
+	cmd->angles[2] = ANGLE2SHORT(cl.viewangles[2]);
+
+	// Update time for prediction
+	ms = (int)(cls.nframetime * 1000.0f);
+
+	if (ms > 250)
+	{
+		ms = 100;
+	}
+
+	cmd->msec = ms;
+
+	// Update frame time for the next call
+	old_sys_frame_time = sys_frame_time;
+
+	// Important events are send immediately
+	if (((in_attack.state & 2)) || (in_use.state & 2))
+	{
+		cls.forcePacket = true;
+	}
+}
+"""
+
+"""
+void
+CL_RefreshMove(void)
+{
+	usercmd_t *cmd;
+
+	// CMD to fill
+	cmd = &cl.cmds[cls.netchan.outgoing_sequence & (CMD_BACKUP - 1)];
+
+	// Calculate delta
+	frame_msec = sys_frame_time - old_sys_frame_time;
+
+	// Check bounds
+	if (frame_msec < 1)
+	{
+		return;
+	}
+	else if (frame_msec > 200)
+	{
+		frame_msec = 200;
+	}
+
+	// Add movement
+	CL_BaseMove(cmd);
+	IN_Move(cmd);
+
+	old_sys_frame_time = sys_frame_time;
+}
+"""
+
+"""
+static void
+CL_FinalizeCmd(void)
+{
+	usercmd_t *cmd;
+
+	// CMD to fill
+	cmd = &cl.cmds[cls.netchan.outgoing_sequence & (CMD_BACKUP - 1)];
+
+	// Mouse button events
+	if (in_attack.state & 3)
+	{
+		cmd->buttons |= BUTTON_ATTACK;
+	}
+
+	in_attack.state &= ~2;
+
+	if (in_use.state & 3)
+	{
+		cmd->buttons |= BUTTON_USE;
+	}
+
+	in_use.state &= ~2;
+
+	// Keyboard events
+	if (anykeydown && cls.key_dest == key_game)
+	{
+		cmd->buttons |= BUTTON_ANY;
+	}
+
+	cmd->impulse = in_impulse;
+	in_impulse = 0;
+
+	// Set light level for muzzle flash
+	cmd->lightlevel = (byte)cl_lightlevel->value;
+}
+"""
 
 """
 =================
@@ -663,7 +541,7 @@ def CL_SendCmd ():
 	# build a command even if not connected
 
 	# save this command off for prediction
-	i = cl_main.cls.netchan.outgoing_sequence & (client.CMD_BACKUP-1)
+	i = cl_main.cls.netchan.outgoing_sequence & (client_h.CMD_BACKUP-1)
 	#cmd = &cl.cmds[i];
 	cl_main.cl.cmd_time[i] = cl_main.cls.realtime	# for netgraph ping calculation
 
@@ -672,10 +550,10 @@ def CL_SendCmd ():
 
 	cl_main.cl.cmd = cmd # cl.cmd = *cmd;, cl.cmds[i] is not changed after this
 
-	if cl_main.cls.state == client.connstate_t.ca_disconnected or cl_main.cls.state == client.connstate_t.ca_connecting:
+	if cl_main.cls.state == client_h.connstate_t.ca_disconnected or cl_main.cls.state == client_h.connstate_t.ca_connecting:
 		return
 
-	if cl_main.cls.state == client.connstate_t.ca_connected:
+	if cl_main.cls.state == client_h.connstate_t.ca_connected:
 	
 		if cl_main.cls.netchan.message.cursize or q_shlinux.curtime - cl_main.cls.netchan.last_sent > 1000:
 			netchan.Netchan_Transmit (cl_main.cls.netchan, b"")
@@ -714,17 +592,17 @@ def CL_SendCmd ():
 	# send this and the previous cmds in the message, so
 	# if the last packet was dropped, it can be recovered
 	
-	i = (cl_main.cls.netchan.outgoing_sequence-2) & (client.CMD_BACKUP-1)
+	i = (cl_main.cls.netchan.outgoing_sequence-2) & (client_h.CMD_BACKUP-1)
 	cmd = cl_main.cl.cmds[i]
 	movemsg.MSG_WriteDeltaUsercmd (buf, nullcmd, cmd)
 	oldcmd = cmd
 
-	i = (cl_main.cls.netchan.outgoing_sequence-1) & (client.CMD_BACKUP-1)
+	i = (cl_main.cls.netchan.outgoing_sequence-1) & (client_h.CMD_BACKUP-1)
 	cmd = cl_main.cl.cmds[i]
 	movemsg.MSG_WriteDeltaUsercmd (buf, oldcmd, cmd)
 	oldcmd = cmd
 
-	i = (cl_main.cls.netchan.outgoing_sequence) & (client.CMD_BACKUP-1)
+	i = (cl_main.cls.netchan.outgoing_sequence) & (client_h.CMD_BACKUP-1)
 	cmd = cl_main.cl.cmds[i]
 	movemsg.MSG_WriteDeltaUsercmd (buf, oldcmd, cmd)
 
@@ -738,4 +616,4 @@ def CL_SendCmd ():
 	#
 	netchan.Netchan_Transmit (cl_main.cls.netchan, buf.data)
 
-
+cl_run, freelook, lookspring, lookstrafe, sensitivity = None, None, None, None, None

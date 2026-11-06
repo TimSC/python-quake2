@@ -25,6 +25,7 @@ import re
 import sys
 import ast
 import importlib
+from enum import Enum
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 YQ = os.path.join(ROOT, "yquake2", "src")
@@ -37,8 +38,10 @@ G_MAIN = {"gi", "level", "game", "skill", "deathmatch", "coop", "dmflags", "g_ed
 	"st", "sv_maxvelocity", "g_commanderbody_nogod", "coop_elevator_delay", "aimfix", "sv_cheats"}
 RENAME = {"globals": "glob", "NULL": "None", "true": "True", "false": "False", "randk": "rand.randk",
 	"frandk": "rand.frandk", "crandk": "rand.crandk", "fabs": "abs", "fabsf": "abs", "sqrt": "math.sqrt", "atan2": "math.atan2",
-	"M_PI": "math.pi", "floor": "math.floor", "ceil": "math.ceil", "world": "g_main.g_edicts[0]", "cos": "math.cos",
-	"sin": "math.sin", "tan": "math.tan"}
+	"M_PI": "math.pi", "ARRLEN": "len", "floor": "math.floor", "ceil": "math.ceil", "world": "g_main.g_edicts[0]", "cos": "math.cos",
+	"sin": "math.sin", "tan": "math.tan", "tanf": "math.tan", "atanf": "math.atan", "atan": "math.atan",
+	"sinf": "math.sin", "cosf": "math.cos", "sqrtf": "math.sqrt", "floorf": "math.floor", "ceilf": "math.ceil",
+	"atan2f": "math.atan2", "fabsf": "abs", "powf": "pow"}
 TYPES = {"int", "float", "char", "qboolean", "double", "unsigned", "const", "static", "byte", "short", "long",
 	"struct", "signed", "vec_t", "size_t", "void", "vec3_t", "edict_t", "trace_t", "gitem_t", "gclient_t", "mmove_t",
 	"cvar_t", "cplane_t", "csurface_t"}
@@ -49,19 +52,43 @@ SEARCH = [("local", "game.header.local"), ("shared", "common.header.shared"), ("
 	("p_weapon", "game.player.weapon"), ("p_client", "game.player.client"), ("g_chase", "game.g_chase"), ("flash", "common.shared.flash")]
 
 
+# the client and engine side (modules outside game/)
+SEARCH_CLIENT = [("vid", "client.vid.vid"), ("client_h", "client.header.client"), ("keyboard_h", "client.header.keyboard"),
+	("console_h", "client.header.console"), ("vid_h", "client.vid.header.vid"), ("cl_main", "client.cl_main"),
+	("cl_network", "client.cl_network"), ("cl_download", "client.cl_download"), ("cl_parse", "client.cl_parse"),
+	("cl_entities", "client.cl_entities"), ("cl_prediction", "client.cl_prediction"), ("cl_input", "client.cl_input"),
+	("cl_keyboard", "client.cl_keyboard"), ("cl_console", "client.cl_console"), ("cl_screen", "client.cl_screen"),
+	("cl_view", "client.cl_view"), ("cl_inventory", "client.cl_inventory"), ("cl_cin", "client.cl_cin"),
+	("cl_fx", "client.cl_fx"), ("cl_tent", "client.cl_tent"), ("cl_tempentities", "client.cl_tempentities"),
+	("menu", "client.menu"), ("snd_dma", "client.snd_dma"), ("clientserver", "common.clientserver"),
+	("cvar", "common.cvar"), ("cmdparser", "common.cmdparser"), ("movemsg", "common.movemsg"),
+	("filesystem", "common.filesystem"), ("netchan", "common.netchan"), ("szone", "common.szone"), ("frame", "common.frame"),
+	("common_h", "common.header.common"), ("shared", "common.header.shared"), ("shared_c", "common.shared.shared"),
+	("files_h", "common.header.files"), ("pmove", "common.pmove"), ("collision", "common.collision"),
+	("vid_so", "linux.vid_so"), ("sys_linux", "linux.sys_linux"), ("q_shlinux", "linux.q_shlinux"), ("in_linux", "linux.in_linux")]
+
+
 BUILTINS = {"len", "range", "str", "type", "min", "max", "sum", "list", "dict", "set", "id", "input", "print",
-	"float", "int", "next", "iter", "all", "any", "map", "filter", "abs", "round", "pow", "hash", "format", "object", "bytes"}
+	"float", "int", "next", "iter", "all", "any", "map", "filter", "abs", "round", "pow", "hash", "format", "object", "bytes",
+	"in", "is", "def", "pass", "lambda", "from", "global", "class", "with", "yield", "as", "del", "try", "except",
+	"finally", "raise", "import", "nonlocal", "assert", "elif", "not", "and", "or"}
 
 
 class Ctx(object):
-	def __init__(self, mod, statics=()):
+	def __init__(self, mod, statics=(), search=None):
 		self.mod = mod
+		self.client = search is not None
 		self.statics = set(statics)
 		self.cfuncs = set()
 		self.assigned = set()
 		self.locals = set()
 		self.fixmes = []
-		self.mods = {alias: importlib.import_module(path) for alias, path in SEARCH}
+		self.mods = {}
+		for alias, path in (search or SEARCH):
+			try:
+				self.mods[alias] = importlib.import_module(path)
+			except ImportError:
+				pass
 		self.needed = set()
 
 	def resolve(self, name):
@@ -70,10 +97,17 @@ class Ctx(object):
 			r = RENAME[name]
 			if "." in r: self.needed.add(r.split(".")[0].split("[")[0])
 			return r
-		if name in G_MAIN:
+		if name in G_MAIN and not self.client:
 			self.needed.add("g_main")
 			return "g_main." + RENAME.get(name, name)
 		if hasattr(self.mod, name) or name in self.statics or name in self.cfuncs: return name
+		for alias, m in list(self.mods.items()) + [(a, getattr(self.mod, a)) for a in dir(self.mod)
+				if type(getattr(self.mod, a)).__name__ == "module"]:
+			for cname, c in vars(m).items():
+				if isinstance(c, type) and issubclass(c, Enum) and c is not Enum and name in c.__members__ and \
+					getattr(c, "__module__", "") == m.__name__:
+					if alias in self.mods: self.needed.add(alias)
+					return "%s.%s.%s" % (alias, cname, name)
 		for alias in sorted(dir(self.mod), key=lambda a: not a.endswith("_h")):
 			m = getattr(self.mod, alias)
 			if type(m).__name__ == "module" and alias not in ("np", "math", "rand") and hasattr(m, name) and \
@@ -90,23 +124,36 @@ class Ctx(object):
 def tokens_to_py(expr, ctx):
 	"""Translate one C expression."""
 	e = expr.strip()
-	e = re.sub(r"\(\s*(?:const\s+)?(?:int|float|unsigned|short|byte|char|double|qboolean|gitem_armor_t\s*\*|gitem_t\s*\*|edict_t\s*\*)\s*\)\s*(?=[\w(])", "", e)
+	e = re.sub(r"\(\s*(?:const\s+)?(?:unsigned\s+|signed\s+)?(?:int|float|unsigned|short|byte|char|double|long|long long|qboolean|size_t|gitem_armor_t\s*\*|gitem_t\s*\*|edict_t\s*\*|char\s*\*|byte\s*\*)\s*\)\s*(?=[\w(\-])", "", e)
+	e = re.sub(r"\bstrtol\s*\(([^(),]+),[^(),]*,\s*10\s*\)", r"atoi(\1)", e)
+	e = re.sub(r"\b__func__\b", '"%s"' % getattr(ctx, "funcname", ""), e)
 	e = e.replace("->", ".")
+	e = re.sub(r"\bstrlen\s*\(", "len(", e)
+	e = re.sub(r"!\s*strncmp\s*\(([^(),]+),\s*([^(),]+),\s*([^(),]+)\)", r"(\1[:\3] == \2[:\3])", e)
+	e = re.sub(r"\bstrncmp\s*\(([^(),]+),\s*([^(),]+),\s*([^(),]+)\)", r"(\1[:\3] != \2[:\3])", e)
 	# strcmp(a, b) == 0 / != 0 / !strcmp(a, b)
 	e = re.sub(r"!\s*strcmp\s*\(([^(),]+),\s*([^(),]+)\)", r"(\1 == \2)", e)
 	e = re.sub(r"strcmp\s*\(([^(),]+),\s*([^(),]+)\)\s*==\s*0", r"(\1 == \2)", e)
 	e = re.sub(r"strcmp\s*\(([^(),]+),\s*([^(),]+)\)\s*!=\s*0", r"(\1 != \2)", e)
+	e = re.sub(r"\bstrcmp\s*\(([^(),]+),\s*([^(),]+)\)", r"(\1 != \2)", e) # Q2PORT: only its truth value
 	e = re.sub(r"(\d+\.\d*|\.\d+|\d+)[fF]\b", r"\1", e)
 	e = e.replace("&&", " and ").replace("||", " or ")
 	e = re.sub(r"!(?!=)", " not ", e)
+	for m in re.finditer(r"(?:^|[(,]\s*)&\s*(\w+)\b(?!\s*[\[.])", e):
+		if m.group(1) in ctx.locals and m.group(1) not in getattr(ctx, "arrays", ()):
+			ctx.fixmes.append("&%s (an out-parameter?)" % m.group(1))
 	e = re.sub(r"(^|[(,=]\s*)&(?=\s*\w)", r"\1", e)	# address-of
 	e = conv_ternary(e)
 	out, i = [], 0
-	for t in re.finditer(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|[A-Za-z_][\w]*(?:\.[A-Za-z_]\w*)*|\S', e):
+	for t in re.finditer(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|0[xX][0-9a-fA-F]+[uUlL]*|\d+\.?\d*(?:[eE][-+]?\d+)?[uUlL]*|[A-Za-z_][\w]*(?:\.[A-Za-z_]\w*)*|\S', e):
 		tok = t.group(0)
 		out.append(e[i:t.start()]); i = t.end()
 		if tok[0] == "'" and len(tok) == 3:
 			out.append(str(ord(tok[1]))); continue
+		if tok[0] == "'" and tok.startswith("'\\"):
+			out.append(str(ord(eval(tok)))); continue
+		if tok[0].isdigit():
+			out.append(tok.rstrip("uUlL")); continue
 		if (tok[0].isalpha() or tok[0] == "_") and e[:t.start()].rstrip().endswith("."):
 			out.append(tok); continue	# attribute after "]." or ")."
 		if tok[0].isalpha() or tok[0] == "_":
@@ -121,6 +168,8 @@ def tokens_to_py(expr, ctx):
 	s = re.sub(r"\s+", " ", s).strip()
 	s = re.sub(r"\(\s+", "(", s); s = re.sub(r"\s+\)", ")", s)
 	s = s.replace("not  ", "not ")
+	s = re.sub(r"([\w.\[\]]+)\s*(<=|>=|<|>)\s*(\w+\.\w+_t\.\w+)\b", r"\1.value \2 \3.value", s)
+	s = re.sub(r"(\w+\.\w+_t\.\w+)\s*(<=|>=|<|>)\s*([\w.\[\]]+)", r"\1.value \2 \3.value", s)
 	return s
 
 
@@ -166,7 +215,7 @@ def conv_ternary(s):
 		ch = s[i]
 		if ch in "\"'":
 			j = i + 1
-			while j < len(s) and not (s[j] == ch and s[j - 1] != "\\"): j += 1
+			while j < len(s) and s[j] != ch: j += 2 if s[j] == "\\" else 1
 			out += s[i:j + 1]; i = j + 1; continue
 		if ch in "([":
 			close = ")" if ch == "(" else "]"
@@ -199,7 +248,7 @@ def conv_ternary(s):
 		ch = s[i]
 		if ch in "\"'":
 			j = i + 1
-			while j < len(s) and not (s[j] == ch and s[j - 1] != "\\"): j += 1
+			while j < len(s) and s[j] != ch: j += 2 if s[j] == "\\" else 1
 			i = j + 1; continue
 		if ch in "([": depth += 1
 		elif ch in ")]": depth -= 1
@@ -212,7 +261,7 @@ def conv_ternary(s):
 		ch = s[i]
 		if ch in "\"'":
 			j = i + 1
-			while j < len(s) and not (s[j] == ch and s[j - 1] != "\\"): j += 1
+			while j < len(s) and s[j] != ch: j += 2 if s[j] == "\\" else 1
 			i = j + 1; continue
 		if ch in "([": depth += 1
 		elif ch in ")]": depth -= 1
@@ -265,7 +314,7 @@ class Src(object):
 			ch = self.t[j]
 			if ch in "\"'":
 				k = j + 1
-				while self.t[k] != ch or self.t[k - 1] == "\\": k += 1
+				while self.t[k] != ch: k += 2 if self.t[k] == "\\" else 1
 				j = k + 1; continue
 			if ch == "(": depth += 1
 			elif ch == ")":
@@ -282,7 +331,7 @@ class Src(object):
 			ch = self.t[j]
 			if ch in "\"'":
 				k = j + 1
-				while self.t[k] != ch or self.t[k - 1] == "\\": k += 1
+				while self.t[k] != ch: k += 2 if self.t[k] == "\\" else 1
 				j = k + 1; continue
 			if ch in "({[": depth += 1
 			elif ch in ")}]": depth -= 1
@@ -475,12 +524,26 @@ def emit(nodes, ctx, depth, out, indent="\t"):
 			d = split_decl(s + ";")
 			if d:
 				typ, names = d
+				if typ.startswith("static"):	# a static local is a module global
+					out.append(pad + "#" + s + ";") if depth > 1 else ctx.decls.append(s + ";")
+					for nm, ptr, arr, init in names:
+						ctx.statics.add(nm)
+						if init and init.strip().startswith("{"):
+							ini = "[%s]" % ", ".join(tokens_to_py(x, ctx) for x in split_top(init.strip()[1:-1]))
+						else:
+							ini = tokens_to_py(init, ctx) if init else None
+						ctx.static_locals[nm] = (typ, ini)
+					continue
 				if depth == 1:
 					ctx.decls.append(s + ";")
 				else:
 					out.append(pad + "#" + s + ";")
 				for nm, ptr, arr, init in names:
 					ctx.locals.add(nm)
+					if arr or typ.endswith("vec3_t"):
+						ctx.arrays.add(nm)
+					if not ptr and not arr and re.search(r"\b(int|short|byte|unsigned|long|size_t)\b", typ):
+						ctx.ints.add(nm)
 					line = decl_init(typ, nm, ptr, arr, init, ctx)
 					if line is None: continue
 					if depth == 1: ctx.inits.append(line)
@@ -503,8 +566,49 @@ def decl_init(typ, nm, ptr, arr, init, ctx):
 			return "%s = np.array([%s], dtype=np.float32)" % (pn, init.strip()[1:-1])
 		return "%s = np.zeros((3,), dtype=np.float32)" % pn
 	if init is not None:
-		return "%s = %s" % (pn, tokens_to_py(init, ctx))
+		v = tokens_to_py(init, ctx)
+		if nm in ctx.ints and "/" in v and "//" not in v:
+			v = "int(%s) # C int" % v
+		return "%s = %s" % (pn, v)
 	return None
+
+
+# macros of the build the port follows (Linux, x86_64, no curl, no OpenAL, not dedicated-only)
+DEFINED = {"__linux__", "__x86_64__", "__unix__", "unix"}
+
+
+def preprocess(body):
+	"""Keep the lines of the #if branches this build takes; directives become comments."""
+	out, stack = [], []	# stack of (taking, taken_any)
+	def active():
+		return all(t for t, _ in stack)
+	def cond(expr):
+		e = re.sub(r"/\*.*?\*/|//.*", "", expr).strip()
+		e = re.sub(r"defined\s*\(\s*(\w+)\s*\)|defined\s+(\w+)", lambda m: "1" if (m.group(1) or m.group(2)) in DEFINED else "0", e)
+		e = re.sub(r"\b[A-Za-z_]\w*\b", "0", e)
+		e = e.replace("&&", " and ").replace("||", " or ").replace("!", " not ")
+		try:
+			return bool(eval(e))
+		except Exception:
+			return False
+	for line in body.split("\n"):
+		st = line.strip()
+		m = re.match(r"#\s*(ifdef|ifndef|if|elif|else|endif)\b\s*(.*)", st)
+		if m:
+			d, arg = m.groups()
+			if d == "ifdef": v = arg.split()[0] in DEFINED; stack.append((v, v))
+			elif d == "ifndef": v = arg.split()[0] not in DEFINED; stack.append((v, v))
+			elif d == "if": v = cond(arg); stack.append((v, v))
+			elif d == "elif":
+				t, any_ = stack.pop(); v = (not any_) and cond(arg); stack.append((v, any_ or v))
+			elif d == "else":
+				t, any_ = stack.pop(); stack.append((not any_, True))
+			elif d == "endif" and stack: stack.pop()
+			out.append("// " + st)
+			continue
+		if active():
+			out.append(line)
+	return "\n".join(out)
 
 
 def translate(cfunc, ctx, indent="\t"):
@@ -518,6 +622,10 @@ def translate(cfunc, ctx, indent="\t"):
 		pnames.append(re.findall(r"\w+", p)[-1])
 	ctx.locals = set(pnames)
 	ctx.decls, ctx.inits = [], []
+	ctx.ints = set()
+	ctx.static_locals = {}
+	ctx.funcname = name
+	ctx.arrays = set()
 	pnames = [p + "_" if p in BUILTINS else p for p in pnames]
 	ctypes = ", ".join(re.sub(r"\s*\b\w+\s*$", "", re.sub(r"/\*.*?\*/", "", p).strip()) for p in params.split(",") if p.strip() and p.strip() != "void")
 	rt = re.sub(r"\s+", " ", rtype.strip())
@@ -526,7 +634,7 @@ def translate(cfunc, ctx, indent="\t"):
 		comment += " (returns %s)" % rt
 	elif rt.startswith("static"):
 		comment += " (static)"
-	src = Src("{\n" + body + "\n}")
+	src = Src("{\n" + preprocess(body) + "\n}")
 	nodes = parse_stmt(src)
 	out = []
 	emit(nodes, ctx, 1, out)
@@ -557,6 +665,34 @@ def translate(cfunc, ctx, indent="\t"):
 
 def stmt(s, ctx):
 	s = s.rstrip(";").strip()
+	m = re.fullmatch(r"Draw_GetPicSize\s*\(\s*&\s*([\w.\->\[\]]+)\s*,\s*&\s*([\w.\->\[\]]+)\s*,\s*(.+)\)", s)
+	if m:	# Q2PORT: vid.Draw_GetPicSize returns (w, h)
+		return "%s, %s = %s(%s)" % (tokens_to_py(m.group(1), ctx), tokens_to_py(m.group(2), ctx),
+			ctx.resolve("Draw_GetPicSize"), tokens_to_py(m.group(3), ctx))
+	m = re.fullmatch(r"(strcpy|Q_strlcpy|strncpy)\s*\((.*)\)", s)
+	if m:
+		a = split_top(m.group(2))
+		dst, src = tokens_to_py(a[0], ctx), tokens_to_py(a[1], ctx)
+		if len(a) > 2 and not re.search(r"sizeof", a[2]):
+			return "%s = %s[:%s - 1] # %s" % (dst, src, tokens_to_py(a[2], ctx), m.group(1))
+		return "%s = %s # %s" % (dst, src, m.group(1))
+	m = re.fullmatch(r"(strcat|Q_strlcat)\s*\((.*)\)", s)
+	if m:
+		a = split_top(m.group(2))
+		return "%s += %s # %s" % (tokens_to_py(a[0], ctx), tokens_to_py(a[1], ctx), m.group(1))
+	m = re.fullmatch(r"sprintf\s*\((.*)\)", s)
+	if m:
+		a = split_top(m.group(1))
+		args = [tokens_to_py(x, ctx) for x in a[2:]]
+		return "%s = %s # sprintf" % (tokens_to_py(a[0], ctx), "%s %% (%s,)" % (a[1].strip(), ", ".join(args)) if args else a[1].strip())
+	m = re.fullmatch(r"(Com_sprintf|snprintf)\s*\((.*)\)", s)
+	if m:
+		a = split_top(m.group(2))
+		dst, fmt, args = tokens_to_py(a[0], ctx), a[2].strip(), [tokens_to_py(x, ctx) for x in a[3:]]
+		val = "%s %% (%s,)" % (fmt, ", ".join(args)) if args else fmt
+		if not re.search(r"sizeof", a[1]):
+			return "%s = (%s)[:%s - 1] # %s" % (dst, val, tokens_to_py(a[1], ctx), m.group(1))
+		return "%s = %s # %s" % (dst, val, m.group(1))
 	if s == "return": return "return"
 	if s.startswith("return "): return "return " + tokens_to_py(s[7:], ctx)
 	if s == "break": return "break"
@@ -565,6 +701,7 @@ def stmt(s, ctx):
 	if m:
 		g = m.groups()
 		tgt, op = (g[0], g[1]) if g[1] in ("++", "--") else (g[1], g[0])
+		if tgt.split("[")[0] in ctx.statics: ctx.assigned.add(tgt.split("[")[0])
 		return "%s %s= 1" % (tokens_to_py(tgt, ctx), "+" if op == "++" else "-")
 	m = re.fullmatch(r"([\w.\->\[\]]+)\s*(=|\+=|-=|\*=|/=|\|=|&=|\^=)\s*(.+)", s)
 	if m and m.group(2) == "=" and "=" in m.group(3) and re.search(r"[^=!<>]=[^=]", " " + m.group(3) + " "):
@@ -572,8 +709,13 @@ def stmt(s, ctx):
 		parts = [p.strip() for p in re.split(r"(?<![=!<>])=(?!=)", s)]
 		return " = ".join(tokens_to_py(p, ctx) for p in parts)
 	if m:
-		if m.group(1) in ctx.statics: ctx.assigned.add(m.group(1))
-		return "%s %s %s" % (tokens_to_py(m.group(1), ctx), m.group(2), tokens_to_py(m.group(3), ctx))
+		if m.group(1).split("[")[0] in ctx.statics: ctx.assigned.add(m.group(1).split("[")[0])
+		v = tokens_to_py(m.group(3), ctx)
+		if m.group(1) in getattr(ctx, "ints", ()) and ("/" in v or m.group(2) == "/=") and "//" not in v:
+			if m.group(2) == "/=":
+				return "%s = int(%s / %s) # C int" % (tokens_to_py(m.group(1), ctx), tokens_to_py(m.group(1), ctx), v)
+			return "%s %s int(%s) # C int" % (tokens_to_py(m.group(1), ctx), m.group(2), v)
+		return "%s %s %s" % (tokens_to_py(m.group(1), ctx), m.group(2), v)
 	return tokens_to_py(s, ctx)
 
 
@@ -585,6 +727,8 @@ def main(argv):
 	csrc = open(os.path.join(YQ, cpath), errors="replace").read()
 	cfuncs = {m.group(2): m.groups() for m in FUNC_RE.finditer(csrc)}
 	statics = dict((m.group(2), m.group(1)) for m in re.finditer(r"^static\s+(int|float|qboolean)\s+(\w+)\s*(?:=[^;]*)?;", csrc, re.M))
+	for m in re.finditer(r"^(?:static\s+)?cvar_t\s*\*\s*(\w+)\s*;", csrc, re.M):
+		statics[m.group(1)] = "cvar_t *"
 	defines = dict((m.group(1), m.group(2).strip()) for m in re.finditer(r"^#define\s+([A-Z_][A-Z0-9_]*)\s+([^\n/]+)", csrc, re.M))
 	modname = os.path.relpath(os.path.abspath(modpath), ROOT)[:-3].replace(os.sep, ".")
 	mod = importlib.import_module(modname)
@@ -593,16 +737,26 @@ def main(argv):
 	for n in names:
 		if n not in cfuncs:
 			print("%s: not found in %s" % (n, cpath)); continue
-		ctx = Ctx(mod, list(statics) + list(defines))
+		ctx = Ctx(mod, list(statics) + list(defines), None if modpath.startswith("game/") else SEARCH_CLIENT)
 		ctx.cfuncs = set(cfuncs)
 		try:
 			py = translate(cfuncs[n], ctx)
 		except ValueError as e:
 			print("%s: can't translate (%s)" % (n, e)); continue
+		try:
+			ast.parse(py)
+		except SyntaxError as e:
+			print("%s: can't translate (%s); port it by hand" % (n, e.msg)); continue
+		body = py.split('"""')[-1] if py.count('"""') >= 2 else py
+		body = re.sub(r'"(?:\\.|[^"\\])*"', '""', "\n".join(l.split("#")[0] for l in body.splitlines()))
+		if re.search(r"(?:^|[=(,:\[]|\breturn|\bif|\bwhile|\band|\bor|\bnot)\s*\*\s*[A-Za-z_(]", body, re.M):
+			print("%s: can't translate (pointer dereference); port it by hand" % n); continue
 		if ctx.fixmes:
 			py = py.replace("\n", "\n\t# FIXME c2py: unresolved %s\n" % ", ".join(sorted(set(ctx.fixmes))), 1)
 			print("%s: unresolved %s" % (n, ", ".join(sorted(set(ctx.fixmes)))))
 		results[n] = (py, ctx.needed)
+		for nm, (typ, init) in ctx.static_locals.items():
+			statics.setdefault(nm, "%s = %s" % (typ, init) if init else typ)
 		if show: print(py)
 	if not write: return
 	tree = ast.parse(src)
@@ -643,21 +797,38 @@ def main(argv):
 	imports["np"] = "import numpy as np\n"
 	# new file statics the functions use
 	t1 = ast.parse(src)
-	have = {st.targets[0].id for st in t1.body if isinstance(st, ast.Assign) and isinstance(st.targets[0], ast.Name)}
+	have = set()
+	for st in t1.body:
+		if isinstance(st, ast.Assign):
+			for tg in st.targets:
+				for n in ast.walk(tg):
+					if isinstance(n, ast.Name): have.add(n.id)
 	allpy = "".join(p for p, _ in results.values())
 	missing = [n for n in statics if n not in have and re.search(r"\b%s\b" % n, allpy)]
 	mdefs = [n for n in defines if n not in have and re.search(r"\b%s\b" % n, allpy)]
 	if missing or mdefs:
-		k = re.search(r"^(def|class) ", src, re.M).start()
-		k = src.rfind('"""', 0, k) if src.rfind('"""', 0, k) > src.rfind("\n\n", 0, k) else k
+		# before the first function, and before the banner string just above it
+		tb = ast.parse(src).body
+		first = next(i for i, st in enumerate(tb) if isinstance(st, (ast.FunctionDef, ast.ClassDef)))
+		ln = tb[first].lineno
+		if first > 0 and isinstance(tb[first - 1], ast.Expr) and isinstance(tb[first - 1].value, ast.Constant) and \
+			tb[first - 1].end_lineno >= tb[first].lineno - 1:
+			ln = tb[first - 1].lineno
+		k = sum(len(l) for l in src.splitlines(keepends=True)[:ln - 1])
 		src = src[:k] + "".join("%s = %s\n" % (n, defines[n]) for n in mdefs) + \
-			"".join("%s = 0 #static %s\n" % (n, statics[n]) for n in missing) + "\n" + src[k:]
+			"".join(("%s = None #cvar_t *\n" % n) if statics[n] == "cvar_t *" else
+				("%s = %s #static %s\n" % (n, (statics[n].split("=", 1)[1].strip() if "=" in statics[n] else "0"), statics[n].split("=")[0].strip()))
+				for n in missing) + "\n" + src[k:]
 		print("added statics/defines: " + ", ".join(mdefs + missing))
 	t2 = ast.parse(src)
 	bound = set()
 	for st in t2.body:
 		if isinstance(st, (ast.Import, ast.ImportFrom)):
 			for a in st.names: bound.add((a.asname or a.name).split(".")[0])
+	for alias, path in SEARCH_CLIENT + SEARCH:
+		if alias not in imports:
+			pkg, _, base = path.rpartition(".")
+			imports[alias] = "from %s import %s%s\n" % (pkg, base, "" if base == alias else " as " + alias)
 	add = "".join(imports[n] for n in sorted(needed) if n not in bound and n in imports)
 	if add:
 		k = src.index("from __future__ import annotations\n") + len("from __future__ import annotations\n")

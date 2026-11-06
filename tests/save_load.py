@@ -43,6 +43,7 @@ def CL_Frame(msec):
 		savegame.ReadLevel = ReadLevel
 		from server import sv_game
 		sv_game.ge.WriteLevel = WriteLevel
+		sv_game.ge.ReadLevel = ReadLevel	# in case the load doesn't restart the game
 		print("save_load: saving")
 		cmdparser.Cbuf_AddText("save porttest\n")
 		st["phase"] = 2; st["t"] = now

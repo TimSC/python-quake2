@@ -1,33 +1,36 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+This is the clients main loop as well as some miscelangelous utility
+and support functions
+
+=======================================================================
 """
 from __future__ import annotations
 
 import os
 import struct
-pass
-pass
-from client import console, snd_dma, cl_scrn, client, cl_view, menu, cl_input, keys, cl_cin, cl_parse, cl_fx, cl_tent, cl_pred
+from client import snd_dma, cl_view, menu, cl_input, cl_cin, cl_parse, cl_fx, cl_tent
 from linux import q_shlinux, vid_so, net_udp, cd_linux, sys_linux
-pass
 from common.header import common as common_h
-from common.header import files as files_h
 from common.header import shared
 from common.shared import shared as shared_c
 from common import argproc
@@ -40,12 +43,21 @@ from common import movemsg
 from common import szone
 from common import collision
 from common import netchan
-from server import sv_main
+from client import cl_console
+from client import cl_download
+from client import cl_input
+from client import cl_keyboard
+from client import cl_network
+from client import cl_parse
+from client import cl_prediction
+from client import cl_screen
+from client import cl_view
+from client.header import client as client_h
 
 """
-// cl_main.c  -- client main loop
-
-#include "client.h"
+#include <errno.h>
+#include "header/client.h"
+#include "input/header/input.h"
 """
 
 adr0, adr1, adr2, adr3, adr4, adr5, adr6, adr7, adr8 = None, None, None, None, None, None, None, None, None
@@ -56,24 +68,24 @@ cl_stereo = None #cvar_t *
 cl_add_blend, cl_add_lights, cl_add_particles, cl_add_entities = None, None, None, None
 cl_gun, cl_footsteps, cl_noskins, cl_autoskins, cl_predict, cl_maxfps = None, None, None, None, None, None
 cl_upspeed, cl_forwardspeed, cl_sidespeed, cl_yawspeed, cl_pitchspeed, cl_anglespeedkey = None, None, None, None, None, None
-cl_run, freelook, lookspring, lookstrafe, sensitivity = None, None, None, None, None
+
 m_pitch, m_yaw, m_forward, m_side = None, None, None, None
 cl_shownet, cl_showmiss, cl_showclamp, cl_timeout, cl_paused, cl_timedemo = None, None, None, None, None, None
 rcon_client_password, rcon_address, cl_lightlevel = None, None, None
 info_password, info_spectator, name, skin, rate, msg, hand, fov, gender, gender_auto, cl_vwep = None, None, None, None, None, None, None, None, None, None, None
 
-cls = client.client_static_t()
+cls = client_h.client_static_t()
 
-cl = client.client_state_t()
+cl = client_h.client_state_t()
 
 
 cl_entities = []
 for i in range(shared.MAX_EDICTS):
-	cl_entities.append(client.centity_t())
+	cl_entities.append(client_h.centity_t())
 
 
 cl_parse_entities = [] 
-for i in range(client.MAX_PARSE_ENTITIES):
+for i in range(client_h.MAX_PARSE_ENTITIES):
 	cl_parse_entities.append(shared.entity_state_t())
 """
 extern	cvar_t *allow_download;
@@ -93,6 +105,71 @@ CL_WriteDemoMessage
 Dumps the current net message, prefixed by the length
 ====================
 """
+"""
+void
+CL_ClearEntities(void)
+{
+	if (cl_entities)
+	{
+		Z_Free(cl_entities);
+		cl_entities = NULL;
+	}
+
+	cl_numentities = 0;
+}
+"""
+
+"""
+centity_t *
+CL_AllocEntity(int entnum)
+{
+	int nextpow2;
+
+	if ((entnum < 0) || (entnum > MAX_CL_ENTNUM))
+	{
+		return NULL;
+	}
+
+	if (entnum >= cl_numentities)
+	{
+		nextpow2 = (cl_numentities || (entnum >= ALLOC_ENTITIES_MIN)) ?
+			(int)NextPow2gt(entnum) : ALLOC_ENTITIES_MIN;
+
+		cl_entities = Z_Realloc(cl_entities, nextpow2 * sizeof(centity_t));
+		cl_numentities = nextpow2;
+	}
+
+	return &cl_entities[entnum];
+}
+"""
+
+"""
+/*
+ * Returns max clients in the current session
+ * Returns 1 if the value is bad (<= 0) or the configstring is blank
+ */
+int
+CL_MaxClients(void)
+{
+	int i = 0;
+
+	sscanf(cl.configstrings[CS_MAXCLIENTS], " %i ", &i);
+
+	if (i > MAX_CLIENTS)
+	{
+		return MAX_CLIENTS;
+	}
+
+	return i <= 0 ? 1 : i;
+}
+"""
+
+"""
+// cl_main.c  -- client main loop
+
+#include "client.h"
+"""
+
 def CL_WriteDemoMessage ():
 
 	#int		len, swlen;
@@ -159,7 +236,7 @@ def CL_Record_f ():
 		clientserver.Com_Printf ("Already recording.\n")
 		return
 	
-	if cls.state != client.connstate_t.ca_active:
+	if cls.state != client_h.connstate_t.ca_active:
 	
 		clientserver.Com_Printf ("You must be in a level to record.\n")
 		return
@@ -240,38 +317,6 @@ def CL_Record_f ():
 	cls.demofile.write (struct.pack("<i", buf.cursize))
 	cls.demofile.write (buf.data[:buf.cursize])
 
-	# the rest of the demo file will be individual frames
-
-"""
-
-//======================================================================
-
-"""
-"""
-===================
-Cmd_ForwardToServer
-
-adds the current command line as a clc_stringcmd to the client message.
-things like godmode, noclip, etc, are commands directed to the server,
-so when they are typed in at the console, they will need to be forwarded.
-===================
-"""
-def Cmd_ForwardToServer ():
-
-	#char	*cmd;
-
-	cmd_name = cmdparser.Cmd_Argv(0)
-	if cls.state.value <= client.connstate_t.ca_connected.value or cmd_name[:1] == '-' or cmd_name[:1] == '+':
-	
-		clientserver.Com_Printf ("Unknown command \"{}\"\n".format(cmd_name))
-		return
-	
-	movemsg.MSG_WriteByte (cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value)
-	szone.SZ_Print (cls.netchan.message, cmd_name)
-	if cmdparser.Cmd_Argc() > 1:
-	
-		szone.SZ_Print (cls.netchan.message, " ")
-		szone.SZ_Print (cls.netchan.message, cmdparser.Cmd_Args())
 	
 
 def CL_Setenv_f():
@@ -304,25 +349,7 @@ def CL_Setenv_f():
 		else:
 		
 			clientserver.Com_Printf( "{} undefined\n".format(cmdparser.Cmd_Argv(1)) )
-		
 
-"""
-==================
-CL_ForwardToServer_f
-==================
-"""
-def CL_ForwardToServer_f ():
-
-	if cls.state != client.connstate_t.ca_connected and cls.state != client.connstate_t.ca_active:
-	
-		clientserver.Com_Printf ("Can't \"{}\", not connected\n".format(cmdparser.Cmd_Argv(0)))
-		return
-	
-	# don't forward the first argument
-	if cmdparser.Cmd_Argc() > 1:
-	
-		movemsg.MSG_WriteByte (cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value)
-		szone.SZ_Print (cls.netchan.message, cmdparser.Cmd_Args())
 	
 
 
@@ -350,193 +377,8 @@ CL_Quit_f
 """
 def CL_Quit_f ():
 
-	CL_Disconnect ()
+	cl_network.CL_Disconnect ()
 	clientserver.Com_Quit ()
-
-
-"""
-================
-CL_Drop
-
-Called after an q_shared.ERR_DROP was thrown
-================
-"""
-def CL_Drop ():
-	if cls.state == client.connstate_t.ca_uninitialized:
-		return
-	if cls.state == client.connstate_t.ca_disconnected:
-		return
-
-	CL_Disconnect()
-
-	# drop loading plaque unless this is the initial game start
-	if cls.disable_servercount != -1:
-		cl_scrn.SCR_EndLoadingPlaque()
-
-
-# =======================
-# CL_SendConnectPacket
-#
-# We have gotten a challenge from the server, so try and
-# connect.
-# ======================
-def CL_SendConnectPacket ():
-
-	#netadr_t	adr;
-	#int		port;
-
-	adr = net_udp.NET_StringToAdr (cls.servername)
-	if adr is None:
-	
-		clientserver.Com_Printf ("Bad server address\n")
-		cls.connect_time = 0
-		return
-	
-	if not adr.port:
-		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-
-	port = int(cvar.Cvar_VariableValue ("qport"))
-	cvar.userinfo_modified = False
-
-	netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "connect {:d} {:d} {:d} \"{}\"\n".format(
-		common_h.PROTOCOL_VERSION, port, cls.challenge, cvar.Cvar_Userinfo()).encode('ascii') )
-
-
-"""
-=================
-CL_CheckForResend
-
-Resend a connect message if the last one has timed out
-=================
-"""
-def CL_CheckForResend ():
-
-	#netadr_t	adr;
-
-	# if the local server is running and we aren't
-	# then connect
-	if cls.state == client.connstate_t.ca_disconnected and clientserver.Com_ServerState():
-	
-		cls.state = client.connstate_t.ca_connecting
-		cls.servername = "localhost"
-		# we don't need a challenge on the localhost
-		CL_SendConnectPacket ()
-		return
-		##cls.connect_time = -99999;	// CL_CheckForResend() will fire immediately
-
-	# resend if we haven't gotten a reply yet
-	if cls.state != client.connstate_t.ca_connecting:
-		return
-
-	if cls.realtime - cls.connect_time < 3000:
-		return
-
-	adr = net_udp.NET_StringToAdr(cls.servername)
-	if adr is None:
-		clientserver.Com_Printf("Bad server address\n")
-		cls.state = client.connstate_t.ca_disconnected
-		return
-
-	if not adr.port:
-		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-
-	cls.connect_time = cls.realtime
-
-	clientserver.Com_Printf("Connecting to {}...\n".format(cls.servername))
-
-	netchan.Netchan_OutOfBandPrint(common_h.netsrc_t.NS_CLIENT, adr, b"getchallenge\n")
-
-
-
-"""
-================
-CL_Connect_f
-
-================
-"""
-def CL_Connect_f ():
-
-	#char	*server;
-
-	if cmdparser.Cmd_Argc() != 2:
-	
-		clientserver.Com_Printf ("usage: connect <server>\n")
-		return	
-	
-	if clientserver.Com_ServerState ():
-		# if running a local server, kill it and reissue
-		sv_main.SV_Shutdown ("Server quit\n", False)
-	
-	else:
-	
-		CL_Disconnect ()
-	
-	server = cmdparser.Cmd_Argv (1)
-
-	net_udp.NET_Config (True)		# allow remote
-
-	CL_Disconnect ()
-
-	cls.state = client.connstate_t.ca_connecting
-	cls.servername = server[:shared.MAX_OSPATH-1] # strncpy (cls.servername, server, sizeof(cls.servername)-1);
-	cls.connect_time = -99999	# CL_CheckForResend() will fire immediately
-
-
-"""
-=====================
-CL_Rcon_f
-
-  Send the rest of the command line over as
-  an unconnected command.
-=====================
-"""
-def CL_Rcon_f ():
-
-	#char	message[1024];
-	#int		i;
-	#netadr_t	to;
-
-	if rcon_client_password.string is None:
-	
-		clientserver.Com_Printf ("You must set 'rcon_password' before\n"
-					"issuing an rcon command.\n")
-		return
-	
-	message = bytearray(b"\xff\xff\xff\xff") # message[0..3] = (char)255; message[4] = 0;
-
-	net_udp.NET_Config (True)		# allow remote
-
-	message += b"rcon "
-
-	message += rcon_client_password.string.encode('ascii')
-	message += b" "
-
-	for i in range(1, cmdparser.Cmd_Argc()):
-	
-		message += cmdparser.Cmd_Argv(i).encode('ascii')
-		message += b" "
-	
-	if cls.state.value >= client.connstate_t.ca_connected.value:
-		to = cls.netchan.remote_address
-	else:
-	
-		if not len(rcon_address.string):
-		
-			clientserver.Com_Printf ("You must either be connected,\n"
-						"or set the 'rcon_address' cvar\n"
-						"to issue rcon commands\n")
-
-			return
-		
-		to = net_udp.NET_StringToAdr (rcon_address.string)
-		if to is None: # C ignores the failure and sends to an empty address
-			to = common_h.netadr_t()
-		if to.port == 0:
-			to.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-	
-	message += b"\0"
-	net_udp.NET_SendPacket (common_h.netsrc_t.NS_CLIENT, bytes(message), to) # strlen(message)+1
-
 
 
 # =====================
@@ -557,178 +399,6 @@ def CL_ClearState ():
 	szone.SZ_Clear (cls.netchan.message)
 
 
-
-"""
-=====================
-CL_Disconnect
-
-Goes from a connected state to full screen console state
-Sends a disconnect message to the server
-This is also called on Com_Error, so it shouldn't cause any errors
-=====================
-"""
-def CL_Disconnect ():
-
-
-	"""
-	byte	final[32];
-	"""
-
-	if cls.state == client.connstate_t.ca_disconnected:
-		return
-
-	if cl_timedemo is not None and int(cl_timedemo.value):
-	
-		#int	time;
-		
-		time = q_shlinux.Sys_Milliseconds () - cl.timedemo_start
-		if time > 0:
-			clientserver.Com_Printf ("{} frames, {:3.1f} seconds: {:3.1f} fps\n".format(cl.timedemo_frames,
-			time/1000.0, cl.timedemo_frames*1000.0 / time))
-	
-	shared.VectorClear (cl.refdef.blend)
-	vid_so.re.CinematicSetPalette(None)
-
-	menu.M_ForceMenuOff ()
-
-	cls.connect_time = 0
-
-	cl_cin.SCR_StopCinematic ()
-
-	if cls.demorecording:
-		CL_Stop_f ()
-
-	# send a disconnect message to the server
-	final = bytearray()
-	final += struct.pack("B", common_h.clc_ops_e.clc_stringcmd.value)
-	final += b"disconnect"
-	netchan.Netchan_Transmit (cls.netchan, final)
-	netchan.Netchan_Transmit (cls.netchan, final)
-	netchan.Netchan_Transmit (cls.netchan, final)
-
-	CL_ClearState ()
-
-	# stop download
-	if cls.download is not None:
-		cls.download.close()
-		cls.download = None
-	
-	cls.state = client.connstate_t.ca_disconnected
-
-
-def CL_Disconnect_f ():
-
-	clientserver.Com_Error (shared.ERR_DROP, "Disconnected from server");
-
-
-
-"""
-====================
-CL_Packet_f
-
-packet <destination> <contents>
-
-Contents allows \n escape character
-====================
-"""
-def CL_Packet_f ():
-
-	#char	send[2048];
-	#int		i, l;
-	#char	*in, *out;
-	#netadr_t	adr;
-
-	if cmdparser.Cmd_Argc() != 3:
-	
-		clientserver.Com_Printf ("packet <destination> <contents>\n")
-		return
-	
-	net_udp.NET_Config (True)		# allow remote
-
-	adr = net_udp.NET_StringToAdr (cmdparser.Cmd_Argv(1))
-	if adr is None:
-	
-		clientserver.Com_Printf ("Bad address\n")
-		return
-	
-	if not adr.port:
-		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-
-	in_str = cmdparser.Cmd_Argv(2)
-	send = bytearray(b"\xff\xff\xff\xff") # send[0] = send[1] = send[2] = send[3] = (char)0xff;
-
-	l = len (in_str)
-	i = 0
-	while i < l:
-	
-		if in_str[i] == '\\' and in_str[i+1:i+2] == 'n':
-		
-			send += b"\n"
-			i += 1
-		
-		else:
-			send += in_str[i].encode('latin-1')
-		i += 1
-	
-	# *out = 0;
-
-	net_udp.NET_SendPacket (common_h.netsrc_t.NS_CLIENT, bytes(send), adr) # out-send, excludes the terminator
-
-
-
-"""
-/*
-=================
-CL_Changing_f
-
-Just sent as a hint to the client that they should
-drop to full console
-=================
-"""
-def CL_Changing_f ():
-
-	#ZOID
-	#if we are downloading, we don't change!  This so we don't suddenly stop downloading a map
-	if cls.download is not None:
-		return
-
-	cl_scrn.SCR_BeginLoadingPlaque ()
-	cls.state = client.connstate_t.ca_connected # not active anymore, but not disconnected
-	clientserver.Com_Printf ("\nChanging map...\n")
-
-"""
-=================
-CL_Reconnect_f
-
-The server is changing levels
-=================
-"""
-def CL_Reconnect_f ():
-
-	#ZOID
-	#if we are downloading, we don't change!  This so we don't suddenly stop downloading a map
-	if cls.download is not None:
-		return
-
-	snd_dma.S_StopAllSounds ()
-	if cls.state == client.connstate_t.ca_connected:
-		clientserver.Com_Printf ("reconnecting...\n")
-		cls.state = client.connstate_t.ca_connected
-		movemsg.MSG_WriteChar (cls.netchan.message, struct.pack("B", common_h.clc_ops_e.clc_stringcmd.value))
-		movemsg.MSG_WriteString (cls.netchan.message, b"new")
-		return
-
-	if cls.servername:
-		if cls.state.value >= client.connstate_t.ca_connected.value:
-			CL_Disconnect()
-			cls.connect_time = cls.realtime - 1500
-		else:
-			cls.connect_time = -99999 # fire immediately
-
-		cls.state = client.connstate_t.ca_connecting
-		clientserver.Com_Printf ("reconnecting...\n")
-
-
 """
 =================
 CL_ParseStatusMessage
@@ -745,61 +415,6 @@ def CL_ParseStatusMessage ():
 	clientserver.Com_Printf ("{}\n".format(s))
 	menu.M_AddToServerList (netchan.net_from, s)
 
-
-"""
-=================
-CL_PingServers_f
-=================
-"""
-def CL_PingServers_f ():
-
-	"""
-	int			i;
-	netadr_t	adr;
-	char		name[32];
-	char		*adrstring;
-	cvar_t		*noudp;
-	cvar_t		*noipx;
-	"""
-	adr = common_h.netadr_t()
-
-	net_udp.NET_Config (True)		# allow remote
-
-	# send a broadcast packet
-	clientserver.Com_Printf ("pinging broadcast...\n")
-
-	noudp = cvar.Cvar_Get ("noudp", "0", shared.CVAR_NOSET)
-	if not noudp.value:
-	
-		adr.type = common_h.netadrtype_t.NA_BROADCAST
-		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
-	
-	noipx = cvar.Cvar_Get ("noipx", "0", shared.CVAR_NOSET)
-	if not noipx.value:
-	
-		adr.type = common_h.netadrtype_t.NA_BROADCAST_IPX
-		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
-	
-	# send a packet to each address book entry
-	for i in range(16):
-	
-		name = "adr{}".format(i)
-		adrstring = cvar.Cvar_VariableString (name)
-		if not adrstring:
-			continue
-
-		clientserver.Com_Printf ("pinging {}...\n".format(adrstring))
-		adr = net_udp.NET_StringToAdr (adrstring)
-		if adr is None:
-		
-			clientserver.Com_Printf ("Bad address: {}\n".format(adrstring))
-			continue
-		
-		if not adr.port:
-			adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
 	
 
 """
@@ -821,97 +436,9 @@ def CL_Skins_f ():
 		if not cl.configstrings[shared.CS_PLAYERSKINS+i]:
 			continue
 		clientserver.Com_Printf ("client {}: {}\n".format(i, cl.configstrings[shared.CS_PLAYERSKINS+i])) 
-		cl_scrn.SCR_UpdateScreen ()
+		cl_screen.SCR_UpdateScreen ()
 		sys_linux.Sys_SendKeyEvents ()	# pump message loop
 		cl_parse.CL_ParseClientinfo (i)
-	
-"""
-
-
-/*
-=================
-CL_ConnectionlessPacket
-
-Responses to broadcasts, etc
-=================
-"""
-def CL_ConnectionlessPacket ():
-
-	#char	*s;
-	#char	*c;
-	
-	movemsg.MSG_BeginReading (netchan.net_message)
-	movemsg.MSG_ReadLong (netchan.net_message)	# skip the -1
-
-	s = movemsg.MSG_ReadStringLine (netchan.net_message)
-
-	cmdparser.Cmd_TokenizeString (s, False)
-
-	c = cmdparser.Cmd_Argv(0)
-
-	clientserver.Com_Printf ("{}: {}\n".format(net_udp.NET_AdrToString (netchan.net_from), c))
-
-	# server connection
-	if c == "client_connect":
-	
-		if cls.state == client.connstate_t.ca_connected:
-		
-			clientserver.Com_Printf ("Dup connect received.  Ignored.\n")
-			return
-		
-		netchan.Netchan_Setup (common_h.netsrc_t.NS_CLIENT, cls.netchan, netchan.net_from, cls.quakePort)
-		movemsg.MSG_WriteChar (cls.netchan.message, struct.pack("B", common_h.clc_ops_e.clc_stringcmd.value))
-		movemsg.MSG_WriteString (cls.netchan.message, b"new")	
-		cls.state = client.connstate_t.ca_connected
-		return
-	
-	# server responding to a status broadcast
-	if c == "info":
-	
-		CL_ParseStatusMessage ()
-		return
-	
-	# remote command from gui front end
-	if c == "cmd":
-	
-		if not net_udp.NET_IsLocalAddress(netchan.net_from):
-		
-			clientserver.Com_Printf ("Command packet from remote host.  Ignored.\n")
-			return
-		
-		sys_linux.Sys_AppActivate ()
-		s = movemsg.MSG_ReadString (netchan.net_message)
-		cmdparser.Cbuf_AddText (s)
-		cmdparser.Cbuf_AddText ("\n")
-		return
-	
-	# print command from somewhere
-	if c == "print":
-	
-		s = movemsg.MSG_ReadString (netchan.net_message)
-		clientserver.Com_Printf ("{}".format(s))
-		return
-	
-	# ping from somewhere
-	if c == "ping":
-	
-		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, netchan.net_from, b"ack")
-		return
-	
-	# challenge from the server we are connecting to
-	if c == "challenge":
-	
-		cls.challenge = shared_c.atoi(cmdparser.Cmd_Argv(1))
-		CL_SendConnectPacket ()
-		return
-	
-	# echo request from server
-	if c == "echo":
-	
-		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, netchan.net_from, "{}".format(cmdparser.Cmd_Argv(1)).encode('ascii') )
-		return
-	
-	clientserver.Com_Printf ("Unknown command.\n")
 
 
 """
@@ -931,82 +458,7 @@ def CL_DumpPackets ():
 			break
 	
 		clientserver.Com_Printf ("dumnping a packet\n")
-	
 
-"""
-=================
-CL_ReadPackets
-=================
-"""
-def CL_ReadPackets ():
-
-	rx, netchan.net_from = net_udp.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, netchan.net_from, netchan.net_message)
-
-	while rx:
-		try:
-			##Com_Printf ("packet\n");
-			#
-			# remote command packet
-			#
-
-			header = struct.unpack("<l", netchan.net_message.data[:4])[0] # *(int *)net_message.data
-			if header == -1:
-				CL_ConnectionlessPacket ()
-				continue
-			
-
-			if cls.state == client.connstate_t.ca_disconnected or cls.state == client.connstate_t.ca_connecting:
-				continue		# dump it if not connected
-
-			if netchan.net_message.cursize < 8:
-			
-				clientserver.Com_Printf ("{}: Runt packet\n".format(net_udp.NET_AdrToString(netchan.net_from)))
-				continue
-			
-
-			#
-			# packet from server
-			#
-			if not net_udp.NET_CompareAdr (netchan.net_from, cls.netchan.remote_address):
-			
-				clientserver.Com_DPrintf ("{}:sequenced packet without connection\n".format(
-					net_udp.NET_AdrToString(netchan.net_from)))
-				continue
-			
-			if not netchan.Netchan_Process(cls.netchan, netchan.net_message):
-				continue		# wasn't accepted for some reason
-			cl_parse.CL_ParseServerMessage ()
-
-		finally:
-			rx, netchan.net_from = net_udp.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, netchan.net_from, netchan.net_message)
-
-	#
-	# check timeout
-	#
-	if ( cls.state.value >= client.connstate_t.ca_connected.value
-	 and cls.realtime - cls.netchan.last_received > cl_timeout.value*1000 ):
-	
-		cl.timeoutcount += 1
-		if cl.timeoutcount > 5:	# timeoutcount saves debugger
-		
-			clientserver.Com_Printf ("\nServer connection timed out.\n")
-			CL_Disconnect ()
-			return
-		
-	else:
-		cl.timeoutcount = 0
-	
-	"""
-
-
-
-//=============================================================================
-
-/*
-==============
-CL_FixUpGender_f
-==============
-"""
 def CL_FixUpGender():
 
 	if not gender_auto.value:
@@ -1058,265 +510,20 @@ def CL_Snd_Restart_f ():
 	cl_parse.CL_RegisterSounds ()
 
 
+"""
+void CL_ResetPrecacheCheck (void)
+{
+	precache_check = CS_MODELS;
+	precache_model = 0;
+	precache_model_skin = 0;
+}
+"""
+
 precache_check: int = 0 # for autodownload of precache items
 precache_spawncount: int = 0
 precache_tex: int = 0
 precache_model_skin: int = 0
 precache_model = None #byte *, used for skin checking in alias models
-
-PLAYER_MULT = 5
-
-# ENV_CNT is map load, ENV_CNT+1 is first env map
-ENV_CNT = (shared.CS_PLAYERSKINS + shared.MAX_CLIENTS * PLAYER_MULT)
-TEXTURE_CNT = (ENV_CNT+13)
-
-env_suf = ["rt", "bk", "lf", "ft", "up", "dn"] #static const char *[6]
-
-def CL_RequestNextDownload ():
-
-	global precache_check, precache_model, precache_model_skin, precache_tex
-
-	#unsigned	map_checksum;		// for detecting cheater maps
-	#char fn[MAX_OSPATH];
-	#dmdl_t *pheader;
-
-	if cls.state != client.connstate_t.ca_connected:
-		return
-
-	if not sv_main.allow_download.value and precache_check < ENV_CNT:
-		precache_check = ENV_CNT
-
-#ZOID
-	if precache_check == shared.CS_MODELS: # confirm map
-		precache_check = shared.CS_MODELS+2 # 0 isn't used
-		if sv_main.allow_download_maps.value:
-			if not cl_parse.CL_CheckOrDownloadFile(cl.configstrings[shared.CS_MODELS+1]):
-				return # started a download
-	
-	if precache_check >= shared.CS_MODELS and precache_check < shared.CS_MODELS+shared.MAX_MODELS:
-		if sv_main.allow_download_models.value:
-			while (precache_check < shared.CS_MODELS+shared.MAX_MODELS and
-				cl.configstrings[precache_check]):
-				if (cl.configstrings[precache_check][0] == '*' or
-					cl.configstrings[precache_check][0] == '#'):
-					precache_check += 1
-					continue
-				
-				if precache_model_skin == 0:
-					if not cl_parse.CL_CheckOrDownloadFile(cl.configstrings[precache_check]):
-						precache_model_skin = 1
-						return # started a download
-					
-					precache_model_skin = 1
-				
-				# checking for skins in the model
-				if precache_model is None:
-
-					length, precache_model = filesystem.FS_LoadFile (cl.configstrings[precache_check])
-					if precache_model is None:
-						precache_model_skin = 0
-						precache_check += 1
-						continue # couldn't load it
-					
-					if shared_c.LittleLong(precache_model[:4]) != files_h.IDALIASHEADER:
-						# not an alias model
-						filesystem.FS_FreeFile(precache_model)
-						precache_model = None
-						precache_model_skin = 0
-						precache_check += 1
-						continue
-					
-					pheader = files_h.dmdl_t() # (dmdl_t *)precache_model
-					pheader.load(precache_model)
-					if pheader.version != files_h.ALIAS_VERSION: # LittleLong (pheader->version)
-						precache_check += 1
-						precache_model_skin = 0
-						continue # couldn't load it
-					
-				pheader = files_h.dmdl_t() # (dmdl_t *)precache_model
-				pheader.load(precache_model)
-
-				while precache_model_skin - 1 < pheader.num_skins: # LittleLong(pheader->num_skins)
-					skin_ofs = pheader.ofs_skins + (precache_model_skin - 1)*files_h.MAX_SKINNAME # (char *)precache_model + LittleLong(pheader->ofs_skins) + (precache_model_skin - 1)*MAX_SKINNAME
-					skinname = bytes(precache_model[skin_ofs:skin_ofs+files_h.MAX_SKINNAME]).split(b"\0")[0].decode('latin-1')
-					if not cl_parse.CL_CheckOrDownloadFile(skinname):
-						precache_model_skin += 1
-						return # started a download
-					
-					precache_model_skin += 1
-				
-				if precache_model is not None: 
-					filesystem.FS_FreeFile(precache_model)
-					precache_model = None
-				
-				precache_model_skin = 0
-				precache_check += 1
-			
-		precache_check = shared.CS_SOUNDS
-	
-	if precache_check >= shared.CS_SOUNDS and precache_check < shared.CS_SOUNDS+shared.MAX_SOUNDS: 
-		if sv_main.allow_download_sounds.value:
-			if precache_check == shared.CS_SOUNDS:
-				precache_check += 1 # zero is blank
-			while (precache_check < shared.CS_SOUNDS+shared.MAX_SOUNDS and
-				cl.configstrings[precache_check]):
-				if cl.configstrings[precache_check][0] == '*':
-					precache_check += 1
-					continue
-				
-				fn = "sound/{}".format(cl.configstrings[precache_check])
-				precache_check += 1
-				if not cl_parse.CL_CheckOrDownloadFile(fn):
-					return # started a download
-			
-		precache_check = shared.CS_IMAGES
-	
-	if precache_check >= shared.CS_IMAGES and precache_check < shared.CS_IMAGES+shared.MAX_IMAGES:
-		if precache_check == shared.CS_IMAGES:
-			precache_check += 1 # zero is blank
-		while (precache_check < shared.CS_IMAGES+shared.MAX_IMAGES and
-			cl.configstrings[precache_check]):
-			fn = "pics/{}.pcx".format(cl.configstrings[precache_check])
-			precache_check += 1
-			if not cl_parse.CL_CheckOrDownloadFile(fn):
-				return # started a download
-		
-		precache_check = shared.CS_PLAYERSKINS
-	
-	# skins are special, since a player has three things to download:
-	# model, weapon model and skin
-	# so precache_check is now *3
-	if precache_check >= shared.CS_PLAYERSKINS and precache_check < shared.CS_PLAYERSKINS + shared.MAX_CLIENTS * PLAYER_MULT:
-		if sv_main.allow_download_players.value:
-			while precache_check < shared.CS_PLAYERSKINS + shared.MAX_CLIENTS * PLAYER_MULT:
-				#int i, n;
-				#char model[MAX_QPATH], skin[MAX_QPATH], *p;
-
-				i = (precache_check - shared.CS_PLAYERSKINS)//PLAYER_MULT
-				n = (precache_check - shared.CS_PLAYERSKINS)%PLAYER_MULT
-
-				if not cl.configstrings[shared.CS_PLAYERSKINS+i]:
-					precache_check = shared.CS_PLAYERSKINS + (i + 1) * PLAYER_MULT
-					continue
-				
-				p = cl.configstrings[shared.CS_PLAYERSKINS+i].find('\\')
-				if p != -1:
-					p += 1
-				else:
-					p = 0
-				model = cl.configstrings[shared.CS_PLAYERSKINS+i][p:]
-				p = model.find('/')
-				if p == -1:
-					p = model.find('\\')
-				if p != -1:
-					skin = model[p+1:]
-					model = model[:p] # *p++ = 0;
-				else:
-					skin = ""
-
-				# switch (n) with each case falling through to the next
-				if n == 0: # model
-					fn = "players/{}/tris.md2".format(model)
-					if not cl_parse.CL_CheckOrDownloadFile(fn):
-						precache_check = shared.CS_PLAYERSKINS + i * PLAYER_MULT + 1
-						return # started a download
-					
-					n += 1
-					#FALL THROUGH
-
-				if n == 1: # weapon model
-					fn = "players/{}/weapon.md2".format(model)
-					if not cl_parse.CL_CheckOrDownloadFile(fn):
-						precache_check = shared.CS_PLAYERSKINS + i * PLAYER_MULT + 2
-						return # started a download
-					
-					n += 1
-					#FALL THROUGH
-
-				if n == 2: # weapon skin
-					fn = "players/{}/weapon.pcx".format(model)
-					if not cl_parse.CL_CheckOrDownloadFile(fn):
-						precache_check = shared.CS_PLAYERSKINS + i * PLAYER_MULT + 3
-						return # started a download
-					
-					n += 1
-					#FALL THROUGH
-
-				if n == 3: # skin
-					fn = "players/{}/{}.pcx".format(model, skin)
-					if not cl_parse.CL_CheckOrDownloadFile(fn):
-						precache_check = shared.CS_PLAYERSKINS + i * PLAYER_MULT + 4
-						return # started a download
-					
-					n += 1
-					#FALL THROUGH
-
-				if n == 4: # skin_i
-					fn = "players/{}/{}_i.pcx".format(model, skin)
-					if not cl_parse.CL_CheckOrDownloadFile(fn):
-						precache_check = shared.CS_PLAYERSKINS + i * PLAYER_MULT + 5
-						return # started a download
-					
-					# move on to next model
-					precache_check = shared.CS_PLAYERSKINS + (i + 1) * PLAYER_MULT
-				
-		# precache phase completed
-		precache_check = ENV_CNT
-	
-	if precache_check == ENV_CNT:
-		precache_check = ENV_CNT + 1
-
-		_, map_checksum = collision.CM_LoadMap (cl.configstrings[shared.CS_MODELS+1], True)
-
-		if map_checksum != (shared_c.atoi(cl.configstrings[shared.CS_MAPCHECKSUM]) & 0xffffffff): # atoi's int is converted to unsigned for the compare
-			clientserver.Com_Error (shared.ERR_DROP, "Local map version differs from server: {} != '{}'\n".format(
-				map_checksum, cl.configstrings[shared.CS_MAPCHECKSUM]))
-			return
-		
-	if precache_check > ENV_CNT and precache_check < TEXTURE_CNT:
-		if sv_main.allow_download.value and sv_main.allow_download_maps.value:
-			while precache_check < TEXTURE_CNT:
-				n = precache_check - ENV_CNT - 1
-				precache_check += 1
-
-				if n & 1:
-					fn = "env/{}{}.pcx".format( 
-						cl.configstrings[shared.CS_SKY], env_suf[n//2])
-				else:
-					fn = "env/{}{}.tga".format( 
-						cl.configstrings[shared.CS_SKY], env_suf[n//2])
-				if not cl_parse.CL_CheckOrDownloadFile(fn):
-					return # started a download
-			
-		precache_check = TEXTURE_CNT
-	
-	if precache_check == TEXTURE_CNT:
-		precache_check = TEXTURE_CNT+1
-		precache_tex = 0
-	
-	# confirm existance of textures, download any that don't exist
-	if precache_check == TEXTURE_CNT+1:
-		# from qcommon/cmodel.c
-		#extern int			numtexinfo;
-		#extern mapsurface_t	map_surfaces[];
-
-		if sv_main.allow_download.value and sv_main.allow_download_maps.value:
-			while precache_tex < collision.numtexinfo:
-				#char fn[MAX_OSPATH];
-
-				fn = "textures/{}.wal".format(collision.map_surfaces[precache_tex].rname)
-				precache_tex += 1
-				if not cl_parse.CL_CheckOrDownloadFile(fn):
-					return # started a download
-			
-		precache_check = TEXTURE_CNT+999
-	
-#ZOID
-	cl_parse.CL_RegisterSounds ()
-	cl_view.CL_PrepRefresh ()
-
-	movemsg.MSG_WriteByte (cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value)
-	movemsg.MSG_WriteString (cls.netchan.message, "begin {}\n".format(precache_spawncount).encode('ascii') )
 
 """
 
@@ -1348,9 +555,16 @@ def CL_Precache_f ():
 	precache_model = None
 	precache_model_skin = 0
 
-	CL_RequestNextDownload()
+	cl_download.CL_RequestNextDownload()
 
 
+r"""
+static void
+CL_CurrentMap_f(void)
+{
+	Com_Printf("%s\n", cl.configstrings[CS_MODELS + 1]);
+}
+"""
 
 """
 =================
@@ -1364,13 +578,13 @@ def CL_InitLocal ():
 	global cl_add_blend, cl_add_lights, cl_add_particles, cl_add_entities
 	global cl_gun, cl_footsteps, cl_noskins, cl_autoskins, cl_predict, cl_maxfps
 	global cl_upspeed, cl_forwardspeed, cl_sidespeed, cl_yawspeed, cl_pitchspeed, cl_anglespeedkey
-	global cl_run, freelook, lookspring, lookstrafe, sensitivity
+	global freelook, lookspring, lookstrafe, sensitivity
 	global m_pitch, m_yaw, m_forward, m_side
 	global cl_shownet, cl_showmiss, cl_showclamp, cl_timeout, cl_paused, cl_timedemo
 	global rcon_client_password, rcon_address, cl_lightlevel
 	global info_password, info_spectator, name, skin, rate, msg, hand, fov, gender, gender_auto, cl_vwep
 
-	cls.state = client.connstate_t.ca_disconnected
+	cls.state = client_h.connstate_t.ca_disconnected
 	cls.realtime = q_shlinux.Sys_Milliseconds ()
 
 	cl_input.CL_InitInput ()
@@ -1410,7 +624,7 @@ def CL_InitLocal ():
 	cl_pitchspeed = cvar.Cvar_Get ("cl_pitchspeed", "150", 0)
 	cl_anglespeedkey = cvar.Cvar_Get ("cl_anglespeedkey", "1.5", 0)
 
-	cl_run = cvar.Cvar_Get ("cl_run", "0", shared.CVAR_ARCHIVE)
+	cl_input.cl_run = cvar.Cvar_Get ("cl_run", "0", shared.CVAR_ARCHIVE)
 	freelook = cvar.Cvar_Get( "freelook", "0", shared.CVAR_ARCHIVE )
 	lookspring = cvar.Cvar_Get ("lookspring", "0", shared.CVAR_ARCHIVE)
 	lookstrafe = cvar.Cvar_Get ("lookstrafe", "0", shared.CVAR_ARCHIVE)
@@ -1455,23 +669,23 @@ def CL_InitLocal ():
 	// register our commands
 	//
 	"""
-	cmdparser.Cmd_AddCommand ("cmd", CL_ForwardToServer_f)
+	cmdparser.Cmd_AddCommand ("cmd", cl_network.CL_ForwardToServer_f)
 	cmdparser.Cmd_AddCommand ("pause", CL_Pause_f)
-	cmdparser.Cmd_AddCommand ("pingservers", CL_PingServers_f)
+	cmdparser.Cmd_AddCommand ("pingservers", cl_network.CL_PingServers_f)
 	cmdparser.Cmd_AddCommand ("skins", CL_Skins_f)
 	cmdparser.Cmd_AddCommand ("userinfo", CL_Userinfo_f);
 	cmdparser.Cmd_AddCommand ("snd_restart", CL_Snd_Restart_f);
 
-	cmdparser.Cmd_AddCommand ("changing", CL_Changing_f)
-	cmdparser.Cmd_AddCommand ("disconnect", CL_Disconnect_f)
+	cmdparser.Cmd_AddCommand ("changing", cl_network.CL_Changing_f)
+	cmdparser.Cmd_AddCommand ("disconnect", cl_network.CL_Disconnect_f)
 	cmdparser.Cmd_AddCommand ("record", CL_Record_f)
 	cmdparser.Cmd_AddCommand ("stop", CL_Stop_f)
 	cmdparser.Cmd_AddCommand ("quit", CL_Quit_f)
 	
-	cmdparser.Cmd_AddCommand ("connect", CL_Connect_f)
-	cmdparser.Cmd_AddCommand ("reconnect", CL_Reconnect_f)
+	cmdparser.Cmd_AddCommand ("connect", cl_network.CL_Connect_f)
+	cmdparser.Cmd_AddCommand ("reconnect", cl_network.CL_Reconnect_f)
 
-	cmdparser.Cmd_AddCommand ("rcon", CL_Rcon_f)
+	cmdparser.Cmd_AddCommand ("rcon", cl_network.CL_Rcon_f)
 
  	## Cmd_AddCommand ("packet", CL_Packet_f); # this is dangerous to leave in
 
@@ -1479,7 +693,7 @@ def CL_InitLocal ():
 
 	cmdparser.Cmd_AddCommand ("precache", CL_Precache_f)
 
-	cmdparser.Cmd_AddCommand ("download", cl_parse.CL_Download_f)
+	cmdparser.Cmd_AddCommand ("download", cl_download.CL_Download_f)
 	#
 	# forward to server commands
 	#
@@ -1519,7 +733,7 @@ def CL_WriteConfiguration ():
 	#FILE	*f;
 	#char	path[MAX_QPATH];
 
-	if cls.state == client.connstate_t.ca_uninitialized:
+	if cls.state == client_h.connstate_t.ca_uninitialized:
 		return
 
 	path = os.path.join(filesystem.FS_Gamedir(), "config.cfg")
@@ -1531,11 +745,10 @@ def CL_WriteConfiguration ():
 		return
 	
 	f.write("// generated by quake, do not modify\n")
-	keys.Key_WriteBindings (f)
+	cl_keyboard.Key_WriteBindings (f)
 	f.close()
 
 	cvar.Cvar_WriteVariables (path)
-
 
 
 """
@@ -1625,9 +838,35 @@ def CL_SendCommand ():
 	cl_input.CL_SendCmd ()
 
 	# resend a connection request if necessary
-	CL_CheckForResend ()
+	cl_network.CL_CheckForResend ()
 
 
+"""
+static void
+CL_UpdateWindowedMouse(void)
+{
+	if (cls.disable_screen)
+	{
+		return;
+	}
+
+	if (cls.key_dest == key_menu || cls.key_dest == key_console ||
+		(cls.key_dest == key_game && (cls.state != ca_active || !cl.refresh_prepped)))
+	{
+		if (windowed_mouse->value)
+		{
+			Cvar_SetValue("windowed_mouse", 0);
+		}
+	}
+	else
+	{
+		if (!windowed_mouse->value)
+		{
+			Cvar_SetValue("windowed_mouse", 1);
+		}
+	}
+}
+"""
 
 """
 ==================
@@ -1651,7 +890,7 @@ def CL_Frame (msec): #int
 	
 	if not int(cl_timedemo.value):
 	
-		if cls.state == client.connstate_t.ca_connected and extratime < 100:
+		if cls.state == client_h.connstate_t.ca_connected and extratime < 100:
 			return			# don't flood packets out while connecting
 		if extratime < 1000.0/int(cl_maxfps.value):
 			return			# framerate is too high
@@ -1679,24 +918,24 @@ def CL_Frame (msec): #int
 		cls.netchan.last_received = q_shlinux.Sys_Milliseconds ()
 
 	# fetch results from server
-	CL_ReadPackets ()
+	cl_network.CL_ReadPackets ()
 
 	# send a new command message to the server
 	CL_SendCommand ()
 
 	# predict all unacknowledged movements
-	cl_pred.CL_PredictMovement ()
+	cl_prediction.CL_PredictMovement ()
 
 	# allow rendering DLL change
 	vid_so.VID_CheckChanges ()
 	
-	if not cl.refresh_prepped and cls.state == client.connstate_t.ca_active:
+	if not cl.refresh_prepped and cls.state == client_h.connstate_t.ca_active:
 		cl_view.CL_PrepRefresh ()
 
 	# update the screen
 	if frame.host_speeds.value:
 		frame.time_before_ref = q_shlinux.Sys_Milliseconds ()
-	cl_scrn.SCR_UpdateScreen ()
+	cl_screen.SCR_UpdateScreen ()
 	if frame.host_speeds.value:
 		frame.time_after_ref = q_shlinux.Sys_Milliseconds ()
 
@@ -1709,32 +948,9 @@ def CL_Frame (msec): #int
 	cl_fx.CL_RunDLights ()
 	cl_fx.CL_RunLightStyles ()
 	cl_cin.SCR_RunCinematic ()
-	cl_scrn.SCR_RunConsole ()
+	cl_screen.SCR_RunConsole ()
 
 	cls.framecount+=1
-	"""
-		if ( log_stats->value )
-		{
-			if ( cls.state == client.connstate_t.ca_active )
-		{
-			if ( !lasttimecalled )
-			{
-				lasttimecalled = q_shlinux.Sys_Milliseconds();
-				if ( log_stats_file )
-					fprintf( log_stats_file, "0\n" );
-			}
-			else
-			{
-				int now = q_shlinux.Sys_Milliseconds();
-
-				if ( log_stats_file )
-					fprintf( log_stats_file, "%d\n", now - lasttimecalled );
-				lasttimecalled = now;
-			}
-			}
-		}
-		"""
-
 
 
 	# =============================================================================
@@ -1747,7 +963,7 @@ def CL_Init ():
 
 	# all archived variables will now be loaded
 
-	console.Con_Init ()
+	cl_console.Con_Init ()
 
 	#if defined __linux__ || defined __sgi
 	snd_dma.S_Init ()
@@ -1761,7 +977,7 @@ def CL_Init ():
 	szone.SZ_Init(netchan.net_message, common_h.MAX_MSGLEN)
 	menu.M_Init ()
 
-	cl_scrn.SCR_Init ()
+	cl_screen.SCR_Init ()
 	cls.disable_screen = True	# don't draw yet
 	
 	#CDAudio_Init ();
@@ -1798,4 +1014,3 @@ def CL_Shutdown():
 	snd_dma.S_Shutdown()
 	vid_so.IN_Shutdown ()
 	vid_so.VID_Shutdown()
-

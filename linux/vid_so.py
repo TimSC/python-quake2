@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import os
 pass
-from client import snd_dma, cl_main, ref, cl_input, keys, client
+from client import snd_dma, cl_main, ref, cl_input
 from linux import q_shlinux
 pass
 from common.header import shared
@@ -33,6 +33,10 @@ from common import clientserver
 from common import cmdparser
 from common import cvar
 from common import filesystem
+from client import cl_input
+from client import cl_keyboard
+from client import cl_main
+from client.header import client as client_h
 """
 #include <assert.h>
 #include <dlfcn.h> // ELF dl loader
@@ -551,7 +555,7 @@ def IN_Frame ():
 
 	if RW_IN_Activate_fp is not None:
 	
-		if ( not cl_main.cl.refresh_prepped or cl_main.cls.key_dest == client.keydest_t.key_console or cl_main.cls.key_dest == client.keydest_t.key_menu):
+		if ( not cl_main.cl.refresh_prepped or cl_main.cls.key_dest == client_h.keydest_t.key_console or cl_main.cls.key_dest == client_h.keydest_t.key_menu):
 			RW_IN_Activate_fp(False)
 		else:
 			RW_IN_Activate_fp(True)
@@ -567,5 +571,5 @@ def IN_Activate (active): #qboolean
 
 def Do_Key_Event(key, down): #int, qboolean
 
-	keys.Key_Event(key, down, q_shlinux.Sys_Milliseconds())
+	cl_keyboard.Key_Event(key, down, q_shlinux.Sys_Milliseconds())
 

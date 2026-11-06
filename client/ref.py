@@ -221,6 +221,10 @@ class refexport_t(object):
 		self.DrawPic = None #void (*) (int x, int y, char *name)
 		self.DrawStretchPic = None #void (*) (int x, int y, int w, int h, char *name)
 		self.DrawChar = None #void (*) (int x, int y, int c)
+		self.DrawCharScaled = None #void (*) (int x, int y, int num, float scale), Q2PORT: from Yamagi's refexport_t
+		self.DrawPicScaled = None #void (*) (int x, int y, const char *pic, float factor)
+		self.DrawPicScaledCol = None #void (*) (int x, int y, const char *pic, float factor, const float color[3])
+		self.DrawFindPic = None #image_t * (*) (const char *name)
 		self.DrawTileClear = None #void (*) (int x, int y, int w, int h, char *name)
 		self.DrawFill = None #void (*) (int x, int y, int w, int h, int c)
 		self.DrawFadeScreen = None #void (*) (void)

@@ -1,34 +1,45 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+This file implements interpolation between two frames. This is used
+to smooth down network play
+
+=======================================================================
 """
 from __future__ import annotations
 
 import copy
 import numpy as np
-pass
-pass
-from client import cl_main, client
+from client import cl_main
 from common.header import shared
 from common.shared import shared as shared_c
 from common import clientserver
 from common import collision
 from common import pmove
+from client import cl_main
+from client.header import client as client_h
+
+"""
+#include "header/client.h"
+"""
 
 def _copy_trace(src: shared.trace_t, dest: shared.trace_t):
     dest.allsolid = src.allsolid
@@ -54,7 +65,7 @@ def CL_CheckPredictionError():
     if pm_flags & shared.PMF_NO_PREDICTION:
         return
 
-    frame = cl_main.cls.netchan.incoming_acknowledged & (client.CMD_BACKUP - 1)
+    frame = cl_main.cls.netchan.incoming_acknowledged & (client_h.CMD_BACKUP - 1)
 
     delta = np.zeros((3,), dtype=np.float32)
     predicted_origin = cl_main.cl.predicted_origins[frame]
@@ -89,7 +100,7 @@ def CL_ClipMoveToEntities(start, mins, maxs, end, tr):
     bmaxs = np.zeros((3,), dtype=np.float32)
 
     for i in range(cl_main.cl.frame.num_entities):
-        num = (cl_main.cl.frame.parse_entities + i) & (client.MAX_PARSE_ENTITIES - 1)
+        num = (cl_main.cl.frame.parse_entities + i) & (client_h.MAX_PARSE_ENTITIES - 1)
         ent = cl_main.cl_parse_entities[num]
         solid = ent.solid or 0
         if not solid:
@@ -161,7 +172,7 @@ CL_PMpointcontents
 def CL_PMpointcontents(point):
     contents = collision.CM_PointContents(point, 0)
     for i in range(cl_main.cl.frame.num_entities):
-        num = (cl_main.cl.frame.parse_entities + i) & (client.MAX_PARSE_ENTITIES - 1)
+        num = (cl_main.cl.frame.parse_entities + i) & (client_h.MAX_PARSE_ENTITIES - 1)
         ent = cl_main.cl_parse_entities[num]
 
         if (ent.solid or 0) != 31:
@@ -185,7 +196,7 @@ Sets cl.predicted_origin and cl.predicted_angles
 =================
 """
 def CL_PredictMovement():
-    if cl_main.cls.state != client.connstate_t.ca_active:
+    if cl_main.cls.state != client_h.connstate_t.ca_active:
         return
     if cl_main.cl_paused and cl_main.cl_paused.value:
         return
@@ -207,7 +218,7 @@ def CL_PredictMovement():
     ack = cl_main.cls.netchan.incoming_acknowledged
     current = cl_main.cls.netchan.outgoing_sequence
 
-    if current - ack >= client.CMD_BACKUP:
+    if current - ack >= client_h.CMD_BACKUP:
         if cl_main.cl_showmiss and cl_main.cl_showmiss.value:
             clientserver.Com_Printf("exceeded CMD_BACKUP\n")
         return
@@ -224,7 +235,7 @@ def CL_PredictMovement():
     frame_index = 0
     while ack + 1 < current:
         ack += 1
-        frame_index = ack & (client.CMD_BACKUP - 1)
+        frame_index = ack & (client_h.CMD_BACKUP - 1)
         pm.cmd = copy.deepcopy(cl_main.cl.cmds[frame_index])
         pmove.Pmove(pm)
 
@@ -236,7 +247,7 @@ def CL_PredictMovement():
             pm.s.origin, cl_main.cl.predicted_origins[frame_index]
         )
 
-    oldframe = (ack - 2) & (client.CMD_BACKUP - 1)
+    oldframe = (ack - 2) & (client_h.CMD_BACKUP - 1)
     old_origin = cl_main.cl.predicted_origins[oldframe]
     oldz = old_origin[2] if old_origin is not None else 0
 

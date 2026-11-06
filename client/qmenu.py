@@ -20,8 +20,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 from client import menu as menumod
-from client import keys
+pass
 from linux import vid_so, q_shlinux, sys_linux
+from client import cl_keyboard
+from client.header import keyboard as keyboard_h
 """
 #include <string.h>
 #include <ctype.h>
@@ -127,33 +129,33 @@ def Field_Key( f,  key ): #menufield_s *, int (returns qboolean)
 
 	#extern int keydown[];
 
-	if key == keys.K_KP_SLASH:
+	if key == keyboard_h.K_KP_SLASH:
 		key = ord('/')
-	elif key == keys.K_KP_MINUS:
+	elif key == keyboard_h.K_KP_MINUS:
 		key = ord('-')
-	elif key == keys.K_KP_PLUS:
+	elif key == keyboard_h.K_KP_PLUS:
 		key = ord('+')
-	elif key == keys.K_KP_HOME:
+	elif key == keyboard_h.K_KP_HOME:
 		key = ord('7')
-	elif key == keys.K_KP_UPARROW:
+	elif key == keyboard_h.K_KP_UPARROW:
 		key = ord('8')
-	elif key == keys.K_KP_PGUP:
+	elif key == keyboard_h.K_KP_PGUP:
 		key = ord('9')
-	elif key == keys.K_KP_LEFTARROW:
+	elif key == keyboard_h.K_KP_LEFTARROW:
 		key = ord('4')
-	elif key == keys.K_KP_5:
+	elif key == keyboard_h.K_KP_5:
 		key = ord('5')
-	elif key == keys.K_KP_RIGHTARROW:
+	elif key == keyboard_h.K_KP_RIGHTARROW:
 		key = ord('6')
-	elif key == keys.K_KP_END:
+	elif key == keyboard_h.K_KP_END:
 		key = ord('1')
-	elif key == keys.K_KP_DOWNARROW:
+	elif key == keyboard_h.K_KP_DOWNARROW:
 		key = ord('2')
-	elif key == keys.K_KP_PGDN:
+	elif key == keyboard_h.K_KP_PGDN:
 		key = ord('3')
-	elif key == keys.K_KP_INS:
+	elif key == keyboard_h.K_KP_INS:
 		key = ord('0')
-	elif key == keys.K_KP_DEL:
+	elif key == keyboard_h.K_KP_DEL:
 		key = ord('.')
 	
 	if key > 127:
@@ -164,8 +166,8 @@ def Field_Key( f,  key ): #menufield_s *, int (returns qboolean)
 	#
 	# support pasting from the clipboard
 	#
-	if ( ( chr( key ).upper() == 'V' and keys.keydown[keys.K_CTRL] ) or
-		 ( ( ( key == keys.K_INS ) or ( key == keys.K_KP_INS ) ) and keys.keydown[keys.K_SHIFT] ) ):
+	if ( ( chr( key ).upper() == 'V' and cl_keyboard.keydown[keyboard_h.K_CTRL] ) or
+		 ( ( ( key == keyboard_h.K_INS ) or ( key == keyboard_h.K_KP_INS ) ) and cl_keyboard.keydown[keyboard_h.K_SHIFT] ) ):
 	
 		#char *cbd;
 		
@@ -183,7 +185,7 @@ def Field_Key( f,  key ): #menufield_s *, int (returns qboolean)
 		
 		return True
 	
-	if key == keys.K_KP_LEFTARROW or key == keys.K_LEFTARROW or key == keys.K_BACKSPACE:
+	if key == keyboard_h.K_KP_LEFTARROW or key == keyboard_h.K_LEFTARROW or key == keyboard_h.K_BACKSPACE:
 	
 		if f.cursor > 0:
 		
@@ -194,11 +196,11 @@ def Field_Key( f,  key ): #menufield_s *, int (returns qboolean)
 			
 				f.visible_offset -= 1
 			
-	elif key == keys.K_KP_DEL or key == keys.K_DEL:
+	elif key == keyboard_h.K_KP_DEL or key == keyboard_h.K_DEL:
 	
 		f.buffer = f.buffer[:f.cursor] + f.buffer[f.cursor+1:] # memmove( &f->buffer[f->cursor], &f->buffer[f->cursor+1], strlen( &f->buffer[f->cursor+1] ) + 1 );
 
-	elif key == keys.K_KP_ENTER or key == keys.K_ENTER or key == keys.K_ESCAPE or key == keys.K_TAB:
+	elif key == keyboard_h.K_KP_ENTER or key == keyboard_h.K_ENTER or key == keyboard_h.K_ESCAPE or key == keyboard_h.K_TAB:
 	
 		return False
 

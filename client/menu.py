@@ -22,7 +22,7 @@ from __future__ import annotations
 import os
 import functools
 pass
-from client import cl_main, client, cl_scrn, snd_dma, keys, qmenu, cl_view, ref, console
+from client import cl_main, snd_dma, qmenu, cl_view, ref
 from linux import vid_so, q_shlinux, net_udp
 pass
 from common.header import shared
@@ -31,6 +31,15 @@ from common import clientserver
 from common import cmdparser
 from common import cvar
 from common import filesystem
+from client import cl_console
+from client import cl_input
+from client import cl_keyboard
+from client import cl_main
+from client import cl_network
+from client import cl_screen
+from client import cl_view
+from client.header import client as client_h
+from client.header import keyboard as keyboard_h
 
 """
 #include <ctype.h>
@@ -221,7 +230,7 @@ def M_PushMenu ( draw, key ): #void (*) (void), const char *(*) (int k)
 
 	m_entersound = True
 
-	cl_main.cls.key_dest = client.keydest_t.key_menu
+	cl_main.cls.key_dest = client_h.keydest_t.key_menu
 
 
 def M_ForceMenuOff ():
@@ -230,10 +239,10 @@ def M_ForceMenuOff ():
 
 	m_drawfunc = 0
 	m_keyfunc = 0
-	cl_main.cls.key_dest = client.keydest_t.key_game
+	cl_main.cls.key_dest = client_h.keydest_t.key_game
 	#m_menudepth = 0
 	m_layers = []
-	keys.Key_ClearStates ()
+	cl_keyboard.Key_ClearStates ()
 	cvar.Cvar_Set ("paused", "0")
 
 
@@ -270,18 +279,18 @@ def Default_MenuKey( m, key ): # menuframework_s *, int (returns const char *)
 				if qmenu.Field_Key( item, key ):
 					return None
 	
-	if key == keys.K_ESCAPE:
+	if key == keyboard_h.K_ESCAPE:
 		M_PopMenu()
 		return menu_out_sound
 
-	elif key == keys.K_KP_UPARROW or key == keys.K_UPARROW:
+	elif key == keyboard_h.K_KP_UPARROW or key == keyboard_h.K_UPARROW:
 		if m is not None:
 		
 			m.cursor-=1
 			qmenu.Menu_AdjustCursor( m, -1 )
 			sound = menu_move_sound
 		
-	elif key == keys.K_TAB:
+	elif key == keyboard_h.K_TAB:
 		if m is not None:
 		
 			m.cursor+=1
@@ -289,37 +298,37 @@ def Default_MenuKey( m, key ): # menuframework_s *, int (returns const char *)
 			sound = menu_move_sound
 		
 
-	elif key == keys.K_KP_DOWNARROW or key == keys.K_DOWNARROW:
+	elif key == keyboard_h.K_KP_DOWNARROW or key == keyboard_h.K_DOWNARROW:
 		if m is not None:
 		
 			m.cursor+=1
 			qmenu.Menu_AdjustCursor( m, 1 )
 			sound = menu_move_sound
 
-	elif key == keys.K_KP_LEFTARROW or key == keys.K_LEFTARROW:
+	elif key == keyboard_h.K_KP_LEFTARROW or key == keyboard_h.K_LEFTARROW:
 		if m is not None:
 		
 			qmenu.Menu_SlideItem( m, -1 )
 			sound = menu_move_sound
 
-	elif key == keys.K_KP_RIGHTARROW or key == keys.K_RIGHTARROW:
+	elif key == keyboard_h.K_KP_RIGHTARROW or key == keyboard_h.K_RIGHTARROW:
 		if m is not None:
 		
 			qmenu.Menu_SlideItem( m, 1 )
 			sound = menu_move_sound
 
 
-	elif key in [keys.K_MOUSE1, keys.K_MOUSE2, keys.K_MOUSE3,
-		keys.K_JOY1, keys.K_JOY2, keys.K_JOY3, keys.K_JOY4,
-		keys.K_AUX1, keys.K_AUX2, keys.K_AUX3, keys.K_AUX4,
-		keys.K_AUX5, keys.K_AUX6, keys.K_AUX7, keys.K_AUX8,
-		keys.K_AUX9, keys.K_AUX10, keys.K_AUX11, keys.K_AUX12,
-		keys.K_AUX13, keys.K_AUX14, keys.K_AUX15, keys.K_AUX16,
-		keys.K_AUX17, keys.K_AUX18, keys.K_AUX19, keys.K_AUX20,
-		keys.K_AUX21, keys.K_AUX22, keys.K_AUX23, keys.K_AUX24,
-		keys.K_AUX25, keys.K_AUX26, keys.K_AUX27, keys.K_AUX28,
-		keys.K_AUX29, keys.K_AUX30, keys.K_AUX31, keys.K_AUX32,
-		keys.K_KP_ENTER, keys.K_ENTER]:
+	elif key in [keyboard_h.K_MOUSE1, keyboard_h.K_MOUSE2, keyboard_h.K_MOUSE3,
+		keyboard_h.K_JOY1, keyboard_h.K_JOY2, keyboard_h.K_JOY3, keyboard_h.K_JOY4,
+		keyboard_h.K_AUX1, keyboard_h.K_AUX2, keyboard_h.K_AUX3, keyboard_h.K_AUX4,
+		keyboard_h.K_AUX5, keyboard_h.K_AUX6, keyboard_h.K_AUX7, keyboard_h.K_AUX8,
+		keyboard_h.K_AUX9, keyboard_h.K_AUX10, keyboard_h.K_AUX11, keyboard_h.K_AUX12,
+		keyboard_h.K_AUX13, keyboard_h.K_AUX14, keyboard_h.K_AUX15, keyboard_h.K_AUX16,
+		keyboard_h.K_AUX17, keyboard_h.K_AUX18, keyboard_h.K_AUX19, keyboard_h.K_AUX20,
+		keyboard_h.K_AUX21, keyboard_h.K_AUX22, keyboard_h.K_AUX23, keyboard_h.K_AUX24,
+		keyboard_h.K_AUX25, keyboard_h.K_AUX26, keyboard_h.K_AUX27, keyboard_h.K_AUX28,
+		keyboard_h.K_AUX29, keyboard_h.K_AUX30, keyboard_h.K_AUX31, keyboard_h.K_AUX32,
+		keyboard_h.K_KP_ENTER, keyboard_h.K_ENTER]:
 		
 		if m is not None:
 			qmenu.Menu_SelectItem( m )
@@ -494,23 +503,23 @@ def M_Main_Key (key): #int (returns const char *)
 
 	sound = menu_move_sound #const char *
 
-	if key == keys.K_ESCAPE:
+	if key == keyboard_h.K_ESCAPE:
 		M_PopMenu ()
 
-	elif key == keys.K_KP_DOWNARROW or key == keys.K_DOWNARROW:
+	elif key == keyboard_h.K_KP_DOWNARROW or key == keyboard_h.K_DOWNARROW:
 		m_main_cursor += 1
 		if m_main_cursor >= MAIN_ITEMS:
 			m_main_cursor = 0
 		return sound
 
-	elif key == keys.K_KP_UPARROW or key == keys.K_UPARROW:
+	elif key == keyboard_h.K_KP_UPARROW or key == keyboard_h.K_UPARROW:
 
 		m_main_cursor -= 1
 		if m_main_cursor < 0:
 			m_main_cursor = MAIN_ITEMS - 1
 		return sound;
 
-	elif key == keys.K_KP_ENTER or key == keys.K_ENTER:
+	elif key == keyboard_h.K_KP_ENTER or key == keyboard_h.K_ENTER:
 
 		m_entersound = True
 
@@ -680,11 +689,11 @@ def M_UnbindCommand(command):
 
 	command_len = len(command)
 	for j in range(256):
-		binding = keys.keybindings[j]
+		binding = cl_keyboard.keybindings[j]
 		if binding is None:
 			continue
 		if binding[:command_len] == command:
-			keys.Key_SetBinding(j, "")
+			cl_keyboard.Key_SetBinding(j, "")
 
 
 def M_FindKeysForCommand(command, twokeys):
@@ -695,7 +704,7 @@ def M_FindKeysForCommand(command, twokeys):
 	twokeys[1] = -1
 
 	for j in range(256):
-		binding = keys.keybindings[j]
+		binding = cl_keyboard.keybindings[j]
 		if binding is None:
 			continue
 		if binding[:command_len] == command:
@@ -723,7 +732,7 @@ def DrawKeyBindingFunc(self):
 		qmenu.Menu_DrawString(self.x + self.parent.x + 16, self.y + self.parent.y, "???")
 		return
 
-	name = keys.Key_KeynumToString(keys_found[0])
+	name = cl_keyboard.Key_KeynumToString(keys_found[0])
 	qmenu.Menu_DrawString(self.x + self.parent.x + 16, self.y + self.parent.y, name)
 
 	x = len(name) * 8
@@ -732,7 +741,7 @@ def DrawKeyBindingFunc(self):
 		qmenu.Menu_DrawString(
 			self.x + self.parent.x + 48 + x,
 			self.y + self.parent.y,
-			keys.Key_KeynumToString(keys_found[1]),
+			cl_keyboard.Key_KeynumToString(keys_found[1]),
 		)
 
 
@@ -1049,10 +1058,10 @@ def Keys_MenuKey(key): #int (returns const char *)
 	item = qmenu.Menu_ItemAtCursor(s_keys_menu)
 
 	if bind_grab:
-		if key not in (keys.K_ESCAPE, ord("`")):
+		if key not in (keyboard_h.K_ESCAPE, ord("`")):
 			cmdparser.Cbuf_InsertText(
 				"bind \"{}\" \"{}\"\n".format(
-					keys.Key_KeynumToString(key),
+					cl_keyboard.Key_KeynumToString(key),
 					bindnames[item.localdata[0]][0],
 				)
 			)
@@ -1061,10 +1070,10 @@ def Keys_MenuKey(key): #int (returns const char *)
 		bind_grab = False
 		return menu_out_sound
 
-	if key in (keys.K_KP_ENTER, keys.K_ENTER):
+	if key in (keyboard_h.K_KP_ENTER, keyboard_h.K_ENTER):
 		KeyBindingFunc(item)
 		return menu_in_sound
-	if key in (keys.K_BACKSPACE, keys.K_DEL, keys.K_KP_DEL):
+	if key in (keyboard_h.K_BACKSPACE, keyboard_h.K_DEL, keyboard_h.K_KP_DEL):
 		M_UnbindCommand(bindnames[item.localdata[0]][0])
 		return menu_out_sound
 
@@ -1155,8 +1164,8 @@ def ControlsSetMenuItemValues( ):
 	s_options_quality_list.curvalue			= int(not cvar.Cvar_VariableValue( "s_loadas8bit" ))
 	s_options_sensitivity_slider.curvalue	= int (( cl_main.sensitivity.value ) * 2)
 
-	cvar.Cvar_SetValue( "cl_run", ClampCvar( 0, 1, cl_main.cl_run.value ) )
-	s_options_alwaysrun_box.curvalue		= int(cl_main.cl_run.value)
+	cvar.Cvar_SetValue( "cl_run", ClampCvar( 0, 1, cl_input.cl_run.value ) )
+	s_options_alwaysrun_box.curvalue		= int(cl_input.cl_run.value)
 
 	s_options_invertmouse_box.curvalue		= int(cl_main.m_pitch.value < 0)
 
@@ -1223,11 +1232,11 @@ def ConsoleFunc( unused ):
 		cmdparser.Cbuf_AddText ("killserver\n")
 		return
 	
-	console.Key_ClearTyping ()
-	console.Con_ClearNotify ()
+	cl_console.Key_ClearTyping ()
+	cl_console.Con_ClearNotify ()
 
 	M_ForceMenuOff ()
-	cl_main.cls.key_dest = client.keydest_t.key_console
+	cl_main.cls.key_dest = client_h.keydest_t.key_console
 
 
 def UpdateSoundQualityFunc( unused ):
@@ -1838,7 +1847,7 @@ def M_Credits_MenuDraw():
 
 def M_Credits_Key(key): #int (returns const char *)
 
-	if key == keys.K_ESCAPE:
+	if key == keyboard_h.K_ESCAPE:
 		global credits_buffer
 		if credits_buffer is not None:
 			filesystem.FS_FreeFile(credits_buffer)
@@ -1904,7 +1913,7 @@ def StartGame( ):
 	cvar.Cvar_SetValue( "gamerules", 0 )		#PGM
 
 	cmdparser.Cbuf_AddText ("loading ; killserver ; wait ; newgame\n")
-	cl_main.cls.key_dest = client.keydest_t.key_game
+	cl_main.cls.key_dest = client_h.keydest_t.key_game
 
 
 def EasyGameFunc( data ): #void *
@@ -2093,7 +2102,7 @@ def LoadGame_MenuDraw():
 
 def LoadGame_MenuKey(key): #int (returns const char *)
 
-	if key in (keys.K_ESCAPE, keys.K_ENTER):
+	if key in (keyboard_h.K_ESCAPE, keyboard_h.K_ENTER):
 		s_savegame_menu.cursor = s_loadgame_menu.cursor - 1
 		if s_savegame_menu.cursor < 0:
 			s_savegame_menu.cursor = 0
@@ -2150,7 +2159,7 @@ def SaveGame_MenuInit():
 
 def SaveGame_MenuKey(key): #int (returns const char *)
 
-	if key in (keys.K_ENTER, keys.K_ESCAPE):
+	if key in (keyboard_h.K_ENTER, keyboard_h.K_ESCAPE):
 		s_loadgame_menu.cursor = s_savegame_menu.cursor - 1
 		if s_loadgame_menu.cursor < 0:
 			s_loadgame_menu.cursor = 0
@@ -2268,7 +2277,7 @@ def SearchLocalGames():
 	vid_so.re.EndFrame()
 
 	# send out info packets
-	cl_main.CL_PingServers_f()
+	cl_network.CL_PingServers_f()
 
 
 def SearchLocalGamesFunc( self ): #void *
@@ -2678,7 +2687,7 @@ def StartServer_MenuKey( key ): #int (returns const char *)
 
 	global mapnames, nummaps
 
-	if key == keys.K_ESCAPE:
+	if key == keyboard_h.K_ESCAPE:
 
 		mapnames = None # for ( i = 0; i < nummaps; i++ ) free( mapnames[i] ); free( mapnames );
 		nummaps = 0
@@ -3289,7 +3298,7 @@ def AddressBook_MenuInit():
 
 def AddressBook_MenuKey( key ): #int (returns const char *)
 
-	if key == keys.K_ESCAPE:
+	if key == keyboard_h.K_ESCAPE:
 
 		#int index;
 		#char buffer[20];
@@ -3806,7 +3815,7 @@ def PlayerConfig_MenuKey (key): #int (returns const char *)
 
 	#int i;
 
-	if key == keys.K_ESCAPE:
+	if key == keyboard_h.K_ESCAPE:
 
 		#char scratch[1024];
 
@@ -3870,10 +3879,10 @@ QUIT MENU
 
 def M_Quit_Key (key): #int (returns const char *)
 
-	if key in [keys.K_ESCAPE, ord('n'), ord('N')]:
+	if key in [keyboard_h.K_ESCAPE, ord('n'), ord('N')]:
 		M_PopMenu ()
 	elif key in [ord('Y'), ord('y')]:
-		cl_main.cls.key_dest = client.keydest_t.key_console
+		cl_main.cls.key_dest = client_h.keydest_t.key_console
 		cl_main.CL_Quit_f ()
 
 	return None
@@ -3936,11 +3945,11 @@ def M_Draw ():
 
 	global m_entersound
 
-	if cl_main.cls.key_dest != client.keydest_t.key_menu:
+	if cl_main.cls.key_dest != client_h.keydest_t.key_menu:
 		return
 
 	# repaint everything next frame
-	cl_scrn.SCR_DirtyScreen ()
+	cl_screen.SCR_DirtyScreen ()
 
 	# dim everything behind it down
 	if cl_main.cl.cinematictime > 0:

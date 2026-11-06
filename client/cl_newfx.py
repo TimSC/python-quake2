@@ -34,10 +34,12 @@ import random
 import numpy as np
 pass
 pass
-from client import cl_main, cl_fx, cl_ents
+from client import cl_main, cl_fx
 from common.header import shared
 from common.shared import shared as shared_c
 from common import frame
+from client import cl_main
+from client import cl_parse
 
 
 """
@@ -104,7 +106,7 @@ def CL_ColorFlash (pos, ent, intensity, r, g, b): #vec3_t, int, int, float, floa
 
 	#cdlight_t	*dl;
 
-	if (cl_ents.vidref_val == shared.VIDREF_SOFT) and ((r < 0) or (g<0) or (b<0)):
+	if (cl_parse.vidref_val == shared.VIDREF_SOFT) and ((r < 0) or (g<0) or (b<0)):
 	
 		intensity = -intensity
 		r = -r
@@ -562,7 +564,7 @@ def CL_Heatbeam (start, forward): #vec3_t, vec3_t
 #	MakeNormalVectors (vec, right, up);
 	shared.VectorCopy (cl_main.cl.v_right, right)
 	shared.VectorCopy (cl_main.cl.v_up, up)
-	if cl_ents.vidref_val == shared.VIDREF_GL:
+	if cl_parse.vidref_val == shared.VIDREF_GL:
 		# GL mode
 		shared_c.VectorMA (move, -0.5, right, move)
 		shared_c.VectorMA (move, -0.5, up, move)

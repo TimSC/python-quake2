@@ -10,6 +10,7 @@ from client import cl_main, menu, qmenu, snd_dma
 pass
 from ref_gl import gl_image
 from common import cvar
+from client import cl_main
 OUT = os.environ.get("OUT", "/tmp/q2tests")
 st = {"t0": None, "step": 0, "shots": []}
 

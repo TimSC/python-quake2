@@ -23,7 +23,7 @@ import numpy as np
 pass
 pass
 from linux import snd_linux, q_shlinux
-from client import snd_mix, snd_loc, snd_mem, cl_main, cl_ents, client
+from client import snd_mix, snd_loc, snd_mem, cl_main
 pass
 import pygame
 from common.header import shared
@@ -32,6 +32,9 @@ from common import clientserver
 from common import cmdparser
 from common import cvar
 from common import filesystem
+from client import cl_main
+from client import cl_parse
+from client.header import client as client_h
 """
 // snd_dma.c -- main control for any streaming sound output device
 
@@ -459,7 +462,7 @@ def S_SpatializeOrigin (origin, master_vol, dist_mult): #vec3_t, float, float (r
 	"""
 	source_vec = np.zeros((3,), dtype=np.float32)
 
-	if cl_main.cls.state != client.connstate_t.ca_active:
+	if cl_main.cls.state != client_h.connstate_t.ca_active:
 	
 		left_vol = right_vol = 255
 		return left_vol, right_vol
@@ -519,7 +522,7 @@ def S_Spatialize(ch): #channel_t *
 		shared.VectorCopy(ch.origin, origin)
 
 	else:
-		origin = cl_ents.CL_GetEntitySoundOrigin (ch.entnum)
+		origin = cl_parse.CL_GetEntitySoundOrigin (ch.entnum)
 
 	ch.leftvol, ch.rightvol = S_SpatializeOrigin (origin, ch.master_vol, ch.dist_mult)
 
@@ -872,7 +875,7 @@ def S_AddLoopSounds ():
 	if cl_main.cl_paused.value:
 		return
 
-	if cl_main.cls.state != client.connstate_t.ca_active:
+	if cl_main.cls.state != client_h.connstate_t.ca_active:
 		return
 
 	if not cl_main.cl.sound_prepped:
@@ -880,7 +883,7 @@ def S_AddLoopSounds ():
 
 	for i in range(cl_main.cl.frame.num_entities):
 	
-		num = (cl_main.cl.frame.parse_entities + i)&(client.MAX_PARSE_ENTITIES-1)
+		num = (cl_main.cl.frame.parse_entities + i)&(client_h.MAX_PARSE_ENTITIES-1)
 		ent = cl_main.cl_parse_entities[num]
 		sounds[i] = ent.sound
 	
@@ -896,7 +899,7 @@ def S_AddLoopSounds ():
 		if sc is None:
 			continue
 
-		num = (cl_main.cl.frame.parse_entities + i)&(client.MAX_PARSE_ENTITIES-1)
+		num = (cl_main.cl.frame.parse_entities + i)&(client_h.MAX_PARSE_ENTITIES-1)
 		ent = cl_main.cl_parse_entities[num]
 
 		# find the total contribution of all sounds of this type
@@ -907,7 +910,7 @@ def S_AddLoopSounds ():
 				continue
 			sounds[j] = 0	# don't check this again later
 
-			num = (cl_main.cl.frame.parse_entities + j)&(client.MAX_PARSE_ENTITIES-1)
+			num = (cl_main.cl.frame.parse_entities + j)&(client_h.MAX_PARSE_ENTITIES-1)
 			ent = cl_main.cl_parse_entities[num]
 
 			left, right = S_SpatializeOrigin (ent.origin, 255.0, SOUND_LOOPATTENUATE)

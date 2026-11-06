@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import copy
 import struct
-from client import cl_main, cl_scrn
+from client import cl_main
 from linux import net_udp
 from common.header import common as common_h
 from common.header import shared
@@ -48,6 +48,8 @@ from server import sv_main
 from server import sv_send
 from server import sv_world
 from server import sv_save
+from client import cl_network
+from client import cl_screen
 
 """
 #include "header/server.h"
@@ -470,8 +472,8 @@ def SV_InitGame(): #void
 	else:
 
 		# make sure the client is down
-		cl_main.CL_Drop()
-		cl_scrn.SCR_BeginLoadingPlaque()
+		cl_network.CL_Drop()
+		cl_screen.SCR_BeginLoadingPlaque()
 
 	#endif
 
@@ -625,7 +627,7 @@ def SV_Map(attractloop: bool, levelstring: str, loadgame: bool, isautosave: bool
 	if ext is not None and ext == ".cin":
 
 		#ifndef DEDICATED_ONLY
-		cl_scrn.SCR_BeginLoadingPlaque() # for local system
+		cl_screen.SCR_BeginLoadingPlaque() # for local system
 		#endif
 		sv_send.SV_BroadcastCommand("changing\n")
 		SV_SpawnServer(level, spawnpoint, server_h.server_state_t.ss_cinematic, attractloop, loadgame, isautosave)
@@ -633,7 +635,7 @@ def SV_Map(attractloop: bool, levelstring: str, loadgame: bool, isautosave: bool
 	elif ext is not None and ext == ".dm2":
 
 		#ifndef DEDICATED_ONLY
-		cl_scrn.SCR_BeginLoadingPlaque() # for local system
+		cl_screen.SCR_BeginLoadingPlaque() # for local system
 		#endif
 		sv_send.SV_BroadcastCommand("changing\n")
 		SV_SpawnServer(level, spawnpoint, server_h.server_state_t.ss_demo, attractloop, loadgame, isautosave)
@@ -644,7 +646,7 @@ def SV_Map(attractloop: bool, levelstring: str, loadgame: bool, isautosave: bool
 					ext == ".png"):
 
 		#ifndef DEDICATED_ONLY
-		cl_scrn.SCR_BeginLoadingPlaque() # for local system
+		cl_screen.SCR_BeginLoadingPlaque() # for local system
 		#endif
 		sv_send.SV_BroadcastCommand("changing\n")
 		SV_SpawnServer(level, spawnpoint, server_h.server_state_t.ss_pic, attractloop, loadgame, isautosave)
@@ -652,7 +654,7 @@ def SV_Map(attractloop: bool, levelstring: str, loadgame: bool, isautosave: bool
 	else:
 
 		#ifndef DEDICATED_ONLY
-		cl_scrn.SCR_BeginLoadingPlaque() # for local system
+		cl_screen.SCR_BeginLoadingPlaque() # for local system
 		#endif
 		sv_send.SV_BroadcastCommand("changing\n")
 

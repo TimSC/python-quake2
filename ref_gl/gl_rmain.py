@@ -1779,6 +1779,10 @@ def GetRefAPI ( rimp ): #refimport_t (returns refexport_t)
 	re.DrawPic = gl_draw.Draw_Pic
 	re.DrawStretchPic = gl_draw.Draw_StretchPic
 	re.DrawChar = gl_draw.Draw_Char
+	re.DrawCharScaled = gl_draw.Draw_CharScaled # Q2PORT: Yamagi's refexport, until group 15
+	re.DrawPicScaled = gl_draw.Draw_PicScaled
+	re.DrawPicScaledCol = gl_draw.Draw_PicScaledCol
+	re.DrawFindPic = gl_draw.Draw_FindPic
 	re.DrawTileClear = gl_draw.Draw_TileClear
 	re.DrawFill = gl_draw.Draw_Fill
 	re.DrawFadeScreen= gl_draw.Draw_FadeScreen

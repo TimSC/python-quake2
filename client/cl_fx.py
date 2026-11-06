@@ -34,6 +34,8 @@ from common import clientserver
 from common import frame
 from common import movemsg
 from common import netchan
+from client import cl_main
+from client import cl_view
 """
 // cl_fx.c -- entity effects parsing and management
 

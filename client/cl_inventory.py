@@ -1,44 +1,44 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+This file implements the inventory screen
+
+=======================================================================
 """
 from __future__ import annotations
 
-pass
-pass
-from client import cl_main, cl_scrn, keys
+from client import cl_main
 from linux import vid_so
 from common.header import shared
 from common.shared import shared as shared_c
 from common import movemsg
 from common import netchan
-"""
-// cl_inv.c -- client inventory screen
-
-#include "client.h"
-"""
-
+from client import cl_keyboard
+from client import cl_main
+from client import cl_screen
 
 """
-================
-CL_ParseInventory
-================
+#include "header/client.h"
 """
+
 def CL_ParseInventory ():
 
 	#int		i;
@@ -59,6 +59,19 @@ def Inv_DrawString (x, y, string): #int, int, char *
 		vid_so.re.DrawChar (x, y, ord(ch))
 		x+=8
 	
+
+"""
+static void
+Inv_DrawStringScaled(int x, int y, char *string, float factor)
+{
+	while (*string)
+	{
+		Draw_CharScaled(x, y, *string, factor);
+		x += factor*8;
+		string++;
+	}
+}
+"""
 
 def SetStringHighBit (s): #char * (returns the changed string)
 
@@ -111,7 +124,7 @@ def CL_DrawInventory ():
 	y = (vid_so.viddef.height-240)//2
 
 	# repaint everything next frame
-	cl_scrn.SCR_DirtyScreen ()
+	cl_screen.SCR_DirtyScreen ()
 
 	vid_so.re.DrawPic (x, y+8, "inventory")
 
@@ -128,9 +141,9 @@ def CL_DrawInventory ():
 		binding = "use {}".format(cl_main.cl.configstrings[shared.CS_ITEMS+item])
 		bind = ""
 		for j in range(256):
-			if keys.keybindings[j] and not shared_c.Q_stricmp (keys.keybindings[j], binding):
+			if cl_keyboard.keybindings[j] and not shared_c.Q_stricmp (cl_keyboard.keybindings[j], binding):
 			
-				bind = keys.Key_KeynumToString(j)
+				bind = cl_keyboard.Key_KeynumToString(j)
 				break
 			
 		string = "{:>6} {:3d} {}".format(bind, cl_main.cl.inventory[item],
@@ -145,4 +158,3 @@ def CL_DrawInventory ():
 		Inv_DrawString (x, y, string)
 		y += 8
 		i += 1
-

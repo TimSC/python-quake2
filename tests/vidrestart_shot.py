@@ -9,6 +9,7 @@ from client import cl_main
 pass
 from ref_gl import gl_rmain
 from common import cmdparser
+from client import cl_main
 t0 = [None]; st = {"restart": False, "shot": False}
 oe = gl_glx.GLimp_EndFrame
 def EF():
@@ -23,8 +24,9 @@ def EF():
 			vp = GL.glGetIntegerv(GL.GL_VIEWPORT); w, h = int(vp[2]), int(vp[3])
 			GL.glReadBuffer(GL.GL_BACK)
 			Image.frombytes("RGB", (w, h), GL.glReadPixels(0, 0, w, h, GL.GL_RGB, GL.GL_UNSIGNED_BYTE)).transpose(Image.FLIP_TOP_BOTTOM).save(os.environ.get("SHOT", "/tmp/q2tests/vr_t%d.png") % int(t))
-			from client import cl_scrn, console
-			print("vr: t=%d polys %d viewcluster %s old %s key_dest %s con.current %.0f vid %dx%d refdef %dx%d" % (t, gl_rmain.c_brush_polys, gl_rmain.r_viewcluster, gl_rmain.r_oldviewcluster, cl_main.cls.key_dest.name, cl_scrn.scr_con_current, gl_rmain.vid.width, gl_rmain.vid.height, cl_main.cl.refdef.width, cl_main.cl.refdef.height))
+			from client import cl_screen
+			from client import cl_console
+			print("vr: t=%d polys %d viewcluster %s old %s key_dest %s con.current %.0f vid %dx%d refdef %dx%d" % (t, gl_rmain.c_brush_polys, gl_rmain.r_viewcluster, gl_rmain.r_oldviewcluster, cl_main.cls.key_dest.name, cl_screen.scr_con_current, gl_rmain.vid.width, gl_rmain.vid.height, cl_main.cl.refdef.width, cl_main.cl.refdef.height))
 			if int(t) == 12: sys.stdout.flush(); os._exit(0)
 	return oe()
 gl_glx.GLimp_EndFrame = EF

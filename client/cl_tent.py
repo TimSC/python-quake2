@@ -26,7 +26,7 @@ import numpy as np
 from enum import Enum
 pass
 pass
-from client import cl_fx, cl_newfx, snd_dma, ref, cl_main, cl_view, client
+from client import cl_fx, cl_newfx, snd_dma, ref, cl_main, cl_view
 from linux import vid_so
 from common.header import common as common_h
 from common.header import shared
@@ -35,6 +35,9 @@ from common import clientserver
 from common import frame
 from common import movemsg
 from common import netchan
+from client import cl_main
+from client import cl_view
+from client.header import client as client_h
 """
 // cl_tent.c -- client side temporary entities
 
@@ -106,7 +109,7 @@ class laser_t(object):
 cl_lasers = [laser_t() for _ in range(MAX_LASERS)] #laser_t[MAX_LASERS]
 
 #ROGUE
-cl_sustains = [client.cl_sustain_t() for _ in range(client.MAX_SUSTAINS)] #cl_sustain_t[MAX_SUSTAINS]
+cl_sustains = [client_h.cl_sustain_t() for _ in range(client_h.MAX_SUSTAINS)] #cl_sustain_t[MAX_SUSTAINS]
 #ROGUE
 """
 //PGM

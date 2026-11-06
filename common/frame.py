@@ -30,7 +30,7 @@ import random
 pass
 from linux import sys_linux, q_shlinux, net_udp
 pass
-from client import cl_main, cl_scrn, keys
+from client import cl_main
 import pygame
 from common.header import common as common_h
 from common.header import shared
@@ -44,6 +44,9 @@ from common import filesystem
 from common import zone
 from common import netchan
 from server import sv_main
+from client import cl_keyboard
+from client import cl_main
+from client import cl_screen
 
 """
 #include "header/common.h"
@@ -330,7 +333,7 @@ def Qcommon_Init(): #int argc, char **argv
 	cvar.Cvar_Init()
 
 	#ifndef DEDICATED_ONLY
-	keys.Key_Init()
+	cl_keyboard.Key_Init()
 	#endif
 
 	# we need to add the early commands twice, because
@@ -425,7 +428,7 @@ def Qcommon_Init(): #int argc, char **argv
 
 		# the user asked for something explicit
 		# so drop the loading plaque
-		cl_scrn.SCR_EndLoadingPlaque()
+		cl_screen.SCR_EndLoadingPlaque()
 
 	#endif
 

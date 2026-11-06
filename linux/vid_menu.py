@@ -20,12 +20,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 pass
-from client import menu, qmenu, keys, cl_scrn
+from client import menu, qmenu
 from linux import vid_so, qgl_linux
 pass
 from common.header import shared
 from common.shared import shared as shared_c
 from common import cvar
+from client import cl_screen
+from client.header import keyboard as keyboard_h
 """
 #include "../client/client.h"
 #include "../client/qmenu.h"
@@ -239,11 +241,11 @@ def VID_MenuInit():
 	s_mode_list[SOFTWARE_MENU].curvalue = int(sw_mode.value)
 	s_mode_list[OPENGL_MENU].curvalue = int(gl_mode.value)
 
-	if cl_scrn.scr_viewsize is None:
-		cl_scrn.scr_viewsize = cvar.Cvar_Get ("viewsize", "100", shared.CVAR_ARCHIVE)
+	if cl_screen.scr_viewsize is None:
+		cl_screen.scr_viewsize = cvar.Cvar_Get ("viewsize", "100", shared.CVAR_ARCHIVE)
 
-	s_screensize_slider[SOFTWARE_MENU].curvalue = cl_scrn.scr_viewsize.value/10
-	s_screensize_slider[OPENGL_MENU].curvalue = cl_scrn.scr_viewsize.value/10
+	s_screensize_slider[SOFTWARE_MENU].curvalue = cl_screen.scr_viewsize.value/10
+	s_screensize_slider[OPENGL_MENU].curvalue = cl_screen.scr_viewsize.value/10
 
 	# Q2PORT: only the OpenGL driver is implemented, force the OpenGL menu
 	s_current_menu_index = OPENGL_MENU
@@ -408,20 +410,20 @@ def VID_MenuKey( key ): #int (returns const char *)
 	m = s_current_menu # menuframework_s *
 	sound = "misc/menu1.wav" #static const char *
 
-	if key == keys.K_ESCAPE:
+	if key == keyboard_h.K_ESCAPE:
 		menu.M_PopMenu()
 		return None
-	elif key == keys.K_UPARROW:
+	elif key == keyboard_h.K_UPARROW:
 		m.cursor -= 1
 		qmenu.Menu_AdjustCursor( m, -1 )
-	elif key == keys.K_DOWNARROW:
+	elif key == keyboard_h.K_DOWNARROW:
 		m.cursor += 1
 		qmenu.Menu_AdjustCursor( m, 1 )
-	elif key == keys.K_LEFTARROW:
+	elif key == keyboard_h.K_LEFTARROW:
 		qmenu.Menu_SlideItem( m, -1 )
-	elif key == keys.K_RIGHTARROW:
+	elif key == keyboard_h.K_RIGHTARROW:
 		qmenu.Menu_SlideItem( m, 1 )
-	elif key == keys.K_ENTER:
+	elif key == keyboard_h.K_ENTER:
 		qmenu.Menu_SelectItem( m )
 
 	return sound

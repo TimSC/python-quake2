@@ -27,10 +27,13 @@ from __future__ import annotations
 
 from linux import sys_linux
 pass
-from client import cl_main, console
+from client import cl_main
 from common.header import shared
 from common import frame, filesystem
 from server import sv_main
+from client import cl_console
+from client import cl_main
+from client import cl_network
 
 """
 #include "header/common.h"
@@ -131,7 +134,7 @@ def Com_VPrintf(print_level: int, fmt: str, argptr: tuple): #int, const char *, 
 
 
 		#ifndef DEDICATED_ONLY
-		console.Con_Print(msg)
+		cl_console.Con_Print(msg)
 		#endif
 
 		if (msg[:1] == '\x01' or msg[:1] == '\x02') and \
@@ -258,7 +261,7 @@ def Com_Error(code: int, fmt: str, *args): #int, const char *, ...
 	if code == shared.ERR_DISCONNECT:
 
 		#ifndef DEDICATED_ONLY
-		cl_main.CL_Drop()
+		cl_network.CL_Drop()
 		#endif
 		com_error_recursive = False
 		raise abortframe() #YQ2_LONGJMP(abortframe, 1);
@@ -269,7 +272,7 @@ def Com_Error(code: int, fmt: str, *args): #int, const char *, ...
 				msg)
 		sv_main.SV_Shutdown("Server crashed: {}\n".format(msg), False)
 		#ifndef DEDICATED_ONLY
-		cl_main.CL_Drop()
+		cl_network.CL_Drop()
 		#endif
 		com_error_recursive = False
 		raise abortframe() #YQ2_LONGJMP(abortframe, 1);

@@ -27,7 +27,7 @@ from __future__ import annotations
 
 pass
 from linux import sys_linux
-from client import cl_scrn
+pass
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -45,6 +45,7 @@ from server import sv_main
 from server import sv_send
 from server import sv_world
 from game.header import game as game_h
+from client import cl_screen
 
 """
 #include "header/server.h"
@@ -471,7 +472,7 @@ def SV_InitGameProgs ():
 	gimport.args = cmdparser.Cmd_Args
 	gimport.AddCommandString = cmdparser.Cbuf_AddText
 
-	gimport.DebugGraph = cl_scrn.SCR_DebugGraph
+	gimport.DebugGraph = cl_screen.SCR_DebugGraph
 	gimport.SetAreaPortalState = collision.CM_SetAreaPortalState
 	gimport.AreasConnected = collision.CM_AreasConnected
 

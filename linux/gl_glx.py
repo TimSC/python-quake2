@@ -342,7 +342,7 @@ def RW_IN_Activate(active): #qboolean
 """
 def XLateKey(ev): #XKeyEvent * (returns int), a pygame KEYDOWN or KEYUP event here
 
-	from client import keys # the K_ values, imported here as the renderer loads before the client modules finish
+	from client.header import keyboard as keyboard_h # the K_ values, imported here as the renderer loads before the client modules finish
 
 	#int key;
 	#char buf[64];
@@ -352,88 +352,88 @@ def XLateKey(ev): #XKeyEvent * (returns int), a pygame KEYDOWN or KEYUP event he
 
 	keysym = ev.key # XLookupString(ev, buf, sizeof buf, &keysym, 0);
 
-	if keysym == pygame.K_KP9:	key = keys.K_KP_PGUP # XK_KP_Page_Up
-	elif keysym == pygame.K_PAGEUP:	key = keys.K_PGUP
+	if keysym == pygame.K_KP9:	key = keyboard_h.K_KP_PGUP # XK_KP_Page_Up
+	elif keysym == pygame.K_PAGEUP:	key = keyboard_h.K_PGUP
 
-	elif keysym == pygame.K_KP3: key = keys.K_KP_PGDN # XK_KP_Page_Down
-	elif keysym == pygame.K_PAGEDOWN:	key = keys.K_PGDN
+	elif keysym == pygame.K_KP3: key = keyboard_h.K_KP_PGDN # XK_KP_Page_Down
+	elif keysym == pygame.K_PAGEDOWN:	key = keyboard_h.K_PGDN
 
-	elif keysym == pygame.K_KP7: key = keys.K_KP_HOME # XK_KP_Home
-	elif keysym == pygame.K_HOME:	key = keys.K_HOME
+	elif keysym == pygame.K_KP7: key = keyboard_h.K_KP_HOME # XK_KP_Home
+	elif keysym == pygame.K_HOME:	key = keyboard_h.K_HOME
 
-	elif keysym == pygame.K_KP1: key = keys.K_KP_END # XK_KP_End
-	elif keysym == pygame.K_END:	key = keys.K_END
+	elif keysym == pygame.K_KP1: key = keyboard_h.K_KP_END # XK_KP_End
+	elif keysym == pygame.K_END:	key = keyboard_h.K_END
 
-	elif keysym == pygame.K_KP4: key = keys.K_KP_LEFTARROW # XK_KP_Left
-	elif keysym == pygame.K_LEFT:	key = keys.K_LEFTARROW
+	elif keysym == pygame.K_KP4: key = keyboard_h.K_KP_LEFTARROW # XK_KP_Left
+	elif keysym == pygame.K_LEFT:	key = keyboard_h.K_LEFTARROW
 
-	elif keysym == pygame.K_KP6: key = keys.K_KP_RIGHTARROW # XK_KP_Right
-	elif keysym == pygame.K_RIGHT:	key = keys.K_RIGHTARROW
+	elif keysym == pygame.K_KP6: key = keyboard_h.K_KP_RIGHTARROW # XK_KP_Right
+	elif keysym == pygame.K_RIGHT:	key = keyboard_h.K_RIGHTARROW
 
-	elif keysym == pygame.K_KP2: key = keys.K_KP_DOWNARROW # XK_KP_Down
-	elif keysym == pygame.K_DOWN:	key = keys.K_DOWNARROW
+	elif keysym == pygame.K_KP2: key = keyboard_h.K_KP_DOWNARROW # XK_KP_Down
+	elif keysym == pygame.K_DOWN:	key = keyboard_h.K_DOWNARROW
 
-	elif keysym == pygame.K_KP8: key = keys.K_KP_UPARROW # XK_KP_Up
-	elif keysym == pygame.K_UP:		key = keys.K_UPARROW
+	elif keysym == pygame.K_KP8: key = keyboard_h.K_KP_UPARROW # XK_KP_Up
+	elif keysym == pygame.K_UP:		key = keyboard_h.K_UPARROW
 
-	elif keysym == pygame.K_ESCAPE: key = keys.K_ESCAPE
+	elif keysym == pygame.K_ESCAPE: key = keyboard_h.K_ESCAPE
 
-	elif keysym == pygame.K_KP_ENTER: key = keys.K_KP_ENTER
-	elif keysym == pygame.K_RETURN: key = keys.K_ENTER
+	elif keysym == pygame.K_KP_ENTER: key = keyboard_h.K_KP_ENTER
+	elif keysym == pygame.K_RETURN: key = keyboard_h.K_ENTER
 
-	elif keysym == pygame.K_TAB:		key = keys.K_TAB
+	elif keysym == pygame.K_TAB:		key = keyboard_h.K_TAB
 
-	elif keysym == pygame.K_F1:		 key = keys.K_F1
+	elif keysym == pygame.K_F1:		 key = keyboard_h.K_F1
 
-	elif keysym == pygame.K_F2:		 key = keys.K_F2
+	elif keysym == pygame.K_F2:		 key = keyboard_h.K_F2
 
-	elif keysym == pygame.K_F3:		 key = keys.K_F3
+	elif keysym == pygame.K_F3:		 key = keyboard_h.K_F3
 
-	elif keysym == pygame.K_F4:		 key = keys.K_F4
+	elif keysym == pygame.K_F4:		 key = keyboard_h.K_F4
 
-	elif keysym == pygame.K_F5:		 key = keys.K_F5
+	elif keysym == pygame.K_F5:		 key = keyboard_h.K_F5
 
-	elif keysym == pygame.K_F6:		 key = keys.K_F6
+	elif keysym == pygame.K_F6:		 key = keyboard_h.K_F6
 
-	elif keysym == pygame.K_F7:		 key = keys.K_F7
+	elif keysym == pygame.K_F7:		 key = keyboard_h.K_F7
 
-	elif keysym == pygame.K_F8:		 key = keys.K_F8
+	elif keysym == pygame.K_F8:		 key = keyboard_h.K_F8
 
-	elif keysym == pygame.K_F9:		 key = keys.K_F9
+	elif keysym == pygame.K_F9:		 key = keyboard_h.K_F9
 
-	elif keysym == pygame.K_F10:		key = keys.K_F10
+	elif keysym == pygame.K_F10:		key = keyboard_h.K_F10
 
-	elif keysym == pygame.K_F11:		key = keys.K_F11
+	elif keysym == pygame.K_F11:		key = keyboard_h.K_F11
 
-	elif keysym == pygame.K_F12:		key = keys.K_F12
+	elif keysym == pygame.K_F12:		key = keyboard_h.K_F12
 
-	elif keysym == pygame.K_BACKSPACE: key = keys.K_BACKSPACE
+	elif keysym == pygame.K_BACKSPACE: key = keyboard_h.K_BACKSPACE
 
-	elif keysym == pygame.K_KP_PERIOD: key = keys.K_KP_DEL # XK_KP_Delete
-	elif keysym == pygame.K_DELETE: key = keys.K_DEL
+	elif keysym == pygame.K_KP_PERIOD: key = keyboard_h.K_KP_DEL # XK_KP_Delete
+	elif keysym == pygame.K_DELETE: key = keyboard_h.K_DEL
 
-	elif keysym == pygame.K_PAUSE:	key = keys.K_PAUSE
+	elif keysym == pygame.K_PAUSE:	key = keyboard_h.K_PAUSE
 
 	elif keysym in (pygame.K_LSHIFT,
-		pygame.K_RSHIFT):	key = keys.K_SHIFT
+		pygame.K_RSHIFT):	key = keyboard_h.K_SHIFT
 
 	elif keysym in (pygame.K_LCTRL, # XK_Execute has no pygame key
-		pygame.K_RCTRL):	key = keys.K_CTRL
+		pygame.K_RCTRL):	key = keyboard_h.K_CTRL
 
 	elif keysym in (pygame.K_LALT,
 		pygame.K_LMETA,
 		pygame.K_RALT,
-		pygame.K_RMETA): key = keys.K_ALT
+		pygame.K_RMETA): key = keyboard_h.K_ALT
 
-	elif keysym == pygame.K_KP5: key = keys.K_KP_5 # XK_KP_Begin
+	elif keysym == pygame.K_KP5: key = keyboard_h.K_KP_5 # XK_KP_Begin
 
-	elif keysym == pygame.K_INSERT: key = keys.K_INS
-	elif keysym == pygame.K_KP0: key = keys.K_KP_INS # XK_KP_Insert
+	elif keysym == pygame.K_INSERT: key = keyboard_h.K_INS
+	elif keysym == pygame.K_KP0: key = keyboard_h.K_KP_INS # XK_KP_Insert
 
 	elif keysym == pygame.K_KP_MULTIPLY: key = ord('*')
-	elif keysym == pygame.K_KP_PLUS:  key = keys.K_KP_PLUS
-	elif keysym == pygame.K_KP_MINUS: key = keys.K_KP_MINUS
-	elif keysym == pygame.K_KP_DIVIDE: key = keys.K_KP_SLASH
+	elif keysym == pygame.K_KP_PLUS:  key = keyboard_h.K_KP_PLUS
+	elif keysym == pygame.K_KP_MINUS: key = keyboard_h.K_KP_MINUS
+	elif keysym == pygame.K_KP_DIVIDE: key = keyboard_h.K_KP_SLASH
 
 	else:
 		# key = *(unsigned char*)buf; pygame's key value is the unshifted
@@ -449,7 +449,7 @@ def HandleEvents():
 
 	global mx, my
 
-	from client import keys # the K_ values, imported here as the renderer loads before the client modules finish
+	from client.header import keyboard as keyboard_h # the K_ values, imported here as the renderer loads before the client modules finish
 
 	#XEvent event;
 	#int b;
@@ -481,7 +481,7 @@ def HandleEvents():
 			elif event.button == 3:
 				b = 1
 			if b>=0 and in_state is not None and in_state.Key_Event_fp is not None:
-				in_state.Key_Event_fp (keys.K_MOUSE1 + b, True)
+				in_state.Key_Event_fp (keyboard_h.K_MOUSE1 + b, True)
 
 		elif event.type == pygame.MOUSEBUTTONUP:
 			b=-1
@@ -492,7 +492,7 @@ def HandleEvents():
 			elif event.button == 3:
 				b = 1
 			if b>=0 and in_state is not None and in_state.Key_Event_fp is not None:
-				in_state.Key_Event_fp (keys.K_MOUSE1 + b, False)
+				in_state.Key_Event_fp (keyboard_h.K_MOUSE1 + b, False)
 
 		elif event.type == pygame.QUIT: # Q2PORT: the window was closed, quit as the console command does
 			gl_rmain.ri.Cmd_ExecuteText (2, "quit\n") # EXEC_APPEND

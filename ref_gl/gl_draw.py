@@ -93,6 +93,105 @@ def Draw_Char (x, y, num): #int, int, int
 	GL.glEnd ()
 
 """
+================
+Draw_CharScaled
+
+Q2PORT: Yamagi's RDraw_CharScaled (gl1_draw.c), in id's immediate mode
+until the renderer is ported (group 15).
+================
+"""
+def Draw_CharScaled (x, y, num, scale): #int, int, int, float
+
+	#int row, col;
+	#float frow, fcol, size, scaledSize;
+
+	num &= 255
+
+	if (num & 127) == 32:
+
+		return # space
+
+
+	if y <= -8:
+
+		return # totally off screen
+
+
+	row = num >> 4
+	col = num & 15
+
+	frow = row * 0.0625
+	fcol = col * 0.0625
+	size = 0.0625
+
+	scaledSize = 8 * scale
+
+	gl_image.GL_Bind (draw_chars.texnum)
+
+	GL.glBegin (GL.GL_QUADS)
+	GL.glTexCoord2f (fcol, frow)
+	GL.glVertex2f (x, y)
+	GL.glTexCoord2f (fcol + size, frow)
+	GL.glVertex2f (x + scaledSize, y)
+	GL.glTexCoord2f (fcol + size, frow + size)
+	GL.glVertex2f (x + scaledSize, y + scaledSize)
+	GL.glTexCoord2f (fcol, frow + size)
+	GL.glVertex2f (x, y + scaledSize)
+	GL.glEnd ()
+
+"""
+=============
+Draw_PicScaled
+
+Q2PORT: Yamagi's RDraw_PicScaled and RDraw_PicScaledCol (gl1_draw.c), in
+id's immediate mode until the renderer is ported (group 15).
+=============
+"""
+def Draw_PicScaled (x, y, pic, factor): #int, int, char *, float
+
+	Draw_PicScaledCol (x, y, pic, factor, None)
+
+def Draw_PicScaledCol (x, y, pic, factor, color): #int, int, char *, float, const float[3]
+
+	#image_t *gl;
+
+	gl = Draw_FindPic (pic)
+	if gl is None:
+
+		gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
+		return
+
+
+	if gl_image.scrap_dirty:
+
+		gl_image.Scrap_Upload ()
+
+
+	if color is not None:
+
+		GL.glTexEnvf (GL.GL_TEXTURE_ENV, GL.GL_TEXTURE_ENV_MODE, GL.GL_MODULATE)
+		GL.glColor4f (color[0], color[1], color[2], 1)
+
+
+	gl_image.GL_Bind (gl.texnum)
+	GL.glBegin (GL.GL_QUADS)
+	GL.glTexCoord2f (gl.sl, gl.tl)
+	GL.glVertex2f (x, y)
+	GL.glTexCoord2f (gl.sh, gl.tl)
+	GL.glVertex2f (x + gl.width * factor, y)
+	GL.glTexCoord2f (gl.sh, gl.th)
+	GL.glVertex2f (x + gl.width * factor, y + gl.height * factor)
+	GL.glTexCoord2f (gl.sl, gl.th)
+	GL.glVertex2f (x, y + gl.height * factor)
+	GL.glEnd ()
+
+	if color is not None:
+
+		GL.glColor4f (1, 1, 1, 1)
+		GL.glTexEnvf (GL.GL_TEXTURE_ENV, GL.GL_TEXTURE_ENV_MODE, GL.GL_REPLACE)
+
+
+"""
 =============
 Draw_FindPic
 =============

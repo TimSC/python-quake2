@@ -1,70 +1,52 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+USA.
 
+=======================================================================
+
+This file implements the console
+
+=======================================================================
 """
 from __future__ import annotations
 
-pass
 import os
 from linux import vid_so
-from client import cl_scrn, cl_main, client, keys, menu
+from client import cl_main, menu
 from common.header import common as common_h
 from common import clientserver
 from common import cmdparser
 from common import cvar
 from common import filesystem
+from client import cl_keyboard
+from client import cl_main
+from client import cl_screen
+from client.header import client as client_h
+from client.header import console as console_h
+from client.header import keyboard as keyboard_h
+
 """
-// console.c
-
-#include "client.h"
-
+#include "header/client.h"
+#include "sound/header/local.h"
+#include <time.h>
 """
 
-NUM_CON_TIMES = 4
-
-CON_TEXTSIZE = 32768
-
-class console_t(object):
-
-	def __init__(self):
-
-		self.initialized = False #qboolean
-
-		self.text = [] #char	[CON_TEXTSIZE];
-		self.current = None #int, line where next message will be printed
-		self.x = 0 #int, offset in current line for next print
-		self.display = None #int, bottom of console displays this line
-
-		self.ormask = 0 #int, high bit mask for colored characters
-
-		self.linewidth = None #int, characters across screen
-		self.totallines = 0 #int, total lines in console scrollback
-
-		self.cursorspeed = None #float
-
-		self.vislines = None #int		
-
-		self.times = [] #float	[NUM_CON_TIMES], cls.realtime time the line was generated
-									# for transparent notify lines
-		for i in range(NUM_CON_TIMES):
-			self.times.append(None)
-
-con = console_t()
+con = console_h.console_t()
 
 con_notifytime = None #cvar_t		*
 """
@@ -96,10 +78,36 @@ def DrawAltString (x: int, y: int, s: str): #int, int, char *
 		i+=1 # s++
 	
 
+"""
+void
+DrawStringScaled(int x, int y, const char *s, float factor)
+{
+	while (*s)
+	{
+		Draw_CharScaled(x, y, *s, factor);
+		x += 8*factor;
+		s++;
+	}
+}
+"""
+
+"""
+void
+DrawAltStringScaled(int x, int y, const char *s, float factor)
+{
+	while (*s)
+	{
+		Draw_CharScaled(x, y, *s ^ 0x80, factor);
+		x += 8*factor;
+		s++;
+	}
+}
+"""
+
 def Key_ClearTyping ():
 
-	keys.key_lines[keys.edit_line] = keys.key_lines[keys.edit_line][0]	# clear any typing
-	keys.key_linepos = 1
+	cl_keyboard.key_lines[cl_keyboard.edit_line] = cl_keyboard.key_lines[cl_keyboard.edit_line][0]	# clear any typing
+	cl_keyboard.key_linepos = 1
 
 
 """
@@ -109,13 +117,13 @@ Con_ToggleConsole_f
 """
 def Con_ToggleConsole_f ():
 
-	cl_scrn.SCR_EndLoadingPlaque ()	# get rid of loading plaque
+	cl_screen.SCR_EndLoadingPlaque ()	# get rid of loading plaque
 	
 	if cl_main.cl.attractloop:
 		cmdparser.Cbuf_AddText ("killserver\n")
 		return
 	
-	if cl_main.cls.state == client.connstate_t.ca_disconnected:
+	if cl_main.cls.state == client_h.connstate_t.ca_disconnected:
 		# start the demo loop again
 		cmdparser.Cbuf_AddText ("d1\n")
 		return
@@ -123,7 +131,7 @@ def Con_ToggleConsole_f ():
 	Key_ClearTyping ()
 	Con_ClearNotify ()
 
-	if cl_main.cls.key_dest == client.keydest_t.key_console:
+	if cl_main.cls.key_dest == client_h.keydest_t.key_console:
 	
 		menu.M_ForceMenuOff ()
 		cvar.Cvar_Set ("paused", "0")
@@ -131,7 +139,7 @@ def Con_ToggleConsole_f ():
 	else:
 	
 		menu.M_ForceMenuOff ()
-		cl_main.cls.key_dest = client.keydest_t.key_console
+		cl_main.cls.key_dest = client_h.keydest_t.key_console
 
 		if cvar.Cvar_VariableValue ("maxclients") == 1\
 			and clientserver.Com_ServerState ():
@@ -149,12 +157,12 @@ def Con_ToggleChat_f ():
 
 	Key_ClearTyping ()
 
-	if cl_main.cls.key_dest == client.keydest_t.key_console:
-		if cl_main.cls.state == client.connstate_t.ca_active:
+	if cl_main.cls.key_dest == client_h.keydest_t.key_console:
+		if cl_main.cls.state == client_h.connstate_t.ca_active:
 			menu.M_ForceMenuOff ()
-			cl_main.cls.key_dest = client.keydest_t.key_game
+			cl_main.cls.key_dest = client_h.keydest_t.key_game
 	else:
-		cl_main.cls.key_dest = client.keydest_t.key_console
+		cl_main.cls.key_dest = client_h.keydest_t.key_console
 
 	Con_ClearNotify ()
 
@@ -199,7 +207,7 @@ def Con_ClearNotify ():
 	global con
 	#int		i;
 	
-	for i in range(NUM_CON_TIMES):
+	for i in range(console_h.NUM_CON_TIMES):
 		con.times[i] = 0
 						
 """
@@ -209,14 +217,14 @@ Con_MessageMode_f
 """
 def Con_MessageMode_f ():
 
-	keys.chat_team = False
-	cl_main.cls.key_dest = client.keydest_t.key_message
+	keyboard_h.chat_team = False
+	cl_main.cls.key_dest = client_h.keydest_t.key_message
 
 
 def Con_MessageMode2_f ():
 
-	keys.chat_team = True
-	cl_main.cls.key_dest = client.keydest_t.key_message
+	keyboard_h.chat_team = True
+	cl_main.cls.key_dest = client_h.keydest_t.key_message
 
 
 def Con_CheckResize ():
@@ -233,7 +241,7 @@ def Con_CheckResize ():
 	
 		width = 38
 		con.linewidth = width
-		con.totallines = CON_TEXTSIZE // con.linewidth
+		con.totallines = console_h.CON_TEXTSIZE // con.linewidth
 		con.text = []
 		for i in range(con.totallines):
 			con.text.append("")
@@ -243,7 +251,7 @@ def Con_CheckResize ():
 		oldwidth = con.linewidth
 		con.linewidth = width
 		oldtotallines = con.totallines
-		con.totallines = CON_TEXTSIZE // con.linewidth
+		con.totallines = console_h.CON_TEXTSIZE // con.linewidth
 		numlines = oldtotallines
 
 		if con.totallines < numlines:
@@ -267,7 +275,6 @@ def Con_CheckResize ():
 
 	con.current = con.totallines - 1
 	con.display = con.current
-
 
 
 """
@@ -369,7 +376,7 @@ def Con_Print (txt): #char *
 			Con_Linefeed ()
 			# mark time for transparent overlay
 			if con.current >= 0:
-				con.times[con.current % NUM_CON_TIMES] = cl_main.cls.realtime
+				con.times[con.current % console_h.NUM_CON_TIMES] = cl_main.cls.realtime
 		
 		if c == '\n':
 			con.x = 0
@@ -394,25 +401,25 @@ def Con_DrawInput ():
 	#int		i;
 	#char	*text;
 
-	if cl_main.cls.key_dest == client.keydest_t.key_menu:
+	if cl_main.cls.key_dest == client_h.keydest_t.key_menu:
 		return
-	if cl_main.cls.key_dest != client.keydest_t.key_console and cl_main.cls.state == client.connstate_t.ca_active:
+	if cl_main.cls.key_dest != client_h.keydest_t.key_console and cl_main.cls.state == client_h.connstate_t.ca_active:
 		return		# don't draw anything (always draw if not active)
 
-	text = [keys.key_lines[keys.edit_line]]
+	text = [cl_keyboard.key_lines[cl_keyboard.edit_line]]
 	
 	# add the cursor frame
 	text.append(chr(10+((int(cl_main.cls.realtime)>>8)&1)))
 	
 	# fill out remainder with spaces
-	for i in range(keys.key_linepos+1, con.linewidth):
+	for i in range(cl_keyboard.key_linepos+1, con.linewidth):
 		text.append(' ')
 		
 	text = "".join(text)
 
 	# prestep if horizontally scrolling
-	if keys.key_linepos >= con.linewidth:
-		text = text[1 + keys.key_linepos - con.linewidth:]
+	if cl_keyboard.key_linepos >= con.linewidth:
+		text = text[1 + cl_keyboard.key_linepos - con.linewidth:]
 		
 	# draw it
 	y = con.vislines-16
@@ -433,10 +440,10 @@ Draws the last few lines of output transparently over the game top
 def Con_DrawNotify ():
 
 	v = 0
-	for i in range(con.current - NUM_CON_TIMES + 1, con.current + 1):
+	for i in range(con.current - console_h.NUM_CON_TIMES + 1, con.current + 1):
 		if i < 0:
 			continue
-		timestamp = con.times[i % NUM_CON_TIMES]
+		timestamp = con.times[i % console_h.NUM_CON_TIMES]
 		if not timestamp:
 			continue
 		time = cl_main.cls.realtime - timestamp
@@ -449,8 +456,8 @@ def Con_DrawNotify ():
 
 		v += 8
 
-	if cl_main.cls.key_dest == client.keydest_t.key_message:
-		if keys.chat_team:
+	if cl_main.cls.key_dest == client_h.keydest_t.key_message:
+		if keyboard_h.chat_team:
 			prefix = "say_team:"
 		else:
 			prefix = "say:"
@@ -460,9 +467,9 @@ def Con_DrawNotify ():
 			vid_so.re.DrawChar((idx + 1) << 3, v, ord(ch))
 
 		available = (vid_so.viddef.width >> 3) - (skip + 1)
-		text = keys.chat_buffer
-		if keys.chat_bufferlen > available:
-			text = text[keys.chat_bufferlen - available:]
+		text = cl_keyboard.chat_buffer
+		if cl_keyboard.chat_bufferlen > available:
+			text = text[cl_keyboard.chat_bufferlen - available:]
 		for x, ch in enumerate(text):
 			vid_so.re.DrawChar((x + skip) << 3, v, ord(ch))
 		vid_so.re.DrawChar((len(text) + skip) << 3, v, 10 + ((cl_main.cls.realtime >> 8) & 1))
@@ -489,8 +496,8 @@ def Con_DrawConsole (frac): #float
 
 	# draw the background
 	vid_so.re.DrawStretchPic (0, -vid_so.viddef.height+lines, vid_so.viddef.width, vid_so.viddef.height, "conback")
-	cl_scrn.SCR_AddDirtyPoint (0,0)
-	cl_scrn.SCR_AddDirtyPoint (vid_so.viddef.width-1,lines-1)
+	cl_screen.SCR_AddDirtyPoint (0,0)
+	cl_screen.SCR_AddDirtyPoint (vid_so.viddef.width-1,lines-1)
 
 	
 	version = "v{:4.2f}".format(common_h.VERSION)

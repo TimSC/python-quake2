@@ -1,61 +1,50 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+This file implements the 2D stuff. For example the HUD and the
+networkgraph.
+
+=======================================================================
 """
 from __future__ import annotations
 
 import copy
-pass
-from client import console, cl_main, client, menu, cl_cin, snd_dma, cl_view, cl_inv
+from client import cl_main, menu, cl_cin, snd_dma, cl_view
 from linux import q_shlinux, vid_so, cd_linux
-pass
 from common.header import shared
 from common import clientserver
 from common import cmdparser
 from common import cvar
 from common import frame as common_frame
 from common import movemsg
+from client import cl_console
+from client import cl_inventory
+from client import cl_main
+from client import cl_view
+from client.header import client as client_h
+from client.vid.header import vid as vid_h
+
 """
-// cl_scrn.c -- master for refresh, status bar, console, chat, notify, etc
-
-/*
-
-  full screen console
-  put up loading plaque
-  blanked background with loading plaque
-  blanked background with menu
-  cinematics
-  full screen image for quit and victory
-
-  end of unit intermissions
-
-  */
-
-#include "client.h"
+#include "header/client.h"
 """
-
-class vrect_t(object):
-
-	def __init__(self):
-		self.x = 0
-		self.y = 0
-		self.width = 0
-		self.height = 0
 
 scr_con_current = 0.0 #float, aproaches scr_conlines at scr_conspeed
 scr_conlines = 0.0 #float, 0.0 to 1.0 lines of console to display
@@ -63,7 +52,7 @@ scr_conlines = 0.0 #float, 0.0 to 1.0 lines of console to display
 scr_initialized = False # qboolean, ready to draw
 scr_draw_loading = 0 #int
 
-scr_vrect = vrect_t() #position of render window on screen
+scr_vrect = vid_h.vrect_t() #position of render window on screen
 
 scr_viewsize = None #cvar_t		*
 scr_conspeed = None #cvar_t		*
@@ -115,11 +104,6 @@ class dirty_t(object):
 scr_dirty = dirty_t()
 scr_old_dirty = [dirty_t(), dirty_t()]
 """
-char		crosshair_pic[MAX_QPATH];
-int			crosshair_width, crosshair_height;
-
-"""
-"""
 /*
 ===============================================================================
 
@@ -136,6 +120,11 @@ CL_AddNetgraph
 A new packet was just parsed
 ==============
 """
+"""
+char		crosshair_pic[MAX_QPATH];
+int			crosshair_width, crosshair_height;
+
+"""
 def CL_AddNetgraph ():
 
 	if int(scr_debuggraph.value) or int(scr_timegraph.value):
@@ -147,14 +136,13 @@ def CL_AddNetgraph ():
 	for _ in range(cl_main.cl.surpressCount):
 		SCR_DebugGraph (30, 0xdf)
 
-	in_index = cl_main.cls.netchan.incoming_acknowledged & (client.CMD_BACKUP-1)
+	in_index = cl_main.cls.netchan.incoming_acknowledged & (client_h.CMD_BACKUP-1)
 	ping = cl_main.cls.realtime - cl_main.cl.cmd_time[in_index]
 	ping //= 30
 	if ping > 30:
 		ping = 30
 
 	SCR_DebugGraph (ping, 0xd0)
-
 
 
 def SCR_DebugGraph (value, color):
@@ -195,7 +183,7 @@ def SCR_CenterPrint (text):
 	scr_centertime_start = cl_main.cl.time
 	scr_center_lines = text.count("\n") + 1
 	clientserver.Com_Printf("\n\n" + text + "\n\n")
-	console.Con_ClearNotify ()
+	cl_console.Con_ClearNotify ()
 
 
 def SCR_DrawCenterString ():
@@ -233,17 +221,6 @@ def SCR_CheckDrawCenterString ():
 	SCR_DrawCenterString ()
 
 
-def SCR_DrawStats ():
-
-	SCR_ExecuteLayoutString (cl_main.cl.configstrings[shared.CS_STATUSBAR])
-
-
-def SCR_DrawLayout ():
-	if not cl_main.cl.frame.playerstate.stats[shared.STAT_LAYOUTS]:
-		return
-	SCR_ExecuteLayoutString (cl_main.cl.layout)
-# ================================================================================
-
 """
 =================
 SCR_CalcVrect
@@ -274,7 +251,6 @@ def SCR_CalcVrect ():
 
 	scr_vrect.x = (vid_so.viddef.width - scr_vrect.width)//2
 	scr_vrect.y = (vid_so.viddef.height - scr_vrect.height)//2
-
 
 
 """
@@ -375,7 +351,7 @@ SCR_DrawNet
 """
 def SCR_DrawNet ():
 
-	if (cl_main.cls.netchan.outgoing_sequence - cl_main.cls.netchan.incoming_acknowledged) < client.CMD_BACKUP-1:
+	if (cl_main.cls.netchan.outgoing_sequence - cl_main.cls.netchan.incoming_acknowledged) < client_h.CMD_BACKUP-1:
 		return
 	vid_so.re.DrawPic (scr_vrect.x+64, scr_vrect.y, "net")
 
@@ -425,7 +401,7 @@ def SCR_RunConsole ():
 	global scr_conlines, scr_con_current
 
 	# decide on the height of the console
-	if cl_main.cls.key_dest == client.keydest_t.key_console:
+	if cl_main.cls.key_dest == client_h.keydest_t.key_console:
 		scr_conlines = 0.5		# half screen
 	else:
 		scr_conlines = 0				# none visible
@@ -453,29 +429,29 @@ def SCR_DrawConsole ():
 
 	global scr_con_current
 
-	console.Con_CheckResize ()
+	cl_console.Con_CheckResize ()
 
-	if cl_main.cls.state == client.connstate_t.ca_disconnected or cl_main.cls.state == client.connstate_t.ca_connecting:
+	if cl_main.cls.state == client_h.connstate_t.ca_disconnected or cl_main.cls.state == client_h.connstate_t.ca_connecting:
 		# forced full screen console
-		console.Con_DrawConsole (1.0)
+		cl_console.Con_DrawConsole (1.0)
 		return
 	
 
-	if cl_main.cls.state != client.connstate_t.ca_active or not cl_main.cl.refresh_prepped:
+	if cl_main.cls.state != client_h.connstate_t.ca_active or not cl_main.cl.refresh_prepped:
 		# connected, but can't render
-		console.Con_DrawConsole (0.5)
+		cl_console.Con_DrawConsole (0.5)
 		vid_so.re.DrawFill (0, vid_so.viddef.height//2, vid_so.viddef.width, vid_so.viddef.height//2, 0)
 		return
 	
 
 	if scr_con_current:
 	
-		console.Con_DrawConsole (scr_con_current)
+		cl_console.Con_DrawConsole (scr_con_current)
 	
 	else:
 	
-		if cl_main.cls.key_dest == client.keydest_t.key_game or cl_main.cls.key_dest == client.keydest_t.key_message:
-			console.Con_DrawNotify ()	# only draw notify in game
+		if cl_main.cls.key_dest == client_h.keydest_t.key_game or cl_main.cls.key_dest == client_h.keydest_t.key_message:
+			cl_console.Con_DrawNotify ()	# only draw notify in game
 	
 
 
@@ -497,9 +473,9 @@ def SCR_BeginLoadingPlaque ():
 		return
 	if common_frame.developer.value:
 		return
-	if cl_main.cls.state == client.connstate_t.ca_disconnected:
+	if cl_main.cls.state == client_h.connstate_t.ca_disconnected:
 		return	# if at console, don't bring up the plaque
-	if cl_main.cls.key_dest == client.keydest_t.key_console:
+	if cl_main.cls.key_dest == client_h.keydest_t.key_console:
 		return
 
 	if cl_main.cl.cinematictime > 0:
@@ -520,7 +496,7 @@ SCR_EndLoadingPlaque
 def SCR_EndLoadingPlaque ():
 
 	cl_main.cls.disable_screen = 0
-	console.Con_ClearNotify ()
+	cl_console.Con_ClearNotify ()
 
 """
 ================
@@ -531,41 +507,13 @@ def SCR_Loading_f ():
 
 	SCR_BeginLoadingPlaque ()
 
-
-"""
-================
-SCR_TimeRefresh_f
-================
-"""
-def entitycmpfnc( a, b )-> int: #(const entity_t *, const entity_t *)
-
-	#
-	# all other models are sorted by model then skin
-	#
-
-	amid = id(a.model)
-	bmid = id(b.model)
-
-	if amid == bmid:
-		
-		aid = id(a.skin)
-		bid = id(b.skin)
-		if aid == bid: return 0
-
-		if aid > bid: return 1
-		return -1
-	
-	else:
-		if amid > bmid: return 1
-		return -1
-
 def SCR_TimeRefresh_f ():
 
 	#int		i;
 	#int		start, stop;
 	#float	time;
 
-	if cl_main.cls.state != client.connstate_t.ca_active:
+	if cl_main.cls.state != client_h.connstate_t.ca_active:
 		return
 
 	start = q_shlinux.Sys_Milliseconds ()
@@ -704,7 +652,6 @@ def SCR_TileClear ():
 	
 
 
-
 """
 #===============================================================
 
@@ -727,6 +674,55 @@ def SizeHUDString (string):
 			width = len(line)
 	return width * 8, len(lines) * 8
 
+
+r"""
+static void
+DrawHUDStringScaled(const char *string, int x, int y, int centerwidth, int xor, float factor)
+{
+	int margin;
+	int i;
+
+	margin = x;
+
+	while (*string)
+	{
+		/* scan out one line of text from the string */
+		int width;
+		char line[1024];
+
+		width = 0;
+
+		while (*string && *string != '\n')
+		{
+			line[width++] = *string++;
+		}
+
+		line[width] = 0;
+
+		if (centerwidth)
+		{
+			x = margin + (centerwidth - width * 8)*factor / 2;
+		}
+
+		else
+		{
+			x = margin;
+		}
+
+		for (i = 0; i < width; i++)
+		{
+			Draw_CharScaled(x, y, line[i] ^ xor, factor);
+			x += 8*factor;
+		}
+
+		if (*string)
+		{
+			string++; /* skip the \n */
+			y += CHAR_SIZE * factor;
+		}
+	}
+}
+"""
 
 def DrawHUDString (string, x, y, centerwidth, xor):
 	margin = x
@@ -756,6 +752,60 @@ def DrawString (x, y, string):
 def DrawAltString (x, y, string):
 	DrawHUDString (string, x, y, 0, 0x80)
 
+
+"""
+void
+SCR_DrawFieldScaled(int x, int y, int color, int width, int value, float factor)
+{
+	char num[16], *ptr;
+	int l;
+	int frame;
+
+	if (width < 1)
+	{
+		return;
+	}
+
+	/* draw number string */
+	if (width > 5)
+	{
+		width = 5;
+	}
+
+	SCR_AddDirtyPoint(x, y);
+	SCR_AddDirtyPoint(x + (width * CHARACTER_WIDTH + 2) * factor, y + factor * 24);
+
+	Com_sprintf(num, sizeof(num), "%i", value);
+	l = (int)strlen(num);
+
+	if (l > width)
+	{
+		l = width;
+	}
+
+	x += (2 + CHARACTER_WIDTH * (width - l)) * factor;
+
+	ptr = num;
+
+	while (*ptr && l)
+	{
+		if (*ptr == '-')
+		{
+			frame = STAT_MINUS;
+		}
+
+		else
+		{
+			frame = *ptr - '0';
+		}
+
+		Draw_PicScaled(x, y, sb_nums[color][frame], factor);
+		x += CHARACTER_WIDTH * factor;
+		ptr++;
+		l--;
+	}
+}
+"""
 
 """
 ==============
@@ -841,7 +891,7 @@ def SCR_ExecuteLayoutString (s): #char *
 	cl = cl_main.cl
 	viddef = vid_so.viddef
 
-	if cl_main.cls.state != client.connstate_t.ca_active or not cl.refresh_prepped:
+	if cl_main.cls.state != client_h.connstate_t.ca_active or not cl.refresh_prepped:
 		return
 
 	if not s:
@@ -932,11 +982,11 @@ def SCR_ExecuteLayoutString (s): #char *
 			token, cursor = movemsg.COM_Parse (s, cursor)
 			time = int(token)
 
-			console.DrawAltString (x+32, y, ci.name)
-			console.DrawString (x+32, y+8,  "Score: ")
-			console.DrawAltString (x+32+7*8, y+8,  "{}".format(score))
-			console.DrawString (x+32, y+16, "Ping:  {}".format(ping))
-			console.DrawString (x+32, y+24, "Time:  {}".format(time))
+			cl_console.DrawAltString (x+32, y, ci.name)
+			cl_console.DrawString (x+32, y+8,  "Score: ")
+			cl_console.DrawAltString (x+32+7*8, y+8,  "{}".format(score))
+			cl_console.DrawString (x+32, y+16, "Ping:  {}".format(ping))
+			cl_console.DrawString (x+32, y+24, "Time:  {}".format(time))
 
 			if not ci.icon:
 				ci = cl.baseclientinfo
@@ -972,9 +1022,9 @@ def SCR_ExecuteLayoutString (s): #char *
 			block = "{:3d} {:3d} {:<12.12s}".format(score, ping, ci.name) # sprintf(block, "%3d %3d %-12.12s", score, ping, ci->name);
 
 			if value == cl.playernum:
-				console.DrawAltString (x, y, block)
+				cl_console.DrawAltString (x, y, block)
 			else:
-				console.DrawString (x, y, block)
+				cl_console.DrawString (x, y, block)
 			continue
 		
 		if token == "picn":
@@ -1058,7 +1108,7 @@ def SCR_ExecuteLayoutString (s): #char *
 			index = cl.frame.playerstate.stats[index]
 			if index < 0 or index >= shared.MAX_CONFIGSTRINGS:
 				clientserver.Com_Error (shared.ERR_DROP, "Bad stat_string index")
-			console.DrawString (x, y, cl.configstrings[index])
+			cl_console.DrawString (x, y, cl.configstrings[index])
 			continue
 		
 		if token == "cstring":
@@ -1070,7 +1120,7 @@ def SCR_ExecuteLayoutString (s): #char *
 		if token == "string":
 		
 			token, cursor = movemsg.COM_Parse (s, cursor)
-			console.DrawString (x, y, token)
+			cl_console.DrawString (x, y, token)
 			continue
 		
 		if token == "cstring2":
@@ -1082,7 +1132,7 @@ def SCR_ExecuteLayoutString (s): #char *
 		if token == "string2":
 		
 			token, cursor = movemsg.COM_Parse (s, cursor)
-			console.DrawAltString (x, y, token)
+			cl_console.DrawAltString (x, y, token)
 			continue
 		
 		if token == "if":
@@ -1099,6 +1149,165 @@ def SCR_ExecuteLayoutString (s): #char *
 		
 
 # =============================================================================== # End layout parsing
+
+def SCR_DrawStats ():
+
+	SCR_ExecuteLayoutString (cl_main.cl.configstrings[shared.CS_STATUSBAR])
+
+
+def SCR_DrawLayout ():
+	if not cl_main.cl.frame.playerstate.stats[shared.STAT_LAYOUTS]:
+		return
+	SCR_ExecuteLayoutString (cl_main.cl.layout)
+# ================================================================================
+
+"""
+static void
+SCR_DrawSpeed(void)
+{
+	if (cl_showspeed->value < 1)  //Disabled, do nothing
+		return;
+
+	char spd_str[32];
+	float speed, speedxy;
+	float scale = SCR_GetConsoleScale();
+	int str_len, xPos, yPos = 0;
+
+	GetPlayerSpeed(&speed, &speedxy);
+	snprintf(spd_str, sizeof(spd_str), "%6.2f (%6.2f) QU/s", speed, speedxy);
+	str_len = scale * (strlen(spd_str) * CHAR_SIZE + 2);
+
+	if (cl_showspeed->value == 1) //Draw speed and xy speed at top right
+	{
+		xPos = viddef.width - str_len;
+
+		if (cl_showfps->value == 1 || cl_showfps->value == 2)  // If showfps is enabled, draw it underneath
+		{
+			yPos = scale * 10;
+		}
+		else if (cl_showfps->value > 2)
+		{
+			yPos = scale * 20;
+		}
+
+		DrawStringScaled(xPos, yPos, spd_str, scale);
+		SCR_AddDirtyPoint(xPos, yPos);
+		SCR_AddDirtyPoint(viddef.width, yPos);
+	}
+
+	else if (cl_showspeed->value > 1) //Draw only xy speed under the crosshair
+	{
+		if (scale != 1)  // Check if low resolution
+		{
+			scale -= 1;
+		}
+
+		snprintf(spd_str, sizeof(spd_str), "%6.2f", speedxy);
+		str_len = scale * (strlen(spd_str) * CHAR_SIZE + 2);
+		yPos = scr_vrect.y + (scr_vrect.height / 2) + (scale * 10);
+		xPos = scr_vrect.x + (scr_vrect.width / 2) - (str_len / 2);
+		
+		DrawStringScaled(xPos, yPos, spd_str, scale);
+		SCR_AddDirtyPoint(xPos, yPos);
+		SCR_AddDirtyPoint(xPos + str_len, yPos);
+	}
+}
+"""
+
+"""
+static void
+SCR_Framecounter(void)
+{
+	long long newtime;
+	static int frame;
+	static int frametimes[60] = {0};
+	static long long oldtime;
+
+	/* skip statistics without show fps */
+	if (cl_showfps->value < 1)
+	{
+		return;
+	}
+
+	newtime = Sys_Microseconds();
+	frametimes[frame] = (int)(newtime - oldtime);
+
+	oldtime = newtime;
+	frame++;
+	if (frame > 59)
+	{
+		frame = 0;
+	}
+
+	float scale = SCR_GetConsoleScale();
+
+	if (cl_showfps->value == 1)
+	{
+		// Calculate average of frames.
+		char str[10];
+		int avg = 0;
+		int num = 0;
+
+		for (int i = 0; i < 60; i++) {
+			if (frametimes[i] != 0) {
+				avg += frametimes[i];
+				num++;
+			}
+		}
+
+		snprintf(str, sizeof(str), "%3.2ffps", (1000.0 * 1000.0) / (avg / num));
+		DrawStringScaled(viddef.width - scale * (strlen(str) * CHAR_SIZE + 2), 0, str, scale);
+		SCR_AddDirtyPoint(viddef.width - scale * (strlen(str) * CHAR_SIZE + 2), 0);
+		SCR_AddDirtyPoint(viddef.width, 0);
+	}
+	else if (cl_showfps->value >= 2)
+	{
+		// Calculate average of frames.
+		int avg = 0;
+		int num = 0;
+		char str[64];
+
+		for (int i = 0; i < 60; i++) {
+			if (frametimes[i] != 0) {
+				avg += frametimes[i];
+				num++;
+			}
+		}
+
+		// Find lowest and highest
+		int min = frametimes[0];
+		int max = frametimes[1];
+
+		for (int i = 1; i < 60; i++)
+		{
+			if ((frametimes[i] > 0) &&  (min < frametimes[i]))
+			{
+				min = frametimes[i];
+			}
+
+			if ((frametimes[i] > 0) && (max > frametimes[i]))
+			{
+				max = frametimes[i];
+			}
+		}
+
+		snprintf(str, sizeof(str), "Min: %7.2ffps, Max: %7.2ffps, Avg: %7.2ffps",
+		         (1000.0 * 1000.0) / min, (1000.0 * 1000.0) / max, (1000.0 * 1000.0) / (avg / num));
+		DrawStringScaled(viddef.width - scale * (strlen(str) * CHAR_SIZE + 2), 0, str, scale);
+		SCR_AddDirtyPoint(viddef.width - scale * (strlen(str) * CHAR_SIZE + 2), 0);
+		SCR_AddDirtyPoint(viddef.width, 0);
+
+		if (cl_showfps->value > 2)
+		{
+			snprintf(str, sizeof(str), "Max: %5.2fms, Min: %5.2fms, Avg: %5.2fms",
+			         0.001f * min, 0.001f * max, 0.001f * ((float)avg / num));
+			DrawStringScaled(viddef.width - scale * (strlen(str) * CHAR_SIZE + 2), scale * 10, str, scale);
+			SCR_AddDirtyPoint(viddef.width - scale * (strlen(str) * CHAR_SIZE + 2), scale * 10);
+			SCR_AddDirtyPoint(viddef.width, scale + 10);
+		}
+	}
+}
+"""
 
 """
 ==================
@@ -1128,7 +1337,7 @@ def SCR_UpdateScreen ():
 		
 		return
 
-	if not scr_initialized or not console.con.initialized:
+	if not scr_initialized or not cl_console.con.initialized:
 		return				# not initialized yet
 
 	
@@ -1174,7 +1383,7 @@ def SCR_UpdateScreen ():
 		elif cl_main.cl.cinematictime > 0:
 		
 			
-			if cl_main.cls.key_dest == client.keydest_t.key_menu:
+			if cl_main.cls.key_dest == client_h.keydest_t.key_menu:
 
 				if cl_main.cl.cinematicpalette_active:
 				
@@ -1185,7 +1394,7 @@ def SCR_UpdateScreen ():
 				##vid_so.re.EndFrame()
 				##return
 
-			elif cl_main.cls.key_dest == client.keydest_t.key_console:
+			elif cl_main.cls.key_dest == client_h.keydest_t.key_console:
 
 				if cl_main.cl.cinematicpalette_active:
 				
@@ -1224,7 +1433,7 @@ def SCR_UpdateScreen ():
 			if cl_main.cl.frame.playerstate.stats[shared.STAT_LAYOUTS] & 1:
 				SCR_DrawLayout ()
 			if cl_main.cl.frame.playerstate.stats[shared.STAT_LAYOUTS] & 2:
-				cl_inv.CL_DrawInventory ()
+				cl_inventory.CL_DrawInventory ()
 
 			SCR_DrawNet ()
 			SCR_CheckDrawCenterString ()
@@ -1245,3 +1454,147 @@ def SCR_UpdateScreen ():
 		
 	
 	vid_so.re.EndFrame()
+
+"""
+static float
+SCR_ClampScale(float scale)
+{
+	float f;
+
+	f = viddef.width / 320.0f;
+	if (scale > f)
+	{
+		scale = f;
+	}
+
+	f = viddef.height / 240.0f;
+	if (scale > f)
+	{
+		scale = f;
+	}
+
+	if (scale < 1)
+	{
+		scale = 1;
+	}
+
+	return scale;
+}
+"""
+
+"""
+static float
+SCR_GetDefaultScale(void)
+{
+	int i = viddef.width / 640;
+	int j = viddef.height / 240;
+
+	if (i > j)
+	{
+		i = j;
+	}
+	if (i < 1)
+	{
+		i = 1;
+	}
+
+	return i;
+}
+"""
+
+from linux import vid_so
+from client import cl_view
+
+	# C implementation is still unported.
+
+# =============================================================================
+# SCR_DrawCrosshair
+# =============================================================================
+def SCR_DrawCrosshair ():
+
+	if not cl_view.crosshair.value:
+		return
+
+	if cl_view.crosshair.modified:
+	
+		cl_view.crosshair.modified = False
+		SCR_TouchPics ()
+	
+	if not crosshair_pic:
+		return
+
+	vid_so.re.DrawPic (scr_vrect.x + ((scr_vrect.width - crosshair_width)>>1)
+	, scr_vrect.y + ((scr_vrect.height - crosshair_height)>>1), crosshair_pic)
+"""
+float
+SCR_GetHUDScale(void)
+{
+	float scale;
+
+	if (!scr_initialized)
+	{
+		scale = 1;
+	}
+	else if (r_hudscale->value < 0)
+	{
+		scale = SCR_GetDefaultScale();
+	}
+	else if (r_hudscale->value == 0) /* HACK: allow scale 0 to hide the HUD */
+	{
+		scale = 0;
+	}
+	else
+	{
+		scale = SCR_ClampScale(r_hudscale->value);
+	}
+
+	return scale;
+}
+"""
+
+"""
+float
+SCR_GetConsoleScale(void)
+{
+	float scale;
+
+	if (!scr_initialized)
+	{
+		scale = 1;
+	}
+	else if (r_consolescale->value < 0)
+	{
+		scale = SCR_GetDefaultScale();
+	}
+	else
+	{
+		scale = SCR_ClampScale(r_consolescale->value);
+	}
+
+	return scale;
+}
+"""
+
+"""
+float
+SCR_GetMenuScale(void)
+{
+	float scale;
+
+	if (!scr_initialized)
+	{
+		scale = 1;
+	}
+	else if (r_menuscale->value < 0)
+	{
+		scale = SCR_GetDefaultScale();
+	}
+	else
+	{
+		scale = SCR_ClampScale(r_menuscale->value);
+	}
+
+	return scale;
+}
+"""
+
