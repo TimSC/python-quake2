@@ -25,7 +25,10 @@ Item spawning.
 """
 from __future__ import annotations
 
+import re
+
 from game import g_main, g_utils
+from game.savegame import savegame
 from common.header.shared import CS_NAME, CS_SKY, CS_SKYROTATE, CS_SKYAXIS, CS_CDTRACK, CS_MAXCLIENTS, CS_STATUSBAR, CS_LIGHTS
 import numpy as np
 import math
@@ -41,62 +44,6 @@ from game.header import local
 
 # C: extern spawn_temp_t st; -- defined in g_main.c, referenced here as g_main.st
 
-# C: field_t fields[] -- the fields parsed out of the .map file.
-# (name, type, flags).  FFL_NOSPAWN fields are save/load only and are skipped.
-
-_ft = local.fieldtype_t
-_flt = local.FFL_SPAWNTEMP
-fields = [
-	("classname", _ft.F_LSTRING, 0),
-	("model", _ft.F_LSTRING, 0),
-	("spawnflags", _ft.F_INT, 0),
-	("speed", _ft.F_FLOAT, 0),
-	("accel", _ft.F_FLOAT, 0),
-	("decel", _ft.F_FLOAT, 0),
-	("target", _ft.F_LSTRING, 0),
-	("targetname", _ft.F_LSTRING, 0),
-	("pathtarget", _ft.F_LSTRING, 0),
-	("deathtarget", _ft.F_LSTRING, 0),
-	("killtarget", _ft.F_LSTRING, 0),
-	("combattarget", _ft.F_LSTRING, 0),
-	("message", _ft.F_LSTRING, 0),
-	("team", _ft.F_LSTRING, 0),
-	("wait", _ft.F_FLOAT, 0),
-	("delay", _ft.F_FLOAT, 0),
-	("random", _ft.F_FLOAT, 0),
-	("move_origin", _ft.F_VECTOR, 0),
-	("move_angles", _ft.F_VECTOR, 0),
-	("style", _ft.F_INT, 0),
-	("count", _ft.F_INT, 0),
-	("health", _ft.F_INT, 0),
-	("sounds", _ft.F_INT, 0),
-	("light", _ft.F_IGNORE, 0),
-	("dmg", _ft.F_INT, 0),
-	("mass", _ft.F_INT, 0),
-	("volume", _ft.F_FLOAT, 0),
-	("attenuation", _ft.F_FLOAT, 0),
-	("map", _ft.F_LSTRING, 0),
-	("origin", _ft.F_VECTOR, 0),
-	("angles", _ft.F_VECTOR, 0),
-	("angle", _ft.F_ANGLEHACK, 0),
-	# temp spawn vars -- only valid when the spawn function is called
-	("lip", _ft.F_INT, _flt),
-	("distance", _ft.F_INT, _flt),
-	("height", _ft.F_INT, _flt),
-	("noise", _ft.F_LSTRING, _flt),
-	("pausetime", _ft.F_FLOAT, _flt),
-	("item", _ft.F_LSTRING, _flt),
-	("gravity", _ft.F_LSTRING, _flt),
-	("sky", _ft.F_LSTRING, _flt),
-	("skyrotate", _ft.F_FLOAT, _flt),
-	("skyaxis", _ft.F_VECTOR, _flt),
-	("music", _ft.F_LSTRING, _flt),
-	("minyaw", _ft.F_FLOAT, _flt),
-	("maxyaw", _ft.F_FLOAT, _flt),
-	("minpitch", _ft.F_FLOAT, _flt),
-	("maxpitch", _ft.F_FLOAT, _flt),
-	("nextmap", _ft.F_LSTRING, _flt),
-]
 
 # C: spawn_t spawns[] -- classname -> SP_ function name.
 _spawns_raw = [
@@ -148,7 +95,6 @@ _spawns_raw = [
 	("target_crosslevel_target", "SP_target_crosslevel_target"),
 	("target_laser", "SP_target_laser"),
 	("target_help", "SP_target_help"),
-	("target_actor", "SP_target_actor"),
 	("target_lightramp", "SP_target_lightramp"),
 	("target_earthquake", "SP_target_earthquake"),
 	("target_character", "SP_target_character"),
@@ -166,7 +112,6 @@ _spawns_raw = [
 	("misc_explobox", "SP_misc_explobox"),
 	("misc_banner", "SP_misc_banner"),
 	("misc_satellite_dish", "SP_misc_satellite_dish"),
-	("misc_actor", "SP_misc_actor"),
 	("misc_gib_arm", "SP_misc_gib_arm"),
 	("misc_gib_leg", "SP_misc_gib_leg"),
 	("misc_gib_head", "SP_misc_gib_head"),
@@ -221,12 +166,31 @@ def _find_spawn (classname):
 		from game import g_misc
 		from game import g_turret
 		from game.player import client as p_client
-		from game import m_actor, m_berserk, m_boss2, m_boss3, m_boss31, m_supertank
-		from game import g_trigger, m_infantry, m_soldier, m_boss32, m_gunner, m_flyer
-		from game import m_brain, m_chick, m_flipper, m_float, m_gladiator, m_hover, m_insane, m_medic, m_mutant, m_parasite, m_tank
+		from game.monster.berserker import berserker as m_berserk
+		from game.monster.boss2 import boss2 as m_boss2
+		from game.monster.boss3 import boss3 as m_boss3
+		from game.monster.boss3 import boss31 as m_boss31
+		from game.monster.supertank import supertank as m_supertank
+		from game import g_trigger
+		from game.monster.infantry import infantry as m_infantry
+		from game.monster.soldier import soldier as m_soldier
+		from game.monster.boss3 import boss32 as m_boss32
+		from game.monster.gunner import gunner as m_gunner
+		from game.monster.flyer import flyer as m_flyer
+		from game.monster.brain import brain as m_brain
+		from game.monster.chick import chick as m_chick
+		from game.monster.flipper import flipper as m_flipper
+		from game.monster.float import float as m_float
+		from game.monster.gladiator import gladiator as m_gladiator
+		from game.monster.hover import hover as m_hover
+		from game.monster.insane import insane as m_insane
+		from game.monster.medic import medic as m_medic
+		from game.monster.mutant import mutant as m_mutant
+		from game.monster.parasite import parasite as m_parasite
+		from game.monster.tank import tank as m_tank
 		from game import g_spawn
 		srcs = (g_spawn, g_items, g_func, g_target, g_misc, p_client, g_turret,
-			m_actor, m_berserk, m_boss2, m_boss3, m_boss31, m_supertank,
+			m_berserk, m_boss2, m_boss3, m_boss31, m_supertank,
 			g_trigger, m_infantry, m_soldier, m_boss32, m_gunner, m_flyer,
 			m_brain, m_chick, m_flipper, m_float, m_gladiator, m_hover, m_insane, m_medic, m_mutant, m_parasite, m_tank)
 		_spawn_cache = []
@@ -300,55 +264,90 @@ def ED_NewString (string):
 		i += 1
 	return "".join(out)
 
-def ED_ParseField (key, value, ent):
-	#field_t	*f;
+def ED_ParseField (key: str, value: str, ent): #const char *, const char *, edict_t * (static)
+
+	"""
+	const field_t *f;
+	void *b;
+	vec_t *vec;
+	"""
+
 	if not ent or value is None or key is None:
 
 		return
 
 
-	for name, ftype, flags in fields:
-		if not (flags & local.FFL_NOSPAWN) and shared_c.Q_stricmp (name, key) == 0:	# found it
-			if ftype == _ft.F_LSTRING:
-				v = ED_NewString (value)
-			elif ftype == _ft.F_VECTOR:
-				# sscanf(value, "%f %f %f", ...) != 3
-				try:
-					parts = value.split ()
-					v = np.array([float(parts[0]), float(parts[1]), float(parts[2])], dtype=np.float32)
-				except (ValueError, IndexError):
-					v = np.zeros((3,), dtype=np.float32)
-					g_main.gi.dprintf ("%s: entity %d: incomplete '%s' field\n", "ED_ParseField", ent.s.number, name)
-			elif ftype == _ft.F_INT:
-				try:
-					v = int(float(value))
-				except ValueError:
-					v = 0
-			elif ftype == _ft.F_FLOAT:
-				try:
-					v = float(value)
-				except ValueError:
-					v = 0.0
-			elif ftype == _ft.F_ANGLEHACK:
-				try:
-					a = float(value)
-				except ValueError:
-					a = 0.0
-				v = np.array([0.0, a, 0.0], dtype=np.float32)
-			elif ftype == _ft.F_IGNORE:
-				return
-			else:
-				return
-			if name == "origin":
-				ent.s.origin = v
-			elif name == "angles" or name == "angle":
-				ent.s.angles = v
-			elif flags & local.FFL_SPAWNTEMP:
-				setattr (g_main.st, name, v)
-			else:
-				setattr (ent, name, v)
+	f = savegame.FindSpawntempField(key)
+	if f:
+
+		b = g_main.st # (byte *)&st + f->ofs
+
+	else:
+
+		f = savegame.FindSpawnfield(key)
+		if not f:
+
+			g_main.gi.dprintf("'%s' is not a field. Value is '%s'\n", key, value)
 			return
-	g_main.gi.dprintf ("'%s' is not a field. Value is '%s'\n", key, value)
+
+
+		b = ent # (byte *)ent + f->ofs
+
+
+	# Q2PORT: b is the struct and f->ofs the path of the field in it
+	parts = f.ofs.split(".") if f.ofs else []
+	for part in parts[:-1]:
+
+		b = getattr(b, part)
+
+
+	name = parts[-1] if parts else None
+
+	if f.type == local.fieldtype_t.F_LSTRING:
+
+		setattr(b, name, ED_NewString(value))
+
+	elif f.type == local.fieldtype_t.F_VECTOR:
+
+		vec = getattr(b, name)
+		# sscanf(value, "%f %f %f", &vec[0], &vec[1], &vec[2])
+		nums = re.findall(r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?", value)
+		for k in range(min(3, len(nums))):
+
+			vec[k] = float(nums[k])
+
+
+		if len(nums) < 3:
+
+			vec[:] = 0 # memset(vec, 0, sizeof(vec3_t));
+			g_main.gi.dprintf("%s: entity %d: incomplete '%s' field\n",
+				"ED_ParseField", ent.s.number, f.name)
+
+
+	elif f.type == local.fieldtype_t.F_INT:
+
+		setattr(b, name, shared_c.atoi(value))
+
+	elif f.type == local.fieldtype_t.F_FLOAT:
+
+		setattr(b, name, float(shared_c.atof(value)))
+
+	elif f.type == local.fieldtype_t.F_ANGLEHACK:
+
+		vec = getattr(b, name)
+		vec[0] = 0
+		vec[1] = shared_c.atof(value)
+		vec[2] = 0
+
+	elif f.type == local.fieldtype_t.F_IGNORE:
+
+		pass
+
+	else:
+
+		pass
+
+
 """
 ')
 """

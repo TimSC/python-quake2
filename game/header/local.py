@@ -259,6 +259,9 @@ RANGE_FAR   = 3
 GIB_ORGANIC  = 0
 GIB_METALLIC = 1
 
+MAX_GIBS = 20
+MAX_DEBRIS = 20
+
 # monster ai flags
 AI_STAND_GROUND      = 0x00000001
 AI_TEMP_STAND_GROUND = 0x00000002
@@ -515,63 +518,32 @@ SKILL_HARD		= 2
 SKILL_HARDPLUS	= 3
 
 
-"""
-//
-// fields are needed for spawning from the entity string
-// and saving / loading games
-//
-#define FFL_SPAWNTEMP		1
-#define FFL_NOSPAWN			2
-
-typedef enum {
-	F_INT,
-	F_FLOAT,
-	F_LSTRING,			// string on disk, pointer in memory, TAG_LEVEL
-	F_GSTRING,			// string on disk, pointer in memory, TAG_GAME
-	F_VECTOR,
-	F_ANGLEHACK,
-	F_EDICT,			// index on disk, pointer in memory
-	F_ITEM,				// index on disk, pointer in memory
-	F_CLIENT,			// index on disk, pointer in memory
-	F_FUNCTION,
-	F_MMOVE,
-	F_IGNORE
-} fieldtype_t;
-
-typedef struct
-{
-	char	*name;
-	int		ofs;
-	fieldtype_t	type;
-	int		flags;
-} field_t;
-"""
-FFL_SPAWNTEMP = 1
-FFL_NOSPAWN   = 2
-
+# fields are needed for spawning from the entity
+# string and saving / loading games
+FFL_NOSPAWN = 1
 
 class fieldtype_t(Enum):
 	F_INT       = 0
 	F_FLOAT     = 1
-	F_LSTRING   = 2
-	F_GSTRING   = 3
-	F_VECTOR    = 4
-	F_ANGLEHACK = 5
-	F_EDICT     = 6
-	F_ITEM      = 7
-	F_CLIENT    = 8
-	F_FUNCTION  = 9
-	F_MMOVE     = 10
-	F_IGNORE    = 11
+	F_LSTRING   = 2 # string on disk, pointer in memory, TAG_LEVEL
+	F_VECTOR    = 3
+	F_ANGLEHACK = 4
+	F_EDICT     = 5 # index on disk, pointer in memory
+	F_ITEM      = 6 # index on disk, pointer in memory
+	F_FUNCTION  = 7
+	F_MMOVE     = 8
+	F_IGNORE    = 9
 
 
 class field_t(object):
 
-	def __init__(self):
-		self.name = None
-		self.ofs = 0
-		self.type = None
-		self.flags = 0
+	def __init__(self, name=None, ofs=None, type=None, flags=0, save_ver=0):
+
+		self.name = name #const char *
+		self.ofs = ofs #size_t, Q2PORT: the field's path, e.g. "monsterinfo.currentmove" (see FOFS)
+		self.type = type #fieldtype_t
+		self.flags = flags #int
+		self.save_ver = save_ver #short
 
 
 """
@@ -1023,6 +995,15 @@ VEC_UP        = np.array([0, -1, 0], dtype=np.float32)
 def FOFS (x):
 	# the C macro takes the byte offset of a field; in Python we pass the
 	# field name and G_Find uses getattr
+	return x
+
+def STOFS (x): # spawn_temp_t
+	return x
+
+def LLOFS (x): # level_locals_t
+	return x
+
+def CLOFS (x): # gclient_t
 	return x
 
 def ITEM_INDEX (item):

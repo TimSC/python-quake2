@@ -1527,6 +1527,8 @@ def PM_trace (start, mins, maxs, end):
 		return g_main.gi.trace (start, mins, maxs, end, pm_passent, MASK_DEADSOLID)
 
 
+# Q2PORT: CheckBlock and PrintPmove are unused debug helpers that sum the raw
+# bytes of C structs; they stay as C.
 """
 unsigned
 CheckBlock(void *b, int c)

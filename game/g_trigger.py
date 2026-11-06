@@ -1,44 +1,41 @@
-#
-# Copyright (C) 1997-2001 Id Software, Inc.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# See the GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-#
 """
-#include "g_local.h"
+Copyright (C) 1997-2001 Id Software, Inc.
 
-// the wait time has passed, so set back up for another activation
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-// the trigger was just activated
-// ent->activator should be set to the activator so it can be held through a delay
-// so wait for the delay time before firing
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
-#define PUSH_ONCE		1
+See the GNU General Public License for more details.
 
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
+
+=======================================================================
+
+Trigger.
+
+=======================================================================
 """
 from __future__ import annotations
 
-import random as _r
-pass
-pass
 from game import g_main
 from game import g_utils
 from game import g_combat
 from game import g_items
 from game.header.game import SVF_MONSTER, SVF_DEADMONSTER, SVF_NOCLIENT
 from game.header.game import solid_t
+
+"""
+#include "header/local.h"
+"""
+
 SOLID_TRIGGER = solid_t.SOLID_TRIGGER.value
 SOLID_BSP = solid_t.SOLID_BSP.value
 SOLID_BBOX = solid_t.SOLID_BBOX.value
@@ -54,6 +51,11 @@ windsound = None  # int
 
 def InitTrigger (self):
 	#edict_t *self
+	if not self:
+
+		return
+
+
 	if not shared_c.VectorCompare(self.s.angles, shared_c.vec3_origin):
 		g_utils.G_SetMovedir (self.s.angles, self.movedir)
 
@@ -66,6 +68,11 @@ def InitTrigger (self):
 # the wait time has passed, so set back up for another activation
 def multi_wait (ent):
 	#edict_t *ent
+	if not ent:
+
+		return
+
+
 	ent.nextthink = 0
 
 
@@ -74,6 +81,11 @@ def multi_wait (ent):
 # so wait for the delay time before firing
 def multi_trigger (ent):
 	#edict_t *ent
+	if not ent:
+
+		return
+
+
 	if ent.nextthink:
 		return  # already been triggered
 
@@ -91,11 +103,21 @@ def multi_trigger (ent):
 
 def Use_Multi (ent, other, activator):
 	#edict_t *ent, *other, *activator
+	if not ent or not activator:
+
+		return
+
+
 	ent.activator = activator
 	multi_trigger (ent)
 
 def Touch_Multi (self, other, plane, surf):
 	#edict_t *self, *other; cplane_t *plane; csurface_t *surf
+	if not self or not other:
+
+		return
+
+
 	if other.client:
 		if self.spawnflags & 2:
 			return
@@ -116,12 +138,22 @@ def Touch_Multi (self, other, plane, surf):
 
 def trigger_enable (self, other, activator):
 	#edict_t *self, *other, *activator
+	if not self:
+
+		return
+
+
 	self.solid = SOLID_TRIGGER
 	self.use = Use_Multi
 	g_main.gi.linkentity (self)
 
 def SP_trigger_multiple (ent):
 	#edict_t *ent
+	if not ent:
+
+		return
+
+
 	if ent.sounds == 1:
 		ent.noise_index = g_main.gi.soundindex ("misc/secret.wav")
 	elif ent.sounds == 2:
@@ -152,6 +184,11 @@ def SP_trigger_once (ent):
 	#edict_t *ent
 	# make old maps work because I messed up on flag assignments here
 	# triggered was on bit 1 when it should have been on bit 4
+	if not ent:
+
+		return
+
+
 	if ent.spawnflags & 1:
 		v = [0.0, 0.0, 0.0]
 		shared_c.VectorMA (ent.mins, 0.5, ent.size, v)
@@ -164,20 +201,40 @@ def SP_trigger_once (ent):
 
 def trigger_relay_use (self, other, activator):
 	#edict_t *self, *other, *activator
+	if not self or not activator:
+
+		return
+
+
 	g_utils.G_UseTargets (self, activator)
 
 def SP_trigger_relay (self):
 	#edict_t *self
+	if not self:
+
+		return
+
+
 	self.use = trigger_relay_use
 
 def trigger_key_use (self, other, activator):
 	#edict_t *self, *other, *activator
-	index = None
+	if not self or not activator:
+
+		return
+
 
 	if not self.item:
+
 		return
+
+
 	if not activator.client:
+
 		return
+
+
+	index = None
 
 	index = local.ITEM_INDEX(self.item)
 	if not activator.client.pers.inventory[index]:
@@ -225,6 +282,11 @@ def trigger_key_use (self, other, activator):
 
 def SP_trigger_key (self):
 	#edict_t *self
+	if not self:
+
+		return
+
+
 	if not g_main.st.item:
 		g_main.gi.dprintf("no key item for trigger_key at %s\n", g_utils.vtos(self.s.origin))
 		return
@@ -245,6 +307,11 @@ def SP_trigger_key (self):
 
 def trigger_counter_use (self, other, activator):
 	#edict_t *self, *other, *activator
+	if not self or not activator:
+
+		return
+
+
 	if self.count == 0:
 		return
 
@@ -264,6 +331,11 @@ def trigger_counter_use (self, other, activator):
 
 def SP_trigger_counter (self):
 	#edict_t *self
+	if not self:
+
+		return
+
+
 	self.wait = -1
 	if not self.count:
 		self.count = 2
@@ -273,6 +345,11 @@ def SP_trigger_counter (self):
 def SP_trigger_always (ent):
 	#edict_t *ent
 	# we must have some delay to make sure our use targets are present
+	if not ent:
+
+		return
+
+
 	if ent.delay < 0.2:
 		ent.delay = 0.2
 	g_utils.G_UseTargets(ent, ent)
@@ -280,6 +357,11 @@ def SP_trigger_always (ent):
 def trigger_push_touch (self, other, plane, surf):
 	#edict_t *self, *other; cplane_t *plane; csurface_t *surf
 	global windsound
+	if not self or not other:
+
+		return
+
+
 	if other.classname == "grenade":
 		shared_c.VectorScale (self.movedir, self.speed * 10, other.velocity)
 	elif other.health > 0:
@@ -296,6 +378,11 @@ def trigger_push_touch (self, other, plane, surf):
 
 def SP_trigger_push (self):
 	#edict_t *self
+	if not self:
+
+		return
+
+
 	InitTrigger (self)
 	global windsound
 	windsound = g_main.gi.soundindex ("misc/windfly.wav")
@@ -304,23 +391,19 @@ def SP_trigger_push (self):
 		self.speed = 1000
 	g_main.gi.linkentity (self)
 
-def hurt_use (self, other, activator):
-	#edict_t *self, *other, *activator
-	if self.solid == SOLID_NOT:
-		self.solid = SOLID_TRIGGER
-	else:
-		self.solid = SOLID_NOT
-	g_main.gi.linkentity (self)
-
-	if not (self.spawnflags & 2):
-		self.use = None
-
 def hurt_touch (self, other, plane, surf):
 	#edict_t *self, *other; cplane_t *plane; csurface_t *surf
-	dflags = 0
+	if not self or not other:
+
+		return
+
 
 	if not other.takedamage:
+
 		return
+
+
+	dflags = 0
 
 	if self.timestamp > g_main.level.time:
 		return
@@ -340,8 +423,45 @@ def hurt_touch (self, other, plane, surf):
 		dflags = 0
 	g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, self.dmg, self.dmg, dflags, local.MOD_TRIGGER_HURT)
 
+def hurt_use (self, other, activator):
+	#edict_t *self, *other, *activator
+	if not self:
+
+		return
+
+
+	if self.solid == SOLID_NOT:
+
+		#int	i, num;
+		#edict_t	*touch[MAX_EDICTS], *hurtme;
+		touch = [None] * shared.MAX_EDICTS
+
+		self.solid = SOLID_TRIGGER
+		num = g_main.gi.BoxEdicts (self.absmin, self.absmax,
+			   	touch, shared.MAX_EDICTS, shared.AREA_SOLID)
+
+		# Check for idle monsters in
+		# trigger hurt
+		for i in range(num):
+
+			hurtme = touch[i]
+			hurt_touch (self, hurtme, None, None)
+
+
+	else:
+		self.solid = SOLID_NOT
+	g_main.gi.linkentity (self)
+
+	if not (self.spawnflags & 2):
+		self.use = None
+
 def SP_trigger_hurt (self):
 	#edict_t *self
+	if not self:
+
+		return
+
+
 	InitTrigger (self)
 
 	self.noise_index = g_main.gi.soundindex ("world/electro.wav")
@@ -362,21 +482,36 @@ def SP_trigger_hurt (self):
 
 def trigger_gravity_touch (self, other, plane, surf):
 	#edict_t *self, *other; cplane_t *plane; csurface_t *surf
+	if not self or not other:
+
+		return
+
+
 	other.gravity = self.gravity
 
 def SP_trigger_gravity (self):
 	#edict_t *self
+	if not self:
+
+		return
+
+
 	if g_main.st.gravity == 0:
 		g_main.gi.dprintf("trigger_gravity without gravity set at %s\n", g_utils.vtos(self.s.origin))
 		g_utils.G_FreeEdict (self)
 		return
 
 	InitTrigger (self)
-	self.gravity = int(g_main.st.gravity)
+	self.gravity = shared_c.atoi(g_main.st.gravity)
 	self.touch = trigger_gravity_touch
 
 def trigger_monsterjump_touch (self, other, plane, surf):
 	#edict_t *self, *other; cplane_t *plane; csurface_t *surf
+	if not self or not other:
+
+		return
+
+
 	if other.flags & (local.FL_FLY | local.FL_SWIM):
 		return
 	if other.svflags & SVF_DEADMONSTER:
@@ -396,6 +531,11 @@ def trigger_monsterjump_touch (self, other, plane, surf):
 
 def SP_trigger_monsterjump (self):
 	#edict_t *self
+	if not self:
+
+		return
+
+
 	if not self.speed:
 		self.speed = 200
 	if not g_main.st.height:

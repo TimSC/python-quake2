@@ -30,7 +30,7 @@ import numpy as np
 from game import g_main
 from game import g_utils
 from game import g_monster
-from game import m_move
+pass
 from game.header.game import solid_t
 
 """
@@ -45,6 +45,7 @@ from game.header.local import FRAMETIME, MOVETYPE_PUSH, MOVETYPE_STOP, MOVETYPE_
 from common.header import shared
 from common.shared import shared as shared_c
 from game.header import game as game_h
+from game.monster.misc import move as m_move
 
 STOP_EPSILON = 0.1
 MAX_CLIP_PLANES = 5

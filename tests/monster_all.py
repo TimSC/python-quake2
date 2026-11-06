@@ -6,8 +6,19 @@ import numpy as np
 from linux import sys_linux
 from client import cl_main
 from game import g_main, g_utils, g_spawn, g_ai
-from game import m_brain, m_chick, m_flipper, m_float, m_gladiator, m_hover, m_insane, m_medic, m_mutant, m_parasite, m_supertank, m_tank
 from game.header import local
+from game.monster.brain import brain as m_brain
+from game.monster.chick import chick as m_chick
+from game.monster.flipper import flipper as m_flipper
+from game.monster.float import float as m_float
+from game.monster.gladiator import gladiator as m_gladiator
+from game.monster.hover import hover as m_hover
+from game.monster.insane import insane as m_insane
+from game.monster.medic import medic as m_medic
+from game.monster.mutant import mutant as m_mutant
+from game.monster.parasite import parasite as m_parasite
+from game.monster.supertank import supertank as m_supertank
+from game.monster.tank import tank as m_tank
 
 SPAWNS = [("monster_brain", 0), ("monster_chick", 0), ("monster_flipper", 0), ("monster_floater", 0), ("monster_gladiator", 0),
 	("monster_hover", 0), ("misc_insane", 0), ("misc_insane", 4), ("misc_insane", 8), ("misc_insane", 16), ("monster_medic", 0),
@@ -81,6 +92,10 @@ def CL_Frame(msec):
 					for i, fr in enumerate(v.frame[:v.lastframe - v.firstframe + 1]):
 						if fr.thinkfunc and e.inuse:
 							e.enemy = player
+							if fr.thinkfunc.__name__ == "medic_cable_attack":
+								# the medic heals a (dead) monster, not the player
+								others = [o for o, c in mons() if o is not e and c != "monster_medic"]
+								if others: e.enemy = others[0]
 							e.s.frame = v.firstframe + i
 							guard("%s %s[%d] %s" % (cls, k, i, fr.thinkfunc.__name__), fr.thinkfunc, e)
 					if v.endfunc and e.inuse:
@@ -117,12 +132,12 @@ def CL_Frame(msec):
 		sys.stdout.flush(); os._exit(0)
 cl_main.CL_Frame = CL_Frame
 import ast as _ast
-FILES = ["game/m_%s.py" % m for m in ("brain","chick","flipper","float","gladiator","hover","insane","medic","mutant","parasite","supertank","tank")]
+FILES = ["game/monster/%s/%s.py" % (m, m) for m in ("brain","chick","flipper","float","gladiator","hover","insane","medic","mutant","parasite","supertank","tank")]
 called = set()
 def prof(frame, event, arg):
 	if event == "call":
 		f = frame.f_code.co_filename
-		if "/game/m_" in f: called.add((f.split("/quake2/")[-1], frame.f_code.co_name))
+		if "/game/monster/" in f: called.add((f.split("/quake2/")[-1], frame.f_code.co_name))
 import threading
 sys.setprofile(prof)
 _o_exit = os._exit

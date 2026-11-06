@@ -25,7 +25,7 @@ Jump in into the game.so and support functions.
 """
 from __future__ import annotations
 
-from game import g_save
+from game.savegame import savegame
 from game import g_utils, g_ai, g_monster, g_phys
 from game import g_spawn, g_cmds, g_svcmds, g_misc
 from common.shared import rand
@@ -54,7 +54,7 @@ snd_fry = 0
 meansOfDeath = 0
 
 
-# cvars (cvar_t *), assigned in g_save.InitGame via gi.cvar(...)
+# cvars (cvar_t *), assigned in savegame.InitGame via gi.cvar(...)
 deathmatch = None #cvar_t	*
 coop = None #cvar_t	*
 coop_pickup_weapons = None #cvar_t	*
@@ -158,13 +158,13 @@ def GetGameAPI (gimport): #game_import_t * (returns game_export_t *)
 
 	glob.apiversion = game_h.GAME_API_VERSION
 
-	glob.Init = g_save.InitGame
+	glob.Init = savegame.InitGame
 	glob.Shutdown = ShutdownGame
 	glob.SpawnEntities = g_spawn.SpawnEntities
-	glob.WriteGame = g_save.WriteGame
-	glob.ReadGame = g_save.ReadGame
-	glob.WriteLevel = g_save.WriteLevel
-	glob.ReadLevel = g_save.ReadLevel
+	glob.WriteGame = savegame.WriteGame
+	glob.ReadGame = savegame.ReadGame
+	glob.WriteLevel = savegame.WriteLevel
+	glob.ReadLevel = savegame.ReadLevel
 	glob.ClientThink = p_client.ClientThink
 	glob.ClientConnect = p_client.ClientConnect
 	glob.ClientUserinfoChanged = p_client.ClientUserinfoChanged
@@ -181,38 +181,30 @@ def GetGameAPI (gimport): #game_import_t * (returns game_export_t *)
 	return glob
 
 """
-/*
  * this is only here so the functions
  * in shared source files can link
- */
-void
-Sys_Error(const char *error, ...)
-{
+"""
+def Sys_Error(error: str, *args): #const char *, ...
+
+	"""
 	va_list argptr;
 	char text[1024];
+	"""
 
-	va_start(argptr, error);
-	vsnprintf(text, sizeof(text), error, argptr);
-	va_end(argptr);
+	text = (error % args if args else error)[:1024 - 1] # vsnprintf
 
-	gi.error("%s", text);
-}
-"""
+	gi.error("%s", text)
 
-"""
-void
-Com_Printf(const char *msg, ...)
-{
+def Com_Printf(msg: str, *args): #const char *, ...
+
+	"""
 	va_list argptr;
 	char text[1024];
+	"""
 
-	va_start(argptr, msg);
-	vsnprintf(text, sizeof(text), msg, argptr);
-	va_end(argptr);
+	text = (msg % args if args else msg)[:1024 - 1] # vsnprintf
 
-	gi.dprintf("%s", text);
-}
-"""
+	gi.dprintf("%s", text)
 
 def ClientEndServerFrames ():
 	i = 0

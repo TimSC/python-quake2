@@ -44,7 +44,7 @@ run cin_play 60 "cin: finished" +set basedir "$Q2DATA" +map idlog.cin
 run menu_settings_test 120 "ms: after renderer restart" +set basedir "$Q2DATA" +map base1
 run vidrestart_shot 60 "vr: t=12 polys [1-9]" +set basedir "$Q2DATA" +map base1
 run dedicated 60 "dedicated: .* state ss_game, map base1" +set basedir "$Q2DATA" +set dedicated 1 +map base1
-run save_load 120 "save_load: back in game on base1, server state ss_game" +set basedir "$Q2DATA" +map base1
+run save_load 120 "save_load: level contents restored" +set basedir "$Q2DATA" +map base1
 # the map run again with every GL extension off
 NOEXT="+set gl_ext_multitexture 0 +set gl_ext_pointparameters 0 +set gl_ext_palettedtexture 0 +set gl_ext_swapinterval 0 +set gl_ext_compiled_vertex_array 0"
 if [ -z "$ONLY" ] || echo " $ONLY " | grep -q " noext "; then

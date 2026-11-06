@@ -49,7 +49,11 @@ Quake II (`yquake2/src/`, pinned at git `4e2ad5e7`), one group at a time
   `common/header/shared.py`, `shared_c` is `common/shared/shared.py`,
   `common_h` and `files_h` are `common/header/common.py` and `files.py`
   (while id's `qcommon/common.py` and `files.py` still exist), `flash`
-  is `common/shared/flash.py`. `scripts/yq_alias.py` renames them.
+  is `common/shared/flash.py`. The player files are `p_client`, `p_hud`,
+  `p_trail`, `p_view` and `p_weapon` (`game/player/*.py`), the monsters
+  `m_<id name>` (`game/monster/<name>/<name>.py`, e.g. `m_berserk`,
+  `m_soldier`, `m_move`) and their frame headers `<name>_h`.
+  `scripts/yq_alias.py` renames them.
 - The port of a Yamagi file follows Yamagi's C (names, order, globals,
   bug fixes and gameplay changes). `quake2-original/` stays as a
   historical reference only.

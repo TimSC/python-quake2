@@ -1,36 +1,50 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+Miscellaneos entities, functs and functions.
+
+=======================================================================
 """
 from __future__ import annotations
 
-import random as _r
-pass
-pass
+import math
+import time
+import numpy as np
+from common.header import shared
+from common.shared import shared as shared_c
+from common.shared import rand
 from game import g_main
 from game import g_utils
 from game import g_combat
 from game import g_monster
-from game import m_move
+pass
 from game import g_target
 from game import g_func
 from game.header.game import SVF_MONSTER, SVF_DEADMONSTER, SVF_NOCLIENT
 from game.header.game import solid_t
+
+"""
+#include "header/local.h"
+"""
+
 SOLID_TRIGGER = solid_t.SOLID_TRIGGER.value
 SOLID_BSP = solid_t.SOLID_BSP.value
 SOLID_BBOX = solid_t.SOLID_BBOX.value
@@ -47,15 +61,16 @@ DAMAGE_NO = damage_t.DAMAGE_NO.value
 DAMAGE_YES = damage_t.DAMAGE_YES.value
 from game.header.local import FRAMETIME
 from game.header import local
+from game.monster.misc import move as m_move
+
+debristhisframe = 0 #int
+gibsthisframe = 0 #int
 
 """
 // g_misc.c
 
 #include "g_local.h"
 """
-
-debristhisframe = 0 #int
-gibsthisframe = 0 #int
 
 """QUAKED func_group (0 0 0) ?
 Used to group brushes together just for editor convenience.
@@ -66,11 +81,21 @@ Used to group brushes together just for editor convenience.
 // that are separated when this portal is not activated.
 """
 def Use_Areaportal (ent, other, activator):
+	if not ent:
+
+		return
+
+
 	ent.count ^= 1		# toggle state
 	g_main.gi.SetAreaPortalState (ent.style, ent.count)
 
 
 def SP_func_areaportal (ent):
+	if not ent:
+
+		return
+
+
 	ent.use = Use_Areaportal
 	ent.count = 0		# always start closed;
 
@@ -92,6 +117,11 @@ def VelocityForDamage (damage, v):
 
 
 def ClipGibVelocity (ent):
+	if not ent:
+
+		return
+
+
 	if ent.velocity[0] < -300:
 		ent.velocity[0] = -300
 	elif ent.velocity[0] > 300:
@@ -112,6 +142,11 @@ gibs
 =================
 """
 def gib_think (self):
+	if not self:
+
+		return
+
+
 	self.s.frame += 1
 	self.nextthink = g_main.level.time + FRAMETIME
 
@@ -122,6 +157,11 @@ def gib_think (self):
 
 def gib_touch (self, other, plane, surf):
 	#vec3_t normal_angles, right
+	if not self:
+
+		return
+
+
 	normal_angles = [0, 0, 0]
 	right = [0, 0, 0]
 
@@ -144,6 +184,11 @@ def gib_touch (self, other, plane, surf):
 
 
 def gib_die (self, inflictor, attacker, damage, point):
+	if not self:
+
+		return
+
+
 	g_utils.G_FreeEdict (self)
 
 
@@ -151,11 +196,30 @@ def ThrowGib (self, gibname, damage, type):
 	#edict_t *gib
 	#vec3_t vd, origin, size
 	#float vscale
-	vd = [0, 0, 0]
-	origin = [0, 0, 0]
-	size = [0, 0, 0]
+	if not self or gibname is None:
 
-	gib = g_utils.G_Spawn()
+		return
+
+
+	vd = np.zeros((3,), dtype=np.float32)
+	origin = np.zeros((3,), dtype=np.float32)
+	size = np.zeros((3,), dtype=np.float32)
+
+	global gibsthisframe
+
+	if gibsthisframe >= local.MAX_GIBS:
+
+		return
+
+
+	gib = g_utils.G_SpawnOptional()
+
+	if not gib:
+
+		return
+
+
+	gibsthisframe += 1
 
 	shared_c.VectorScale (self.size, 0.5, size)
 	shared.VectorAdd (self.absmin, size, origin)
@@ -164,11 +228,13 @@ def ThrowGib (self, gibname, damage, type):
 	gib.s.origin[2] = origin[2] + local.crandom() * size[2]
 
 	g_main.gi.setmodel (gib, gibname)
-	gib.solid = SOLID_NOT
+	gib.solid = SOLID_BBOX
+	gib.svflags = SVF_DEADMONSTER
 	gib.s.effects |= EF_GIB
 	gib.flags |= FL_NO_KNOCKBACK
 	gib.takedamage = DAMAGE_YES
 	gib.die = gib_die
+	gib.health = 250
 
 	if type == GIB_ORGANIC:
 		gib.movetype = MOVETYPE_TOSS
@@ -194,7 +260,12 @@ def ThrowGib (self, gibname, damage, type):
 def ThrowHead (self, gibname, damage, type):
 	#vec3_t vd
 	#float vscale
-	vd = [0, 0, 0]
+	if not self or gibname is None:
+
+		return
+
+
+	vd = np.zeros((3,), dtype=np.float32)
 
 	self.s.skinnum = 0
 	self.s.frame = 0
@@ -203,14 +274,16 @@ def ThrowHead (self, gibname, damage, type):
 
 	self.s.modelindex2 = 0
 	g_main.gi.setmodel (self, gibname)
-	self.solid = SOLID_NOT
+	self.solid = SOLID_BBOX
 	self.s.effects |= EF_GIB
 	self.s.effects &= ~EF_FLIES
 	self.s.sound = 0
 	self.flags |= FL_NO_KNOCKBACK
 	self.svflags &= ~SVF_MONSTER
 	self.takedamage = DAMAGE_YES
+	self.targetname = None
 	self.die = gib_die
+	self.clipmask = shared.MASK_SHOT
 
 	if type == GIB_ORGANIC:
 		self.movetype = MOVETYPE_TOSS
@@ -234,9 +307,14 @@ def ThrowHead (self, gibname, damage, type):
 
 def ThrowClientHead (self, damage):
 	#vec3_t vd
-	vd = [0, 0, 0]
+	if not self:
 
-	if _r.randint(0, 1) & 1:
+		return
+
+
+	vd = np.zeros((3,), dtype=np.float32)
+
+	if rand.randk() & 1:
 		gibname = "models/objects/gibs/head2/tris.md2"
 		self.s.skinnum = 1		# second skin is player
 	else:
@@ -250,10 +328,11 @@ def ThrowClientHead (self, damage):
 	shared.VectorSet (self.maxs, 16, 16, 16)
 
 	self.takedamage = DAMAGE_NO
-	self.solid = SOLID_NOT
+	self.solid = SOLID_BBOX
 	self.s.effects = EF_GIB
 	self.s.sound = 0
 	self.flags |= FL_NO_KNOCKBACK
+	self.clipmask = shared.MASK_SHOT
 
 	self.movetype = MOVETYPE_BOUNCE
 	VelocityForDamage (damage, vd)
@@ -275,15 +354,40 @@ debris
 =================
 """
 def debris_die (self, inflictor, attacker, damage, point):
+	if not self:
+
+		return
+
+
 	g_utils.G_FreeEdict (self)
 
 
 def ThrowDebris (self, modelname, speed, origin):
 	#edict_t *chunk
 	#vec3_t v
-	v = [0, 0, 0]
+	if not self or modelname is None:
 
-	chunk = g_utils.G_Spawn()
+		return
+
+
+	v = np.zeros((3,), dtype=np.float32)
+
+	global debristhisframe
+
+	if debristhisframe >= local.MAX_DEBRIS:
+
+		return
+
+
+	chunk = g_utils.G_SpawnOptional()
+
+	if not chunk:
+
+		return
+
+
+	debristhisframe += 1
+
 	shared.VectorCopy (origin, chunk.s.origin)
 	g_main.gi.setmodel (chunk, modelname)
 	v[0] = 100 * local.crandom()
@@ -302,10 +406,16 @@ def ThrowDebris (self, modelname, speed, origin):
 	chunk.classname = "debris"
 	chunk.takedamage = DAMAGE_YES
 	chunk.die = debris_die
+	chunk.health = 250
 	g_main.gi.linkentity (chunk)
 
 
 def BecomeExplosion1 (self):
+	if not self:
+
+		return
+
+
 	g_main.gi.WriteByte (svc_temp_entity)
 	g_main.gi.WriteByte (TE_EXPLOSION1)
 	g_main.gi.WritePosition (self.s.origin)
@@ -315,6 +425,11 @@ def BecomeExplosion1 (self):
 
 
 def BecomeExplosion2 (self):
+	if not self:
+
+		return
+
+
 	g_main.gi.WriteByte (svc_temp_entity)
 	g_main.gi.WriteByte (TE_EXPLOSION2)
 	g_main.gi.WritePosition (self.s.origin)
@@ -332,6 +447,11 @@ Pathtarget: gets used when an entity that has
 def path_corner_touch (self, other, plane, surf):
 	#vec3_t v
 	#edict_t *next
+	if not self or not other:
+
+		return
+
+
 	v = [0, 0, 0]
 
 	if other.movetarget != self:
@@ -375,6 +495,11 @@ def path_corner_touch (self, other, plane, surf):
 
 
 def SP_path_corner (self):
+	if not self:
+
+		return
+
+
 	if not self.targetname:
 		g_main.gi.dprintf ("path_corner with no targetname at %s\n", g_utils.vtos(self.s.origin))
 		g_utils.G_FreeEdict (self)
@@ -396,13 +521,24 @@ hold is selected, it will stay here.
 def point_combat_touch (self, other, plane, surf):
 	#edict_t *activator
 
+	if not self or not other:
+
+		return
+
+
 	if other.movetarget != self:
 		return
 
 	if self.target:
 		other.target = self.target
 		other.goalentity = other.movetarget = g_utils.G_PickTarget(other.target)
-		if not other.goalentity:
+		if other.goalentity:
+
+			v = np.zeros((3,), dtype=np.float32)
+			shared.VectorSubtract(other.goalentity.s.origin, other.s.origin, v)
+			other.ideal_yaw = g_utils.vectoyaw(v)
+
+		else:
 			g_main.gi.dprintf("%s at %s target %s does not exist\n", self.classname, g_utils.vtos(self.s.origin), self.target)
 			other.movetarget = self
 		self.target = None
@@ -433,6 +569,11 @@ def point_combat_touch (self, other, plane, surf):
 
 
 def SP_point_combat (self):
+	if not self:
+
+		return
+
+
 	if g_main.deathmatch.value:
 		g_utils.G_FreeEdict (self)
 		return
@@ -448,11 +589,21 @@ def SP_point_combat (self):
 Just for the debugging level.  Don't use
 """
 def TH_viewthing(ent):
+	if not ent:
+
+		return
+
+
 	ent.s.frame = (ent.s.frame + 1) % 7
 	ent.nextthink = g_main.level.time + FRAMETIME
 
 
 def SP_viewthing(ent):
+	if not ent:
+
+		return
+
+
 	g_main.gi.dprintf ("viewthing spawned\n")
 
 	ent.movetype = MOVETYPE_NONE
@@ -471,6 +622,11 @@ def SP_viewthing(ent):
 Used as a positional target for spotlights, etc.
 """
 def SP_info_null (self):
+	if not self:
+
+		return
+
+
 	g_utils.G_FreeEdict (self)
 
 
@@ -478,6 +634,11 @@ def SP_info_null (self):
 Used as a positional target for lightning.
 """
 def SP_info_notnull (self):
+	if not self:
+
+		return
+
+
 	shared.VectorCopy (self.s.origin, self.absmin)
 	shared.VectorCopy (self.s.origin, self.absmax)
 
@@ -488,6 +649,11 @@ Non-displayed light.
 START_OFF = 1
 
 def light_use (self, other, activator):
+	if not self:
+
+		return
+
+
 	if self.spawnflags & START_OFF:
 		g_main.gi.configstring (CS_LIGHTS+self.style, "m")
 		self.spawnflags &= ~START_OFF
@@ -498,6 +664,11 @@ def light_use (self, other, activator):
 
 def SP_light (self):
 	# no targeted lights in deathmatch, because they cause global messages
+	if not self:
+
+		return
+
+
 	if not self.targetname or g_main.deathmatch.value:
 		g_utils.G_FreeEdict (self)
 		return
@@ -514,6 +685,11 @@ def SP_light (self):
 This is just a solid wall if not inhibited
 """
 def func_wall_use (self, other, activator):
+	if not self:
+
+		return
+
+
 	if self.solid == SOLID_NOT:
 		self.solid = SOLID_BSP
 		self.svflags &= ~SVF_NOCLIENT
@@ -528,6 +704,11 @@ def func_wall_use (self, other, activator):
 
 
 def SP_func_wall (self):
+	if not self:
+
+		return
+
+
 	self.movetype = MOVETYPE_PUSH
 	g_main.gi.setmodel (self, self.model)
 
@@ -576,11 +757,21 @@ def func_object_touch (self, other, plane, surf):
 
 
 def func_object_release (self):
+	if not self:
+
+		return
+
+
 	self.movetype = MOVETYPE_TOSS
 	self.touch = func_object_touch
 
 
 def func_object_use (self, other, activator):
+	if not self:
+
+		return
+
+
 	self.solid = SOLID_BSP
 	self.svflags &= ~SVF_NOCLIENT
 	self.use = None
@@ -589,6 +780,11 @@ def func_object_use (self, other, activator):
 
 
 def SP_func_object (self):
+	if not self:
+
+		return
+
+
 	g_main.gi.setmodel (self, self.model)
 
 	self.mins[0] += 1
@@ -628,6 +824,11 @@ Any brush that you want to explode or break apart.
 def func_explosive_explode (self, inflictor, attacker, damage, point):
 	#vec3_t origin, chunkorigin, size
 	#int count, mass
+	if not self or not inflictor or not attacker:
+
+		return
+
+
 	origin = [0, 0, 0]
 	chunkorigin = [0, 0, 0]
 	size = [0, 0, 0]
@@ -697,6 +898,11 @@ def func_explosive_spawn (self, other, activator):
 
 
 def SP_func_explosive (self):
+	if not self:
+
+		return
+
+
 	if g_main.deathmatch.value:
 		# auto-remove for deathmatch
 		g_utils.G_FreeEdict (self)
@@ -738,6 +944,11 @@ Large exploding box.
 def barrel_touch (self, other, plane, surf):
 	#float ratio
 	#vec3_t v
+	if not self or not other:
+
+		return
+
+
 	v = [0, 0, 0]
 
 	if (not other.groundentity) or (other.groundentity == self):
@@ -751,6 +962,11 @@ def barrel_touch (self, other, plane, surf):
 def barrel_explode (self):
 	#vec3_t org, save
 	#float spd
+	if not self:
+
+		return
+
+
 	org = [0, 0, 0]
 	save = [0, 0, 0]
 
@@ -801,6 +1017,11 @@ def barrel_explode (self):
 
 
 def barrel_delay (self, inflictor, attacker, damage, point):
+	if not self or not attacker:
+
+		return
+
+
 	self.takedamage = DAMAGE_NO
 	self.nextthink = g_main.level.time + 2 * FRAMETIME
 	self.think = barrel_explode
@@ -808,6 +1029,11 @@ def barrel_delay (self, inflictor, attacker, damage, point):
 
 
 def SP_misc_explobox (self):
+	if not self:
+
+		return
+
+
 	if g_main.deathmatch.value:
 		# auto-remove for deathmatch
 		g_utils.G_FreeEdict (self)
@@ -847,10 +1073,20 @@ def SP_misc_explobox (self):
 """QUAKED misc_blackhole (1 .5 0) (-8 -8 -8) (8 8 8)
 """
 def misc_blackhole_use (ent, other, activator):
+	if not ent:
+
+		return
+
+
 	g_utils.G_FreeEdict (ent)
 
 
 def misc_blackhole_think (self):
+	if not self:
+
+		return
+
+
 	if (self.s.frame + 1) < 19:
 		self.s.frame += 1
 		self.nextthink = g_main.level.time + FRAMETIME
@@ -859,7 +1095,19 @@ def misc_blackhole_think (self):
 		self.nextthink = g_main.level.time + FRAMETIME
 
 
+def misc_blackhole_transparent (ent): #edict_t *
+
+	ent.s.renderfx = RF_TRANSLUCENT|shared.RF_NOSHADOW
+	ent.prethink = None
+	g_main.gi.linkentity(ent)
+
+
 def SP_misc_blackhole (ent):
+	if not ent:
+
+		return
+
+
 	ent.movetype = MOVETYPE_NONE
 	ent.solid = SOLID_NOT
 	shared.VectorSet (ent.mins, -64, -64, 0)
@@ -868,6 +1116,7 @@ def SP_misc_blackhole (ent):
 	ent.s.renderfx = RF_TRANSLUCENT
 	ent.use = misc_blackhole_use
 	ent.think = misc_blackhole_think
+	ent.prethink = misc_blackhole_transparent
 	ent.nextthink = g_main.level.time + 2 * FRAMETIME
 	g_main.gi.linkentity (ent)
 
@@ -875,6 +1124,11 @@ def SP_misc_blackhole (ent):
 """QUAKED misc_eastertank (1 .5 0) (-32 -32 -16) (32 32 32)
 """
 def misc_eastertank_think (self):
+	if not self:
+
+		return
+
+
 	if (self.s.frame + 1) < 293:
 		self.s.frame += 1
 		self.nextthink = g_main.level.time + FRAMETIME
@@ -884,6 +1138,11 @@ def misc_eastertank_think (self):
 
 
 def SP_misc_eastertank (ent):
+	if not ent:
+
+		return
+
+
 	ent.movetype = MOVETYPE_NONE
 	ent.solid = SOLID_BBOX
 	shared.VectorSet (ent.mins, -32, -32, -16)
@@ -898,6 +1157,11 @@ def SP_misc_eastertank (ent):
 """QUAKED misc_easterchick (1 .5 0) (-32 -32 0) (32 32 32)
 """
 def misc_easterchick_think (self):
+	if not self:
+
+		return
+
+
 	if (self.s.frame + 1) < 247:
 		self.s.frame += 1
 		self.nextthink = g_main.level.time + FRAMETIME
@@ -907,6 +1171,11 @@ def misc_easterchick_think (self):
 
 
 def SP_misc_easterchick (ent):
+	if not ent:
+
+		return
+
+
 	ent.movetype = MOVETYPE_NONE
 	ent.solid = SOLID_BBOX
 	shared.VectorSet (ent.mins, -32, -32, 0)
@@ -921,6 +1190,11 @@ def SP_misc_easterchick (ent):
 """QUAKED misc_easterchick2 (1 .5 0) (-32 -32 0) (32 32 32)
 """
 def misc_easterchick2_think (self):
+	if not self:
+
+		return
+
+
 	if (self.s.frame + 1) < 287:
 		self.s.frame += 1
 		self.nextthink = g_main.level.time + FRAMETIME
@@ -930,6 +1204,11 @@ def misc_easterchick2_think (self):
 
 
 def SP_misc_easterchick2 (ent):
+	if not ent:
+
+		return
+
+
 	ent.movetype = MOVETYPE_NONE
 	ent.solid = SOLID_BBOX
 	shared.VectorSet (ent.mins, -32, -32, 0)
@@ -945,6 +1224,11 @@ def SP_misc_easterchick2 (ent):
 Not really a monster, this is the Tank Commander's decapitated body.
 """
 def commander_body_think (self):
+	if not self:
+
+		return
+
+
 	if (self.s.frame + 1) < 24:
 		self.s.frame += 1
 		self.nextthink = g_main.level.time + FRAMETIME
@@ -956,17 +1240,61 @@ def commander_body_think (self):
 
 
 def commander_body_use (self, other, activator):
+	if not self:
+
+		return
+
+
 	self.think = commander_body_think
 	self.nextthink = g_main.level.time + FRAMETIME
 	g_main.gi.sound (self, CHAN_BODY, g_main.gi.soundindex ("tank/pain.wav"), 1, ATTN_NORM, 0)
 
 
 def commander_body_drop (self):
+	if not self:
+
+		return
+
+
 	self.movetype = MOVETYPE_TOSS
 	self.s.origin[2] += 2
 
 
+def commander_body_die(self, inflictor, attacker, damage: int, point): #edict_t *, edict_t *, edict_t *, int, const vec3_t
+
+	"""
+	int n;
+	"""
+
+	if not self:
+
+		return
+
+
+	# check for gib
+	if self.health <= self.gib_health:
+
+		g_main.gi.sound(self, CHAN_BODY, g_main.gi.soundindex("tank/pain.wav"), 1, ATTN_NORM, 0)
+
+		ThrowGib(self, "models/objects/gibs/sm_meat/tris.md2", damage, GIB_ORGANIC)
+
+		for n in range(4):
+
+			ThrowGib(self, "models/objects/gibs/sm_metal/tris.md2", damage, local.GIB_METALLIC)
+
+
+		ThrowGib(self, "models/objects/gibs/chest/tris.md2", damage, GIB_ORGANIC)
+		ThrowHead(self, "models/objects/gibs/gear/tris.md2", damage, local.GIB_METALLIC)
+		self.deadflag = DEAD_DEAD
+
+		return
+
 def SP_monster_commander_body (self):
+	if not self:
+
+		return
+
+
 	self.movetype = MOVETYPE_NONE
 	self.solid = SOLID_BBOX
 	self.model = "models/monsters/commandr/tris.md2"
@@ -975,8 +1303,19 @@ def SP_monster_commander_body (self):
 	shared.VectorSet (self.maxs, 32, 32, 48)
 	self.use = commander_body_use
 	self.takedamage = DAMAGE_YES
-	self.flags = FL_GODMODE
 	self.s.renderfx |= RF_FRAMELERP
+
+	if g_main.g_commanderbody_nogod.value:
+
+		self.deadflag = DEAD_DEAD
+		self.svflags |= SVF_MONSTER | SVF_DEADMONSTER
+		self.die = commander_body_die
+
+	else:
+
+		self.flags = FL_GODMODE
+
+
 	g_main.gi.linkentity (self)
 
 	g_main.gi.soundindex ("tank/thud.wav")
@@ -990,15 +1329,25 @@ def SP_monster_commander_body (self):
 The origin is the bottom of the banner.  The banner is 128 tall.
 """
 def misc_banner_think (ent):
+	if not ent:
+
+		return
+
+
 	ent.s.frame = (ent.s.frame + 1) % 16
 	ent.nextthink = g_main.level.time + FRAMETIME
 
 
 def SP_misc_banner (ent):
+	if not ent:
+
+		return
+
+
 	ent.movetype = MOVETYPE_NONE
 	ent.solid = SOLID_NOT
 	ent.s.modelindex = g_main.gi.modelindex ("models/objects/banner/tris.md2")
-	ent.s.frame = _r.randint(0, 2147483647) % 16
+	ent.s.frame = rand.randk() % 16
 	g_main.gi.linkentity (ent)
 
 	ent.think = misc_banner_think
@@ -1011,6 +1360,11 @@ This is the dead player model.
 def misc_deadsoldier_die (self, inflictor, attacker, damage, point):
 	#int n
 
+	if not self:
+
+		return
+
+
 	if self.health > -80:
 		return
 
@@ -1021,6 +1375,11 @@ def misc_deadsoldier_die (self, inflictor, attacker, damage, point):
 
 
 def SP_misc_deadsoldier (ent):
+	if not ent:
+
+		return
+
+
 	if g_main.deathmatch.value:
 		# auto-remove for deathmatch
 		g_utils.G_FreeEdict (ent)
@@ -1059,12 +1418,22 @@ def SP_misc_deadsoldier (ent):
 This is the Viper for the flyby bombing.
 """
 def misc_viper_use  (self, other, activator):
+	if not self or not other or not activator:
+
+		return
+
+
 	self.svflags &= ~SVF_NOCLIENT
 	self.use = g_func.train_use
 	g_func.train_use (self, other, activator)
 
 
 def SP_misc_viper (ent):
+	if not ent:
+
+		return
+
+
 	if not ent.target:
 		g_main.gi.dprintf ("misc_viper without a target at %s\n", g_utils.vtos(ent.absmin))
 		g_utils.G_FreeEdict (ent)
@@ -1104,6 +1473,11 @@ def SP_misc_bigviper (ent):
 "dmg" how much boom should the bomb make?
 """
 def misc_viper_bomb_touch (self, other, plane, surf):
+	if not self:
+
+		return
+
+
 	g_utils.G_UseTargets (self, self.activator)
 
 	self.s.origin[2] = self.absmin[2] + 1
@@ -1114,6 +1488,11 @@ def misc_viper_bomb_touch (self, other, plane, surf):
 def misc_viper_bomb_prethink (self):
 	#vec3_t v
 	#float diff
+	if not self:
+
+		return
+
+
 	v = [0, 0, 0]
 
 	self.groundentity = None
@@ -1133,6 +1512,11 @@ def misc_viper_bomb_prethink (self):
 def misc_viper_bomb_use (self, other, activator):
 	#edict_t *viper
 
+	if not self or not activator:
+
+		return
+
+
 	self.solid = SOLID_BBOX
 	self.svflags &= ~SVF_NOCLIENT
 	self.s.effects |= EF_ROCKET
@@ -1150,6 +1534,11 @@ def misc_viper_bomb_use (self, other, activator):
 
 
 def SP_misc_viper_bomb (self):
+	if not self:
+
+		return
+
+
 	self.movetype = MOVETYPE_NONE
 	self.solid = SOLID_NOT
 	shared.VectorSet (self.mins, -8, -8, -8)
@@ -1170,12 +1559,22 @@ def SP_misc_viper_bomb (self):
 This is a Storgg ship for the flybys.
 """
 def misc_strogg_ship_use  (self, other, activator):
+	if not self or not activator:
+
+		return
+
+
 	self.svflags &= ~SVF_NOCLIENT
 	self.use = g_func.train_use
 	g_func.train_use (self, other, activator)
 
 
 def SP_misc_strogg_ship (ent):
+	if not ent:
+
+		return
+
+
 	if not ent.target:
 		g_main.gi.dprintf ("%s without a target at %s\n", ent.classname, g_utils.vtos(ent.absmin))
 		g_utils.G_FreeEdict (ent)
@@ -1202,18 +1601,33 @@ def SP_misc_strogg_ship (ent):
 """QUAKED misc_satellite_dish (1 .5 0) (-64 -64 0) (64 64 128)
 """
 def misc_satellite_dish_think (self):
+	if not self:
+
+		return
+
+
 	self.s.frame += 1
 	if self.s.frame < 38:
 		self.nextthink = g_main.level.time + FRAMETIME
 
 
 def misc_satellite_dish_use (self, other, activator):
+	if not self:
+
+		return
+
+
 	self.s.frame = 0
 	self.think = misc_satellite_dish_think
 	self.nextthink = g_main.level.time + FRAMETIME
 
 
 def SP_misc_satellite_dish (ent):
+	if not ent:
+
+		return
+
+
 	ent.movetype = MOVETYPE_NONE
 	ent.solid = SOLID_BBOX
 	shared.VectorSet (ent.mins, -64, -64, 0)
@@ -1226,6 +1640,11 @@ def SP_misc_satellite_dish (ent):
 """QUAKED light_mine1 (0 1 0) (-2 -2 -12) (2 2 12)
 """
 def SP_light_mine1 (ent):
+	if not ent:
+
+		return
+
+
 	ent.movetype = MOVETYPE_NONE
 	ent.solid = SOLID_BBOX
 	ent.s.modelindex = g_main.gi.modelindex ("models/objects/minelite/light1/tris.md2")
@@ -1235,6 +1654,11 @@ def SP_light_mine1 (ent):
 """QUAKED light_mine2 (0 1 0) (-2 -2 -12) (2 2 12)
 """
 def SP_light_mine2 (ent):
+	if not ent:
+
+		return
+
+
 	ent.movetype = MOVETYPE_NONE
 	ent.solid = SOLID_BBOX
 	ent.s.modelindex = g_main.gi.modelindex ("models/objects/minelite/light2/tris.md2")
@@ -1245,8 +1669,13 @@ def SP_light_mine2 (ent):
 Intended for use with the target_spawner
 """
 def SP_misc_gib_arm (ent):
+	if not ent:
+
+		return
+
+
 	g_main.gi.setmodel (ent, "models/objects/gibs/arm/tris.md2")
-	ent.solid = SOLID_NOT
+	ent.solid = SOLID_BBOX
 	ent.s.effects |= EF_GIB
 	ent.takedamage = DAMAGE_YES
 	ent.die = gib_die
@@ -1265,8 +1694,13 @@ def SP_misc_gib_arm (ent):
 Intended for use with the target_spawner
 """
 def SP_misc_gib_leg (ent):
+	if not ent:
+
+		return
+
+
 	g_main.gi.setmodel (ent, "models/objects/gibs/leg/tris.md2")
-	ent.solid = SOLID_NOT
+	ent.solid = SOLID_BBOX
 	ent.s.effects |= EF_GIB
 	ent.takedamage = DAMAGE_YES
 	ent.die = gib_die
@@ -1285,8 +1719,13 @@ def SP_misc_gib_leg (ent):
 Intended for use with the target_spawner
 """
 def SP_misc_gib_head (ent):
+	if not ent:
+
+		return
+
+
 	g_main.gi.setmodel (ent, "models/objects/gibs/head/tris.md2")
-	ent.solid = SOLID_NOT
+	ent.solid = SOLID_BBOX
 	ent.s.effects |= EF_GIB
 	ent.takedamage = DAMAGE_YES
 	ent.die = gib_die
@@ -1301,171 +1740,332 @@ def SP_misc_gib_head (ent):
 	g_main.gi.linkentity (ent)
 
 
-"""QUAKED target_character (0 0 1) ?
-used with target_string (must be on same "team")
-"count" is position in the string (starts at 1)
 """
-def SP_target_character (self):
+ * QUAKED target_character (0 0 1) ?
+ * used with target_string (must be on same "team")
+ * "count" is position in the string (starts at 1)
+"""
+TARGET_CHAR_DASH = 10
+TARGET_CHAR_COLON = 11
+TARGET_CHAR_BLANK = 12
+
+def _target_character_getframe(c: str)->int: #char (returns static int)
+
+	if (c >= '0') and (c <= '9'):
+
+		return ord(c) - ord('0')
+
+
+	if c == '-':
+
+		return TARGET_CHAR_DASH
+
+
+	if c == ':':
+
+		return TARGET_CHAR_COLON
+
+
+	return TARGET_CHAR_BLANK
+
+def SP_target_character(self): #edict_t *
+
+	if not self:
+
+		return
+
+
 	self.movetype = MOVETYPE_PUSH
-	g_main.gi.setmodel (self, self.model)
+	g_main.gi.setmodel(self, self.model)
 	self.solid = SOLID_BSP
-	self.s.frame = 12
-	g_main.gi.linkentity (self)
-	return
+	self.s.frame = TARGET_CHAR_BLANK
+	g_main.gi.linkentity(self)
 
+# =====================================================
 
-"""QUAKED target_string (0 0 1) (-8 -8 -8) (8 8 8)
 """
-def target_string_use (self, other, activator):
-	#edict_t *e
-	#int n, l
-	#c
+ * QUAKED target_string (0 0 1) (-8 -8 -8) (8 8 8)
+"""
+def _target_string_apply(tm, str_: str): #edict_t *, const char * (static)
 
-	l = len(self.message)
-	e = self.teammaster
-	while e:
-		if not e.count:
-			e = e.teamchain
-			continue
-		n = e.count - 1
-		if n > l:
-			e.s.frame = 12
-			e = e.teamchain
-			continue
+	"""
+	edict_t *e;
+	size_t l, n;
+	"""
 
-		c = self.message[n]
-		if '0' <= c <= '9':
-			e.s.frame = ord(c) - ord('0')
-		elif c == '-':
-			e.s.frame = 10
-		elif c == ':':
-			e.s.frame = 11
-		else:
-			e.s.frame = 12
+	l = len(str_) if str_ else 0
+
+	e = tm
+	while e and e.inuse:
+
+		if e.count > 0:
+
+			n = e.count - 1
+			e.s.frame = _target_character_getframe(str_[n] if (n < l) else ' ')
+
+
 		e = e.teamchain
 
+def target_string_use(self, other, activator): #edict_t *, edict_t *, edict_t *
 
-def SP_target_string (self):
-	if not self.message:
-		self.message = ""
+	_target_string_apply(self.teammaster, self.message)
+
+def SP_target_string(self): #edict_t *
+
 	self.use = target_string_use
 
+# =====================================================
 
-"""QUAKED func_clock (0 0 1) (-8 -8 -8) (8 8 8) TIMER_UP TIMER_DOWN START_OFF MULTI_USE
-target a target_string with this
 """
-import time as _time
-from common.header import shared
-from common.shared import shared as shared_c
+ * QUAKED func_clock (0 0 1) (-8 -8 -8) (8 8 8) TIMER_UP TIMER_DOWN START_OFF MULTI_USE
+ * target a target_string with this
+ *
+ * The default is to be a time of day clock
+ *
+ * TIMER_UP and TIMER_DOWN run for "count" seconds and the fire "pathtarget"
+ * If START_OFF, this entity must be used before it starts
+ *
+ * "style"	0 "xx"
+ *          1 "xx:xx"
+ *          2 "xx:xx:xx"
+"""
+FUNC_CLOCK_SF_UP = 1
+FUNC_CLOCK_SF_DOWN = 2
+FUNC_CLOCK_SF_OFF = 4
+FUNC_CLOCK_SF_MULUSE = 8
+
+CLOCK_TYPE_S = 0
+CLOCK_TYPE_MS = 1
+CLOCK_TYPE_HMS = 2
+
 CLOCK_MESSAGE_SIZE = 16
 
-def func_clock_reset (self):
+def func_clock_reset(self): #edict_t * (static)
+
+	if not self:
+
+		return
+
+
 	self.activator = None
-	if self.spawnflags & 1:
+
+	if self.spawnflags & FUNC_CLOCK_SF_UP:
+
 		self.health = 0
-		self.wait = self.count
-	elif self.spawnflags & 2:
+
+	elif self.spawnflags & FUNC_CLOCK_SF_DOWN:
+
 		self.health = self.count
-		self.wait = 0
+
+def func_clock_format_counter(type: int, t: int, str_sz: int)->str: #int, int, char *, size_t (static)
+
+	# Q2PORT: returns the string instead of writing to char *str
+
+	if not str_sz:
+
+		return ""
 
 
-def func_clock_format_countdown (self):
-	if self.style == 0:
-		self.message = "%2i" % self.health
-		return
+	if type == CLOCK_TYPE_S:
 
-	if self.style == 1:
-		self.message = "%2i:%2i" % (self.health // 60, self.health % 60)
-		if len(self.message) > 3 and self.message[3] == ' ':
-			self.message = self.message[:3] + '0' + self.message[4:]
-		return
+		str_ = "%2i" % t
 
-	if self.style == 2:
-		self.message = "%2i:%2i:%2i" % (self.health // 3600, (self.health - (self.health // 3600) * 3600) // 60, self.health % 60)
-		if len(self.message) > 3 and self.message[3] == ' ':
-			self.message = self.message[:3] + '0' + self.message[4:]
-		if len(self.message) > 6 and self.message[6] == ' ':
-			self.message = self.message[:6] + '0' + self.message[7:]
-		return
+	elif type == CLOCK_TYPE_MS:
 
+		str_ = "%2i:%02i" % (int(t / 60), int(math.fmod(t, 60)))
 
-def func_clock_think (self):
-	if not self.enemy:
-		self.enemy = g_utils.G_Find (None, "targetname", self.target)
-		if not self.enemy:
-			return
+	elif type == CLOCK_TYPE_HMS:
 
-	if self.spawnflags & 1:
-		func_clock_format_countdown (self)
-		self.health += 1
-	elif self.spawnflags & 2:
-		func_clock_format_countdown (self)
-		self.health -= 1
+		str_ = "%2i:%02i:%02i" % (
+			int(t / 3600),
+			int((t - (int(t / 3600) * 3600)) / 60),
+			int(math.fmod(t, 60)))
+
 	else:
-		ltime = _time.localtime()
-		self.message = "%2i:%2i:%2i" % (ltime.tm_hour, ltime.tm_min, ltime.tm_sec)
-		if len(self.message) > 3 and self.message[3] == ' ':
-			self.message = self.message[:3] + '0' + self.message[4:]
-		if len(self.message) > 6 and self.message[6] == ' ':
-			self.message = self.message[:6] + '0' + self.message[7:]
 
-	self.enemy.message = self.message
-	self.enemy.use (self.enemy, self, self)
+		str_ = ""
 
-	if (((self.spawnflags & 1) and (self.health > self.wait)) or
-		((self.spawnflags & 2) and (self.health < self.wait))):
+
+	return str_[:str_sz - 1] # Com_sprintf
+
+def func_clock_format_currtime(str_sz: int)->str: #char *, size_t (static)
+
+	# Q2PORT: returns the string instead of writing to char *str
+
+	"""
+	struct tm *ltime;
+	time_t gmtime;
+	"""
+
+	if not str_sz:
+
+		return ""
+
+
+	ltime = time.localtime()
+
+	return ("%2i:%02i:%02i" % (
+		ltime.tm_hour, ltime.tm_min, ltime.tm_sec))[:str_sz - 1]
+
+def ent_is_target_string(e)->bool: #const edict_t * (returns static qboolean)
+
+	return True if (e and e.inuse and
+		e.classname and e.classname == "target_string") else False
+
+def _func_clock_check_strent(self)->bool: #edict_t * (returns static qboolean)
+
+	if ent_is_target_string(self.enemy):
+
+		return True
+
+
+	self.enemy = g_utils.G_Find(None, local.FOFS("targetname"), self.target)
+
+	if not ent_is_target_string(self.enemy):
+
+		self.enemy = None
+		return False
+
+
+	return True
+
+def func_clock_think(self): #edict_t *
+
+	"""
+	char str[CLOCK_MESSAGE_SIZE];
+	"""
+
+	if not self:
+
+		return
+
+
+	if _func_clock_check_strent(self):
+
+		str_ = ""
+
+		if self.spawnflags & (FUNC_CLOCK_SF_UP|FUNC_CLOCK_SF_DOWN):
+
+			str_ = func_clock_format_counter(self.style, self.health, CLOCK_MESSAGE_SIZE)
+
+		else:
+
+			str_ = func_clock_format_currtime(CLOCK_MESSAGE_SIZE)
+
+
+		_target_string_apply(self.enemy.teammaster, str_)
+
+
+	if self.spawnflags & FUNC_CLOCK_SF_UP:
+
+		self.health += 1
+
+	elif self.spawnflags & FUNC_CLOCK_SF_DOWN:
+
+		self.health -= 1
+
+
+	if ((self.spawnflags & FUNC_CLOCK_SF_UP) and (self.health > self.count)) or \
+		((self.spawnflags & FUNC_CLOCK_SF_DOWN) and (self.health < 0)):
+
 		if self.pathtarget:
+
+			#char *savetarget;
+			#char *savemessage;
+
 			savetarget = self.target
 			savemessage = self.message
 			self.target = self.pathtarget
 			self.message = None
-			g_utils.G_UseTargets (self, self.activator)
+			g_utils.G_UseTargets(self, self.activator)
 			self.target = savetarget
 			self.message = savemessage
 
-		if not (self.spawnflags & 8):
+
+		if not (self.spawnflags & FUNC_CLOCK_SF_MULUSE):
+
+			self.think = g_utils.G_FreeEdict
+			self.nextthink = g_main.level.time + 1
 			return
 
-		func_clock_reset (self)
 
-		if self.spawnflags & 4:
+		func_clock_reset(self)
+
+		if self.spawnflags & FUNC_CLOCK_SF_OFF:
+
 			return
+
+
 
 	self.nextthink = g_main.level.time + 1
 
+def func_clock_use(self, other, activator): #edict_t *, edict_t *, edict_t *
 
-def func_clock_use (self, other, activator):
-	if not (self.spawnflags & 8):
+	if not self:
+
+		return
+
+
+	if not self.think:
+
+		return
+
+
+	if not (self.spawnflags & FUNC_CLOCK_SF_MULUSE):
+
 		self.use = None
+
+
 	if self.activator:
+
 		return
+
+
 	self.activator = activator
-	self.think (self)
+	self.think(self)
+
+def SP_func_clock(self): #edict_t *
+
+	if not self:
+
+		return
 
 
-def SP_func_clock (self):
 	if not self.target:
-		g_main.gi.dprintf("%s with no target at %s\n", self.classname, g_utils.vtos(self.s.origin))
-		g_utils.G_FreeEdict (self)
+
+		g_main.gi.dprintf("%s with no target at %s\n", self.classname,
+				g_utils.vtos(self.s.origin))
+
+		g_utils.G_FreeEdict(self)
 		return
 
-	if (self.spawnflags & 2) and (not self.count):
-		g_main.gi.dprintf("%s with no count at %s\n", self.classname, g_utils.vtos(self.s.origin))
-		g_utils.G_FreeEdict (self)
+
+	if (self.spawnflags & FUNC_CLOCK_SF_DOWN) and \
+		(self.count <= 0):
+
+		g_main.gi.dprintf("%s with no count at %s\n", self.classname,
+				g_utils.vtos(self.s.origin))
+
+		g_utils.G_FreeEdict(self)
 		return
 
-	if (self.spawnflags & 1) and (not self.count):
-		self.count = 60*60
 
-	func_clock_reset (self)
+	if (self.spawnflags & FUNC_CLOCK_SF_UP) and \
+		(self.count <= 0):
 
-	self.message = ""
+		self.count = 3600
+
+
+	func_clock_reset(self)
 
 	self.think = func_clock_think
 
-	if self.spawnflags & 4:
+	if self.spawnflags & FUNC_CLOCK_SF_OFF:
+
 		self.use = func_clock_use
+
 	else:
+
 		self.nextthink = g_main.level.time + 1
 
 
@@ -1473,8 +2073,16 @@ def teleporter_touch (self, other, plane, surf):
 	#edict_t *dest
 	#int i
 
-	if not other.client:
+	if not self or not other:
+
 		return
+
+
+	if not other.client:
+
+		return
+
+
 	dest = g_utils.G_Find (None, "targetname", self.target)
 	if not dest:
 		g_main.gi.dprintf ("Couldn't find destination\n")
@@ -1516,6 +2124,11 @@ Stepping onto this disc will teleport players to the targeted misc_teleporter_de
 def SP_misc_teleporter (ent):
 	#edict_t *trig
 
+	if not ent:
+
+		return
+
+
 	if not ent.target:
 		g_main.gi.dprintf ("teleporter without a target.\n")
 		g_utils.G_FreeEdict (ent)
@@ -1546,6 +2159,11 @@ def SP_misc_teleporter (ent):
 Point teleporters at these.
 """
 def SP_misc_teleporter_dest (ent):
+	if not ent:
+
+		return
+
+
 	g_main.gi.setmodel (ent, "models/objects/dmspot/tris.md2")
 	ent.s.skinnum = 0
 	ent.solid = SOLID_BBOX

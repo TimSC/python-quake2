@@ -1,32 +1,37 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+Monster utility functions.
+
+=======================================================================
 """
 from __future__ import annotations
 
+import numpy as np
+from common.shared import rand
+
 import math
-import random as _r
-pass
-pass
 from game import g_main
 from game import g_utils
 from game import g_ai
-from game import m_move
 from game import g_items
 from game import g_weapon
 from game import g_combat
@@ -34,6 +39,11 @@ from game.header.game import SVF_MONSTER, SVF_DEADMONSTER, SVF_NOCLIENT
 from common.header.shared import MASK_MONSTERSOLID, MASK_WATER, EF_FLIES, EF_COLOR_SHELL, EF_POWERSCREEN, RF_SHELL_RED, RF_SHELL_GREEN, RF_SHELL_BLUE, RF_FRAMELERP, CONTENTS_LAVA, CONTENTS_SLIME, CONTENTS_WATER, CHAN_BODY, ATTN_NORM, YAW
 from game.header.local import MOD_UNKNOWN, MOD_WATER, MOD_LAVA, MOD_SLIME, FRAMETIME, DAMAGE_NO_ARMOR, POWER_ARMOR_SCREEN, POWER_ARMOR_SHIELD, FL_SWIM, FL_FLY, FL_INWATER, FL_IMMUNE_LAVA, FL_IMMUNE_SLIME, FL_NOTARGET, DEAD_NO, AI_GOOD_GUY, AI_RESURRECTING, AI_HOLD_FRAME, MOVETYPE_NONE, MOVETYPE_STEP
 from game.header.game import solid_t
+
+"""
+#include "header/local.h"
+"""
+
 SOLID_BBOX = solid_t.SOLID_BBOX.value
 SOLID_NOT = solid_t.SOLID_NOT.value
 from game.header.local import damage_t
@@ -41,6 +51,7 @@ from common.header import shared
 from common.shared import shared as shared_c
 from game.header import local
 from game import g_items
+from game.monster.misc import move as m_move
 DAMAGE_AIM = damage_t.DAMAGE_AIM.value
 
 """
@@ -53,6 +64,11 @@ DAMAGE_AIM = damage_t.DAMAGE_AIM.value
 
 
 def monster_fire_bullet (self, start, dir, damage, kick, hspread, vspread, flashtype):
+	if not self:
+
+		return
+
+
 	g_weapon.fire_bullet (self, start, dir, damage, kick, hspread, vspread, MOD_UNKNOWN)
 
 	g_main.gi.WriteByte (local.svc_muzzleflash2)
@@ -62,6 +78,11 @@ def monster_fire_bullet (self, start, dir, damage, kick, hspread, vspread, flash
 
 
 def monster_fire_shotgun (self, start, aimdir, damage, kick, hspread, vspread, count, flashtype):
+	if not self:
+
+		return
+
+
 	g_weapon.fire_shotgun (self, start, aimdir, damage, kick, hspread, vspread, count, MOD_UNKNOWN)
 
 	g_main.gi.WriteByte (local.svc_muzzleflash2)
@@ -71,6 +92,11 @@ def monster_fire_shotgun (self, start, aimdir, damage, kick, hspread, vspread, c
 
 
 def monster_fire_blaster (self, start, dir, damage, speed, flashtype, effect):
+	if not self:
+
+		return
+
+
 	g_weapon.fire_blaster (self, start, dir, damage, speed, effect, False)
 
 	g_main.gi.WriteByte (local.svc_muzzleflash2)
@@ -80,6 +106,11 @@ def monster_fire_blaster (self, start, dir, damage, speed, flashtype, effect):
 
 
 def monster_fire_grenade (self, start, aimdir, damage, speed, flashtype):
+	if not self:
+
+		return
+
+
 	g_weapon.fire_grenade (self, start, aimdir, damage, speed, 2.5, damage+40)
 
 	g_main.gi.WriteByte (local.svc_muzzleflash2)
@@ -89,6 +120,11 @@ def monster_fire_grenade (self, start, aimdir, damage, speed, flashtype):
 
 
 def monster_fire_rocket (self, start, dir, damage, speed, flashtype):
+	if not self:
+
+		return
+
+
 	g_weapon.fire_rocket (self, start, dir, damage, speed, damage+20, damage)
 
 	g_main.gi.WriteByte (local.svc_muzzleflash2)
@@ -98,6 +134,11 @@ def monster_fire_rocket (self, start, dir, damage, speed, flashtype):
 
 
 def monster_fire_railgun (self, start, aimdir, damage, kick, flashtype):
+	if not self:
+
+		return
+
+
 	g_weapon.fire_rail (self, start, aimdir, damage, kick)
 
 	g_main.gi.WriteByte (local.svc_muzzleflash2)
@@ -107,6 +148,11 @@ def monster_fire_railgun (self, start, aimdir, damage, kick, flashtype):
 
 
 def monster_fire_bfg (self, start, aimdir, damage, speed, kick, damage_radius, flashtype):
+	if not self:
+
+		return
+
+
 	g_weapon.fire_bfg (self, start, aimdir, damage, speed, damage_radius)
 
 	g_main.gi.WriteByte (local.svc_muzzleflash2)
@@ -121,11 +167,21 @@ def monster_fire_bfg (self, start, aimdir, damage, speed, kick, damage_radius, f
 //
 """
 def M_FliesOff (self):
+	if not self:
+
+		return
+
+
 	self.s.effects &= ~EF_FLIES
 	self.s.sound = 0
 
 
 def M_FliesOn (self):
+	if not self:
+
+		return
+
+
 	if self.waterlevel:
 		return
 	self.s.effects |= EF_FLIES
@@ -135,6 +191,11 @@ def M_FliesOn (self):
 
 
 def M_FlyCheck (self):
+	if not self:
+
+		return
+
+
 	if self.waterlevel:
 		return
 
@@ -146,11 +207,21 @@ def M_FlyCheck (self):
 
 
 def AttackFinished (self, time):
+	if not self:
+
+		return
+
+
 	self.monsterinfo.attack_finished = g_main.level.time + time
 
 
 def M_CheckGround (ent):
 	#vec3_t point
+	if not ent:
+
+		return
+
+
 	point = [0, 0, 0]
 
 	if ent.flags & (FL_SWIM|FL_FLY):
@@ -179,90 +250,165 @@ def M_CheckGround (ent):
 		ent.velocity[2] = 0
 
 
-def M_CatagorizePosition (ent):
-	#vec3_t point
-	point = [0, 0, 0]
+def M_CatagorizePosition(ent): #edict_t *
 
-	#
+	"""
+	vec3_t point;
+	int cont;
+	"""
+	point = np.zeros((3,), dtype=np.float32)
+
+	if not ent:
+
+		return
+
+
 	# get waterlevel
-	#
-	point[0] = ent.s.origin[0]
-	point[1] = ent.s.origin[1]
-	point[2] = ent.s.origin[2] + ent.mins[2] + 1
-	cont = g_main.gi.pointcontents (point)
+	point[0] = (ent.absmax[0] + ent.absmin[0])/2
+	point[1] = (ent.absmax[1] + ent.absmin[1])/2
+	point[2] = ent.absmin[2] + 2
+	cont = g_main.gi.pointcontents(point)
 
 	if not (cont & MASK_WATER):
+
 		ent.waterlevel = 0
 		ent.watertype = 0
 		return
 
+
 	ent.watertype = cont
 	ent.waterlevel = 1
 	point[2] += 26
-	cont = g_main.gi.pointcontents (point)
+	cont = g_main.gi.pointcontents(point)
+
 	if not (cont & MASK_WATER):
+
 		return
+
 
 	ent.waterlevel = 2
 	point[2] += 22
-	cont = g_main.gi.pointcontents (point)
+	cont = g_main.gi.pointcontents(point)
+
 	if cont & MASK_WATER:
+
 		ent.waterlevel = 3
 
 
-def M_WorldEffects (ent):
-	#int dmg
+def M_WorldEffects(ent): #edict_t *
 
-	if ent.health > 0:
-		if not (ent.flags & FL_SWIM):
-			if ent.waterlevel < 3:
-				ent.air_finished = g_main.level.time + 12
-			elif ent.air_finished < g_main.level.time:
-				# drown!
-				if ent.pain_debounce_time < g_main.level.time:
-					dmg = 2 + 2 * int(math.floor(g_main.level.time - ent.air_finished))
-					if dmg > 15:
-						dmg = 15
-					g_combat.T_Damage (ent, g_main.g_edicts[0], g_main.g_edicts[0], shared_c.vec3_origin, ent.s.origin, shared_c.vec3_origin, dmg, 0, DAMAGE_NO_ARMOR, MOD_WATER)
-					ent.pain_debounce_time = g_main.level.time + 1
-		else:
-			if ent.waterlevel > 0:
-				ent.air_finished = g_main.level.time + 9
-			elif ent.air_finished < g_main.level.time:
-				# suffocate!
-				if ent.pain_debounce_time < g_main.level.time:
-					dmg = 2 + 2 * int(math.floor(g_main.level.time - ent.air_finished))
-					if dmg > 15:
-						dmg = 15
-					g_combat.T_Damage (ent, g_main.g_edicts[0], g_main.g_edicts[0], shared_c.vec3_origin, ent.s.origin, shared_c.vec3_origin, dmg, 0, DAMAGE_NO_ARMOR, MOD_WATER)
-					ent.pain_debounce_time = g_main.level.time + 1
+	"""
+	int dmg;
+	"""
 
-	if ent.waterlevel == 0:
-		if ent.flags & FL_INWATER:
-			g_main.gi.sound (ent, CHAN_BODY, g_main.gi.soundindex("player/watr_out.wav"), 1, ATTN_NORM, 0)
-			ent.flags &= ~FL_INWATER
+	if not ent:
+
 		return
 
-	if (ent.watertype & CONTENTS_LAVA) and not (ent.flags & FL_IMMUNE_LAVA):
-		if ent.damage_debounce_time < g_main.level.time:
-			ent.damage_debounce_time = g_main.level.time + 0.2
-			g_combat.T_Damage (ent, g_main.g_edicts[0], g_main.g_edicts[0], shared_c.vec3_origin, ent.s.origin, shared_c.vec3_origin, 10*ent.waterlevel, 0, 0, MOD_LAVA)
-	if (ent.watertype & CONTENTS_SLIME) and not (ent.flags & FL_IMMUNE_SLIME):
-		if ent.damage_debounce_time < g_main.level.time:
-			ent.damage_debounce_time = g_main.level.time + 1
-			g_combat.T_Damage (ent, g_main.g_edicts[0], g_main.g_edicts[0], shared_c.vec3_origin, ent.s.origin, shared_c.vec3_origin, 4*ent.waterlevel, 0, 0, MOD_SLIME)
 
-	if not (ent.flags & FL_INWATER) :
+	if ent.health > 0:
+
+		if not (ent.flags & FL_SWIM):
+
+			if ent.waterlevel < 3:
+
+				ent.air_finished = g_main.level.time + 12
+
+			elif ent.air_finished < g_main.level.time:
+
+				# drown!
+				if ent.pain_debounce_time < g_main.level.time:
+
+					dmg = 2 + 2 * math.floor(g_main.level.time - ent.air_finished)
+
+					if dmg > 15:
+
+						dmg = 15
+
+
+					g_combat.T_Damage(ent, g_main.g_edicts[0], g_main.g_edicts[0], shared_c.vec3_origin, ent.s.origin, shared_c.vec3_origin, dmg, 0, DAMAGE_NO_ARMOR, MOD_WATER)
+					ent.pain_debounce_time = g_main.level.time + 1
+
+
+
+		else:
+
+			if ent.waterlevel > 0:
+
+				ent.air_finished = g_main.level.time + 9
+
+			elif ent.air_finished < g_main.level.time:
+
+				# suffocate!
+				if ent.pain_debounce_time < g_main.level.time:
+
+					dmg = 2 + 2 * math.floor(g_main.level.time - ent.air_finished)
+
+					if dmg > 15:
+
+						dmg = 15
+
+
+					g_combat.T_Damage(ent, g_main.g_edicts[0], g_main.g_edicts[0], shared_c.vec3_origin, ent.s.origin, shared_c.vec3_origin, dmg, 0, DAMAGE_NO_ARMOR, MOD_WATER)
+					ent.pain_debounce_time = g_main.level.time + 1
+
+
+
+
+
+	if ent.waterlevel == 0:
+
+		if ent.flags & FL_INWATER:
+
+			g_main.gi.sound(ent, CHAN_BODY, g_main.gi.soundindex("player/watr_out.wav"), 1, ATTN_NORM, 0)
+			ent.flags &= ~FL_INWATER
+
+
+		return
+
+
+	if (ent.watertype & CONTENTS_LAVA) and not (ent.flags & FL_IMMUNE_LAVA):
+
+		if ent.damage_debounce_time < g_main.level.time:
+
+			ent.damage_debounce_time = g_main.level.time + 0.2
+			g_combat.T_Damage(ent, g_main.g_edicts[0], g_main.g_edicts[0], shared_c.vec3_origin, ent.s.origin, shared_c.vec3_origin, 10 * ent.waterlevel, 0, 0, MOD_LAVA)
+
+
+
+	if (ent.watertype & CONTENTS_SLIME) and not (ent.flags & FL_IMMUNE_SLIME) and not (ent.svflags & SVF_DEADMONSTER):
+
+		if ent.damage_debounce_time < g_main.level.time:
+
+			ent.damage_debounce_time = g_main.level.time + 1
+			g_combat.T_Damage(ent, g_main.g_edicts[0], g_main.g_edicts[0], shared_c.vec3_origin, ent.s.origin, shared_c.vec3_origin, 4 * ent.waterlevel, 0, 0, MOD_SLIME)
+
+
+
+	if not (ent.flags & FL_INWATER):
+
 		if not (ent.svflags & SVF_DEADMONSTER):
+
 			if ent.watertype & CONTENTS_LAVA:
+
 				if local.random() <= 0.5:
-					g_main.gi.sound (ent, CHAN_BODY, g_main.gi.soundindex("player/lava1.wav"), 1, ATTN_NORM, 0)
+
+					g_main.gi.sound(ent, CHAN_BODY, g_main.gi.soundindex("player/lava1.wav"), 1, ATTN_NORM, 0)
+
 				else:
-					g_main.gi.sound (ent, CHAN_BODY, g_main.gi.soundindex("player/lava2.wav"), 1, ATTN_NORM, 0)
+
+					g_main.gi.sound(ent, CHAN_BODY, g_main.gi.soundindex("player/lava2.wav"), 1, ATTN_NORM, 0)
+
+
 			elif ent.watertype & CONTENTS_SLIME:
-				g_main.gi.sound (ent, CHAN_BODY, g_main.gi.soundindex("player/watr_in.wav"), 1, ATTN_NORM, 0)
+
+				g_main.gi.sound(ent, CHAN_BODY, g_main.gi.soundindex("player/watr_in.wav"), 1, ATTN_NORM, 0)
+
 			elif ent.watertype & CONTENTS_WATER:
-				g_main.gi.sound (ent, CHAN_BODY, g_main.gi.soundindex("player/watr_in.wav"), 1, ATTN_NORM, 0)
+
+				g_main.gi.sound(ent, CHAN_BODY, g_main.gi.soundindex("player/watr_in.wav"), 1, ATTN_NORM, 0)
+
+
 
 		ent.flags |= FL_INWATER
 		ent.damage_debounce_time = 0
@@ -270,6 +416,11 @@ def M_WorldEffects (ent):
 
 def M_droptofloor (ent):
 	#vec3_t end
+	if not ent:
+
+		return
+
+
 	end = [0, 0, 0]
 
 	ent.s.origin[2] += 1
@@ -289,6 +440,11 @@ def M_droptofloor (ent):
 
 
 def M_SetEffects (ent):
+	if not ent:
+
+		return
+
+
 	ent.s.effects &= ~(EF_COLOR_SHELL|EF_POWERSCREEN)
 	ent.s.renderfx &= ~(RF_SHELL_RED|RF_SHELL_GREEN|RF_SHELL_BLUE)
 
@@ -307,49 +463,102 @@ def M_SetEffects (ent):
 			ent.s.renderfx |= RF_SHELL_GREEN
 
 
-def M_MoveFrame (self):
-	#mmove_t *move
-	#int index
+def M_MoveFrame(self): #edict_t *
+
+	"""
+	mmove_t *move;
+	int index;
+	"""
+
+	if not self:
+
+		return
+
 
 	move = self.monsterinfo.currentmove
 	self.nextthink = g_main.level.time + FRAMETIME
 
+	if not move:
+
+		return
+
+
 	if (self.monsterinfo.nextframe) and (self.monsterinfo.nextframe >= move.firstframe) and (self.monsterinfo.nextframe <= move.lastframe):
-		self.s.frame = self.monsterinfo.nextframe
+
+		if self.s.frame != self.monsterinfo.nextframe:
+
+			self.s.frame = self.monsterinfo.nextframe
+			self.monsterinfo.aiflags &= ~AI_HOLD_FRAME
+
+
 		self.monsterinfo.nextframe = 0
+
 	else:
+
+		# prevent nextframe from leaking into a future move
+		self.monsterinfo.nextframe = 0
+
 		if self.s.frame == move.lastframe:
+
 			if move.endfunc:
-				move.endfunc (self)
+
+				move.endfunc(self)
 
 				# regrab move, endfunc is very likely to change it
 				move = self.monsterinfo.currentmove
 
 				# check for death
 				if self.svflags & SVF_DEADMONSTER:
+
 					return
 
-		if self.s.frame < move.firstframe or self.s.frame > move.lastframe:
+
+
+
+		if (self.s.frame < move.firstframe) or (self.s.frame > move.lastframe):
+
 			self.monsterinfo.aiflags &= ~AI_HOLD_FRAME
 			self.s.frame = move.firstframe
+
 		else:
+
 			if not (self.monsterinfo.aiflags & AI_HOLD_FRAME):
+
 				self.s.frame += 1
+
 				if self.s.frame > move.lastframe:
+
 					self.s.frame = move.firstframe
 
+
+
+
+
 	index = self.s.frame - move.firstframe
+
 	if move.frame[index].aifunc:
+
 		if not (self.monsterinfo.aiflags & AI_HOLD_FRAME):
-			move.frame[index].aifunc (self, move.frame[index].dist * self.monsterinfo.scale)
+
+			move.frame[index].aifunc(self, move.frame[index].dist * self.monsterinfo.scale)
+
 		else:
-			move.frame[index].aifunc (self, 0)
+
+			move.frame[index].aifunc(self, 0)
+
+
 
 	if move.frame[index].thinkfunc:
-		move.frame[index].thinkfunc (self)
+
+		move.frame[index].thinkfunc(self)
 
 
 def monster_think (self):
+	if not self:
+
+		return
+
+
 	M_MoveFrame (self)
 	if self.linkcount != self.monsterinfo.linkcount:
 		self.monsterinfo.linkcount = self.linkcount
@@ -367,6 +576,11 @@ Using a monster makes it angry at the current activator
 ================
 """
 def monster_use (self, other, activator):
+	if not self or not activator:
+
+		return
+
+
 	if self.enemy:
 		return
 	if self.health <= 0:
@@ -382,6 +596,11 @@ def monster_use (self, other, activator):
 
 
 def monster_triggered_spawn (self):
+	if not self:
+
+		return
+
+
 	self.s.origin[2] += 1
 	g_utils.KillBox (self)
 
@@ -401,6 +620,11 @@ def monster_triggered_spawn (self):
 
 def monster_triggered_spawn_use (self, other, activator):
 	# we have a one frame delay here so we don't telefrag the guy who activated us
+	if not self or not activator:
+
+		return
+
+
 	self.think = monster_triggered_spawn
 	self.nextthink = g_main.level.time + FRAMETIME
 	if activator.client:
@@ -409,6 +633,11 @@ def monster_triggered_spawn_use (self, other, activator):
 
 
 def monster_triggered_start (self):
+	if not self:
+
+		return
+
+
 	self.solid = SOLID_NOT
 	self.movetype = MOVETYPE_NONE
 	self.svflags |= SVF_NOCLIENT
@@ -425,6 +654,11 @@ enemy as activator.
 ================
 """
 def monster_death_use (self):
+	if not self:
+
+		return
+
+
 	self.flags &= ~(FL_FLY|FL_SWIM)
 	self.monsterinfo.aiflags &= AI_GOOD_GUY
 
@@ -444,17 +678,39 @@ def monster_death_use (self):
 """
 ============================================================================
 """
-def monster_start (self):
-	if g_main.deathmatch.value:
-		g_utils.G_FreeEdict (self)
+def monster_start(self): #edict_t * (returns qboolean)
+
+	if not self:
+
 		return False
 
+
+	if g_main.deathmatch.value:
+
+		g_utils.G_FreeEdict(self)
+		return False
+
+
 	if (self.spawnflags & 4) and not (self.monsterinfo.aiflags & AI_GOOD_GUY):
+
 		self.spawnflags &= ~4
 		self.spawnflags |= 1
 
+
+	if (self.spawnflags & 2) and not self.targetname:
+
+		if g_main.g_fix_triggered.value:
+
+			self.spawnflags &= ~2
+
+
+		g_main.gi.dprintf ("triggered %s at %s has no targetname\n", self.classname, g_utils.vtos (self.s.origin))
+
+
 	if not (self.monsterinfo.aiflags & AI_GOOD_GUY):
+
 		g_main.level.total_monsters += 1
+
 
 	self.nextthink = g_main.level.time + FRAMETIME
 	self.svflags |= SVF_MONSTER
@@ -462,7 +718,12 @@ def monster_start (self):
 	self.takedamage = DAMAGE_AIM
 	self.air_finished = g_main.level.time + 12
 	self.use = monster_use
-	self.max_health = self.health
+
+	if not self.max_health:
+
+		self.max_health = self.health
+
+
 	self.clipmask = MASK_MONSTERSOLID
 
 	self.s.skinnum = 0
@@ -470,23 +731,38 @@ def monster_start (self):
 	self.svflags &= ~SVF_DEADMONSTER
 
 	if not self.monsterinfo.checkattack:
+
 		self.monsterinfo.checkattack = g_ai.M_CheckAttack
-	shared.VectorCopy (self.s.origin, self.s.old_origin)
+
+
+	shared.VectorCopy(self.s.origin, self.s.old_origin)
 
 	if g_main.st.item:
-		self.item = g_items.FindItemByClassname (g_main.st.item)
+
+		self.item = g_items.FindItemByClassname(g_main.st.item)
+
 		if not self.item:
+
 			g_main.gi.dprintf("%s at %s has bad item: %s\n", self.classname, g_utils.vtos(self.s.origin), g_main.st.item)
+
+
 
 	# randomize what frame they start on
 	if self.monsterinfo.currentmove:
-		self.s.frame = self.monsterinfo.currentmove.firstframe + (_r.randint(0, 2147483647) % (self.monsterinfo.currentmove.lastframe - self.monsterinfo.currentmove.firstframe + 1))
+
+		self.s.frame = self.monsterinfo.currentmove.firstframe + (rand.randk() % (self.monsterinfo.currentmove.lastframe - self.monsterinfo.currentmove.firstframe + 1))
+
 
 	return True
 
 
 def monster_start_go (self):
 	#vec3_t v
+	if not self:
+
+		return
+
+
 	v = [0, 0, 0]
 
 	if self.health <= 0:
@@ -550,61 +826,129 @@ def monster_start_go (self):
 	self.nextthink = g_main.level.time + FRAMETIME
 
 
-def walkmonster_start_go (self):
-	if not (self.spawnflags & 2) and g_main.level.time < 1:
-		M_droptofloor (self)
+def walkmonster_start_go(self): #edict_t *
+
+	if not self:
+
+		return
+
+
+	if not (self.spawnflags & 2) and (g_main.level.time < 1):
+
+		M_droptofloor(self)
 
 		if self.groundentity:
-			if not m_move.M_walkmove (self, 0, 0):
-				g_main.gi.dprintf ("%s in solid at %s\n", self.classname, g_utils.vtos(self.s.origin))
+
+			if not m_move.M_walkmove(self, 0, 0):
+
+				g_main.gi.dprintf("%s in solid at %s\n", self.classname, g_utils.vtos(self.s.origin))
+
+
+
 
 	if not self.yaw_speed:
-		self.yaw_speed = 20
-	self.viewheight = 25
 
-	monster_start_go (self)
+		self.yaw_speed = 20
+
+
+	if not self.viewheight:
+
+		self.viewheight = 25
+
 
 	if self.spawnflags & 2:
-		monster_triggered_start (self)
+
+		monster_triggered_start(self)
+
+	else:
+
+		monster_start_go(self)
 
 
 def walkmonster_start (self):
+	if not self:
+
+		return
+
+
 	self.think = walkmonster_start_go
 	monster_start (self)
 
 
-def flymonster_start_go (self):
-	if not m_move.M_walkmove (self, 0, 0):
-		g_main.gi.dprintf ("%s in solid at %s\n", self.classname, g_utils.vtos(self.s.origin))
+def flymonster_start_go(self): #edict_t *
+
+	if not self:
+
+		return
+
+
+	if not m_move.M_walkmove(self, 0, 0):
+
+		g_main.gi.dprintf("%s in solid at %s\n", self.classname, g_utils.vtos(self.s.origin))
+
 
 	if not self.yaw_speed:
-		self.yaw_speed = 10
-	self.viewheight = 25
 
-	monster_start_go (self)
+		self.yaw_speed = 10
+
+
+	if not self.viewheight:
+
+		self.viewheight = 25
+
 
 	if self.spawnflags & 2:
-		monster_triggered_start (self)
+
+		monster_triggered_start(self)
+
+	else:
+
+		monster_start_go(self)
 
 
 def flymonster_start (self):
+	if not self:
+
+		return
+
+
 	self.flags |= FL_FLY
 	self.think = flymonster_start_go
 	monster_start (self)
 
 
-def swimmonster_start_go (self):
-	if not self.yaw_speed:
-		self.yaw_speed = 10
-	self.viewheight = 10
+def swimmonster_start_go(self): #edict_t *
 
-	monster_start_go (self)
+	if not self:
+
+		return
+
+
+	if not self.yaw_speed:
+
+		self.yaw_speed = 10
+
+
+	if not self.viewheight:
+
+		self.viewheight = 10
+
 
 	if self.spawnflags & 2:
-		monster_triggered_start (self)
+
+		monster_triggered_start(self)
+
+	else:
+
+		monster_start_go(self)
 
 
 def swimmonster_start (self):
+	if not self:
+
+		return
+
+
 	self.flags |= FL_SWIM
 	self.think = swimmonster_start_go
 	monster_start (self)

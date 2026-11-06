@@ -209,8 +209,6 @@ def SV_CreateBaseline(): #void
 
 			sv.baselines[entnum] = copy.deepcopy(svent.s) #*es = svent->s;
 
-SV_CHECKFORSAVEGAME_ENABLED = False	# Q2PORT: see SV_CheckForSavegame; group 9 turns this on and removes it
-
 def SV_CheckForSavegame(isautosave: bool): #qboolean
 
 	"""
@@ -220,13 +218,6 @@ def SV_CheckForSavegame(isautosave: bool): #qboolean
 	"""
 
 	if sv_main.sv_noreload.value:
-
-		return
-
-
-	# Q2PORT: the game's ReadLevel doesn't restore the edicts yet (it saves only some fields);
-	# until the save game code is ported (group 9) a level is started fresh, as before
-	if not SV_CHECKFORSAVEGAME_ENABLED:
 
 		return
 

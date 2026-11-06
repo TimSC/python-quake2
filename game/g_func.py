@@ -1,52 +1,39 @@
 """
 Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
+=======================================================================
+
+Level functions. Platforms, buttons, dooors and so on.
+
+=======================================================================
 """
 from __future__ import annotations
 
-pass
 from game import g_main, g_utils, g_monster, g_misc, g_combat
 from math import floor, sqrt, fabs
 from common.header import shared
 from common.shared import shared as shared_c
 from game.header import game as game_h
 from game.header import local
+
 """
-/*
-Copyright (C) 1997-2001 Id Software, Inc.
-
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
-
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
-*/
-#include "g_local.h"
+#include "header/local.h"
 """
 
 #define PLAT_LOW_TRIGGER	1
@@ -352,10 +339,23 @@ Kills everything inside when fired, irrespective of protection.
 """
 
 def Move_Done (ent):
+	if not ent:
+
+		return
+
+
 	shared.VectorClear (ent.velocity)
-	ent.moveinfo.endfunc (ent)
+	if ent.moveinfo.endfunc:
+
+		ent.moveinfo.endfunc (ent)
+
 
 def Move_Final (ent):
+	if not ent:
+
+		return
+
+
 	if ent.moveinfo.remaining_distance == 0:
 		Move_Done (ent)
 		return
@@ -366,6 +366,11 @@ def Move_Final (ent):
 	ent.nextthink = g_main.level.time + local.FRAMETIME
 
 def Move_Begin (ent):
+	if not ent:
+
+		return
+
+
 	frames = 0.0
 
 	if (ent.moveinfo.speed * local.FRAMETIME) >= ent.moveinfo.remaining_distance:
@@ -396,10 +401,23 @@ def Move_Calc (ent, dest, func):
 		ent.nextthink = g_main.level.time + local.FRAMETIME
 
 def AngleMove_Done (ent):
+	if not ent:
+
+		return
+
+
 	shared.VectorClear (ent.avelocity)
-	ent.moveinfo.endfunc (ent)
+	if ent.moveinfo.endfunc:
+
+		ent.moveinfo.endfunc (ent)
+
 
 def AngleMove_Final (ent):
+	if not ent:
+
+		return
+
+
 	move = shared_c.vec3_origin.copy()
 
 	if ent.moveinfo.state == STATE_UP:
@@ -417,6 +435,11 @@ def AngleMove_Final (ent):
 	ent.nextthink = g_main.level.time + local.FRAMETIME
 
 def AngleMove_Begin (ent):
+	if not ent:
+
+		return
+
+
 	destdelta = shared_c.vec3_origin.copy()
 	len = 0.0
 	traveltime = 0.0
@@ -470,6 +493,11 @@ def _AddPointToBounds (p, mins, maxs):
 
 
 def plat_CalcAcceleratedMove (moveinfo):
+	if not moveinfo:
+
+		return
+
+
 	accel_dist = 0.0
 	decel_dist = 0.0
 
@@ -496,6 +524,11 @@ def plat_CalcAcceleratedMove (moveinfo):
 
 def plat_Accelerate (moveinfo):
 	# are we decelerating?
+	if not moveinfo:
+
+		return
+
+
 	if moveinfo.remaining_distance <= moveinfo.decel_distance:
 		if moveinfo.remaining_distance < moveinfo.decel_distance:
 			if moveinfo.next_speed:
@@ -557,6 +590,11 @@ def plat_Accelerate (moveinfo):
 	"""
 
 def Think_AccelMove (ent):
+	if not ent:
+
+		return
+
+
 	ent.moveinfo.remaining_distance -= ent.moveinfo.current_speed
 
 	if ent.moveinfo.current_speed == 0:		# starting or blocked
@@ -574,6 +612,11 @@ def Think_AccelMove (ent):
 	ent.think = Think_AccelMove
 
 def plat_hit_top (ent):
+	if not ent:
+
+		return
+
+
 	if not (ent.flags & local.FL_TEAMSLAVE):
 		if ent.moveinfo.sound_end:
 			g_main.gi.sound (ent, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, ent.moveinfo.sound_end, 1, shared.ATTN_STATIC, 0)
@@ -584,6 +627,11 @@ def plat_hit_top (ent):
 	ent.nextthink = g_main.level.time + 3
 
 def plat_hit_bottom (ent):
+	if not ent:
+
+		return
+
+
 	if not (ent.flags & local.FL_TEAMSLAVE):
 		if ent.moveinfo.sound_end:
 			g_main.gi.sound (ent, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, ent.moveinfo.sound_end, 1, shared.ATTN_STATIC, 0)
@@ -591,6 +639,11 @@ def plat_hit_bottom (ent):
 	ent.moveinfo.state = STATE_BOTTOM
 
 def plat_go_down (ent):
+	if not ent:
+
+		return
+
+
 	if not (ent.flags & local.FL_TEAMSLAVE):
 		if ent.moveinfo.sound_start:
 			g_main.gi.sound (ent, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, ent.moveinfo.sound_start, 1, shared.ATTN_STATIC, 0)
@@ -599,6 +652,11 @@ def plat_go_down (ent):
 	Move_Calc (ent, ent.moveinfo.end_origin, plat_hit_bottom)
 
 def plat_go_up (ent):
+	if not ent:
+
+		return
+
+
 	if not (ent.flags & local.FL_TEAMSLAVE):
 		if ent.moveinfo.sound_start:
 			g_main.gi.sound (ent, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, ent.moveinfo.sound_start, 1, shared.ATTN_STATIC, 0)
@@ -607,12 +665,21 @@ def plat_go_up (ent):
 	Move_Calc (ent, ent.moveinfo.start_origin, plat_hit_top)
 
 def plat_blocked (self, other):
+	if not self or not other:
+
+		return
+
+
 	if not (other.svflags & game_h.SVF_MONSTER) and not other.client:
 		# give it a chance to go away on it's own terms (like gibs)
 		g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, 100000, 1, 0, local.MOD_CRUSH)
 		# if it's still there, nuke it
-		if other:
+		if other.inuse:
+
+			# Hack for entity without its origin near the model
+			shared_c.VectorMA (other.absmin, 0.5, other.size, other.s.origin)
 			g_misc.BecomeExplosion1 (other)
+
 		return
 
 	g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, self.dmg, 1, 0, local.MOD_CRUSH)
@@ -623,24 +690,74 @@ def plat_blocked (self, other):
 		plat_go_up (self)
 
 def Use_Plat (ent, other, activator):
+	if not ent:
+
+		return
+
+
 	if ent.think:
 		return		# already down
 	plat_go_down (ent)
 
+def wait_and_change_think(ent): #edict_t *
+
+	#void (*afterwaitfunc)(edict_t *) = ent->moveinfo.endfunc;
+	afterwaitfunc = ent.moveinfo.endfunc
+	ent.moveinfo.endfunc = None
+
+	if afterwaitfunc:
+
+		afterwaitfunc(ent)
+
+"""
+ * In coop mode, this waits for coop_elevator_delay seconds
+ * before calling afterwaitfunc(ent); otherwise it just calls
+ * afterwaitfunc(ent);
+"""
+def wait_and_change(ent, afterwaitfunc): #edict_t *, void (*)(edict_t *) (static)
+
+	#float waittime = coop_elevator_delay->value;
+	waittime = g_main.coop_elevator_delay.value
+
+	if g_main.coop.value and waittime > 0.0:
+
+		if ent.nextthink == 0:
+
+			ent.moveinfo.endfunc = afterwaitfunc
+			ent.think = wait_and_change_think
+			ent.nextthink = g_main.level.time + waittime
+
+
+	elif afterwaitfunc:
+
+		afterwaitfunc(ent)
+
 def Touch_Plat_Center (ent, other, plane, surf):
-	if not other.client:
+	if not ent or not other:
+
 		return
-		
+
+
+	if not other.client:
+
+		return
+
+
 	if other.health <= 0:
 		return
 
 	ent = ent.enemy	# now point at the plat, not the trigger
 	if ent.moveinfo.state == STATE_BOTTOM:
-		plat_go_up (ent)
+		wait_and_change(ent, plat_go_up)
 	elif ent.moveinfo.state == STATE_TOP:
 		ent.nextthink = g_main.level.time + 1	# the player is still on the plat, so delay going down
 
 def plat_spawn_inside_trigger (ent):
+	if not ent:
+
+		return
+
+
 	trigger = None
 	tmin = shared_c.vec3_origin.copy()
 	tmax = shared_c.vec3_origin.copy()
@@ -658,10 +775,10 @@ def plat_spawn_inside_trigger (ent):
 	
 	tmin[0] = ent.mins[0] + 25
 	tmin[1] = ent.mins[1] + 25
-	tmin[2] = ent.mins[2]
 
 	tmax[0] = ent.maxs[0] - 25
 	tmax[1] = ent.maxs[1] - 25
+	# tmin[2] = ent.mins[2]
 	tmax[2] = ent.maxs[2] + 8
 
 	tmin[2] = tmax[2] - (ent.pos1[2] - ent.pos2[2] + g_main.st.lip)
@@ -682,6 +799,11 @@ def plat_spawn_inside_trigger (ent):
 	g_main.gi.linkentity (trigger)
 
 def SP_func_plat (ent):
+	if not ent:
+
+		return
+
+
 	shared.VectorClear (ent.s.angles)
 	ent.solid = SOLID_BSP
 	ent.movetype = local.MOVETYPE_PUSH
@@ -744,13 +866,28 @@ def SP_func_plat (ent):
 	ent.moveinfo.sound_end = g_main.gi.soundindex ("plats/pt1_end.wav")
 
 def rotating_blocked (self, other):
+	if not self or not other:
+
+		return
+
+
 	g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, self.dmg, 1, 0, local.MOD_CRUSH)
 
 def rotating_touch (self, other, plane, surf):
+	if not self or not other:
+
+		return
+
+
 	if self.avelocity[0] or self.avelocity[1] or self.avelocity[2]:
 		g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, self.dmg, 1, 0, local.MOD_CRUSH)
 
 def rotating_use (self, other, activator):
+	if not self:
+
+		return
+
+
 	if not shared_c.VectorCompare (self.avelocity, shared_c.vec3_origin):
 		self.s.sound = 0
 		shared.VectorClear (self.avelocity)
@@ -762,6 +899,11 @@ def rotating_use (self, other, activator):
 			self.touch = rotating_touch
 
 def SP_func_rotating (ent):
+	if not ent:
+
+		return
+
+
 	ent.solid = SOLID_BSP
 	if ent.spawnflags & 32:
 		ent.movetype = local.MOVETYPE_STOP
@@ -789,8 +931,7 @@ def SP_func_rotating (ent):
 #	ent.moveinfo.sound_middle = "doors/hydro1.wav";
 
 	ent.use = rotating_use
-	if ent.dmg:
-		ent.blocked = rotating_blocked
+	ent.blocked = rotating_blocked
 
 	if ent.spawnflags & 1:
 		ent.use (ent, None, None)
@@ -804,11 +945,21 @@ def SP_func_rotating (ent):
 	g_main.gi.linkentity (ent)
 
 def button_done (self):
+	if not self:
+
+		return
+
+
 	self.moveinfo.state = STATE_BOTTOM
 	self.s.effects &= ~shared.EF_ANIM23
 	self.s.effects |= shared.EF_ANIM01
 
 def button_return (self):
+	if not self:
+
+		return
+
+
 	self.moveinfo.state = STATE_DOWN
 
 	Move_Calc (self, self.moveinfo.start_origin, button_done)
@@ -819,6 +970,11 @@ def button_return (self):
 		self.takedamage = local.damage_t.DAMAGE_YES.value
 
 def button_wait (self):
+	if not self:
+
+		return
+
+
 	self.moveinfo.state = STATE_TOP
 	self.s.effects &= ~shared.EF_ANIM01
 	self.s.effects |= shared.EF_ANIM23
@@ -830,6 +986,11 @@ def button_wait (self):
 		self.think = button_return
 
 def button_fire (self):
+	if not self:
+
+		return
+
+
 	if self.moveinfo.state == STATE_UP or self.moveinfo.state == STATE_TOP:
 		return
 
@@ -839,12 +1000,24 @@ def button_fire (self):
 	Move_Calc (self, self.moveinfo.end_origin, button_wait)
 
 def button_use (self, other, activator):
+	if not self or not activator:
+
+		return
+
+
 	self.activator = activator
 	button_fire (self)
 
 def button_touch (self, other, plane, surf):
-	if not other.client:
+	if not self or not other:
+
 		return
+
+
+	if not other.client:
+
+		return
+
 
 	if other.health <= 0:
 		return
@@ -853,12 +1026,22 @@ def button_touch (self, other, plane, surf):
 	button_fire (self)
 
 def button_killed (self, inflictor, attacker, damage, point):
+	if not self:
+
+		return
+
+
 	self.activator = attacker
 	self.health = self.max_health
 	self.takedamage = local.damage_t.DAMAGE_NO.value
 	button_fire (self)
 
 def SP_func_button (ent):
+	if not ent:
+
+		return
+
+
 	abs_movedir = shared_c.vec3_origin.copy()
 	dist = 0.0
 
@@ -913,10 +1096,17 @@ def SP_func_button (ent):
 	g_main.gi.linkentity (ent)
 
 def door_use_areaportals (self, open):
-	t = None
+	if not self:
+
+		return
+
 
 	if not self.target:
+
 		return
+
+
+	t = None
 
 	while True:
 		t = g_utils.G_Find (t, "targetname", self.target)
@@ -926,6 +1116,11 @@ def door_use_areaportals (self, open):
 			g_main.gi.SetAreaPortalState (t.style, open)
 
 def door_hit_top (self):
+	if not self:
+
+		return
+
+
 	if not (self.flags & local.FL_TEAMSLAVE):
 		if self.moveinfo.sound_end:
 			g_main.gi.sound (self, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, self.moveinfo.sound_end, 1, shared.ATTN_STATIC, 0)
@@ -938,6 +1133,11 @@ def door_hit_top (self):
 		self.nextthink = g_main.level.time + self.moveinfo.wait
 
 def door_hit_bottom (self):
+	if not self:
+
+		return
+
+
 	if not (self.flags & local.FL_TEAMSLAVE):
 		if self.moveinfo.sound_end:
 			g_main.gi.sound (self, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, self.moveinfo.sound_end, 1, shared.ATTN_STATIC, 0)
@@ -946,6 +1146,11 @@ def door_hit_bottom (self):
 	door_use_areaportals (self, False)
 
 def door_go_down (self):
+	if not self:
+
+		return
+
+
 	if not (self.flags & local.FL_TEAMSLAVE):
 		if self.moveinfo.sound_start:
 			g_main.gi.sound (self, shared.CHAN_NO_PHS_ADD + shared.CHAN_VOICE, self.moveinfo.sound_start, 1, shared.ATTN_STATIC, 0)
@@ -961,6 +1166,11 @@ def door_go_down (self):
 		AngleMove_Calc (self, door_hit_bottom)
 
 def door_go_up (self, activator):
+	if not self:
+
+		return
+
+
 	if self.moveinfo.state == STATE_UP:
 		return		# already going up
 
@@ -984,6 +1194,11 @@ def door_go_up (self, activator):
 	door_use_areaportals (self, True)
 
 def door_use (self, other, activator):
+	if not self:
+
+		return
+
+
 	ent = None
 
 	if self.flags & local.FL_TEAMSLAVE:
@@ -1012,6 +1227,11 @@ def door_use (self, other, activator):
 	"""
 
 def Touch_DoorTrigger (self, other, plane, surf):
+	if not self or not self.owner or not other:
+
+		return
+
+
 	if other.health <= 0:
 		return
 
@@ -1028,6 +1248,11 @@ def Touch_DoorTrigger (self, other, plane, surf):
 	door_use (self.owner, other, other)
 
 def Think_CalcMoveSpeed (self):
+	if not self:
+
+		return
+
+
 	ent = None
 	min = 0.0
 	time = 0.0
@@ -1066,6 +1291,11 @@ def Think_CalcMoveSpeed (self):
 		ent = ent.teamchain
 
 def Think_SpawnDoorTrigger (ent):
+	if not ent:
+
+		return
+
+
 	other = None
 	mins = shared_c.vec3_origin.copy()
 	maxs = shared_c.vec3_origin.copy()
@@ -1103,14 +1333,23 @@ def Think_SpawnDoorTrigger (ent):
 	Think_CalcMoveSpeed (ent)
 
 def door_blocked (self, other):
+	if not self or not other:
+
+		return
+
+
 	ent = None
 
 	if not (other.svflags & game_h.SVF_MONSTER) and not other.client:
 		# give it a chance to go away on it's own terms (like gibs)
 		g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, 100000, 1, 0, local.MOD_CRUSH)
 		# if it's still there, nuke it
-		if other:
+		if other.inuse:
+
+			# Hack for entity without its origin near the model
+			shared_c.VectorMA (other.absmin, 0.5, other.size, other.s.origin)
 			g_misc.BecomeExplosion1 (other)
+
 		return
 
 	g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, self.dmg, 1, 0, local.MOD_CRUSH)
@@ -1134,6 +1373,11 @@ def door_blocked (self, other):
 				ent = ent.teamchain
 
 def door_killed (self, inflictor, attacker, damage, point):
+	if not self or not attacker:
+
+		return
+
+
 	ent = None
 
 	ent = self.teammaster
@@ -1155,6 +1399,11 @@ def door_touch (self, other, plane, surf):
 	g_main.gi.sound (other, shared.CHAN_AUTO, g_main.gi.soundindex ("misc/talk1.wav"), 1, shared.ATTN_NORM, 0)
 
 def SP_func_door (ent):
+	if not ent:
+
+		return
+
+
 	abs_movedir = shared_c.vec3_origin.copy()
 
 	if ent.sounds != 1:
@@ -1238,6 +1487,11 @@ def SP_func_door (ent):
 		ent.think = Think_SpawnDoorTrigger
 
 def SP_func_door_rotating (ent):
+	if not ent:
+
+		return
+
+
 	shared.VectorClear (ent.s.angles)
 
 	# set the axis of rotation
@@ -1327,6 +1581,11 @@ def SP_func_door_rotating (ent):
 		ent.think = Think_SpawnDoorTrigger
 
 def SP_func_water (self):
+	if not self:
+
+		return
+
+
 	abs_movedir = shared_c.vec3_origin.copy()
 
 	g_utils.G_SetMovedir (self.s.angles, self.movedir)
@@ -1334,10 +1593,7 @@ def SP_func_water (self):
 	self.solid = SOLID_BSP
 	g_main.gi.setmodel (self, self.model)
 
-	if self.sounds == 1: # water
-		self.moveinfo.sound_start = g_main.gi.soundindex  ("world/mov_watr.wav")
-		self.moveinfo.sound_end = g_main.gi.soundindex  ("world/stp_watr.wav")
-	elif self.sounds == 2: # lava
+	if self.sounds == 1 or self.sounds == 2: # water, lava
 		self.moveinfo.sound_start = g_main.gi.soundindex  ("world/mov_watr.wav")
 		self.moveinfo.sound_end = g_main.gi.soundindex  ("world/stp_watr.wav")
 
@@ -1380,12 +1636,21 @@ def SP_func_water (self):
 	g_main.gi.linkentity (self)
 
 def train_blocked (self, other):
+	if not self or not other:
+
+		return
+
+
 	if not (other.svflags & game_h.SVF_MONSTER) and not other.client:
 		# give it a chance to go away on it's own terms (like gibs)
 		g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, 100000, 1, 0, local.MOD_CRUSH)
 		# if it's still there, nuke it
-		if other:
+		if other.inuse:
+
+			# Hack for entity without its origin near the model
+			shared_c.VectorMA (other.absmin, 0.5, other.size, other.s.origin)
 			g_misc.BecomeExplosion1 (other)
+
 		return
 
 	if g_main.level.time < self.touch_debounce_time:
@@ -1397,6 +1662,11 @@ def train_blocked (self, other):
 	g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, self.dmg, 1, 0, local.MOD_CRUSH)
 
 def train_wait (self):
+	if not self:
+
+		return
+
+
 	if self.target_ent.pathtarget:
 		savetarget = ""
 		ent = None
@@ -1430,6 +1700,11 @@ def train_wait (self):
 	
 
 def train_next (self):
+	if not self:
+
+		return
+
+
 	ent = None
 	dest = shared_c.vec3_origin.copy()
 
@@ -1475,6 +1750,11 @@ def train_next (self):
 		break
 
 def train_resume (self):
+	if not self:
+
+		return
+
+
 	ent = None
 	dest = shared_c.vec3_origin.copy()
 
@@ -1488,6 +1768,11 @@ def train_resume (self):
 	self.spawnflags |= TRAIN_START_ON
 
 def func_train_find (self):
+	if not self:
+
+		return
+
+
 	ent = None
 
 	if not self.target:
@@ -1512,6 +1797,11 @@ def func_train_find (self):
 		self.activator = self
 
 def train_use (self, other, activator):
+	if not self or not activator:
+
+		return
+
+
 	self.activator = activator
 
 	if self.spawnflags & TRAIN_START_ON:
@@ -1527,6 +1817,11 @@ def train_use (self, other, activator):
 			train_next(self)
 
 def SP_func_train (self):
+	if not self:
+
+		return
+
+
 	self.movetype = local.MOVETYPE_PUSH
 
 	shared.VectorClear (self.s.angles)
@@ -1561,11 +1856,25 @@ def SP_func_train (self):
 		g_main.gi.dprintf ("func_train without a target at %s\n", g_utils.vtos(self.absmin))
 
 def trigger_elevator_use (self, other, activator):
+	if not self or not other:
+
+		return
+
+
 	target = None
 
-	if self.movetarget.nextthink:
-#		g_main.gi.dprintf("elevator busy\n");
+	train = self.movetarget
+
+	if not train or not train.inuse or \
+		not train.classname or train.classname != "func_train":
+
 		return
+
+
+	if train.nextthink:
+
+		return
+
 
 	if not other.pathtarget:
 		g_main.gi.dprintf("elevator used with no pathtarget\n")
@@ -1576,10 +1885,15 @@ def trigger_elevator_use (self, other, activator):
 		g_main.gi.dprintf("elevator used with bad pathtarget: %s\n", other.pathtarget)
 		return
 
-	self.movetarget.target_ent = target
-	train_resume (self.movetarget)
+	train.target_ent = target
+	train_resume (train)
 
 def trigger_elevator_init (self):
+	if not self:
+
+		return
+
+
 	if not self.target:
 		g_main.gi.dprintf("trigger_elevator has no target\n")
 		return
@@ -1596,14 +1910,29 @@ def trigger_elevator_init (self):
 
 
 def SP_trigger_elevator (self):
+	if not self:
+
+		return
+
+
 	self.think = trigger_elevator_init
 	self.nextthink = g_main.level.time + local.FRAMETIME
 
 def func_timer_think (self):
+	if not self:
+
+		return
+
+
 	g_utils.G_UseTargets (self, self.activator)
 	self.nextthink = g_main.level.time + self.wait + local.crandom() * self.random
 
 def func_timer_use (self, other, activator):
+	if not self or not activator:
+
+		return
+
+
 	self.activator = activator
 
 	# if on, turn it off
@@ -1618,6 +1947,11 @@ def func_timer_use (self, other, activator):
 		func_timer_think (self)
 
 def SP_func_timer (self):
+	if not self:
+
+		return
+
+
 	if not self.wait:
 		self.wait = 1.0
 
@@ -1635,6 +1969,11 @@ def SP_func_timer (self):
 	self.svflags = game_h.SVF_NOCLIENT
 
 def func_conveyor_use (self, other, activator):
+	if not self:
+
+		return
+
+
 	if self.spawnflags & 1:
 		self.speed = 0
 		self.spawnflags &= ~1
@@ -1646,6 +1985,11 @@ def func_conveyor_use (self, other, activator):
 		self.count = 0
 
 def SP_func_conveyor (self):
+	if not self:
+
+		return
+
+
 	if not self.speed:
 		self.speed = 100
 
@@ -1661,6 +2005,11 @@ def SP_func_conveyor (self):
 
 def door_secret_use (self, other, activator):
 	# make sure we're not already moving
+	if not self:
+
+		return
+
+
 	if not shared_c.VectorCompare(self.s.origin, shared_c.vec3_origin):
 		return
 
@@ -1668,41 +2017,85 @@ def door_secret_use (self, other, activator):
 	door_use_areaportals (self, True)
 
 def door_secret_move1 (self):
+	if not self:
+
+		return
+
+
 	self.nextthink = g_main.level.time + 1.0
 	self.think = door_secret_move2
 
 def door_secret_move2 (self):
+	if not self:
+
+		return
+
+
 	Move_Calc (self, self.pos2, door_secret_move3)
 
 def door_secret_move3 (self):
+	if not self:
+
+		return
+
+
 	if self.wait == -1:
 		return
 	self.nextthink = g_main.level.time + self.wait
 	self.think = door_secret_move4
 
 def door_secret_move4 (self):
+	if not self:
+
+		return
+
+
 	Move_Calc (self, self.pos1, door_secret_move5)
 
 def door_secret_move5 (self):
+	if not self:
+
+		return
+
+
 	self.nextthink = g_main.level.time + 1.0
 	self.think = door_secret_move6
 
 def door_secret_move6 (self):
+	if not self:
+
+		return
+
+
 	Move_Calc (self, shared_c.vec3_origin, door_secret_done)
 
 def door_secret_done (self):
+	if not self:
+
+		return
+
+
 	if not (self.targetname) or (self.spawnflags & SECRET_ALWAYS_SHOOT):
 		self.health = 0
 		self.takedamage = local.damage_t.DAMAGE_YES.value
 	door_use_areaportals (self, False)
 
 def door_secret_blocked (self, other):
+	if not self or not other:
+
+		return
+
+
 	if not (other.svflags & game_h.SVF_MONSTER) and not other.client:
 		# give it a chance to go away on it's own terms (like gibs)
 		g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, 100000, 1, 0, local.MOD_CRUSH)
 		# if it's still there, nuke it
-		if other:
+		if other.inuse:
+
+			# Hack for entity without its origin near the model
+			shared_c.VectorMA (other.absmin, 0.5, other.size, other.s.origin)
 			g_misc.BecomeExplosion1 (other)
+
 		return
 
 	if g_main.level.time < self.touch_debounce_time:
@@ -1712,10 +2105,20 @@ def door_secret_blocked (self, other):
 	g_combat.T_Damage (other, self, self, shared_c.vec3_origin, other.s.origin, shared_c.vec3_origin, self.dmg, 1, 0, local.MOD_CRUSH)
 
 def door_secret_die (self, inflictor, attacker, damage, point):
+	if not self or not attacker:
+
+		return
+
+
 	self.takedamage = local.damage_t.DAMAGE_NO.value
 	door_secret_use (self, attacker, attacker)
 
 def SP_func_door_secret (ent):
+	if not ent:
+
+		return
+
+
 	forward = shared_c.vec3_origin.copy()
 	right = shared_c.vec3_origin.copy()
 	up = shared_c.vec3_origin.copy()
@@ -1775,9 +2178,28 @@ def SP_func_door_secret (ent):
 	g_main.gi.linkentity (ent)
 
 def use_killbox (self, other, activator):
+	if not self:
+
+		return
+
+
 	g_utils.KillBox (self)
 
+	# Hack to make sure that really everything is killed
+	self.count -= 1
+
+	if not self.count:
+
+		self.think = g_utils.G_FreeEdict
+		self.nextthink = g_main.level.time + 1
+
+
 def SP_func_killbox (ent):
+	if not ent:
+
+		return
+
+
 	g_main.gi.setmodel (ent, ent.model)
 	ent.use = use_killbox
 	ent.svflags = game_h.SVF_NOCLIENT
