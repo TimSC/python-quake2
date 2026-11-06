@@ -1,32 +1,38 @@
-# Check the greyed menu items, the sound quality option and the texture quality option in the running game.
+# Open every menu in the running game and draw it, check that sliders and spin
+# controls change their cvars, walk a menu with the keys, and press "apply" in
+# the video menu (which restarts the renderer).
 import os, sys, time
 sys.argv = ["main.py"] + sys.argv[1:]
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import pygame
 import OpenGL.GL as GL
 from PIL import Image
-from linux import sys_linux, gl_glx, vid_menu, vid_so, qgl_linux
-from client import cl_main, menu, qmenu, snd_dma
-pass
-from ref_gl import gl_image
-from common import cvar
+from linux import sys_linux, gl_glx
 from client import cl_main
+from client.header import keyboard as keyboard_h
+from client.menu import menu, qmenu, videomenu
+from client.menu.header import qmenu as qmenu_h
+from common import cvar
 OUT = os.environ.get("OUT", "/tmp/q2tests")
-st = {"t0": None, "step": 0, "shots": []}
+st = {"t0": None, "step": 0, "menus": None, "frames": 0}
+
+MENUS = ["M_Menu_Main_f", "M_Menu_Game_f", "M_Menu_LoadGame_f", "M_Menu_SaveGame_f", "M_Menu_Multiplayer_f",
+	"M_Menu_JoinServer_f", "M_Menu_AddressBook_f", "M_Menu_StartServer_f", "M_Menu_DMOptions_f",
+	"M_Menu_PlayerConfig_f", "M_Menu_DownloadOptions_f", "M_Menu_Options_f", "M_Menu_Keys_f",
+	"M_Menu_Multiplayer_Keys_f", "M_Menu_Joy_f", "M_Menu_Stick_f", "M_Menu_Gyro_f",
+	"M_Menu_ControllerButtons_f", "M_Menu_ControllerAltButtons_f", "M_Menu_Credits_f", "M_Menu_Mods_f",
+	"M_Menu_Quit_f"]
 
 def shot(name):
 	vp = GL.glGetIntegerv(GL.GL_VIEWPORT); w, h = int(vp[2]), int(vp[3])
 	GL.glReadBuffer(GL.GL_BACK)
 	Image.frombytes("RGB", (w, h), GL.glReadPixels(0, 0, w, h, GL.GL_RGB, GL.GL_UNSIGNED_BYTE)).transpose(Image.FLIP_TOP_BOTTOM).save(os.path.join(OUT, name))
 
-def slide(item, direc):
-	before = item.curvalue
-	if item.type == menu.MTYPE_SLIDER: qmenu.Slider_DoSlide(item, direc)
-	else: qmenu.SpinControl_DoSlide(item, direc)
-	return before, item.curvalue
-
-def biggest_upload():
-	return max((t.upload_width or 0) for t in gl_image.gltextures if t.name and t.name.startswith("textures/"))
+def slide(item, dir_):
+	cv = item.cvar if item.type == qmenu_h.MTYPE_SLIDER else None
+	before = cvar.Cvar_VariableValue(cv) if cv else item.curvalue
+	if item.type == qmenu_h.MTYPE_SLIDER: qmenu.Slider_DoSlide(item, dir_)
+	else: qmenu.SpinControl_DoSlide(item, dir_)
+	return before, (cvar.Cvar_VariableValue(cv) if cv else item.curvalue)
 
 oe = gl_glx.GLimp_EndFrame
 def EF():
@@ -35,37 +41,40 @@ def EF():
 		t = time.time() - st["t0"]
 		s = st["step"]
 		if s == 0 and t > 1:
-			menu.M_Menu_Options_f(); st["step"] = 1
-		elif s == 1 and t > 2:
-			shot("options.png")
-			for it in (menu.s_options_cdvolume_box, menu.s_options_compatibility_list):
-				print("ms: options %-20s greyed=%s slide %s -> %s" % (it.name, bool(it.flags & menu.QMF_GRAYED), *slide(it, 1)))
-			print("ms: options sound quality shows %r (s_loadas8bit=%s)" % (menu.s_options_quality_list.itemnames[menu.s_options_quality_list.curvalue], cvar.Cvar_VariableValue("s_loadas8bit")))
-			print("ms: mixer before:", pygame.mixer.get_init())
-			# sound quality: high (the callback calls re.EndFrame, so move on to the next step first)
-			st["step"] = 2; st["t1"] = t
-			menu.s_options_quality_list.curvalue = 1; menu.UpdateSoundQualityFunc(None)
-		elif s == 2 and t > st["t1"] + 1:
-			print("ms: after 'high': s_khz=%s mixer=%s" % (cvar.Cvar_VariableValue("s_khz"), pygame.mixer.get_init()))
-			snd_dma.S_StartLocalSound("misc/menu1.wav")
-			st["step"] = 99
-			menu.s_options_quality_list.curvalue = 0; menu.UpdateSoundQualityFunc(None)
-			st["step"] = 2
-			print("ms: after 'low': s_khz=%s mixer=%s" % (cvar.Cvar_VariableValue("s_khz"), pygame.mixer.get_init()))
-			snd_dma.S_StartLocalSound("misc/menu2.wav")
+			st["menus"] = list(MENUS); st["step"] = 1
+		elif s == 1:
+			# one menu per frame, so each is drawn before the next opens
+			if st["menus"]:
+				name = st["menus"].pop(0)
+				menu.M_ForceMenuOff()
+				getattr(menu, name)()
+				top = menu.M_GetActiveMenu()
+				print("ms: opened %-30s items %d" % (name, top.nitems if top else -1))
+				if name == "M_Menu_Options_f": shot("options.png")
+			else:
+				menu.M_ForceMenuOff()
+				print("ms: all menus opened")
+				st["step"] = 2
+		elif s == 2:
+			menu.M_Menu_Options_f()
+			print("ms: options volume %s -> %s" % slide(menu.s_options_sfxvolume_slider, 1))
+			print("ms: options always run %s -> %s (cl_run %s)" % (*slide(menu.s_options_alwaysrun_box, 1), cvar.Cvar_VariableValue("cl_run")))
+			slide(menu.s_options_alwaysrun_box, -1)
+			# walk the menu with the keys
+			m = menu.M_GetActiveMenu(); c0 = m.cursor
+			menu.M_Keydown(keyboard_h.K_DOWNARROW); menu.M_Keydown(keyboard_h.K_DOWNARROW)
+			print("ms: options cursor %d -> %d after two down arrows" % (c0, m.cursor))
+			menu.M_Keydown(keyboard_h.K_ESCAPE)
+			print("ms: after escape the menu depth is %d" % menu.m_menudepth)
 			menu.M_ForceMenuOff()
-			vid_menu.VID_MenuInit()
-			print("ms: video 8-bit textures greyed=%s slide %s -> %s" % (bool(vid_menu.s_paletted_texture_box.flags & menu.QMF_GRAYED), *slide(vid_menu.s_paletted_texture_box, 1)))
-			st["up0"] = biggest_upload()
-			print("ms: texture quality slider %s, gl_picmip %s, largest world texture upload %d" % (vid_menu.s_tq_slider.curvalue, cvar.Cvar_VariableValue("gl_picmip"), st["up0"]))
-			vid_menu.s_tq_slider.curvalue = 1	# gl_picmip 2
-			vid_menu.ApplyChanges(None) if vid_menu.ApplyChanges.__code__.co_argcount else vid_menu.ApplyChanges()
-			print("ms: after apply: gl_picmip %s, vid_ref.modified %s" % (cvar.Cvar_VariableValue("gl_picmip"), vid_so.vid_ref.modified))
+			videomenu.M_Menu_Video_f()
+			print("ms: video fov %s -> %s" % slide(videomenu.s_fov_slider, 1))
+			slide(videomenu.s_fov_slider, -1)
+			shot("video.png")
+			videomenu.ApplyChanges(None)
 			st["step"] = 3; st["t2"] = t
-		elif s == 3 and t > st["t2"] + 8:
-			print("ms: after renderer restart: largest world texture upload %d (was %d)" % (biggest_upload(), st["up0"]))
-			shot("picmip2.png")
-			cvar.Cvar_SetValue("gl_picmip", 0)
+		elif s == 3 and t > st["t2"] + 6:
+			print("ms: after renderer restart: r_mode %s, key_dest %s" % (cvar.Cvar_VariableValue("r_mode"), cl_main.cls.key_dest.name))
 			sys.stdout.flush(); os._exit(0)
 	return oe()
 gl_glx.GLimp_EndFrame = EF

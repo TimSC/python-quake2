@@ -675,34 +675,35 @@ def COM_StripExtension (in_str): #char * (returns char *out)
 	out = in_str[:i]
 	return out
 
-r"""
-char *
-COM_StripExtension2(char *path)
-{
+def COM_StripExtension2(path: str): #char * (returns char *)
+
+	# Q2PORT: the C cuts path at the extension in place and returns the
+	# extension; here it returns (path, extension), extension None as the C's NULL
+
+	"""
 	char *s ;
+	"""
 
-	if (*path == '\0')
-	{
-		return NULL;
-	}
+	if not path: # *path == '\0'
 
-	s = path + (strlen(path) - 1);
+		return path, None
 
-	if (*s != '.')
-	{
-		for (; s > path && *s != '/' && *s != '\\'; s--)
-		{
-			if (*s == '.')
-			{
-				*s = '\0';
-				return s + 1;
-			}
-		}
-	}
 
-	return NULL;
-}
-"""
+	s = len(path) - 1 # s = path + (strlen(path) - 1);
+
+	if path[s] != '.':
+
+		while s > 0 and path[s] != '/' and path[s] != '\\': # for (; s > path && *s != '/' && *s != '\\'; s--)
+
+			if path[s] == '.':
+
+				return path[:s], path[s + 1:] # *s = '\0'; return s + 1;
+
+			s -= 1
+
+
+	return path, None
+
 
 def COM_FileExtension(in_: str)->str: #const char * (returns const char *)
 
@@ -1317,21 +1318,18 @@ def Q_strins(dest: str, src: str, i: int, n: int): #char *, const char *, size_t
 
 	return dest[:i] + src + dest[i:], slen
 
-r"""
-qboolean
-Q_strisnum(const char *s)
-{
-	for (; *s != '\0'; s++)
-	{
-		if (!isdigit(*s))
-		{
-			return false;
-		}
-	}
+def Q_strisnum(s: str)->bool: #const char * (returns qboolean)
 
-	return true;
-}
-"""
+	for c in s: # for (; *s != '\0'; s++)
+
+		if not ('0' <= c <= '9'): # !isdigit(*s)
+
+			return False
+
+
+
+	return True
+
 
 def Q_strchrs(s: str, chrs: str): #const char *, const char * (returns char *)
 	# Q2PORT: returns the offset of the first hit in s, or None
@@ -1345,23 +1343,22 @@ def Q_strchrs(s: str, chrs: str): #const char *, const char * (returns char *)
 
 	return None
 
-"""
-char *
-Q_strrchrs(const char *s, const char *chrs)
-{
+def Q_strrchrs(s: str, chrs: str): #const char *, const char * (returns char *)
+	# Q2PORT: returns the offset of the last hit in s, or None
+
+	"""
 	const char *curr;
+	"""
 
-	for (curr = s + (strlen(s) - 1); curr >= s; curr--)
-	{
-		if (strchr(chrs, *curr))
-		{
-			return (char *)curr;
-		}
-	}
+	for curr in range(len(s) - 1, -1, -1): # for (curr = s + (strlen(s) - 1); curr >= s; curr--)
 
-	return NULL;
-}
-"""
+		if s[curr] in chrs: # strchr(chrs, *curr)
+
+			return curr
+
+
+
+	return None
 
 def Q_strchr0(s: str, c: str, s_p: int = 0)->int: #const char *, char (returns char *)
 	# Q2PORT: s_p is the pointer as an offset into s; the offset of c, or of the end of s, is returned
@@ -1414,21 +1411,15 @@ FILE *Q_fopen(const char *file, const char *mode)
 }
 """
 
-"""
-int
-Q_sort_stricmp(const void *s1, const void *s2)
-{
-	return Q_stricmp(*(char**)s1, *(char**)s2);
-}
-"""
+def Q_sort_stricmp(s1: str, s2: str)->int: #const void *, const void * (returns int)
+	# Q2PORT: the qsort comparator takes the strings; use it with functools.cmp_to_key
 
-"""
-int
-Q_sort_strcomp(const void *s1, const void *s2)
-{
-	return strcmp(*(char **)s1, *(char **)s2);
-}
-"""
+	return Q_stricmp(s1, s2)
+
+def Q_sort_strcomp(s1: str, s2: str)->int: #const void *, const void * (returns int)
+	# Q2PORT: the qsort comparator takes the strings; use it with functools.cmp_to_key
+
+	return (s1 > s2) - (s1 < s2) # strcmp
 
 """
 /*
@@ -1683,171 +1674,130 @@ Q_realloc0(void *ptr, size_t prev_n, size_t new_n)
 }
 """
 
-"""
-void
-StrList_Init(strlist_t *sl, int cap)
-{
-	memset(sl, 0, sizeof(*sl));
+def StrList_Init(sl: shared.strlist_t, cap: int): #strlist_t *, int
 
-	if (cap > 0)
-	{
-		/* allocating +1 ensures the list is always NULL terminated */
-		sl->data = calloc(cap + 1, sizeof(char *));
+	sl.data, sl.num, sl.cap = None, 0, 0 # memset(sl, 0, sizeof(*sl));
 
-		if (!sl->data)
-		{
-			return;
-		}
+	if cap > 0:
 
-		sl->cap = cap;
-	}
-}
-"""
+		# allocating +1 ensures the list is always NULL terminated
+		sl.data = [None] * (cap + 1) # calloc(cap + 1, sizeof(char *))
 
-"""
-void
-StrList_Free(strlist_t *sl)
-{
-	if (sl->data)
-	{
-		int i;
+		sl.cap = cap
 
-		for (i = 0; i < sl->num; i++)
-		{
-			if (sl->data[i])
-			{
-				free(sl->data[i]);
-			}
-		}
 
-		free(sl->data);
-		sl->data = NULL;
-	}
+def StrList_Free(sl: shared.strlist_t): #strlist_t *
 
-	sl->cap = 0;
-	sl->num = 0;
-}
-"""
+	if sl.data:
 
-"""
-void
-StrList_Compress(strlist_t *sl)
-{
+		sl.data = None # free(sl->data[i]) ... free(sl->data);
+
+
+	sl.cap = 0
+	sl.num = 0
+
+
+def StrList_Compress(sl: shared.strlist_t): #strlist_t *
+
+	"""
 	char **new_data;
+	"""
 
-	if (sl->cap <= sl->num)
-	{
-		return;
-	}
+	if sl.cap <= sl.num:
 
-	new_data = realloc(sl->data, (sl->num + 1) * sizeof(char *));
-	if (new_data)
-	{
-		sl->data = new_data;
-		sl->cap = sl->num;
-	}
-}
-"""
+		return
 
-"""
-int
-StrList_Find(const strlist_t *sl, sl_eqfunc eq, const char *s)
-{
+
+	sl.data = sl.data[:sl.num + 1] # realloc(sl->data, (sl->num + 1) * sizeof(char *))
+	sl.cap = sl.num
+
+
+def StrList_Find(sl: shared.strlist_t, eq, s: str)->int: #const strlist_t *, sl_eqfunc, const char * (returns int)
+
+	"""
 	int i;
+	"""
 
-	if (!eq)
-	{
-		eq = strcmp;
-	}
+	if not eq:
 
-	for (i = 0; i < sl->num; i++)
-	{
-		if (!eq(sl->data[i], s))
-		{
-			return i;
-		}
-	}
+		eq = lambda a, b: a != b # strcmp, only its truth value is used
 
-	return sl->num;
-}
-"""
 
-"""
-void
-StrList_Expand(strlist_t *sl, int new_cap)
-{
+	for i in range(sl.num):
+
+		if not eq(sl.data[i], s):
+
+			return i
+
+
+
+	return sl.num
+
+
+def StrList_Expand(sl: shared.strlist_t, new_cap: int): #strlist_t *, int
+
+	"""
 	char **new_data;
+	"""
 
-	if (new_cap <= sl->cap)
-	{
-		return;
-	}
+	if new_cap <= sl.cap:
 
-	new_data = Q_realloc0(sl->data,
-		!sl->cap ? 0 : ((sl->cap + 1) * sizeof(char *)),
-		(new_cap + 1) * sizeof(char *));
+		return
 
-	if (!new_data)
-	{
-		return;
-	}
 
-	sl->data = new_data;
-	sl->cap = new_cap;
-}
-"""
+	# Q_realloc0: the new entries are NULL
+	new_data = (sl.data if sl.cap else []) + [None] * ((new_cap + 1) - (sl.cap + 1 if sl.cap else 0))
 
-"""
-void
-StrList_Append(strlist_t *sl, const char *s)
-{
+	sl.data = new_data
+	sl.cap = new_cap
+
+
+def StrList_Append(sl: shared.strlist_t, s: str): #strlist_t *, const char *
+
+	"""
 	char *new_s;
+	"""
 
-	if (sl->num >= sl->cap)
-	{
-		StrList_Expand(sl, NextPow2gt(sl->cap));
+	if sl.num >= sl.cap:
 
-		if (sl->num >= sl->cap)
-		{
-			return;
-		}
-	}
+		StrList_Expand(sl, int(NextPow2gt(sl.cap)))
 
-	new_s = strdup(s);
-	if (new_s)
-	{
-		sl->data[sl->num] = new_s;
-		sl->num++;
-	}
-}
-"""
+		if sl.num >= sl.cap:
 
-r"""
-void
-StrList_Print(const strlist_t *sl, void (*printfunc)(const char *fmt, ...))
-{
+			return
+
+
+
+	sl.data[sl.num] = s # new_s = strdup(s);
+	sl.num += 1
+
+
+def StrList_Print(sl: shared.strlist_t, printfunc=None): #const strlist_t *, void (*printfunc)(const char *fmt, ...)
+
+	"""
 	int i;
+	"""
 
-	if (!printfunc)
-	{
-		printfunc = Com_Printf;
-	}
+	if not printfunc:
 
-	printfunc("%d / %d items\n{\n", sl->num, sl->cap);
+		from common import clientserver # Q2PORT: imported here, a module-level import would be circular while shared.h loads
+		printfunc = clientserver.Com_Printf
 
-	for (i = 0; i < sl->num; i++)
-	{
-		printfunc("  '%s'\n", sl->data[i]);
-	}
 
-	if (sl->num && !sl->data[sl->num])
-	{
-		printfunc("  NULL\n");
-	}
+	printfunc("%d / %d items\n{\n", sl.num, sl.cap)
 
-	printfunc("}\n");
-}
-"""
+	for i in range(sl.num):
+
+		printfunc("  '%s'\n", sl.data[i])
+
+
+	if sl.num and not sl.data[sl.num]:
+
+		printfunc("  NULL\n")
+
+
+	printfunc("}\n")
+
 
 """
 int

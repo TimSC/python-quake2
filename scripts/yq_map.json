@@ -4164,55 +4164,55 @@
     {
      "name": "SVC_Status",
      "kind": "def",
-     "line": 46,
+     "line": 47,
      "yq": "server/sv_conless.c"
     },
     {
      "name": "SVC_Ack",
      "kind": "def",
-     "line": 55,
+     "line": 56,
      "yq": "server/sv_conless.c"
     },
     {
      "name": "SVC_Info",
      "kind": "def",
-     "line": 66,
+     "line": 67,
      "yq": "server/sv_conless.c"
     },
     {
      "name": "SVC_Ping",
      "kind": "def",
-     "line": 96,
+     "line": 97,
      "yq": "server/sv_conless.c"
     },
     {
      "name": "SVC_GetChallenge",
      "kind": "def",
-     "line": 110,
+     "line": 111,
      "yq": "server/sv_conless.c"
     },
     {
      "name": "SVC_DirectConnect",
      "kind": "def",
-     "line": 142,
+     "line": 143,
      "yq": "server/sv_conless.c"
     },
     {
      "name": "Rcon_Validate",
      "kind": "def",
-     "line": 253,
+     "line": 254,
      "yq": "server/sv_conless.c"
     },
     {
      "name": "SVC_RemoteCommand",
      "kind": "def",
-     "line": 266,
+     "line": 267,
      "yq": "server/sv_conless.c"
     },
     {
      "name": "SV_ConnectionlessPacket",
      "kind": "def",
-     "line": 300,
+     "line": 301,
      "yq": "server/sv_conless.c"
     }
    ]
@@ -4270,145 +4270,145 @@
     {
      "name": "ge",
      "kind": "var",
-     "line": 54,
+     "line": 55,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_Unicast",
      "kind": "def",
-     "line": 69,
+     "line": 70,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_dprintf",
      "kind": "def",
-     "line": 97,
+     "line": 98,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_cprintf",
      "kind": "def",
-     "line": 116,
+     "line": 117,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_centerprintf",
      "kind": "def",
-     "line": 145,
+     "line": 146,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_error",
      "kind": "def",
-     "line": 171,
+     "line": 172,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_setmodel",
      "kind": "def",
-     "line": 190,
+     "line": 191,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_Configstring",
      "kind": "def",
-     "line": 216,
+     "line": 217,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_WriteChar",
      "kind": "def",
-     "line": 274,
+     "line": 275,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_WriteByte",
      "kind": "def",
-     "line": 276,
+     "line": 277,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_WriteShort",
      "kind": "def",
-     "line": 278,
+     "line": 279,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_WriteLong",
      "kind": "def",
-     "line": 280,
+     "line": 281,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_WriteFloat",
      "kind": "def",
-     "line": 282,
+     "line": 283,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_WriteString",
      "kind": "def",
-     "line": 284,
+     "line": 285,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_WritePos",
      "kind": "def",
-     "line": 286,
+     "line": 287,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_WriteDir",
      "kind": "def",
-     "line": 288,
+     "line": 289,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_WriteAngle",
      "kind": "def",
-     "line": 290,
+     "line": 291,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_inPVS",
      "kind": "def",
-     "line": 301,
+     "line": 302,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_inPHS",
      "kind": "def",
-     "line": 327,
+     "line": 328,
      "yq": "server/sv_game.c"
     },
     {
      "name": "PF_StartSound",
      "kind": "def",
-     "line": 346,
+     "line": 347,
      "yq": "server/sv_game.c"
     },
     {
      "name": "SV_ShutdownGameProgs",
      "kind": "def",
-     "line": 361,
+     "line": 362,
      "yq": "server/sv_game.c"
     },
     {
      "name": "GI_TagMalloc",
      "kind": "def",
-     "line": 371,
+     "line": 372,
      "yq": "server/sv_game.c"
     },
     {
      "name": "GI_FreeTags",
      "kind": "def",
-     "line": 390,
+     "line": 391,
      "yq": "server/sv_game.c"
     },
     {
      "name": "SV_InitGameProgs",
      "kind": "def",
-     "line": 412,
+     "line": 413,
      "yq": "server/sv_game.c"
     }
    ]
@@ -4419,97 +4419,97 @@
     {
      "name": "ALLOC_ENTITIES_MIN",
      "kind": "var",
-     "line": 58,
+     "line": 60,
      "yq": "server/sv_init.c"
     },
     {
      "name": "MAX_SV_ENTNUM",
      "kind": "var",
-     "line": 59,
+     "line": 61,
      "yq": "server/sv_init.c"
     },
     {
      "name": "svs",
      "kind": "var",
-     "line": 61,
+     "line": 63,
      "yq": "server/sv_init.c"
     },
     {
      "name": "sv",
      "kind": "var",
-     "line": 62,
+     "line": 64,
      "yq": "server/sv_init.c"
     },
     {
      "name": "SV_AllocBaseline",
      "kind": "def",
-     "line": 64,
+     "line": 66,
      "yq": "server/sv_init.c"
     },
     {
      "name": "SV_FindIndex",
      "kind": "def",
-     "line": 88,
+     "line": 90,
      "yq": "server/sv_init.c"
     },
     {
      "name": "SV_ModelIndex",
      "kind": "def",
-     "line": 163,
+     "line": 165,
      "yq": "server/sv_init.c"
     },
     {
      "name": "SV_SoundIndex",
      "kind": "def",
-     "line": 167,
+     "line": 169,
      "yq": "server/sv_init.c"
     },
     {
      "name": "SV_ImageIndex",
      "kind": "def",
-     "line": 171,
+     "line": 173,
      "yq": "server/sv_init.c"
     },
     {
      "name": "SV_CreateBaseline",
      "kind": "def",
-     "line": 180,
+     "line": 182,
      "yq": "server/sv_init.c"
     },
     {
      "name": "SV_CheckForSavegame",
      "kind": "def",
-     "line": 212,
+     "line": 214,
      "yq": "server/sv_init.c"
     },
     {
      "name": "SV_SpawnServer",
      "kind": "def",
-     "line": 265,
+     "line": 267,
      "yq": "server/sv_init.c"
     },
     {
      "name": "SV_ClearGamemodeCvar",
      "kind": "def",
-     "line": 390,
+     "line": 392,
      "yq": "server/sv_init.c"
     },
     {
      "name": "SV_ChooseGamemode",
      "kind": "def",
-     "line": 398,
+     "line": 400,
      "yq": "server/sv_init.c"
     },
     {
      "name": "SV_InitGame",
      "kind": "def",
-     "line": 457,
+     "line": 459,
      "yq": "server/sv_init.c"
     },
     {
      "name": "SV_Map",
      "kind": "def",
-     "line": 559,
+     "line": 561,
      "yq": "server/sv_init.c"
     }
    ]
@@ -5275,225 +5275,403 @@
    "default": "client/cl_cin.c",
    "symbols": [
     {
+     "name": "cin_force43",
+     "kind": "var",
+     "line": 52,
+     "yq": "client/cl_cin.c"
+    },
+    {
+     "name": "abort_cinematic",
+     "kind": "var",
+     "line": 53,
+     "yq": "client/cl_cin.c"
+    },
+    {
      "name": "cinematics_t",
      "kind": "class",
-     "line": 46,
+     "line": 55,
      "yq": "client/cl_cin.c"
     },
     {
      "name": "cin",
      "kind": "var",
-     "line": 68,
+     "line": 78,
      "yq": "client/cl_cin.c"
-    },
-    {
-     "name": "SCR_LoadPCX",
-     "kind": "def",
-     "line": 84,
-     "yq": null
     },
     {
      "name": "SCR_StopCinematic",
      "kind": "def",
-     "line": 172,
+     "line": 89,
      "yq": "client/cl_cin.c"
     },
     {
      "name": "SCR_FinishCinematic",
      "kind": "def",
-     "line": 214,
+     "line": 136,
      "yq": "client/cl_cin.c"
     },
     {
      "name": "SmallestNode1",
      "kind": "def",
-     "line": 229,
+     "line": 151,
      "yq": "client/cl_cin.c"
     },
     {
      "name": "Huff1TableInit",
      "kind": "def",
-     "line": 262,
+     "line": 183,
      "yq": "client/cl_cin.c"
     },
     {
      "name": "Huff1Decompress",
      "kind": "def",
-     "line": 318,
+     "line": 239,
      "yq": "client/cl_cin.c"
     },
     {
      "name": "SCR_ReadNextFrame",
      "kind": "def",
-     "line": 380,
+     "line": 311,
      "yq": "client/cl_cin.c"
     },
     {
      "name": "SCR_RunCinematic",
      "kind": "def",
-     "line": 447,
+     "line": 408,
+     "yq": "client/cl_cin.c"
+    },
+    {
+     "name": "SCR_MinimalColor",
+     "kind": "def",
+     "line": 452,
      "yq": "client/cl_cin.c"
     },
     {
      "name": "SCR_DrawCinematic",
      "kind": "def",
-     "line": 499,
+     "line": 480,
+     "yq": "client/cl_cin.c"
+    },
+    {
+     "name": "SCR_LoadHiColor",
+     "kind": "def",
+     "line": 574,
      "yq": "client/cl_cin.c"
     },
     {
      "name": "SCR_PlayCinematic",
      "kind": "def",
-     "line": 535,
+     "line": 617,
      "yq": "client/cl_cin.c"
     }
    ]
   },
-  "client/cl_ents.py": {
-   "default": "client/cl_parse.c",
+  "client/cl_console.py": {
+   "default": "client/cl_console.c",
    "symbols": [
     {
-     "name": "vidref_val",
+     "name": "con",
+     "kind": "var",
+     "line": 56,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "con_notifytime",
+     "kind": "var",
+     "line": 58,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "DrawString",
+     "kind": "def",
+     "line": 68,
+     "yq": null
+    },
+    {
+     "name": "DrawAltString",
+     "kind": "def",
+     "line": 78,
+     "yq": null
+    },
+    {
+     "name": "DrawStringScaled",
+     "kind": "def",
+     "line": 88,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "DrawAltStringScaled",
+     "kind": "def",
+     "line": 95,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "Key_ClearTyping",
+     "kind": "def",
+     "line": 102,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "Con_ToggleConsole_f",
+     "kind": "def",
+     "line": 113,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "Con_ToggleChat_f",
+     "kind": "def",
+     "line": 164,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "Con_Clear_f",
+     "kind": "def",
+     "line": 177,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "Con_Dump_f",
+     "kind": "def",
+     "line": 181,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "Con_ClearNotify",
+     "kind": "def",
+     "line": 247,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "Con_MessageMode_f",
+     "kind": "def",
+     "line": 260,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "Con_MessageMode2_f",
+     "kind": "def",
+     "line": 266,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "Con_CheckResize",
+     "kind": "def",
+     "line": 272,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "Con_Init",
+     "kind": "def",
+     "line": 346,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "Con_Linefeed",
+     "kind": "def",
+     "line": 374,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "Con_Print_cr",
+     "kind": "var",
+     "line": 387,
+     "yq": null
+    },
+    {
+     "name": "Con_Print",
+     "kind": "def",
+     "line": 398,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "Con_DrawInput",
+     "kind": "def",
+     "line": 486,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "Con_DrawNotify",
+     "kind": "def",
+     "line": 567,
+     "yq": "client/cl_console.c"
+    },
+    {
+     "name": "Con_DrawConsole",
+     "kind": "def",
+     "line": 650,
+     "yq": "client/cl_console.c"
+    }
+   ]
+  },
+  "client/cl_download.py": {
+   "default": "client/cl_download.c",
+   "symbols": [
+    {
+     "name": "PLAYER_MULT",
+     "kind": "var",
+     "line": 50,
+     "yq": "client/cl_download.c"
+    },
+    {
+     "name": "ENV_CNT",
+     "kind": "var",
+     "line": 53,
+     "yq": "client/cl_download.c"
+    },
+    {
+     "name": "TEXTURE_CNT",
+     "kind": "var",
+     "line": 54,
+     "yq": "client/cl_download.c"
+    },
+    {
+     "name": "env_suf",
+     "kind": "var",
+     "line": 56,
+     "yq": "client/cl_download.c"
+    },
+    {
+     "name": "forceudp",
+     "kind": "var",
+     "line": 59,
+     "yq": "client/cl_download.c"
+    },
+    {
+     "name": "httpSecondChance",
+     "kind": "var",
+     "line": 63,
+     "yq": "client/cl_download.c"
+    },
+    {
+     "name": "precacherIteration",
+     "kind": "var",
+     "line": 73,
+     "yq": "client/cl_download.c"
+    },
+    {
+     "name": "dont_restart_texture_stage",
+     "kind": "var",
+     "line": 78,
+     "yq": "client/cl_download.c"
+    },
+    {
+     "name": "gamedirForFilelist",
+     "kind": "var",
+     "line": 81,
+     "yq": "client/cl_download.c"
+    },
+    {
+     "name": "second_try",
+     "kind": "var",
+     "line": 83,
+     "yq": null
+    },
+    {
+     "name": "CL_RequestNextDownload",
+     "kind": "def",
+     "line": 85,
+     "yq": "client/cl_download.c"
+    },
+    {
+     "name": "CL_DownloadFileName",
+     "kind": "def",
+     "line": 390,
+     "yq": "client/cl_download.c"
+    },
+    {
+     "name": "CL_DownloadFilter",
+     "kind": "def",
+     "line": 398,
+     "yq": "client/cl_download.c"
+    },
+    {
+     "name": "CL_CheckOrDownloadFile",
+     "kind": "def",
+     "line": 464,
+     "yq": "client/cl_download.c"
+    },
+    {
+     "name": "CL_Download_f",
+     "kind": "def",
+     "line": 526,
+     "yq": "client/cl_download.c"
+    },
+    {
+     "name": "CL_ParseDownload",
+     "kind": "def",
+     "line": 568,
+     "yq": "client/cl_download.c"
+    }
+   ]
+  },
+  "client/cl_entities.py": {
+   "default": "client/cl_entities.c",
+   "symbols": [
+    {
+     "name": "pi",
      "kind": "alias",
-     "line": 47,
-     "yq": "client/cl_parse.c"
+     "line": 50,
+     "yq": "client/cl_entities.c"
     },
     {
-     "name": "cl_mod_powerscreen",
+     "name": "LASERLERP_NSKIPS",
      "kind": "var",
-     "line": 48,
-     "yq": "client/cl_tempentities.c"
+     "line": 52,
+     "yq": "client/cl_entities.c"
     },
     {
-     "name": "MAX_PROJECTILES",
+     "name": "CL_AddPacketEntities_game",
      "kind": "var",
-     "line": 71,
-     "yq": null
-    },
-    {
-     "name": "projectile_t",
-     "kind": "class",
-     "line": 74,
-     "yq": null
-    },
-    {
-     "name": "cl_projectiles",
-     "kind": "var",
-     "line": 86,
-     "yq": null
-    },
-    {
-     "name": "CL_ClearProjectiles",
-     "kind": "def",
-     "line": 89,
-     "yq": null
-    },
-    {
-     "name": "CL_ParseProjectiles",
-     "kind": "def",
-     "line": 100,
-     "yq": null
-    },
-    {
-     "name": "CL_AddProjectiles",
-     "kind": "def",
-     "line": 155,
-     "yq": null
-    },
-    {
-     "name": "bitcounts",
-     "kind": "var",
-     "line": 179,
-     "yq": "client/cl_parse.c"
-    },
-    {
-     "name": "i",
-     "kind": "alias",
-     "line": 180,
-     "yq": "client/cl_parse.c"
-    },
-    {
-     "name": "CL_ParseEntityBits",
-     "kind": "def",
-     "line": 183,
-     "yq": "client/cl_parse.c"
-    },
-    {
-     "name": "CL_ParseDelta",
-     "kind": "def",
-     "line": 224,
-     "yq": "client/cl_parse.c"
-    },
-    {
-     "name": "CL_DeltaEntity",
-     "kind": "def",
-     "line": 303,
-     "yq": "client/cl_parse.c"
-    },
-    {
-     "name": "CL_ParsePacketEntities",
-     "kind": "def",
-     "line": 362,
-     "yq": "client/cl_parse.c"
-    },
-    {
-     "name": "CL_ParsePlayerstate",
-     "kind": "def",
-     "line": 488,
-     "yq": "client/cl_parse.c"
-    },
-    {
-     "name": "CL_FireEntityEvents",
-     "kind": "def",
-     "line": 612,
-     "yq": "client/cl_parse.c"
-    },
-    {
-     "name": "CL_ParseFrame",
-     "kind": "def",
-     "line": 634,
-     "yq": "client/cl_parse.c"
-    },
-    {
-     "name": "S_RegisterSexedModel",
-     "kind": "def",
-     "line": 749,
+     "line": 53,
      "yq": null
     },
     {
      "name": "bfg_lightramp",
      "kind": "var",
-     "line": 781,
+     "line": 54,
      "yq": null
     },
     {
      "name": "CL_AddPacketEntities",
      "kind": "def",
-     "line": 783,
+     "line": 56,
      "yq": "client/cl_entities.c"
     },
     {
      "name": "CL_AddViewWeapon",
      "kind": "def",
-     "line": 1258,
+     "line": 650,
+     "yq": "client/cl_entities.c"
+    },
+    {
+     "name": "AdaptFov",
+     "kind": "def",
+     "line": 727,
      "yq": "client/cl_entities.c"
     },
     {
      "name": "CL_CalcViewValues",
      "kind": "def",
-     "line": 1302,
+     "line": 753,
      "yq": "client/cl_entities.c"
     },
     {
      "name": "CL_AddEntities",
      "kind": "def",
-     "line": 1394,
+     "line": 868,
      "yq": "client/cl_entities.c"
     },
     {
-     "name": "CL_GetEntitySoundOrigin",
+     "name": "CL_GetEntitySoundVelocity",
      "kind": "def",
-     "line": 1447,
-     "yq": null
+     "line": 915,
+     "yq": "client/cl_entities.c"
+    },
+    {
+     "name": "CL_GetViewVelocity",
+     "kind": "def",
+     "line": 931,
+     "yq": "client/cl_entities.c"
     }
    ]
   },
@@ -5503,338 +5681,373 @@
     {
      "name": "clightstyle_t",
      "kind": "class",
-     "line": 56,
+     "line": 58,
      "yq": "client/cl_lights.c"
     },
     {
      "name": "cl_lightstyle",
      "kind": "var",
-     "line": 64,
+     "line": 66,
      "yq": "client/cl_lights.c"
     },
     {
      "name": "_",
      "kind": "alias",
-     "line": 65,
+     "line": 67,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "lastofs",
      "kind": "var",
-     "line": 67,
+     "line": 69,
      "yq": "client/cl_lights.c"
     },
     {
      "name": "CL_ClearLightStyles",
      "kind": "def",
-     "line": 72,
+     "line": 74,
      "yq": "client/cl_lights.c"
     },
     {
      "name": "CL_RunLightStyles",
      "kind": "def",
-     "line": 88,
+     "line": 90,
      "yq": "client/cl_lights.c"
     },
     {
      "name": "CL_SetLightstyle",
      "kind": "def",
-     "line": 107,
+     "line": 109,
      "yq": "client/cl_lights.c"
     },
     {
      "name": "CL_AddLightStyles",
      "kind": "def",
-     "line": 122,
+     "line": 124,
      "yq": "client/cl_lights.c"
     },
     {
      "name": "cdlight_t",
      "kind": "class",
-     "line": 127,
+     "line": 129,
      "yq": "client/header/client.h"
     },
     {
      "name": "cl_dlights",
      "kind": "var",
-     "line": 148,
+     "line": 150,
      "yq": null
     },
     {
      "name": "CL_ClearDlights",
      "kind": "def",
-     "line": 153,
+     "line": 155,
      "yq": "client/cl_lights.c"
     },
     {
      "name": "CL_AllocDlight",
      "kind": "def",
-     "line": 173,
+     "line": 175,
      "yq": "client/cl_lights.c"
     },
     {
      "name": "CL_NewDlight",
      "kind": "def",
-     "line": 200,
+     "line": 202,
      "yq": "client/cl_lights.c"
     },
     {
      "name": "CL_RunDLights",
      "kind": "def",
-     "line": 215,
+     "line": 217,
      "yq": "client/cl_lights.c"
     },
     {
      "name": "CL_AddDLights",
      "kind": "def",
-     "line": 233,
+     "line": 235,
      "yq": "client/cl_lights.c"
     },
     {
      "name": "CL_ParseMuzzleFlash",
      "kind": "def",
-     "line": 239,
+     "line": 241,
      "yq": null
     },
     {
      "name": "CL_ParseMuzzleFlash2",
      "kind": "def",
-     "line": 429,
+     "line": 433,
      "yq": null
     },
     {
      "name": "cparticle_t",
      "kind": "class",
-     "line": 643,
+     "line": 649,
      "yq": "client/header/client.h"
     },
     {
      "name": "PARTICLE_GRAVITY",
      "kind": "var",
-     "line": 656,
+     "line": 662,
      "yq": "client/header/client.h"
     },
     {
      "name": "INSTANT_PARTICLE",
      "kind": "var",
-     "line": 657,
+     "line": 663,
      "yq": "client/header/client.h"
     },
     {
      "name": "cl_numparticles",
      "kind": "alias",
-     "line": 659,
+     "line": 665,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "particles",
      "kind": "var",
-     "line": 660,
+     "line": 666,
      "yq": "client/cl_particles.c"
     },
     {
      "name": "active_particles",
      "kind": "var",
-     "line": 663,
+     "line": 669,
      "yq": "client/cl_particles.c"
     },
     {
      "name": "free_particles",
      "kind": "var",
-     "line": 664,
+     "line": 670,
      "yq": "client/cl_particles.c"
     },
     {
      "name": "_alloc_particle",
      "kind": "def",
-     "line": 667,
+     "line": 673,
      "yq": null
     },
     {
      "name": "_free_particle",
      "kind": "def",
-     "line": 673,
+     "line": 679,
      "yq": null
     },
     {
      "name": "CL_ClearParticles",
      "kind": "def",
-     "line": 677,
+     "line": 683,
      "yq": "client/cl_particles.c"
     },
     {
      "name": "CL_ParticleEffect",
      "kind": "def",
-     "line": 701,
+     "line": 707,
      "yq": "client/cl_particles.c"
     },
     {
      "name": "CL_ExplosionParticles",
      "kind": "def",
-     "line": 721,
+     "line": 727,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_BigTeleportParticles",
      "kind": "def",
-     "line": 739,
+     "line": 745,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_BlasterParticles",
      "kind": "def",
-     "line": 773,
+     "line": 779,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_LogoutEffect",
      "kind": "def",
-     "line": 885,
+     "line": 891,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_ItemRespawnParticles",
      "kind": "def",
-     "line": 926,
+     "line": 932,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_TeleporterParticles",
      "kind": "def",
-     "line": 961,
+     "line": 967,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_BlasterTrail",
      "kind": "def",
-     "line": 997,
+     "line": 1003,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_QuadTrail",
      "kind": "def",
-     "line": 1048,
+     "line": 1054,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_FlagTrail",
      "kind": "def",
-     "line": 1098,
+     "line": 1104,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_DiminishingTrail",
      "kind": "def",
-     "line": 1148,
+     "line": 1154,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "MakeNormalVectors",
      "kind": "def",
-     "line": 1245,
+     "line": 1251,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_RocketTrail",
      "kind": "def",
-     "line": 1267,
+     "line": 1273,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_RailTrail",
      "kind": "def",
-     "line": 1325,
+     "line": 1331,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_IonripperTrail",
      "kind": "def",
-     "line": 1417,
+     "line": 1423,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_BubbleTrail",
      "kind": "def",
-     "line": 1481,
+     "line": 1487,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "BEAMLENGTH",
      "kind": "var",
-     "line": 1532,
+     "line": 1538,
      "yq": null
     },
     {
      "name": "avelocities",
      "kind": "var",
-     "line": 1534,
+     "line": 1540,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_FlyParticles",
      "kind": "def",
-     "line": 1536,
+     "line": 1542,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_FlyEffect",
      "kind": "def",
-     "line": 1595,
+     "line": 1601,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_BfgParticles",
      "kind": "def",
-     "line": 1629,
+     "line": 1635,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_TrapParticles",
      "kind": "def",
-     "line": 1697,
+     "line": 1703,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_BFGExplosionParticles",
      "kind": "def",
-     "line": 1801,
+     "line": 1807,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_TeleportParticles",
      "kind": "def",
-     "line": 1834,
+     "line": 1840,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_AddParticles",
      "kind": "def",
-     "line": 1873,
+     "line": 1879,
      "yq": "client/cl_particles.c"
     },
     {
      "name": "CL_EntityEvent",
      "kind": "def",
-     "line": 1918,
+     "line": 1924,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_ParticleEffect2",
      "kind": "def",
-     "line": 1998,
+     "line": 2004,
      "yq": "client/cl_particles.c"
     },
     {
      "name": "CL_ParticleEffect3",
      "kind": "def",
-     "line": 2017,
+     "line": 2023,
      "yq": "client/cl_particles.c"
     },
     {
      "name": "CL_ClearEffects",
      "kind": "def",
-     "line": 2039,
+     "line": 2045,
      "yq": "client/cl_effects.c"
+    }
+   ]
+  },
+  "client/cl_image.py": {
+   "default": "client/cl_image.c",
+   "symbols": [
+    {
+     "name": "PCX_IDENT",
+     "kind": "var",
+     "line": 41,
+     "yq": "client/cl_image.c"
+    },
+    {
+     "name": "PCX_HEADER_SIZE",
+     "kind": "var",
+     "line": 57,
+     "yq": null
+    },
+    {
+     "name": "PCX_RLE_Decode",
+     "kind": "def",
+     "line": 59,
+     "yq": "client/cl_image.c"
+    },
+    {
+     "name": "PCX_Decode",
+     "kind": "def",
+     "line": 116,
+     "yq": "client/cl_image.c"
+    },
+    {
+     "name": "SCR_LoadImageWithPalette",
+     "kind": "def",
+     "line": 383,
+     "yq": "client/cl_image.c"
     }
    ]
   },
@@ -5844,451 +6057,768 @@
     {
      "name": "cl_nodelta",
      "kind": "var",
-     "line": 41,
+     "line": 53,
      "yq": "client/cl_input.c"
     },
     {
      "name": "old_sys_frame_time",
      "kind": "var",
-     "line": 45,
+     "line": 54,
      "yq": "client/cl_input.c"
     },
     {
      "name": "frame_msec",
      "kind": "var",
-     "line": 46,
+     "line": 55,
      "yq": "client/cl_input.c"
-    },
-    {
-     "name": "kbutton_t",
-     "kind": "class",
-     "line": 306,
-     "yq": "client/header/client.h"
     },
     {
      "name": "in_klook",
      "kind": "var",
-     "line": 315,
+     "line": 58,
      "yq": "client/cl_input.c"
     },
     {
      "name": "in_left",
      "kind": "var",
-     "line": 316,
+     "line": 59,
      "yq": "client/cl_input.c"
     },
     {
      "name": "in_right",
      "kind": "var",
-     "line": 317,
+     "line": 60,
      "yq": "client/cl_input.c"
     },
     {
      "name": "in_forward",
      "kind": "var",
-     "line": 318,
+     "line": 61,
      "yq": "client/cl_input.c"
     },
     {
      "name": "in_back",
      "kind": "var",
-     "line": 319,
+     "line": 62,
      "yq": "client/cl_input.c"
     },
     {
      "name": "in_lookup",
      "kind": "var",
-     "line": 320,
+     "line": 63,
      "yq": "client/cl_input.c"
     },
     {
      "name": "in_lookdown",
      "kind": "var",
-     "line": 321,
+     "line": 64,
      "yq": "client/cl_input.c"
     },
     {
      "name": "in_moveleft",
      "kind": "var",
-     "line": 322,
+     "line": 65,
      "yq": "client/cl_input.c"
     },
     {
      "name": "in_moveright",
      "kind": "var",
-     "line": 323,
+     "line": 66,
      "yq": "client/cl_input.c"
     },
     {
      "name": "in_strafe",
      "kind": "var",
-     "line": 324,
+     "line": 67,
      "yq": "client/cl_input.c"
     },
     {
      "name": "in_speed",
      "kind": "var",
-     "line": 325,
+     "line": 68,
      "yq": "client/cl_input.c"
     },
     {
      "name": "in_use",
      "kind": "var",
-     "line": 326,
+     "line": 69,
      "yq": "client/cl_input.c"
     },
     {
      "name": "in_attack",
      "kind": "var",
-     "line": 327,
+     "line": 70,
      "yq": "client/cl_input.c"
     },
     {
      "name": "in_up",
      "kind": "var",
-     "line": 328,
+     "line": 71,
      "yq": "client/cl_input.c"
     },
     {
      "name": "in_down",
      "kind": "var",
-     "line": 329,
+     "line": 72,
      "yq": "client/cl_input.c"
     },
     {
      "name": "in_impulse",
      "kind": "var",
-     "line": 331,
+     "line": 74,
      "yq": "client/cl_input.c"
     },
     {
      "name": "cl_upspeed",
      "kind": "var",
-     "line": 333,
+     "line": 76,
      "yq": null
     },
     {
      "name": "cl_forwardspeed",
      "kind": "var",
-     "line": 334,
+     "line": 77,
      "yq": "client/cl_input.c"
     },
     {
      "name": "cl_sidespeed",
      "kind": "var",
-     "line": 335,
+     "line": 78,
      "yq": "client/cl_input.c"
     },
     {
      "name": "cl_yawspeed",
      "kind": "var",
-     "line": 336,
+     "line": 79,
      "yq": "client/cl_input.c"
     },
     {
      "name": "cl_pitchspeed",
      "kind": "var",
-     "line": 337,
+     "line": 80,
      "yq": "client/cl_input.c"
     },
     {
      "name": "cl_run",
      "kind": "var",
-     "line": 338,
+     "line": 81,
      "yq": "client/cl_input.c"
     },
     {
      "name": "cl_anglespeedkey",
      "kind": "var",
-     "line": 339,
+     "line": 82,
+     "yq": "client/cl_input.c"
+    },
+    {
+     "name": "center_target",
+     "kind": "var",
+     "line": 90,
+     "yq": "client/cl_input.c"
+    },
+    {
+     "name": "center_progress",
+     "kind": "var",
+     "line": 91,
+     "yq": "client/cl_input.c"
+    },
+    {
+     "name": "center_start",
+     "kind": "var",
+     "line": 92,
+     "yq": "client/cl_input.c"
+    },
+    {
+     "name": "cl_centertime",
+     "kind": "var",
+     "line": 93,
      "yq": "client/cl_input.c"
     },
     {
      "name": "KeyDown",
      "kind": "def",
-     "line": 342,
+     "line": 98,
      "yq": "client/cl_input.c"
     },
     {
      "name": "KeyUp",
      "kind": "def",
-     "line": 371,
+     "line": 153,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_KLookDown",
      "kind": "def",
-     "line": 404,
+     "line": 216,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_KLookUp",
      "kind": "def",
-     "line": 405,
+     "line": 217,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_UpDown",
      "kind": "def",
-     "line": 406,
+     "line": 218,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_UpUp",
      "kind": "def",
-     "line": 407,
+     "line": 219,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_DownDown",
      "kind": "def",
-     "line": 408,
+     "line": 220,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_DownUp",
      "kind": "def",
-     "line": 409,
+     "line": 221,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_LeftDown",
      "kind": "def",
-     "line": 410,
+     "line": 222,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_LeftUp",
      "kind": "def",
-     "line": 411,
+     "line": 223,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_RightDown",
      "kind": "def",
-     "line": 412,
+     "line": 224,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_RightUp",
      "kind": "def",
-     "line": 413,
+     "line": 225,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_ForwardDown",
      "kind": "def",
-     "line": 414,
+     "line": 226,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_ForwardUp",
      "kind": "def",
-     "line": 415,
+     "line": 227,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_BackDown",
      "kind": "def",
-     "line": 416,
+     "line": 228,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_BackUp",
      "kind": "def",
-     "line": 417,
+     "line": 229,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_LookupDown",
      "kind": "def",
-     "line": 418,
+     "line": 230,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_LookupUp",
      "kind": "def",
-     "line": 419,
+     "line": 231,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_LookdownDown",
      "kind": "def",
-     "line": 420,
+     "line": 232,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_LookdownUp",
      "kind": "def",
-     "line": 421,
+     "line": 233,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_MoveleftDown",
      "kind": "def",
-     "line": 422,
+     "line": 234,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_MoveleftUp",
      "kind": "def",
-     "line": 423,
+     "line": 235,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_MoverightDown",
      "kind": "def",
-     "line": 424,
+     "line": 236,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_MoverightUp",
      "kind": "def",
-     "line": 425,
+     "line": 237,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_SpeedDown",
      "kind": "def",
-     "line": 426,
+     "line": 238,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_SpeedUp",
      "kind": "def",
-     "line": 427,
+     "line": 239,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_StrafeDown",
      "kind": "def",
-     "line": 428,
+     "line": 240,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_StrafeUp",
      "kind": "def",
-     "line": 429,
+     "line": 241,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_AttackDown",
      "kind": "def",
-     "line": 430,
+     "line": 242,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_AttackUp",
      "kind": "def",
-     "line": 431,
+     "line": 243,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_UseDown",
      "kind": "def",
-     "line": 432,
+     "line": 244,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_UseUp",
      "kind": "def",
-     "line": 433,
+     "line": 245,
      "yq": "client/cl_input.c"
     },
     {
      "name": "IN_Impulse",
      "kind": "def",
-     "line": 436,
+     "line": 248,
      "yq": "client/cl_input.c"
     },
     {
      "name": "CL_KeyState",
      "kind": "def",
-     "line": 449,
+     "line": 263,
      "yq": "client/cl_input.c"
     },
     {
      "name": "CL_AdjustAngles",
      "kind": "def",
-     "line": 477,
+     "line": 302,
      "yq": "client/cl_input.c"
     },
     {
      "name": "CL_BaseMove",
      "kind": "def",
-     "line": 496,
+     "line": 355,
      "yq": "client/cl_input.c"
     },
     {
      "name": "CL_ClampPitch",
      "kind": "def",
-     "line": 522,
+     "line": 381,
      "yq": "client/cl_input.c"
-    },
-    {
-     "name": "CL_FinishMove",
-     "kind": "def",
-     "line": 536,
-     "yq": null
-    },
-    {
-     "name": "CL_CreateCmd",
-     "kind": "def",
-     "line": 565,
-     "yq": null
     },
     {
      "name": "IN_CenterView",
      "kind": "def",
-     "line": 591,
+     "line": 397,
+     "yq": "client/cl_input.c"
+    },
+    {
+     "name": "IN_ForceCenterView",
+     "kind": "def",
+     "line": 416,
      "yq": "client/cl_input.c"
     },
     {
      "name": "CL_InitInput",
      "kind": "def",
-     "line": 596,
+     "line": 420,
+     "yq": "client/cl_input.c"
+    },
+    {
+     "name": "CL_RefreshCmd",
+     "kind": "def",
+     "line": 460,
+     "yq": "client/cl_input.c"
+    },
+    {
+     "name": "CL_RefreshMove",
+     "kind": "def",
+     "line": 506,
+     "yq": "client/cl_input.c"
+    },
+    {
+     "name": "CL_FinalizeCmd",
+     "kind": "def",
+     "line": 533,
      "yq": "client/cl_input.c"
     },
     {
      "name": "CL_SendCmd",
      "kind": "def",
-     "line": 654,
+     "line": 571,
      "yq": "client/cl_input.c"
+    },
+    {
+     "name": "freelook",
+     "kind": "var",
+     "line": 677,
+     "yq": "client/input/sdl2.c"
+    },
+    {
+     "name": "lookspring",
+     "kind": "var",
+     "line": 677,
+     "yq": null
+    },
+    {
+     "name": "lookstrafe",
+     "kind": "var",
+     "line": 677,
+     "yq": "client/input/sdl2.c"
+    },
+    {
+     "name": "sensitivity",
+     "kind": "var",
+     "line": 677,
+     "yq": "client/input/sdl2.c"
     }
    ]
   },
-  "client/cl_inv.py": {
+  "client/cl_inventory.py": {
    "default": "client/cl_inventory.c",
    "symbols": [
     {
      "name": "CL_ParseInventory",
      "kind": "def",
-     "line": 42,
+     "line": 46,
      "yq": "client/cl_inventory.c"
     },
     {
-     "name": "Inv_DrawString",
+     "name": "Inv_DrawStringScaled",
      "kind": "def",
-     "line": 55,
-     "yq": null
+     "line": 54,
+     "yq": "client/cl_inventory.c"
     },
     {
      "name": "SetStringHighBit",
      "kind": "def",
-     "line": 63,
+     "line": 62,
      "yq": "client/cl_inventory.c"
     },
     {
      "name": "DISPLAY_ITEMS",
      "kind": "var",
-     "line": 73,
+     "line": 72,
      "yq": "client/cl_inventory.c"
     },
     {
      "name": "CL_DrawInventory",
      "kind": "def",
-     "line": 75,
+     "line": 74,
      "yq": "client/cl_inventory.c"
+    }
+   ]
+  },
+  "client/cl_keyboard.py": {
+   "default": "client/cl_keyboard.c",
+   "symbols": [
+    {
+     "name": "cfg_unbindall",
+     "kind": "var",
+     "line": 55,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "key_lines",
+     "kind": "var",
+     "line": 59,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "key_linepos",
+     "kind": "var",
+     "line": 60,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "anykeydown",
+     "kind": "var",
+     "line": 61,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "edit_line",
+     "kind": "var",
+     "line": 63,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "history_line",
+     "kind": "var",
+     "line": 64,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "keybindings",
+     "kind": "var",
+     "line": 66,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "consolekeys",
+     "kind": "var",
+     "line": 67,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "menubound",
+     "kind": "var",
+     "line": 68,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "key_repeats",
+     "kind": "var",
+     "line": 69,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "keydown",
+     "kind": "var",
+     "line": 70,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "keynames",
+     "kind": "var",
+     "line": 84,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "gamepadbtns",
+     "kind": "var",
+     "line": 232,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "gpbtns_face",
+     "kind": "var",
+     "line": 295,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "gpbtns_paddles",
+     "kind": "var",
+     "line": 334,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "gpbtns_triggers",
+     "kind": "var",
+     "line": 355,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "chat_team",
+     "kind": "var",
+     "line": 370,
+     "yq": null
+    },
+    {
+     "name": "chat_buffer",
+     "kind": "var",
+     "line": 371,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "chat_bufferlen",
+     "kind": "var",
+     "line": 372,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "chat_cursorpos",
+     "kind": "var",
+     "line": 373,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "tinystr",
+     "kind": "var",
+     "line": 383,
+     "yq": null
+    },
+    {
+     "name": "num_gamepad_btns",
+     "kind": "var",
+     "line": 384,
+     "yq": null
+    },
+    {
+     "name": "CompleteCommand",
+     "kind": "def",
+     "line": 386,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "CompleteMapNameCommand",
+     "kind": "def",
+     "line": 416,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "IsInConsole",
+     "kind": "def",
+     "line": 450,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Key_Console",
+     "kind": "def",
+     "line": 461,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Key_Message",
+     "kind": "def",
+     "line": 717,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Key_StringToKeynum",
+     "kind": "def",
+     "line": 838,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Key_KeynumToString",
+     "kind": "def",
+     "line": 886,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Key_KeynumToString_Joy",
+     "kind": "def",
+     "line": 928,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Key_SetBinding",
+     "kind": "def",
+     "line": 973,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Key_Unbind_f",
+     "kind": "def",
+     "line": 989,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Key_Unbindall_f",
+     "kind": "def",
+     "line": 1008,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Key_Bind_f",
+     "kind": "def",
+     "line": 1026,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Key_WriteBindings",
+     "kind": "def",
+     "line": 1095,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Key_WriteConsoleHistory",
+     "kind": "def",
+     "line": 1114,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Key_ReadConsoleHistory",
+     "kind": "def",
+     "line": 1165,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Key_Bindlist_f",
+     "kind": "def",
+     "line": 1228,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Key_Init",
+     "kind": "def",
+     "line": 1245,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Key_Shutdown",
+     "kind": "def",
+     "line": 1317,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Char_Event",
+     "kind": "def",
+     "line": 1336,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Key_Event",
+     "kind": "def",
+     "line": 1370,
+     "yq": "client/cl_keyboard.c"
+    },
+    {
+     "name": "Key_MarkAllUp",
+     "kind": "def",
+     "line": 1606,
+     "yq": "client/cl_keyboard.c"
     }
    ]
   },
@@ -6298,674 +6828,691 @@
     {
      "name": "adr0",
      "kind": "var",
-     "line": 51,
+     "line": 68,
      "yq": null
     },
     {
      "name": "adr1",
      "kind": "var",
-     "line": 51,
+     "line": 68,
      "yq": null
     },
     {
      "name": "adr2",
      "kind": "var",
-     "line": 51,
+     "line": 68,
      "yq": null
     },
     {
      "name": "adr3",
      "kind": "var",
-     "line": 51,
+     "line": 68,
      "yq": null
     },
     {
      "name": "adr4",
      "kind": "var",
-     "line": 51,
+     "line": 68,
      "yq": null
     },
     {
      "name": "adr5",
      "kind": "var",
-     "line": 51,
+     "line": 68,
      "yq": null
     },
     {
      "name": "adr6",
      "kind": "var",
-     "line": 51,
+     "line": 68,
      "yq": null
     },
     {
      "name": "adr7",
      "kind": "var",
-     "line": 51,
+     "line": 68,
      "yq": null
     },
     {
      "name": "adr8",
      "kind": "var",
-     "line": 51,
+     "line": 68,
      "yq": null
     },
     {
      "name": "cl_stereo_separation",
      "kind": "var",
-     "line": 53,
+     "line": 70,
      "yq": null
     },
     {
      "name": "cl_stereo",
      "kind": "var",
-     "line": 54,
+     "line": 71,
      "yq": null
     },
     {
      "name": "cl_add_blend",
      "kind": "var",
-     "line": 56,
+     "line": 73,
      "yq": "client/cl_main.c"
     },
     {
      "name": "cl_add_lights",
      "kind": "var",
-     "line": 56,
+     "line": 73,
      "yq": "client/cl_main.c"
     },
     {
      "name": "cl_add_particles",
      "kind": "var",
-     "line": 56,
+     "line": 73,
      "yq": "client/cl_main.c"
     },
     {
      "name": "cl_add_entities",
      "kind": "var",
-     "line": 56,
+     "line": 73,
      "yq": "client/cl_main.c"
     },
     {
      "name": "cl_gun",
      "kind": "var",
-     "line": 57,
+     "line": 74,
      "yq": "client/cl_main.c"
     },
     {
      "name": "cl_footsteps",
      "kind": "var",
-     "line": 57,
+     "line": 74,
      "yq": "client/cl_main.c"
     },
     {
      "name": "cl_noskins",
      "kind": "var",
-     "line": 57,
+     "line": 74,
      "yq": "client/cl_main.c"
     },
     {
      "name": "cl_autoskins",
      "kind": "var",
-     "line": 57,
+     "line": 74,
      "yq": null
     },
     {
      "name": "cl_predict",
      "kind": "var",
-     "line": 57,
+     "line": 74,
      "yq": "client/cl_main.c"
-    },
-    {
-     "name": "cl_maxfps",
-     "kind": "var",
-     "line": 57,
-     "yq": "common/frame.c"
-    },
-    {
-     "name": "cl_upspeed",
-     "kind": "var",
-     "line": 58,
-     "yq": null
-    },
-    {
-     "name": "cl_forwardspeed",
-     "kind": "var",
-     "line": 58,
-     "yq": "client/cl_input.c"
-    },
-    {
-     "name": "cl_sidespeed",
-     "kind": "var",
-     "line": 58,
-     "yq": "client/cl_input.c"
-    },
-    {
-     "name": "cl_yawspeed",
-     "kind": "var",
-     "line": 58,
-     "yq": "client/cl_input.c"
-    },
-    {
-     "name": "cl_pitchspeed",
-     "kind": "var",
-     "line": 58,
-     "yq": "client/cl_input.c"
-    },
-    {
-     "name": "cl_anglespeedkey",
-     "kind": "var",
-     "line": 58,
-     "yq": "client/cl_input.c"
-    },
-    {
-     "name": "cl_run",
-     "kind": "var",
-     "line": 59,
-     "yq": "client/cl_input.c"
-    },
-    {
-     "name": "freelook",
-     "kind": "var",
-     "line": 59,
-     "yq": "client/input/sdl2.c"
-    },
-    {
-     "name": "lookspring",
-     "kind": "var",
-     "line": 59,
-     "yq": null
-    },
-    {
-     "name": "lookstrafe",
-     "kind": "var",
-     "line": 59,
-     "yq": "client/input/sdl2.c"
-    },
-    {
-     "name": "sensitivity",
-     "kind": "var",
-     "line": 59,
-     "yq": "client/input/sdl2.c"
-    },
-    {
-     "name": "m_pitch",
-     "kind": "var",
-     "line": 60,
-     "yq": "client/input/sdl2.c"
-    },
-    {
-     "name": "m_yaw",
-     "kind": "var",
-     "line": 60,
-     "yq": "client/input/sdl2.c"
-    },
-    {
-     "name": "m_forward",
-     "kind": "var",
-     "line": 60,
-     "yq": "client/input/sdl2.c"
-    },
-    {
-     "name": "m_side",
-     "kind": "var",
-     "line": 60,
-     "yq": "client/input/sdl2.c"
     },
     {
      "name": "cl_shownet",
      "kind": "var",
-     "line": 61,
+     "line": 76,
      "yq": "client/cl_main.c"
     },
     {
      "name": "cl_showmiss",
      "kind": "var",
-     "line": 61,
+     "line": 76,
      "yq": "client/cl_main.c"
     },
     {
      "name": "cl_showclamp",
      "kind": "var",
-     "line": 61,
+     "line": 76,
      "yq": "client/cl_main.c"
     },
     {
      "name": "cl_timeout",
      "kind": "var",
-     "line": 61,
+     "line": 76,
      "yq": "client/cl_main.c"
     },
     {
      "name": "cl_paused",
      "kind": "var",
-     "line": 61,
+     "line": 76,
      "yq": "client/cl_main.c"
-    },
-    {
-     "name": "cl_timedemo",
-     "kind": "var",
-     "line": 61,
-     "yq": "common/frame.c"
     },
     {
      "name": "rcon_client_password",
      "kind": "var",
-     "line": 62,
+     "line": 77,
      "yq": "client/cl_main.c"
     },
     {
      "name": "rcon_address",
      "kind": "var",
-     "line": 62,
+     "line": 77,
      "yq": "client/cl_main.c"
     },
     {
      "name": "cl_lightlevel",
      "kind": "var",
-     "line": 62,
+     "line": 77,
      "yq": "client/cl_main.c"
     },
     {
      "name": "info_password",
      "kind": "var",
-     "line": 63,
+     "line": 78,
      "yq": null
     },
     {
      "name": "info_spectator",
      "kind": "var",
-     "line": 63,
+     "line": 78,
      "yq": null
     },
     {
      "name": "name",
      "kind": "var",
-     "line": 63,
+     "line": 78,
      "yq": "client/cl_main.c"
     },
     {
      "name": "skin",
      "kind": "var",
-     "line": 63,
+     "line": 78,
      "yq": "client/cl_main.c"
     },
     {
      "name": "rate",
      "kind": "var",
-     "line": 63,
+     "line": 78,
      "yq": "client/cl_main.c"
     },
     {
      "name": "msg",
      "kind": "var",
-     "line": 63,
+     "line": 78,
      "yq": null
     },
     {
      "name": "hand",
      "kind": "var",
-     "line": 63,
+     "line": 78,
      "yq": "client/cl_main.c"
     },
     {
      "name": "fov",
      "kind": "var",
-     "line": 63,
+     "line": 78,
      "yq": "client/cl_main.c"
     },
     {
      "name": "gender",
      "kind": "var",
-     "line": 63,
+     "line": 78,
      "yq": "client/cl_main.c"
     },
     {
      "name": "gender_auto",
      "kind": "var",
-     "line": 63,
+     "line": 78,
      "yq": "client/cl_main.c"
     },
     {
      "name": "cl_vwep",
      "kind": "var",
-     "line": 63,
+     "line": 78,
      "yq": "client/cl_main.c"
     },
     {
      "name": "cls",
      "kind": "var",
-     "line": 65,
+     "line": 80,
      "yq": "client/cl_main.c"
     },
     {
      "name": "cl",
      "kind": "var",
-     "line": 67,
+     "line": 82,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "ALLOC_ENTITIES_MIN",
+     "kind": "var",
+     "line": 86,
      "yq": "client/cl_main.c"
     },
     {
      "name": "cl_entities",
      "kind": "var",
-     "line": 70,
+     "line": 88,
      "yq": "client/cl_main.c"
     },
     {
-     "name": "i",
-     "kind": "alias",
-     "line": 71,
+     "name": "cl_numentities",
+     "kind": "var",
+     "line": 89,
      "yq": "client/cl_main.c"
     },
     {
      "name": "cl_parse_entities",
      "kind": "var",
-     "line": 75,
+     "line": 92,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "i",
+     "kind": "alias",
+     "line": 93,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "num_power_sounds",
+     "kind": "var",
+     "line": 99,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "paused_at_load",
+     "kind": "var",
+     "line": 104,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "CL_ClearEntities",
+     "kind": "def",
+     "line": 123,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "CL_AllocEntity",
+     "kind": "def",
+     "line": 135,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "CL_MaxClients",
+     "kind": "def",
+     "line": 169,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "cl_showfps",
+     "kind": "var",
+     "line": 190,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "cl_showspeed",
+     "kind": "var",
+     "line": 191,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "cl_kickangles",
+     "kind": "var",
+     "line": 192,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "cl_laseralpha",
+     "kind": "var",
+     "line": 193,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "cl_nodownload_list",
+     "kind": "var",
+     "line": 194,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "cl_loadpaused",
+     "kind": "var",
+     "line": 195,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "cl_audiopaused",
+     "kind": "var",
+     "line": 196,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "cl_unpaused_scvis",
+     "kind": "var",
+     "line": 197,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "cl_r1q2_lightstyle",
+     "kind": "var",
+     "line": 198,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "cl_limitsparksounds",
+     "kind": "var",
+     "line": 199,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "horplus",
+     "kind": "var",
+     "line": 200,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "windowed_mouse",
+     "kind": "var",
+     "line": 201,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "gl1_stereo",
+     "kind": "var",
+     "line": 202,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "gl1_stereo_separation",
+     "kind": "var",
+     "line": 203,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "gl1_stereo_convergence",
+     "kind": "var",
+     "line": 204,
      "yq": "client/cl_main.c"
     },
     {
      "name": "CL_WriteDemoMessage",
      "kind": "def",
-     "line": 96,
+     "line": 206,
      "yq": "client/cl_main.c"
     },
     {
      "name": "CL_Stop_f",
      "kind": "def",
-     "line": 113,
+     "line": 223,
      "yq": "client/cl_main.c"
     },
     {
      "name": "CL_Record_f",
      "kind": "def",
-     "line": 139,
+     "line": 249,
      "yq": "client/cl_main.c"
-    },
-    {
-     "name": "Cmd_ForwardToServer",
-     "kind": "def",
-     "line": 259,
-     "yq": "client/cl_network.c"
     },
     {
      "name": "CL_Setenv_f",
      "kind": "def",
-     "line": 277,
+     "line": 352,
      "yq": "client/cl_main.c"
-    },
-    {
-     "name": "CL_ForwardToServer_f",
-     "kind": "def",
-     "line": 314,
-     "yq": "client/cl_network.c"
     },
     {
      "name": "CL_Pause_f",
      "kind": "def",
-     "line": 335,
+     "line": 398,
      "yq": "client/cl_main.c"
     },
     {
      "name": "CL_Quit_f",
      "kind": "def",
-     "line": 351,
+     "line": 425,
      "yq": "client/cl_main.c"
-    },
-    {
-     "name": "CL_Drop",
-     "kind": "def",
-     "line": 364,
-     "yq": "client/cl_network.c"
-    },
-    {
-     "name": "CL_SendConnectPacket",
-     "kind": "def",
-     "line": 383,
-     "yq": "client/cl_network.c"
-    },
-    {
-     "name": "CL_CheckForResend",
-     "kind": "def",
-     "line": 412,
-     "yq": "client/cl_network.c"
-    },
-    {
-     "name": "CL_Connect_f",
-     "kind": "def",
-     "line": 457,
-     "yq": "client/cl_network.c"
-    },
-    {
-     "name": "CL_Rcon_f",
-     "kind": "def",
-     "line": 493,
-     "yq": "client/cl_network.c"
     },
     {
      "name": "CL_ClearState",
      "kind": "def",
-     "line": 545,
+     "line": 434,
      "yq": "client/cl_main.c"
-    },
-    {
-     "name": "CL_Disconnect",
-     "kind": "def",
-     "line": 570,
-     "yq": "client/cl_network.c"
-    },
-    {
-     "name": "CL_Disconnect_f",
-     "kind": "def",
-     "line": 619,
-     "yq": "client/cl_network.c"
-    },
-    {
-     "name": "CL_Packet_f",
-     "kind": "def",
-     "line": 634,
-     "yq": "client/cl_network.c"
-    },
-    {
-     "name": "CL_Changing_f",
-     "kind": "def",
-     "line": 688,
-     "yq": "client/cl_network.c"
-    },
-    {
-     "name": "CL_Reconnect_f",
-     "kind": "def",
-     "line": 706,
-     "yq": "client/cl_network.c"
     },
     {
      "name": "CL_ParseStatusMessage",
      "kind": "def",
-     "line": 739,
+     "line": 457,
      "yq": "client/cl_main.c"
-    },
-    {
-     "name": "CL_PingServers_f",
-     "kind": "def",
-     "line": 754,
-     "yq": "client/cl_network.c"
     },
     {
      "name": "CL_Skins_f",
      "kind": "def",
-     "line": 815,
+     "line": 478,
      "yq": "client/cl_main.c"
-    },
-    {
-     "name": "CL_ConnectionlessPacket",
-     "kind": "def",
-     "line": 838,
-     "yq": "client/cl_network.c"
     },
     {
      "name": "CL_DumpPackets",
      "kind": "def",
-     "line": 926,
+     "line": 508,
      "yq": null
-    },
-    {
-     "name": "CL_ReadPackets",
-     "kind": "def",
-     "line": 941,
-     "yq": "client/cl_network.c"
     },
     {
      "name": "CL_FixUpGender",
      "kind": "def",
-     "line": 1010,
+     "line": 517,
      "yq": "client/cl_main.c"
     },
     {
      "name": "CL_Userinfo_f",
      "kind": "def",
-     "line": 1040,
+     "line": 561,
      "yq": "client/cl_main.c"
     },
     {
      "name": "CL_Snd_Restart_f",
      "kind": "def",
-     "line": 1054,
+     "line": 575,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "CL_ResetPrecacheCheck",
+     "kind": "def",
+     "line": 585,
      "yq": "client/cl_main.c"
     },
     {
      "name": "precache_check",
      "kind": "var",
-     "line": 1061,
+     "line": 594,
      "yq": null
     },
     {
      "name": "precache_spawncount",
      "kind": "var",
-     "line": 1062,
+     "line": 595,
      "yq": "client/cl_main.c"
     },
     {
      "name": "precache_tex",
      "kind": "var",
-     "line": 1063,
+     "line": 596,
      "yq": "client/cl_main.c"
     },
     {
      "name": "precache_model_skin",
      "kind": "var",
-     "line": 1064,
+     "line": 597,
      "yq": "client/cl_main.c"
     },
     {
      "name": "precache_model",
      "kind": "var",
-     "line": 1065,
+     "line": 598,
      "yq": "client/cl_main.c"
-    },
-    {
-     "name": "PLAYER_MULT",
-     "kind": "var",
-     "line": 1067,
-     "yq": "client/cl_download.c"
-    },
-    {
-     "name": "ENV_CNT",
-     "kind": "var",
-     "line": 1070,
-     "yq": "client/cl_download.c"
-    },
-    {
-     "name": "TEXTURE_CNT",
-     "kind": "var",
-     "line": 1071,
-     "yq": "client/cl_download.c"
-    },
-    {
-     "name": "env_suf",
-     "kind": "var",
-     "line": 1073,
-     "yq": "client/cl_download.c"
-    },
-    {
-     "name": "CL_RequestNextDownload",
-     "kind": "def",
-     "line": 1075,
-     "yq": "client/cl_download.c"
     },
     {
      "name": "CL_Precache_f",
      "kind": "def",
-     "line": 1331,
+     "line": 610,
+     "yq": "client/cl_main.c"
+    },
+    {
+     "name": "CL_CurrentMap_f",
+     "kind": "def",
+     "line": 637,
      "yq": "client/cl_main.c"
     },
     {
      "name": "CL_InitLocal",
      "kind": "def",
-     "line": 1360,
+     "line": 646,
      "yq": "client/cl_main.c"
     },
     {
      "name": "CL_WriteConfiguration",
      "kind": "def",
-     "line": 1517,
+     "line": 764,
      "yq": "client/cl_main.c"
+    },
+    {
+     "name": "cheatvar_t",
+     "kind": "class",
+     "line": 799,
+     "yq": null
     },
     {
      "name": "cheatvars",
      "kind": "var",
-     "line": 1571,
+     "line": 807,
      "yq": "client/cl_main.c"
     },
     {
      "name": "numcheatvars",
      "kind": "var",
-     "line": 1585,
+     "line": 826,
      "yq": "client/cl_main.c"
     },
     {
      "name": "CL_FixCvarCheats",
      "kind": "def",
-     "line": 1587,
+     "line": 828,
      "yq": "client/cl_main.c"
     },
     {
-     "name": "CL_SendCommand",
+     "name": "CL_UpdateWindowedMouse",
      "kind": "def",
-     "line": 1610,
-     "yq": null
-    },
-    {
-     "name": "extratime",
-     "kind": "var",
-     "line": 1638,
-     "yq": null
+     "line": 864,
+     "yq": "client/cl_main.c"
     },
     {
      "name": "lasttimecalled",
      "kind": "var",
-     "line": 1639,
+     "line": 884,
      "yq": null
     },
     {
      "name": "CL_Frame",
      "kind": "def",
-     "line": 1641,
+     "line": 886,
      "yq": "client/cl_main.c"
     },
     {
      "name": "CL_Init",
      "kind": "def",
-     "line": 1743,
+     "line": 1034,
      "yq": "client/cl_main.c"
     },
     {
      "name": "isdown",
      "kind": "var",
-     "line": 1781,
+     "line": 1073,
      "yq": null
     },
     {
      "name": "CL_Shutdown",
      "kind": "def",
-     "line": 1783,
+     "line": 1075,
      "yq": "client/cl_main.c"
+    }
+   ]
+  },
+  "client/cl_network.py": {
+   "default": "client/cl_network.c",
+   "symbols": [
+    {
+     "name": "Cmd_ForwardToServer",
+     "kind": "def",
+     "line": 56,
+     "yq": "client/cl_network.c"
+    },
+    {
+     "name": "CL_ForwardToServer_f",
+     "kind": "def",
+     "line": 80,
+     "yq": "client/cl_network.c"
+    },
+    {
+     "name": "CL_Drop",
+     "kind": "def",
+     "line": 101,
+     "yq": "client/cl_network.c"
+    },
+    {
+     "name": "CL_SendConnectPacket",
+     "kind": "def",
+     "line": 127,
+     "yq": "client/cl_network.c"
+    },
+    {
+     "name": "CL_CheckForResend",
+     "kind": "def",
+     "line": 156,
+     "yq": "client/cl_network.c"
+    },
+    {
+     "name": "CL_Connect_f",
+     "kind": "def",
+     "line": 200,
+     "yq": "client/cl_network.c"
+    },
+    {
+     "name": "CL_Rcon_f",
+     "kind": "def",
+     "line": 238,
+     "yq": "client/cl_network.c"
+    },
+    {
+     "name": "CL_Disconnect",
+     "kind": "def",
+     "line": 295,
+     "yq": "client/cl_network.c"
+    },
+    {
+     "name": "CL_Disconnect_f",
+     "kind": "def",
+     "line": 372,
+     "yq": "client/cl_network.c"
+    },
+    {
+     "name": "CL_Packet_f",
+     "kind": "def",
+     "line": 386,
+     "yq": "client/cl_network.c"
+    },
+    {
+     "name": "CL_Changing_f",
+     "kind": "def",
+     "line": 439,
+     "yq": "client/cl_network.c"
+    },
+    {
+     "name": "CL_Reconnect_f",
+     "kind": "def",
+     "line": 466,
+     "yq": "client/cl_network.c"
+    },
+    {
+     "name": "CL_PingServers_f",
+     "kind": "def",
+     "line": 497,
+     "yq": "client/cl_network.c"
+    },
+    {
+     "name": "CL_ConnectionlessPacket",
+     "kind": "def",
+     "line": 564,
+     "yq": "client/cl_network.c"
+    },
+    {
+     "name": "CL_ReadPackets",
+     "kind": "def",
+     "line": 700,
+     "yq": "client/cl_network.c"
     }
    ]
   },
@@ -6975,169 +7522,169 @@
     {
      "name": "vectoangles2",
      "kind": "def",
-     "line": 48,
+     "line": 50,
      "yq": null
     },
     {
      "name": "CL_Flashlight",
      "kind": "def",
-     "line": 85,
+     "line": 87,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_ColorFlash",
      "kind": "def",
-     "line": 103,
+     "line": 105,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_DebugTrail",
      "kind": "def",
-     "line": 129,
+     "line": 131,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_SmokeTrail",
      "kind": "def",
-     "line": 195,
+     "line": 197,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_ForceWall",
      "kind": "def",
-     "line": 239,
+     "line": 241,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_FlameEffects",
      "kind": "def",
-     "line": 290,
+     "line": 292,
      "yq": null
     },
     {
      "name": "CL_GenericParticleEffect",
      "kind": "def",
-     "line": 347,
+     "line": 349,
      "yq": "client/cl_particles.c"
     },
     {
      "name": "CL_BubbleTrail2",
      "kind": "def",
-     "line": 387,
+     "line": 389,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "RINGS",
      "kind": "var",
-     "line": 436,
+     "line": 438,
      "yq": null
     },
     {
      "name": "CL_Heatbeam",
      "kind": "def",
-     "line": 528,
+     "line": 530,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_ParticleSteamEffect",
      "kind": "def",
-     "line": 761,
+     "line": 763,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_ParticleSteamEffect2",
      "kind": "def",
-     "line": 805,
+     "line": 807,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_TrackerTrail",
      "kind": "def",
-     "line": 859,
+     "line": 861,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_Tracker_Shell",
      "kind": "def",
-     "line": 918,
+     "line": 920,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_MonsterPlasma_Shell",
      "kind": "def",
-     "line": 947,
+     "line": 949,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "widowbeamout_colortable",
      "kind": "var",
-     "line": 977,
+     "line": 979,
      "yq": null
     },
     {
      "name": "CL_Widowbeamout",
      "kind": "def",
-     "line": 979,
+     "line": 981,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "nukeblast_colortable",
      "kind": "var",
-     "line": 1012,
+     "line": 1014,
      "yq": null
     },
     {
      "name": "CL_Nukeblast",
      "kind": "def",
-     "line": 1014,
+     "line": 1016,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "widowsplash_colortable",
      "kind": "var",
-     "line": 1047,
+     "line": 1049,
      "yq": null
     },
     {
      "name": "CL_WidowSplash",
      "kind": "def",
-     "line": 1049,
+     "line": 1051,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_Tracker_Explode",
      "kind": "def",
-     "line": 1080,
+     "line": 1082,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_TagTrail",
      "kind": "def",
-     "line": 1118,
+     "line": 1120,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_ColorExplosionParticles",
      "kind": "def",
-     "line": 1167,
+     "line": 1169,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_ParticleSmokeEffect",
      "kind": "def",
-     "line": 1199,
+     "line": 1201,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_BlasterParticles2",
      "kind": "def",
-     "line": 1246,
+     "line": 1248,
      "yq": "client/cl_effects.c"
     },
     {
      "name": "CL_BlasterTrail2",
      "kind": "def",
-     "line": 1284,
+     "line": 1286,
      "yq": "client/cl_effects.c"
     }
    ]
@@ -7146,548 +7693,775 @@
    "default": "client/cl_parse.c",
    "symbols": [
     {
-     "name": "svc_strings",
-     "kind": "var",
-     "line": 44,
+     "name": "vidref_val",
+     "kind": "alias",
+     "line": 50,
      "yq": "client/cl_parse.c"
     },
     {
-     "name": "CL_DownloadFileName",
-     "kind": "def",
-     "line": 75,
-     "yq": "client/cl_download.c"
+     "name": "MAX_PROJECTILES",
+     "kind": "var",
+     "line": 74,
+     "yq": null
     },
     {
-     "name": "CL_CheckOrDownloadFile",
-     "kind": "def",
-     "line": 91,
-     "yq": "client/cl_download.c"
+     "name": "projectile_t",
+     "kind": "class",
+     "line": 77,
+     "yq": null
     },
     {
-     "name": "CL_Download_f",
+     "name": "cl_projectiles",
+     "kind": "var",
+     "line": 89,
+     "yq": null
+    },
+    {
+     "name": "CL_ClearProjectiles",
      "kind": "def",
-     "line": 153,
-     "yq": "client/cl_download.c"
+     "line": 92,
+     "yq": null
+    },
+    {
+     "name": "CL_ParseProjectiles",
+     "kind": "def",
+     "line": 103,
+     "yq": null
+    },
+    {
+     "name": "CL_AddProjectiles",
+     "kind": "def",
+     "line": 158,
+     "yq": null
+    },
+    {
+     "name": "svc_strings",
+     "kind": "var",
+     "line": 211,
+     "yq": "client/cl_parse.c"
     },
     {
      "name": "CL_RegisterSounds",
      "kind": "def",
-     "line": 193,
+     "line": 245,
      "yq": "client/cl_parse.c"
     },
     {
-     "name": "CL_ParseDownload",
-     "kind": "def",
-     "line": 217,
-     "yq": "client/cl_download.c"
-    },
-    {
-     "name": "CL_ParseServerData",
-     "kind": "def",
-     "line": 319,
+     "name": "bitcounts",
+     "kind": "var",
+     "line": 268,
      "yq": "client/cl_parse.c"
     },
     {
-     "name": "CL_ParseBaseline",
-     "kind": "def",
-     "line": 364,
+     "name": "i",
+     "kind": "alias",
+     "line": 269,
      "yq": "client/cl_parse.c"
     },
     {
-     "name": "CL_LoadClientinfo",
+     "name": "CL_ParseEntityBits",
      "kind": "def",
-     "line": 385,
+     "line": 272,
      "yq": "client/cl_parse.c"
     },
     {
-     "name": "CL_ParseClientinfo",
+     "name": "CL_ParseDelta_es_nullstate",
+     "kind": "var",
+     "line": 313,
+     "yq": null
+    },
+    {
+     "name": "CL_ParseDelta",
      "kind": "def",
-     "line": 503,
+     "line": 315,
      "yq": "client/cl_parse.c"
     },
     {
-     "name": "CL_ParseConfigString",
+     "name": "CL_DeltaEntity",
      "kind": "def",
-     "line": 517,
+     "line": 405,
      "yq": "client/cl_parse.c"
     },
     {
-     "name": "CL_ParseStartSoundPacket",
+     "name": "CL_ParsePacketEntities",
      "kind": "def",
-     "line": 580,
+     "line": 470,
+     "yq": "client/cl_parse.c"
+    },
+    {
+     "name": "CL_ParsePlayerstate",
+     "kind": "def",
+     "line": 601,
+     "yq": "client/cl_parse.c"
+    },
+    {
+     "name": "CL_FireEntityEvents",
+     "kind": "def",
+     "line": 725,
      "yq": "client/cl_parse.c"
     },
     {
      "name": "SHOWNET",
      "kind": "def",
-     "line": 644,
+     "line": 752,
+     "yq": "client/cl_parse.c"
+    },
+    {
+     "name": "CL_ShowNetCmd",
+     "kind": "def",
+     "line": 760,
+     "yq": "client/cl_parse.c"
+    },
+    {
+     "name": "CL_ParseFrame",
+     "kind": "def",
+     "line": 778,
+     "yq": "client/cl_parse.c"
+    },
+    {
+     "name": "S_RegisterSexedModel",
+     "kind": "def",
+     "line": 917,
+     "yq": null
+    },
+    {
+     "name": "bfg_lightramp",
+     "kind": "var",
+     "line": 949,
+     "yq": null
+    },
+    {
+     "name": "CL_GetEntitySoundOrigin",
+     "kind": "def",
+     "line": 959,
+     "yq": null
+    },
+    {
+     "name": "CL_ParseServerData",
+     "kind": "def",
+     "line": 986,
+     "yq": "client/cl_parse.c"
+    },
+    {
+     "name": "CL_ParseBaseline",
+     "kind": "def",
+     "line": 1062,
+     "yq": "client/cl_parse.c"
+    },
+    {
+     "name": "CL_LoadClientinfo",
+     "kind": "def",
+     "line": 1080,
+     "yq": "client/cl_parse.c"
+    },
+    {
+     "name": "CL_ParseClientinfo",
+     "kind": "def",
+     "line": 1196,
+     "yq": "client/cl_parse.c"
+    },
+    {
+     "name": "CL_ParseConfigString",
+     "kind": "def",
+     "line": 1210,
+     "yq": "client/cl_parse.c"
+    },
+    {
+     "name": "CL_ParseStartSoundPacket",
+     "kind": "def",
+     "line": 1322,
      "yq": "client/cl_parse.c"
     },
     {
      "name": "CL_ParseServerMessage",
      "kind": "def",
-     "line": 652,
+     "line": 1416,
      "yq": "client/cl_parse.c"
     }
    ]
   },
-  "client/cl_pred.py": {
+  "client/cl_prediction.py": {
    "default": "client/cl_prediction.c",
    "symbols": [
     {
-     "name": "_copy_trace",
-     "kind": "def",
-     "line": 33,
-     "yq": null
-    },
-    {
      "name": "CL_CheckPredictionError",
      "kind": "def",
-     "line": 48,
+     "line": 45,
      "yq": "client/cl_prediction.c"
+    },
+    {
+     "name": "_trace_assign",
+     "kind": "def",
+     "line": 94,
+     "yq": null
     },
     {
      "name": "CL_ClipMoveToEntities",
      "kind": "def",
-     "line": 87,
+     "line": 106,
      "yq": "client/cl_prediction.c"
     },
     {
      "name": "CL_PMTrace",
      "kind": "def",
-     "line": 149,
+     "line": 189,
      "yq": "client/cl_prediction.c"
     },
     {
      "name": "CL_PMpointcontents",
      "kind": "def",
-     "line": 161,
+     "line": 208,
      "yq": "client/cl_prediction.c"
     },
     {
      "name": "CL_PredictMovement",
      "kind": "def",
-     "line": 187,
+     "line": 246,
      "yq": "client/cl_prediction.c"
     }
    ]
   },
-  "client/cl_scrn.py": {
+  "client/cl_screen.py": {
    "default": "client/cl_screen.c",
    "symbols": [
     {
-     "name": "vrect_t",
-     "kind": "class",
-     "line": 52,
-     "yq": "client/vid/header/vid.h"
-    },
-    {
      "name": "scr_con_current",
      "kind": "var",
-     "line": 60,
+     "line": 62,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_conlines",
      "kind": "var",
-     "line": 61,
+     "line": 63,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_initialized",
      "kind": "var",
-     "line": 63,
+     "line": 65,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_draw_loading",
      "kind": "var",
-     "line": 64,
+     "line": 66,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_vrect",
      "kind": "var",
-     "line": 66,
+     "line": 68,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_viewsize",
      "kind": "var",
-     "line": 68,
+     "line": 70,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_conspeed",
      "kind": "var",
-     "line": 69,
+     "line": 71,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_centertime",
      "kind": "var",
-     "line": 70,
+     "line": 72,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_showturtle",
      "kind": "var",
-     "line": 71,
+     "line": 73,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_showpause",
      "kind": "var",
-     "line": 72,
+     "line": 74,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_printspeed",
      "kind": "var",
-     "line": 73,
+     "line": 75,
      "yq": null
     },
     {
      "name": "scr_netgraph",
      "kind": "var",
-     "line": 75,
+     "line": 77,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_timegraph",
      "kind": "var",
-     "line": 76,
+     "line": 78,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_debuggraph",
      "kind": "var",
-     "line": 77,
+     "line": 79,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_graphheight",
      "kind": "var",
-     "line": 78,
+     "line": 80,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_graphscale",
      "kind": "var",
-     "line": 79,
+     "line": 81,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_graphshift",
      "kind": "var",
-     "line": 80,
+     "line": 82,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_drawall",
      "kind": "var",
-     "line": 81,
+     "line": 83,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "STAT_MINUS",
      "kind": "var",
-     "line": 84,
+     "line": 86,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "CHAR_SIZE",
+     "kind": "var",
+     "line": 87,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "CHARACTER_WIDTH",
+     "kind": "var",
+     "line": 88,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "CHAR_WIDTH",
      "kind": "var",
-     "line": 85,
+     "line": 89,
      "yq": null
     },
     {
      "name": "sb_nums",
      "kind": "var",
-     "line": 87,
-     "yq": null
-    },
-    {
-     "name": "graphs_current",
-     "kind": "var",
-     "line": 92,
-     "yq": null
-    },
-    {
-     "name": "graphs_values",
-     "kind": "var",
-     "line": 93,
+     "line": 91,
      "yq": null
     },
     {
      "name": "scr_centerstring",
      "kind": "var",
-     "line": 95,
+     "line": 97,
      "yq": null
     },
     {
      "name": "scr_centertime_start",
      "kind": "var",
-     "line": 96,
+     "line": 98,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_centertime_off",
      "kind": "var",
-     "line": 97,
+     "line": 99,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_center_lines",
      "kind": "var",
-     "line": 98,
+     "line": 100,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "scr_erase_center",
      "kind": "var",
-     "line": 99,
+     "line": 101,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "crosshair_pic",
      "kind": "var",
-     "line": 101,
+     "line": 103,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "crosshair_width",
      "kind": "var",
-     "line": 102,
+     "line": 104,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "crosshair_height",
      "kind": "var",
-     "line": 103,
+     "line": 105,
      "yq": "client/cl_screen.c"
     },
     {
-     "name": "dirty_t",
-     "kind": "class",
-     "line": 106,
-     "yq": "client/cl_screen.c"
-    },
-    {
-     "name": "scr_dirty",
+     "name": "STAT_LAYOUTS",
      "kind": "var",
-     "line": 115,
+     "line": 108,
      "yq": "client/cl_screen.c"
     },
     {
-     "name": "scr_old_dirty",
+     "name": "graphsamp_t",
+     "kind": "class",
+     "line": 109,
+     "yq": null
+    },
+    {
+     "name": "current",
      "kind": "var",
      "line": 116,
      "yq": "client/cl_screen.c"
     },
     {
+     "name": "values",
+     "kind": "var",
+     "line": 117,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "i",
+     "kind": "alias",
+     "line": 118,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "r_hudscale",
+     "kind": "var",
+     "line": 120,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "r_consolescale",
+     "kind": "var",
+     "line": 121,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "r_menuscale",
+     "kind": "var",
+     "line": 122,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "dirty_t",
+     "kind": "class",
+     "line": 124,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "scr_dirty",
+     "kind": "var",
+     "line": 133,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "scr_old_dirty",
+     "kind": "var",
+     "line": 134,
+     "yq": "client/cl_screen.c"
+    },
+    {
      "name": "CL_AddNetgraph",
      "kind": "def",
-     "line": 139,
+     "line": 157,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_DebugGraph",
      "kind": "def",
-     "line": 160,
+     "line": 194,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_DrawDebugGraph",
      "kind": "def",
-     "line": 168,
+     "line": 202,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_CenterPrint",
      "kind": "def",
-     "line": 190,
+     "line": 231,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_DrawCenterString",
      "kind": "def",
-     "line": 201,
+     "line": 292,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_CheckDrawCenterString",
      "kind": "def",
-     "line": 227,
-     "yq": "client/cl_screen.c"
-    },
-    {
-     "name": "SCR_DrawStats",
-     "kind": "def",
-     "line": 236,
-     "yq": "client/cl_screen.c"
-    },
-    {
-     "name": "SCR_DrawLayout",
-     "kind": "def",
-     "line": 241,
+     "line": 373,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_CalcVrect",
      "kind": "def",
-     "line": 254,
+     "line": 392,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_SizeUp_f",
      "kind": "def",
-     "line": 287,
+     "line": 423,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_SizeDown_f",
      "kind": "def",
-     "line": 299,
+     "line": 435,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_Sky_f",
      "kind": "def",
-     "line": 311,
+     "line": 447,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_Init",
      "kind": "def",
-     "line": 340,
+     "line": 494,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_DrawNet",
      "kind": "def",
-     "line": 376,
+     "line": 525,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_DrawPause",
      "kind": "def",
-     "line": 387,
+     "line": 544,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_DrawLoading",
      "kind": "def",
-     "line": 401,
+     "line": 571,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_RunConsole",
      "kind": "def",
-     "line": 424,
+     "line": 597,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_DrawConsole",
      "kind": "def",
-     "line": 452,
+     "line": 640,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_BeginLoadingPlaque",
      "kind": "def",
-     "line": 489,
+     "line": 678,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_EndLoadingPlaque",
      "kind": "def",
-     "line": 520,
+     "line": 740,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_Loading_f",
      "kind": "def",
-     "line": 530,
+     "line": 750,
      "yq": "client/cl_screen.c"
-    },
-    {
-     "name": "entitycmpfnc",
-     "kind": "def",
-     "line": 540,
-     "yq": "client/cl_view.c"
     },
     {
      "name": "SCR_TimeRefresh_f",
      "kind": "def",
-     "line": 562,
+     "line": 754,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_AddDirtyPoint",
      "kind": "def",
-     "line": 595,
+     "line": 803,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_DirtyScreen",
      "kind": "def",
-     "line": 608,
+     "line": 816,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_TileClear",
      "kind": "def",
-     "line": 621,
+     "line": 829,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SizeHUDString",
      "kind": "def",
-     "line": 721,
+     "line": 970,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "DrawHUDStringScaled",
+     "kind": "def",
+     "line": 980,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "DrawHUDString",
      "kind": "def",
-     "line": 731,
+     "line": 1027,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "DrawString",
      "kind": "def",
-     "line": 752,
+     "line": 1032,
      "yq": null
     },
     {
      "name": "DrawAltString",
      "kind": "def",
-     "line": 756,
+     "line": 1036,
      "yq": null
+    },
+    {
+     "name": "SCR_DrawFieldScaled",
+     "kind": "def",
+     "line": 1040,
+     "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_DrawField",
      "kind": "def",
-     "line": 765,
+     "line": 1098,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_TouchPics",
      "kind": "def",
-     "line": 803,
+     "line": 1104,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_ExecuteLayoutString",
      "kind": "def",
-     "line": 831,
+     "line": 1140,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "SCR_DrawStats",
+     "kind": "def",
+     "line": 1560,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "SCR_DrawLayout",
+     "kind": "def",
+     "line": 1565,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "SCR_DrawSpeed",
+     "kind": "def",
+     "line": 1571,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "SCR_Framecounter_frame",
+     "kind": "var",
+     "line": 1623,
+     "yq": null
+    },
+    {
+     "name": "SCR_Framecounter_frametimes",
+     "kind": "var",
+     "line": 1624,
+     "yq": null
+    },
+    {
+     "name": "SCR_Framecounter_oldtime",
+     "kind": "var",
+     "line": 1625,
+     "yq": null
+    },
+    {
+     "name": "SCR_Framecounter",
+     "kind": "def",
+     "line": 1627,
      "yq": "client/cl_screen.c"
     },
     {
      "name": "SCR_UpdateScreen",
      "kind": "def",
-     "line": 1111,
+     "line": 1734,
      "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "SCR_ClampScale",
+     "kind": "def",
+     "line": 1876,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "SCR_GetDefaultScale",
+     "kind": "def",
+     "line": 1901,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "SCR_DrawCrosshair",
+     "kind": "def",
+     "line": 1930,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "SCR_GetHUDScale",
+     "kind": "def",
+     "line": 1968,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "SCR_GetConsoleScale",
+     "kind": "def",
+     "line": 1994,
+     "yq": "client/cl_screen.c"
+    },
+    {
+     "name": "SCR_GetMenuScale",
+     "kind": "def",
+     "line": 2015,
+     "yq": "client/cl_screen.c"
+    }
+   ]
+  },
+  "client/cl_tempentities.py": {
+   "default": "client/cl_tempentities.c",
+   "symbols": [
+    {
+     "name": "cl_mod_powerscreen",
+     "kind": "var",
+     "line": 23,
+     "yq": "client/cl_tempentities.c"
     }
    ]
   },
@@ -7697,386 +8471,392 @@
     {
      "name": "exptype_t",
      "kind": "class",
-     "line": 43,
+     "line": 46,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "explosion_t",
      "kind": "class",
-     "line": 53,
+     "line": 56,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "MAX_EXPLOSIONS",
      "kind": "var",
-     "line": 70,
+     "line": 73,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_explosions",
      "kind": "var",
-     "line": 71,
+     "line": 74,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "ex",
      "kind": "alias",
-     "line": 72,
+     "line": 75,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "MAX_BEAMS",
      "kind": "var",
-     "line": 76,
+     "line": 79,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "beam_t",
      "kind": "class",
-     "line": 77,
+     "line": 80,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_beams",
      "kind": "var",
-     "line": 91,
+     "line": 94,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_playerbeams",
      "kind": "var",
-     "line": 93,
+     "line": 96,
      "yq": null
     },
     {
      "name": "MAX_LASERS",
      "kind": "var",
-     "line": 96,
+     "line": 99,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "laser_t",
      "kind": "class",
-     "line": 97,
+     "line": 100,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_lasers",
      "kind": "var",
-     "line": 106,
+     "line": 109,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_sustains",
      "kind": "var",
-     "line": 109,
+     "line": 112,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_sfx_ric1",
      "kind": "var",
-     "line": 122,
+     "line": 125,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_sfx_ric2",
      "kind": "var",
-     "line": 123,
+     "line": 126,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_sfx_ric3",
      "kind": "var",
-     "line": 124,
+     "line": 127,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_sfx_lashit",
      "kind": "var",
-     "line": 125,
+     "line": 128,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_sfx_spark5",
      "kind": "var",
-     "line": 126,
+     "line": 129,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_sfx_spark6",
      "kind": "var",
-     "line": 127,
+     "line": 130,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_sfx_spark7",
      "kind": "var",
-     "line": 128,
+     "line": 131,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_sfx_railg",
      "kind": "var",
-     "line": 129,
+     "line": 132,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_sfx_rockexp",
      "kind": "var",
-     "line": 130,
+     "line": 133,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_sfx_grenexp",
      "kind": "var",
-     "line": 131,
+     "line": 134,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_sfx_watrexp",
      "kind": "var",
-     "line": 132,
+     "line": 135,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_sfx_plasexp",
      "kind": "var",
-     "line": 134,
+     "line": 137,
      "yq": null
     },
     {
      "name": "cl_sfx_footsteps",
      "kind": "var",
-     "line": 135,
+     "line": 138,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_mod_explode",
      "kind": "var",
-     "line": 137,
+     "line": 140,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_mod_smoke",
      "kind": "var",
-     "line": 138,
+     "line": 141,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_mod_flash",
      "kind": "var",
-     "line": 139,
+     "line": 142,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_mod_parasite_segment",
      "kind": "var",
-     "line": 140,
+     "line": 143,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_mod_grapple_cable",
      "kind": "var",
-     "line": 141,
+     "line": 144,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_mod_parasite_tip",
      "kind": "var",
-     "line": 142,
+     "line": 145,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_mod_explo4",
      "kind": "var",
-     "line": 143,
+     "line": 146,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_mod_bfg_explo",
      "kind": "var",
-     "line": 144,
+     "line": 147,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_mod_powerscreen",
      "kind": "var",
-     "line": 145,
+     "line": 148,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_mod_plasmaexplo",
      "kind": "var",
-     "line": 147,
+     "line": 150,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_sfx_lightning",
      "kind": "var",
-     "line": 150,
+     "line": 153,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_sfx_disrexp",
      "kind": "var",
-     "line": 151,
+     "line": 154,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_mod_lightning",
      "kind": "var",
-     "line": 152,
+     "line": 155,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_mod_heatbeam",
      "kind": "var",
-     "line": 153,
+     "line": 156,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "cl_mod_monster_heatbeam",
      "kind": "var",
-     "line": 154,
+     "line": 157,
      "yq": null
     },
     {
      "name": "cl_mod_explo4_big",
      "kind": "var",
-     "line": 155,
+     "line": 158,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "CL_RegisterTEntSounds",
      "kind": "def",
-     "line": 163,
+     "line": 166,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "CL_RegisterTEntModels",
      "kind": "def",
-     "line": 218,
+     "line": 221,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "CL_ClearTEnts",
      "kind": "def",
-     "line": 264,
+     "line": 267,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "CL_AllocExplosion",
      "kind": "def",
-     "line": 285,
+     "line": 288,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "CL_SmokeAndFlash",
      "kind": "def",
-     "line": 318,
+     "line": 321,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "CL_ParseParticles",
      "kind": "def",
-     "line": 343,
+     "line": 346,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "CL_ParseBeam",
      "kind": "def",
-     "line": 362,
+     "line": 365,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "CL_ParseBeam2",
      "kind": "def",
-     "line": 409,
+     "line": 412,
      "yq": null
     },
     {
      "name": "CL_ParsePlayerBeam",
      "kind": "def",
-     "line": 462,
+     "line": 465,
      "yq": null
     },
     {
      "name": "CL_ParseLightning",
      "kind": "def",
-     "line": 526,
+     "line": 529,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "CL_ParseLaser",
      "kind": "def",
-     "line": 578,
+     "line": 581,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "CL_ParseSteam",
      "kind": "def",
-     "line": 607,
+     "line": 610,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "CL_ParseWidow",
      "kind": "def",
-     "line": 669,
+     "line": 672,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "CL_ParseNuke",
      "kind": "def",
-     "line": 703,
+     "line": 706,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "splash_color",
      "kind": "var",
-     "line": 744,
+     "line": 747,
      "yq": null
     },
     {
      "name": "CL_ParseTEnt",
      "kind": "def",
-     "line": 746,
+     "line": 749,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "CL_AddBeams",
      "kind": "def",
-     "line": 1202,
+     "line": 1205,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "CL_AddPlayerBeams",
      "kind": "def",
-     "line": 1342,
+     "line": 1345,
      "yq": null
     },
     {
      "name": "CL_AddExplosions",
      "kind": "def",
-     "line": 1593,
+     "line": 1596,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "CL_AddLasers",
      "kind": "def",
-     "line": 1692,
+     "line": 1695,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "CL_ProcessSustain",
      "kind": "def",
-     "line": 1704,
+     "line": 1707,
      "yq": "client/cl_tempentities.c"
     },
     {
      "name": "CL_AddTEnts",
      "kind": "def",
-     "line": 1726,
+     "line": 1729,
      "yq": "client/cl_tempentities.c"
+    },
+    {
+     "name": "CL_PowerScreenModel",
+     "kind": "def",
+     "line": 1739,
+     "yq": null
     }
    ]
   },
@@ -8084,1153 +8864,274 @@
    "default": "client/cl_view.c",
    "symbols": [
     {
+     "name": "gun_frame",
+     "kind": "var",
+     "line": 67,
+     "yq": "client/cl_view.c"
+    },
+    {
+     "name": "gun_model",
+     "kind": "var",
+     "line": 68,
+     "yq": "client/cl_view.c"
+    },
+    {
      "name": "crosshair",
      "kind": "var",
-     "line": 51,
+     "line": 71,
+     "yq": "client/cl_view.c"
+    },
+    {
+     "name": "crosshair_3d",
+     "kind": "var",
+     "line": 72,
+     "yq": "client/cl_view.c"
+    },
+    {
+     "name": "crosshair_3d_glow",
+     "kind": "var",
+     "line": 73,
      "yq": "client/cl_view.c"
     },
     {
      "name": "cl_testparticles",
      "kind": "var",
-     "line": 52,
+     "line": 74,
      "yq": "client/cl_view.c"
     },
     {
      "name": "cl_testentities",
      "kind": "var",
-     "line": 53,
+     "line": 75,
      "yq": "client/cl_view.c"
     },
     {
      "name": "cl_testlights",
      "kind": "var",
-     "line": 54,
+     "line": 76,
      "yq": "client/cl_view.c"
     },
     {
      "name": "cl_testblend",
      "kind": "var",
-     "line": 55,
+     "line": 77,
+     "yq": "client/cl_view.c"
+    },
+    {
+     "name": "crosshair_3d_glow_r",
+     "kind": "var",
+     "line": 79,
+     "yq": "client/cl_view.c"
+    },
+    {
+     "name": "crosshair_3d_glow_g",
+     "kind": "var",
+     "line": 80,
+     "yq": "client/cl_view.c"
+    },
+    {
+     "name": "crosshair_3d_glow_b",
+     "kind": "var",
+     "line": 81,
      "yq": "client/cl_view.c"
     },
     {
      "name": "cl_stats",
      "kind": "var",
-     "line": 57,
+     "line": 83,
      "yq": "client/cl_view.c"
     },
     {
      "name": "cl_weaponmodels",
      "kind": "var",
-     "line": 59,
+     "line": 85,
      "yq": "client/cl_view.c"
     },
     {
      "name": "num_cl_weaponmodels",
      "kind": "var",
-     "line": 60,
+     "line": 86,
      "yq": "client/cl_view.c"
     },
     {
      "name": "r_numdlights",
      "kind": "var",
-     "line": 63,
+     "line": 89,
      "yq": "client/cl_view.c"
     },
     {
      "name": "r_dlights",
      "kind": "var",
-     "line": 64,
+     "line": 90,
      "yq": "client/cl_view.c"
     },
     {
      "name": "i",
      "kind": "alias",
-     "line": 65,
+     "line": 91,
      "yq": "client/cl_view.c"
     },
     {
      "name": "r_numentities",
      "kind": "var",
-     "line": 68,
+     "line": 94,
      "yq": "client/cl_view.c"
     },
     {
      "name": "r_entities",
      "kind": "var",
-     "line": 69,
+     "line": 95,
      "yq": "client/cl_view.c"
     },
     {
      "name": "r_numparticles",
      "kind": "var",
-     "line": 73,
+     "line": 99,
      "yq": "client/cl_view.c"
     },
     {
      "name": "r_particles",
      "kind": "var",
-     "line": 74,
+     "line": 100,
      "yq": "client/cl_view.c"
     },
     {
      "name": "r_lightstyles",
      "kind": "var",
-     "line": 78,
+     "line": 104,
+     "yq": "client/cl_view.c"
+    },
+    {
+     "name": "crosshair_scale",
+     "kind": "var",
+     "line": 108,
+     "yq": "client/cl_view.c"
+    },
+    {
+     "name": "crosshair_color_r",
+     "kind": "var",
+     "line": 109,
+     "yq": "client/cl_view.c"
+    },
+    {
+     "name": "crosshair_color_g",
+     "kind": "var",
+     "line": 110,
+     "yq": "client/cl_view.c"
+    },
+    {
+     "name": "crosshair_color_b",
+     "kind": "var",
+     "line": 111,
      "yq": "client/cl_view.c"
     },
     {
      "name": "V_ClearScene",
      "kind": "def",
-     "line": 92,
+     "line": 123,
      "yq": "client/cl_view.c"
     },
     {
      "name": "V_AddEntity",
      "kind": "def",
-     "line": 102,
+     "line": 132,
      "yq": "client/cl_view.c"
     },
     {
      "name": "V_AddParticle",
      "kind": "def",
-     "line": 111,
+     "line": 141,
      "yq": "client/cl_view.c"
     },
     {
      "name": "V_AddLight",
      "kind": "def",
-     "line": 123,
+     "line": 153,
      "yq": "client/cl_view.c"
     },
     {
      "name": "V_AddLightStyle",
      "kind": "def",
-     "line": 137,
+     "line": 167,
      "yq": "client/cl_view.c"
     },
     {
      "name": "V_TestParticles",
      "kind": "def",
-     "line": 152,
+     "line": 182,
      "yq": "client/cl_view.c"
     },
     {
      "name": "V_TestEntities",
      "kind": "def",
-     "line": 182,
+     "line": 212,
      "yq": "client/cl_view.c"
     },
     {
      "name": "V_TestLights",
      "kind": "def",
-     "line": 215,
+     "line": 250,
      "yq": "client/cl_view.c"
     },
     {
      "name": "CL_PrepRefresh",
      "kind": "def",
-     "line": 247,
+     "line": 292,
      "yq": "client/cl_view.c"
     },
     {
      "name": "CalcFov",
      "kind": "def",
-     "line": 373,
+     "line": 415,
      "yq": "client/cl_view.c"
     },
     {
      "name": "V_Gun_Next_f",
      "kind": "def",
-     "line": 392,
+     "line": 433,
      "yq": "client/cl_view.c"
     },
     {
      "name": "V_Gun_Prev_f",
      "kind": "def",
-     "line": 396,
+     "line": 440,
      "yq": "client/cl_view.c"
     },
     {
      "name": "V_Gun_Model_f",
      "kind": "def",
-     "line": 400,
+     "line": 453,
      "yq": "client/cl_view.c"
     },
     {
-     "name": "SCR_DrawCrosshair",
+     "name": "entitycmpfnc",
      "kind": "def",
-     "line": 408,
-     "yq": "client/cl_screen.c"
+     "line": 479,
+     "yq": "client/cl_view.c"
+    },
+    {
+     "name": "V_Render3dCrosshair",
+     "kind": "def",
+     "line": 495,
+     "yq": "client/cl_view.c"
     },
     {
      "name": "V_RenderView",
      "kind": "def",
-     "line": 427,
+     "line": 543,
      "yq": "client/cl_view.c"
     },
     {
      "name": "V_Viewpos_f",
      "kind": "def",
-     "line": 537,
+     "line": 711,
      "yq": "client/cl_view.c"
     },
     {
      "name": "V_Init",
      "kind": "def",
-     "line": 546,
+     "line": 718,
      "yq": "client/cl_view.c"
-    }
-   ]
-  },
-  "client/client.py": {
-   "default": "client/header/client.h",
-   "symbols": [
-    {
-     "name": "frame_t",
-     "kind": "class",
-     "line": 53,
-     "yq": "client/header/client.h"
-    },
-    {
-     "name": "centity_t",
-     "kind": "class",
-     "line": 69,
-     "yq": "client/header/client.h"
-    },
-    {
-     "name": "MAX_CLIENTWEAPONMODELS",
-     "kind": "var",
-     "line": 88,
-     "yq": "client/header/client.h"
-    },
-    {
-     "name": "clientinfo_t",
-     "kind": "class",
-     "line": 90,
-     "yq": "client/header/client.h"
-    },
-    {
-     "name": "CMD_BACKUP",
-     "kind": "var",
-     "line": 117,
-     "yq": "client/header/client.h"
-    },
-    {
-     "name": "client_state_t",
-     "kind": "class",
-     "line": 126,
-     "yq": "client/header/client.h"
-    },
-    {
-     "name": "connstate_t",
-     "kind": "class",
-     "line": 256,
-     "yq": "client/header/client.h"
-    },
-    {
-     "name": "keydest_t",
-     "kind": "class",
-     "line": 273,
-     "yq": "client/header/client.h"
-    },
-    {
-     "name": "client_static_t",
-     "kind": "class",
-     "line": 279,
-     "yq": "client/header/client.h"
-    },
-    {
-     "name": "MAX_PARSE_ENTITIES",
-     "kind": "var",
-     "line": 396,
-     "yq": "client/header/client.h"
-    },
-    {
-     "name": "cl_sustain_t",
-     "kind": "class",
-     "line": 413,
-     "yq": "client/header/client.h"
-    },
-    {
-     "name": "MAX_SUSTAINS",
-     "kind": "var",
-     "line": 431,
-     "yq": "client/header/client.h"
-    }
-   ]
-  },
-  "client/console.py": {
-   "default": "client/cl_console.c",
-   "symbols": [
-    {
-     "name": "NUM_CON_TIMES",
-     "kind": "var",
-     "line": 38,
-     "yq": "client/header/console.h"
-    },
-    {
-     "name": "CON_TEXTSIZE",
-     "kind": "var",
-     "line": 40,
-     "yq": "client/header/console.h"
-    },
-    {
-     "name": "console_t",
-     "kind": "class",
-     "line": 42,
-     "yq": "client/header/console.h"
-    },
-    {
-     "name": "con",
-     "kind": "var",
-     "line": 67,
-     "yq": "client/cl_console.c"
-    },
-    {
-     "name": "con_notifytime",
-     "kind": "var",
-     "line": 69,
-     "yq": "client/cl_console.c"
-    },
-    {
-     "name": "DrawString",
-     "kind": "def",
-     "line": 79,
-     "yq": null
-    },
-    {
-     "name": "DrawAltString",
-     "kind": "def",
-     "line": 89,
-     "yq": null
-    },
-    {
-     "name": "Key_ClearTyping",
-     "kind": "def",
-     "line": 99,
-     "yq": "client/cl_console.c"
-    },
-    {
-     "name": "Con_ToggleConsole_f",
-     "kind": "def",
-     "line": 110,
-     "yq": "client/cl_console.c"
-    },
-    {
-     "name": "Con_ToggleChat_f",
-     "kind": "def",
-     "line": 148,
-     "yq": "client/cl_console.c"
-    },
-    {
-     "name": "Con_Clear_f",
-     "kind": "def",
-     "line": 161,
-     "yq": "client/cl_console.c"
-    },
-    {
-     "name": "Con_Dump_f",
-     "kind": "def",
-     "line": 165,
-     "yq": "client/cl_console.c"
-    },
-    {
-     "name": "Con_ClearNotify",
-     "kind": "def",
-     "line": 197,
-     "yq": "client/cl_console.c"
-    },
-    {
-     "name": "Con_MessageMode_f",
-     "kind": "def",
-     "line": 210,
-     "yq": "client/cl_console.c"
-    },
-    {
-     "name": "Con_MessageMode2_f",
-     "kind": "def",
-     "line": 216,
-     "yq": "client/cl_console.c"
-    },
-    {
-     "name": "Con_CheckResize",
-     "kind": "def",
-     "line": 222,
-     "yq": "client/cl_console.c"
-    },
-    {
-     "name": "Con_Init",
-     "kind": "def",
-     "line": 278,
-     "yq": "client/cl_console.c"
-    },
-    {
-     "name": "Con_Linefeed",
-     "kind": "def",
-     "line": 306,
-     "yq": "client/cl_console.c"
-    },
-    {
-     "name": "Con_Print",
-     "kind": "def",
-     "line": 328,
-     "yq": "client/cl_console.c"
-    },
-    {
-     "name": "Con_DrawInput",
-     "kind": "def",
-     "line": 391,
-     "yq": "client/cl_console.c"
-    },
-    {
-     "name": "Con_DrawNotify",
-     "kind": "def",
-     "line": 433,
-     "yq": "client/cl_console.c"
-    },
-    {
-     "name": "Con_DrawConsole",
-     "kind": "def",
-     "line": 471,
-     "yq": "client/cl_console.c"
-    }
-   ]
-  },
-  "client/keys.py": {
-   "default": "client/cl_keyboard.c",
-   "symbols": [
-    {
-     "name": "K_TAB",
-     "kind": "var",
-     "line": 36,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_ENTER",
-     "kind": "var",
-     "line": 37,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_ESCAPE",
-     "kind": "var",
-     "line": 38,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_SPACE",
-     "kind": "var",
-     "line": 39,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_BACKSPACE",
-     "kind": "var",
-     "line": 43,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_UPARROW",
-     "kind": "var",
-     "line": 44,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_DOWNARROW",
-     "kind": "var",
-     "line": 45,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_LEFTARROW",
-     "kind": "var",
-     "line": 46,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_RIGHTARROW",
-     "kind": "var",
-     "line": 47,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_ALT",
-     "kind": "var",
-     "line": 49,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_CTRL",
-     "kind": "var",
-     "line": 50,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_SHIFT",
-     "kind": "var",
-     "line": 51,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_F1",
-     "kind": "var",
-     "line": 52,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_F2",
-     "kind": "var",
-     "line": 53,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_F3",
-     "kind": "var",
-     "line": 54,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_F4",
-     "kind": "var",
-     "line": 55,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_F5",
-     "kind": "var",
-     "line": 56,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_F6",
-     "kind": "var",
-     "line": 57,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_F7",
-     "kind": "var",
-     "line": 58,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_F8",
-     "kind": "var",
-     "line": 59,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_F9",
-     "kind": "var",
-     "line": 60,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_F10",
-     "kind": "var",
-     "line": 61,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_F11",
-     "kind": "var",
-     "line": 62,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_F12",
-     "kind": "var",
-     "line": 63,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_INS",
-     "kind": "var",
-     "line": 64,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_DEL",
-     "kind": "var",
-     "line": 65,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_PGDN",
-     "kind": "var",
-     "line": 66,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_PGUP",
-     "kind": "var",
-     "line": 67,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_HOME",
-     "kind": "var",
-     "line": 68,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_END",
-     "kind": "var",
-     "line": 69,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_KP_HOME",
-     "kind": "var",
-     "line": 71,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_KP_UPARROW",
-     "kind": "var",
-     "line": 72,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_KP_PGUP",
-     "kind": "var",
-     "line": 73,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_KP_LEFTARROW",
-     "kind": "var",
-     "line": 74,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_KP_5",
-     "kind": "var",
-     "line": 75,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_KP_RIGHTARROW",
-     "kind": "var",
-     "line": 76,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_KP_END",
-     "kind": "var",
-     "line": 77,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_KP_DOWNARROW",
-     "kind": "var",
-     "line": 78,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_KP_PGDN",
-     "kind": "var",
-     "line": 79,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_KP_ENTER",
-     "kind": "var",
-     "line": 80,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_KP_INS",
-     "kind": "var",
-     "line": 81,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_KP_DEL",
-     "kind": "var",
-     "line": 82,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_KP_SLASH",
-     "kind": "var",
-     "line": 83,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_KP_MINUS",
-     "kind": "var",
-     "line": 84,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_KP_PLUS",
-     "kind": "var",
-     "line": 85,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_PAUSE",
-     "kind": "var",
-     "line": 87,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_MOUSE1",
-     "kind": "var",
-     "line": 92,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_MOUSE2",
-     "kind": "var",
-     "line": 93,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_MOUSE3",
-     "kind": "var",
-     "line": 94,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_JOY1",
-     "kind": "var",
-     "line": 99,
-     "yq": null
-    },
-    {
-     "name": "K_JOY2",
-     "kind": "var",
-     "line": 100,
-     "yq": null
-    },
-    {
-     "name": "K_JOY3",
-     "kind": "var",
-     "line": 101,
-     "yq": null
-    },
-    {
-     "name": "K_JOY4",
-     "kind": "var",
-     "line": 102,
-     "yq": null
-    },
-    {
-     "name": "K_AUX1",
-     "kind": "var",
-     "line": 108,
-     "yq": null
-    },
-    {
-     "name": "K_AUX2",
-     "kind": "var",
-     "line": 109,
-     "yq": null
-    },
-    {
-     "name": "K_AUX3",
-     "kind": "var",
-     "line": 110,
-     "yq": null
-    },
-    {
-     "name": "K_AUX4",
-     "kind": "var",
-     "line": 111,
-     "yq": null
-    },
-    {
-     "name": "K_AUX5",
-     "kind": "var",
-     "line": 112,
-     "yq": null
-    },
-    {
-     "name": "K_AUX6",
-     "kind": "var",
-     "line": 113,
-     "yq": null
-    },
-    {
-     "name": "K_AUX7",
-     "kind": "var",
-     "line": 114,
-     "yq": null
-    },
-    {
-     "name": "K_AUX8",
-     "kind": "var",
-     "line": 115,
-     "yq": null
-    },
-    {
-     "name": "K_AUX9",
-     "kind": "var",
-     "line": 116,
-     "yq": null
-    },
-    {
-     "name": "K_AUX10",
-     "kind": "var",
-     "line": 117,
-     "yq": null
-    },
-    {
-     "name": "K_AUX11",
-     "kind": "var",
-     "line": 118,
-     "yq": null
-    },
-    {
-     "name": "K_AUX12",
-     "kind": "var",
-     "line": 119,
-     "yq": null
-    },
-    {
-     "name": "K_AUX13",
-     "kind": "var",
-     "line": 120,
-     "yq": null
-    },
-    {
-     "name": "K_AUX14",
-     "kind": "var",
-     "line": 121,
-     "yq": null
-    },
-    {
-     "name": "K_AUX15",
-     "kind": "var",
-     "line": 122,
-     "yq": null
-    },
-    {
-     "name": "K_AUX16",
-     "kind": "var",
-     "line": 123,
-     "yq": null
-    },
-    {
-     "name": "K_AUX17",
-     "kind": "var",
-     "line": 124,
-     "yq": null
-    },
-    {
-     "name": "K_AUX18",
-     "kind": "var",
-     "line": 125,
-     "yq": null
-    },
-    {
-     "name": "K_AUX19",
-     "kind": "var",
-     "line": 126,
-     "yq": null
-    },
-    {
-     "name": "K_AUX20",
-     "kind": "var",
-     "line": 127,
-     "yq": null
-    },
-    {
-     "name": "K_AUX21",
-     "kind": "var",
-     "line": 128,
-     "yq": null
-    },
-    {
-     "name": "K_AUX22",
-     "kind": "var",
-     "line": 129,
-     "yq": null
-    },
-    {
-     "name": "K_AUX23",
-     "kind": "var",
-     "line": 130,
-     "yq": null
-    },
-    {
-     "name": "K_AUX24",
-     "kind": "var",
-     "line": 131,
-     "yq": null
-    },
-    {
-     "name": "K_AUX25",
-     "kind": "var",
-     "line": 132,
-     "yq": null
-    },
-    {
-     "name": "K_AUX26",
-     "kind": "var",
-     "line": 133,
-     "yq": null
-    },
-    {
-     "name": "K_AUX27",
-     "kind": "var",
-     "line": 134,
-     "yq": null
-    },
-    {
-     "name": "K_AUX28",
-     "kind": "var",
-     "line": 135,
-     "yq": null
-    },
-    {
-     "name": "K_AUX29",
-     "kind": "var",
-     "line": 136,
-     "yq": null
-    },
-    {
-     "name": "K_AUX30",
-     "kind": "var",
-     "line": 137,
-     "yq": null
-    },
-    {
-     "name": "K_AUX31",
-     "kind": "var",
-     "line": 138,
-     "yq": null
-    },
-    {
-     "name": "K_AUX32",
-     "kind": "var",
-     "line": 139,
-     "yq": null
-    },
-    {
-     "name": "K_MWHEELDOWN",
-     "kind": "var",
-     "line": 141,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "K_MWHEELUP",
-     "kind": "var",
-     "line": 142,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "keypadMapping",
-     "kind": "var",
-     "line": 144,
-     "yq": null
-    },
-    {
-     "name": "MAXCMDLINE",
-     "kind": "var",
-     "line": 177,
-     "yq": "client/header/keyboard.h"
-    },
-    {
-     "name": "key_lines",
-     "kind": "var",
-     "line": 178,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "i",
-     "kind": "alias",
-     "line": 179,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "key_linepos",
-     "kind": "var",
-     "line": 181,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "shift_down",
-     "kind": "var",
-     "line": 183,
-     "yq": null
-    },
-    {
-     "name": "anykeydown",
-     "kind": "var",
-     "line": 184,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "edit_line",
-     "kind": "var",
-     "line": 186,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "history_line",
-     "kind": "var",
-     "line": 187,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "key_waiting",
-     "kind": "var",
-     "line": 189,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "keybindings",
-     "kind": "var",
-     "line": 191,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "consolekeys",
-     "kind": "var",
-     "line": 195,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "menubound",
-     "kind": "var",
-     "line": 199,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "keyshift",
-     "kind": "var",
-     "line": 203,
-     "yq": null
-    },
-    {
-     "name": "key_repeats",
-     "kind": "var",
-     "line": 207,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "keydown",
-     "kind": "var",
-     "line": 211,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "keynames",
-     "kind": "var",
-     "line": 222,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "CompleteCommand",
-     "kind": "def",
-     "line": 332,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "Key_Console",
-     "kind": "def",
-     "line": 361,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "chat_team",
-     "kind": "var",
-     "line": 509,
-     "yq": null
-    },
-    {
-     "name": "chat_buffer",
-     "kind": "var",
-     "line": 510,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "chat_bufferlen",
-     "kind": "var",
-     "line": 511,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "Key_Message",
-     "kind": "def",
-     "line": 512,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "Key_StringToKeynum",
-     "kind": "def",
-     "line": 606,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "Key_KeynumToString",
-     "kind": "def",
-     "line": 631,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "Key_SetBinding",
-     "kind": "def",
-     "line": 652,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "Key_Unbind_f",
-     "kind": "def",
-     "line": 668,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "Key_Unbindall_f",
-     "kind": "def",
-     "line": 687,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "Key_Bind_f",
-     "kind": "def",
-     "line": 700,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "Key_WriteBindings",
-     "kind": "def",
-     "line": 743,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "Key_Bindlist_f",
-     "kind": "def",
-     "line": 757,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "Key_Init",
-     "kind": "def",
-     "line": 768,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "Key_Event",
-     "kind": "def",
-     "line": 863,
-     "yq": "client/cl_keyboard.c"
-    },
-    {
-     "name": "Key_ClearStates",
-     "kind": "def",
-     "line": 1018,
-     "yq": null
-    },
-    {
-     "name": "Key_GetKey",
-     "kind": "def",
-     "line": 1039,
-     "yq": null
     }
    ]
   },
@@ -9240,1819 +9141,1819 @@
     {
      "name": "MAXMENUITEMS",
      "kind": "var",
-     "line": 44,
+     "line": 54,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "MTYPE_SLIDER",
      "kind": "var",
-     "line": 46,
+     "line": 56,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "MTYPE_LIST",
      "kind": "var",
-     "line": 47,
+     "line": 57,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "MTYPE_ACTION",
      "kind": "var",
-     "line": 48,
+     "line": 58,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "MTYPE_SPINCONTROL",
      "kind": "var",
-     "line": 49,
+     "line": 59,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "MTYPE_SEPARATOR",
      "kind": "var",
-     "line": 50,
+     "line": 60,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "MTYPE_FIELD",
      "kind": "var",
-     "line": 51,
+     "line": 61,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "QMF_LEFT_JUSTIFY",
      "kind": "var",
-     "line": 53,
+     "line": 63,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "QMF_GRAYED",
      "kind": "var",
-     "line": 54,
+     "line": 64,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "QMF_NUMBERSONLY",
      "kind": "var",
-     "line": 55,
+     "line": 65,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "menuframework_s",
      "kind": "class",
-     "line": 57,
+     "line": 67,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "menucommon_s",
      "kind": "class",
-     "line": 71,
+     "line": 81,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "menufield_s",
      "kind": "class",
-     "line": 90,
+     "line": 100,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "menuslider_s",
      "kind": "class",
-     "line": 103,
+     "line": 113,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "menulist_s",
      "kind": "class",
-     "line": 116,
+     "line": 126,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "menuaction_s",
      "kind": "class",
-     "line": 126,
+     "line": 136,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "menuseparator_s",
      "kind": "class",
-     "line": 133,
+     "line": 143,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "menuspincontrol_s",
      "kind": "class",
-     "line": 139,
+     "line": 149,
      "yq": null
     },
     {
      "name": "m_main_cursor",
      "kind": "var",
-     "line": 149,
+     "line": 159,
      "yq": null
     },
     {
      "name": "NUM_CURSOR_FRAMES",
      "kind": "var",
-     "line": 151,
+     "line": 161,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "menu_in_sound",
      "kind": "var",
-     "line": 153,
+     "line": 163,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "menu_move_sound",
      "kind": "var",
-     "line": 154,
+     "line": 164,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "menu_out_sound",
      "kind": "var",
-     "line": 155,
+     "line": 165,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "m_entersound",
      "kind": "var",
-     "line": 160,
+     "line": 170,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "m_drawfunc",
      "kind": "var",
-     "line": 163,
+     "line": 173,
      "yq": null
     },
     {
      "name": "m_keyfunc",
      "kind": "var",
-     "line": 164,
+     "line": 174,
      "yq": null
     },
     {
      "name": "MAX_MENU_DEPTH",
      "kind": "var",
-     "line": 169,
+     "line": 179,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "menulayer_t",
      "kind": "class",
-     "line": 171,
+     "line": 181,
      "yq": null
     },
     {
      "name": "m_layers",
      "kind": "var",
-     "line": 176,
+     "line": 186,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "m_menudepth",
      "kind": "var",
-     "line": 177,
+     "line": 187,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_Banner",
      "kind": "def",
-     "line": 179,
+     "line": 189,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_PushMenu",
      "kind": "def",
-     "line": 186,
+     "line": 196,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_ForceMenuOff",
      "kind": "def",
-     "line": 227,
+     "line": 237,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_PopMenu",
      "kind": "def",
-     "line": 240,
+     "line": 250,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "Default_MenuKey",
      "kind": "def",
-     "line": 258,
+     "line": 268,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_DrawCharacter",
      "kind": "def",
-     "line": 333,
+     "line": 335,
      "yq": null
     },
     {
      "name": "M_Print",
      "kind": "def",
-     "line": 342,
+     "line": 344,
      "yq": null
     },
     {
      "name": "M_PrintWhite",
      "kind": "def",
-     "line": 349,
+     "line": 351,
      "yq": null
     },
     {
      "name": "M_DrawPic",
      "kind": "def",
-     "line": 356,
+     "line": 358,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "cached",
      "kind": "var",
-     "line": 375,
+     "line": 377,
      "yq": null
     },
     {
      "name": "M_DrawCursor",
      "kind": "def",
-     "line": 377,
+     "line": 379,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_DrawTextBox",
      "kind": "def",
-     "line": 397,
+     "line": 399,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "MAIN_ITEMS",
      "kind": "var",
-     "line": 437,
+     "line": 439,
      "yq": null
     },
     {
      "name": "M_Main_Draw",
      "kind": "def",
-     "line": 440,
+     "line": 442,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_Main_Key",
      "kind": "def",
-     "line": 491,
+     "line": 493,
      "yq": null
     },
     {
      "name": "M_Menu_Main_f",
      "kind": "def",
-     "line": 532,
+     "line": 534,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_multiplayer_menu",
      "kind": "var",
-     "line": 545,
+     "line": 547,
      "yq": null
     },
     {
      "name": "s_join_network_server_action",
      "kind": "var",
-     "line": 546,
+     "line": 548,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_start_network_server_action",
      "kind": "var",
-     "line": 547,
+     "line": 549,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_player_setup_action",
      "kind": "var",
-     "line": 548,
+     "line": 550,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "Multiplayer_MenuDraw",
      "kind": "def",
-     "line": 551,
+     "line": 553,
      "yq": null
     },
     {
      "name": "PlayerSetupFunc",
      "kind": "def",
-     "line": 558,
+     "line": 560,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "JoinNetworkServerFunc",
      "kind": "def",
-     "line": 563,
+     "line": 565,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "StartNetworkServerFunc",
      "kind": "def",
-     "line": 568,
+     "line": 570,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "Multiplayer_MenuInit",
      "kind": "def",
-     "line": 573,
+     "line": 575,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "Multiplayer_MenuKey",
      "kind": "def",
-     "line": 607,
+     "line": 609,
      "yq": null
     },
     {
      "name": "M_Menu_Multiplayer_f",
      "kind": "def",
-     "line": 612,
+     "line": 614,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "bindnames",
      "kind": "var",
-     "line": 624,
+     "line": 626,
      "yq": null
     },
     {
      "name": "keys_cursor",
      "kind": "var",
-     "line": 650,
+     "line": 652,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "bind_grab",
      "kind": "var",
-     "line": 651,
+     "line": 653,
      "yq": null
     },
     {
      "name": "s_keys_menu",
      "kind": "var",
-     "line": 653,
+     "line": 655,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_keys_attack_action",
      "kind": "var",
-     "line": 654,
+     "line": 656,
      "yq": null
     },
     {
      "name": "s_keys_change_weapon_action",
      "kind": "var",
-     "line": 655,
+     "line": 657,
      "yq": null
     },
     {
      "name": "s_keys_walk_forward_action",
      "kind": "var",
-     "line": 656,
+     "line": 658,
      "yq": null
     },
     {
      "name": "s_keys_backpedal_action",
      "kind": "var",
-     "line": 657,
+     "line": 659,
      "yq": null
     },
     {
      "name": "s_keys_turn_left_action",
      "kind": "var",
-     "line": 658,
+     "line": 660,
      "yq": null
     },
     {
      "name": "s_keys_turn_right_action",
      "kind": "var",
-     "line": 659,
+     "line": 661,
      "yq": null
     },
     {
      "name": "s_keys_run_action",
      "kind": "var",
-     "line": 660,
+     "line": 662,
      "yq": null
     },
     {
      "name": "s_keys_step_left_action",
      "kind": "var",
-     "line": 661,
+     "line": 663,
      "yq": null
     },
     {
      "name": "s_keys_step_right_action",
      "kind": "var",
-     "line": 662,
+     "line": 664,
      "yq": null
     },
     {
      "name": "s_keys_sidestep_action",
      "kind": "var",
-     "line": 663,
+     "line": 665,
      "yq": null
     },
     {
      "name": "s_keys_look_up_action",
      "kind": "var",
-     "line": 664,
+     "line": 666,
      "yq": null
     },
     {
      "name": "s_keys_look_down_action",
      "kind": "var",
-     "line": 665,
+     "line": 667,
      "yq": null
     },
     {
      "name": "s_keys_center_view_action",
      "kind": "var",
-     "line": 666,
+     "line": 668,
      "yq": null
     },
     {
      "name": "s_keys_mouse_look_action",
      "kind": "var",
-     "line": 667,
+     "line": 669,
      "yq": null
     },
     {
      "name": "s_keys_keyboard_look_action",
      "kind": "var",
-     "line": 668,
+     "line": 670,
      "yq": null
     },
     {
      "name": "s_keys_move_up_action",
      "kind": "var",
-     "line": 669,
+     "line": 671,
      "yq": null
     },
     {
      "name": "s_keys_move_down_action",
      "kind": "var",
-     "line": 670,
+     "line": 672,
      "yq": null
     },
     {
      "name": "s_keys_inventory_action",
      "kind": "var",
-     "line": 671,
+     "line": 673,
      "yq": null
     },
     {
      "name": "s_keys_inv_use_action",
      "kind": "var",
-     "line": 672,
+     "line": 674,
      "yq": null
     },
     {
      "name": "s_keys_inv_drop_action",
      "kind": "var",
-     "line": 673,
+     "line": 675,
      "yq": null
     },
     {
      "name": "s_keys_inv_prev_action",
      "kind": "var",
-     "line": 674,
+     "line": 676,
      "yq": null
     },
     {
      "name": "s_keys_inv_next_action",
      "kind": "var",
-     "line": 675,
+     "line": 677,
      "yq": null
     },
     {
      "name": "s_keys_help_computer_action",
      "kind": "var",
-     "line": 676,
+     "line": 678,
      "yq": null
     },
     {
      "name": "M_UnbindCommand",
      "kind": "def",
-     "line": 679,
+     "line": 681,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_FindKeysForCommand",
      "kind": "def",
-     "line": 690,
+     "line": 692,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "KeyCursorDrawFunc",
      "kind": "def",
-     "line": 708,
+     "line": 710,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "DrawKeyBindingFunc",
      "kind": "def",
-     "line": 717,
+     "line": 719,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "KeyBindingFunc",
      "kind": "def",
-     "line": 739,
+     "line": 741,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "Keys_MenuInit",
      "kind": "def",
-     "line": 753,
+     "line": 755,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "Keys_MenuDraw",
      "kind": "def",
-     "line": 1039,
+     "line": 1041,
      "yq": null
     },
     {
      "name": "Keys_MenuKey",
      "kind": "def",
-     "line": 1045,
+     "line": 1047,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_Menu_Keys_f",
      "kind": "def",
-     "line": 1074,
+     "line": 1076,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "win_noalttab",
      "kind": "var",
-     "line": 1088,
+     "line": 1090,
      "yq": null
     },
     {
      "name": "s_options_menu",
      "kind": "var",
-     "line": 1090,
+     "line": 1092,
      "yq": null
     },
     {
      "name": "s_options_defaults_action",
      "kind": "var",
-     "line": 1091,
+     "line": 1093,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_options_customize_options_action",
      "kind": "var",
-     "line": 1092,
+     "line": 1094,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_options_sensitivity_slider",
      "kind": "var",
-     "line": 1093,
+     "line": 1095,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_options_freelook_box",
      "kind": "var",
-     "line": 1094,
+     "line": 1096,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_options_noalttab_box",
      "kind": "var",
-     "line": 1095,
+     "line": 1097,
      "yq": null
     },
     {
      "name": "s_options_alwaysrun_box",
      "kind": "var",
-     "line": 1096,
+     "line": 1098,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_options_invertmouse_box",
      "kind": "var",
-     "line": 1097,
+     "line": 1099,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_options_lookspring_box",
      "kind": "var",
-     "line": 1098,
+     "line": 1100,
      "yq": null
     },
     {
      "name": "s_options_lookstrafe_box",
      "kind": "var",
-     "line": 1099,
+     "line": 1101,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_options_crosshair_box",
      "kind": "var",
-     "line": 1100,
+     "line": 1102,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_options_sfxvolume_slider",
      "kind": "var",
-     "line": 1101,
+     "line": 1103,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_options_joystick_box",
      "kind": "var",
-     "line": 1102,
+     "line": 1104,
      "yq": null
     },
     {
      "name": "s_options_cdvolume_box",
      "kind": "var",
-     "line": 1103,
+     "line": 1105,
      "yq": null
     },
     {
      "name": "s_options_quality_list",
      "kind": "var",
-     "line": 1104,
+     "line": 1106,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_options_compatibility_list",
      "kind": "var",
-     "line": 1105,
+     "line": 1107,
      "yq": null
     },
     {
      "name": "s_options_console_action",
      "kind": "var",
-     "line": 1106,
+     "line": 1108,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "CrosshairFunc",
      "kind": "def",
-     "line": 1109,
+     "line": 1111,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "JoystickFunc",
      "kind": "def",
-     "line": 1114,
+     "line": 1116,
      "yq": null
     },
     {
      "name": "CustomizeControlsFunc",
      "kind": "def",
-     "line": 1119,
+     "line": 1121,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "AlwaysRunFunc",
      "kind": "def",
-     "line": 1124,
+     "line": 1126,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "FreeLookFunc",
      "kind": "def",
-     "line": 1129,
+     "line": 1131,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "MouseSpeedFunc",
      "kind": "def",
-     "line": 1134,
+     "line": 1136,
      "yq": null
     },
     {
      "name": "NoAltTabFunc",
      "kind": "def",
-     "line": 1139,
+     "line": 1141,
      "yq": null
     },
     {
      "name": "ClampCvar",
      "kind": "def",
-     "line": 1144,
+     "line": 1146,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "ControlsSetMenuItemValues",
      "kind": "def",
-     "line": 1151,
+     "line": 1153,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "ControlsResetDefaultsFunc",
      "kind": "def",
-     "line": 1182,
+     "line": 1186,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "InvertMouseFunc",
      "kind": "def",
-     "line": 1189,
+     "line": 1193,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "LookspringFunc",
      "kind": "def",
-     "line": 1194,
+     "line": 1198,
      "yq": null
     },
     {
      "name": "LookstrafeFunc",
      "kind": "def",
-     "line": 1199,
+     "line": 1203,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "UpdateVolumeFunc",
      "kind": "def",
-     "line": 1204,
+     "line": 1208,
      "yq": null
     },
     {
      "name": "UpdateCDVolumeFunc",
      "kind": "def",
-     "line": 1209,
+     "line": 1213,
      "yq": null
     },
     {
      "name": "ConsoleFunc",
      "kind": "def",
-     "line": 1214,
+     "line": 1218,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "UpdateSoundQualityFunc",
      "kind": "def",
-     "line": 1233,
+     "line": 1237,
      "yq": null
     },
     {
      "name": "Options_MenuInit",
      "kind": "def",
-     "line": 1259,
+     "line": 1263,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "Options_MenuDraw",
      "kind": "def",
-     "line": 1415,
+     "line": 1419,
      "yq": null
     },
     {
      "name": "Options_MenuKey",
      "kind": "def",
-     "line": 1421,
+     "line": 1425,
      "yq": null
     },
     {
      "name": "M_Menu_Options_f",
      "kind": "def",
-     "line": 1426,
+     "line": 1430,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_Menu_Video_f",
      "kind": "def",
-     "line": 1441,
+     "line": 1445,
      "yq": "client/menu/videomenu.c"
     },
     {
      "name": "credits_start_time",
      "kind": "var",
-     "line": 1456,
+     "line": 1460,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "credits",
      "kind": "var",
-     "line": 1457,
+     "line": 1461,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "credits_index",
      "kind": "var",
-     "line": 1458,
+     "line": 1462,
      "yq": null
     },
     {
      "name": "credits_buffer",
      "kind": "var",
-     "line": 1459,
+     "line": 1463,
      "yq": null
     },
     {
      "name": "idcredits",
      "kind": "var",
-     "line": 1461,
+     "line": 1465,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "xatcredits",
      "kind": "var",
-     "line": 1550,
+     "line": 1554,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "roguecredits",
      "kind": "var",
-     "line": 1689,
+     "line": 1693,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_Credits_MenuDraw",
      "kind": "def",
-     "line": 1802,
+     "line": 1806,
      "yq": null
     },
     {
      "name": "M_Credits_Key",
      "kind": "def",
-     "line": 1839,
+     "line": 1843,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_Menu_Credits_f",
      "kind": "def",
-     "line": 1851,
+     "line": 1855,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "m_game_cursor",
      "kind": "var",
-     "line": 1882,
+     "line": 1886,
      "yq": null
     },
     {
      "name": "s_game_menu",
      "kind": "var",
-     "line": 1884,
+     "line": 1888,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_easy_game_action",
      "kind": "var",
-     "line": 1886,
+     "line": 1890,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_medium_game_action",
      "kind": "var",
-     "line": 1887,
+     "line": 1891,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_hard_game_action",
      "kind": "var",
-     "line": 1888,
+     "line": 1892,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_load_game_action",
      "kind": "var",
-     "line": 1890,
+     "line": 1894,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_save_game_action",
      "kind": "var",
-     "line": 1891,
+     "line": 1895,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_credits_action",
      "kind": "var",
-     "line": 1892,
+     "line": 1896,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_blankline",
      "kind": "var",
-     "line": 1894,
+     "line": 1898,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "StartGame",
      "kind": "def",
-     "line": 1896,
+     "line": 1900,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "EasyGameFunc",
      "kind": "def",
-     "line": 1910,
+     "line": 1914,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "MediumGameFunc",
      "kind": "def",
-     "line": 1916,
+     "line": 1920,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "HardGameFunc",
      "kind": "def",
-     "line": 1922,
+     "line": 1926,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "LoadGameFunc",
      "kind": "def",
-     "line": 1928,
+     "line": 1932,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "SaveGameFunc",
      "kind": "def",
-     "line": 1933,
+     "line": 1937,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "CreditsFunc",
      "kind": "def",
-     "line": 1938,
+     "line": 1942,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "Game_MenuInit",
      "kind": "def",
-     "line": 1943,
+     "line": 1947,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "Game_MenuDraw",
      "kind": "def",
-     "line": 2004,
+     "line": 2008,
      "yq": null
     },
     {
      "name": "Game_MenuKey",
      "kind": "def",
-     "line": 2011,
+     "line": 2015,
      "yq": null
     },
     {
      "name": "M_Menu_Game_f",
      "kind": "def",
-     "line": 2016,
+     "line": 2020,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "MAX_SAVEGAMES",
      "kind": "var",
-     "line": 2031,
+     "line": 2035,
      "yq": null
     },
     {
      "name": "s_savegame_menu",
      "kind": "var",
-     "line": 2033,
+     "line": 2037,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_loadgame_menu",
      "kind": "var",
-     "line": 2034,
+     "line": 2038,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_loadgame_actions",
      "kind": "var",
-     "line": 2035,
+     "line": 2039,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_savegame_actions",
      "kind": "var",
-     "line": 2036,
+     "line": 2040,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "m_savestrings",
      "kind": "var",
-     "line": 2038,
+     "line": 2042,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "m_savevalid",
      "kind": "var",
-     "line": 2039,
+     "line": 2043,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "Create_Savestrings",
      "kind": "def",
-     "line": 2042,
+     "line": 2046,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "LoadGameCallback",
      "kind": "def",
-     "line": 2056,
+     "line": 2060,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "LoadGame_MenuInit",
      "kind": "def",
-     "line": 2063,
+     "line": 2067,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "LoadGame_MenuDraw",
      "kind": "def",
-     "line": 2088,
+     "line": 2092,
      "yq": null
     },
     {
      "name": "LoadGame_MenuKey",
      "kind": "def",
-     "line": 2094,
+     "line": 2098,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_Menu_LoadGame_f",
      "kind": "def",
-     "line": 2104,
+     "line": 2108,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "SaveGameCallback",
      "kind": "def",
-     "line": 2116,
+     "line": 2120,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "SaveGame_MenuDraw",
      "kind": "def",
-     "line": 2122,
+     "line": 2126,
      "yq": null
     },
     {
      "name": "SaveGame_MenuInit",
      "kind": "def",
-     "line": 2129,
+     "line": 2133,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "SaveGame_MenuKey",
      "kind": "def",
-     "line": 2151,
+     "line": 2155,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_Menu_SaveGame_f",
      "kind": "def",
-     "line": 2161,
+     "line": 2165,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "MAX_LOCAL_SERVERS",
      "kind": "var",
-     "line": 2179,
+     "line": 2183,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_joinserver_menu",
      "kind": "var",
-     "line": 2181,
+     "line": 2185,
      "yq": null
     },
     {
      "name": "s_joinserver_server_title",
      "kind": "var",
-     "line": 2182,
+     "line": 2186,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_joinserver_search_action",
      "kind": "var",
-     "line": 2183,
+     "line": 2187,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_joinserver_address_book_action",
      "kind": "var",
-     "line": 2184,
+     "line": 2188,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_joinserver_server_actions",
      "kind": "var",
-     "line": 2185,
+     "line": 2189,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "i",
      "kind": "alias",
-     "line": 2186,
+     "line": 2190,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "m_num_servers",
      "kind": "var",
-     "line": 2189,
+     "line": 2193,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "NO_SERVER_STRING",
      "kind": "var",
-     "line": 2190,
+     "line": 2194,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "local_server_names",
      "kind": "var",
-     "line": 2193,
+     "line": 2197,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "local_server_netadr",
      "kind": "var",
-     "line": 2198,
+     "line": 2202,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_AddToServerList",
      "kind": "def",
-     "line": 2202,
+     "line": 2206,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "JoinServerFunc",
      "kind": "def",
-     "line": 2223,
+     "line": 2227,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "AddressBookFunc",
      "kind": "def",
-     "line": 2241,
+     "line": 2245,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "NullCursorDraw",
      "kind": "def",
-     "line": 2246,
+     "line": 2250,
      "yq": null
     },
     {
      "name": "SearchLocalGames",
      "kind": "def",
-     "line": 2251,
+     "line": 2255,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "SearchLocalGamesFunc",
      "kind": "def",
-     "line": 2274,
+     "line": 2278,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "JoinServer_MenuInit",
      "kind": "def",
-     "line": 2279,
+     "line": 2283,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "JoinServer_MenuDraw",
      "kind": "def",
-     "line": 2329,
+     "line": 2333,
      "yq": null
     },
     {
      "name": "JoinServer_MenuKey",
      "kind": "def",
-     "line": 2335,
+     "line": 2339,
      "yq": null
     },
     {
      "name": "M_Menu_JoinServer_f",
      "kind": "def",
-     "line": 2340,
+     "line": 2344,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_startserver_menu",
      "kind": "var",
-     "line": 2353,
+     "line": 2357,
      "yq": null
     },
     {
      "name": "mapnames",
      "kind": "var",
-     "line": 2354,
+     "line": 2358,
      "yq": null
     },
     {
      "name": "nummaps",
      "kind": "var",
-     "line": 2355,
+     "line": 2359,
      "yq": null
     },
     {
      "name": "s_startserver_start_action",
      "kind": "var",
-     "line": 2357,
+     "line": 2361,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_startserver_dmoptions_action",
      "kind": "var",
-     "line": 2358,
+     "line": 2362,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_timelimit_field",
      "kind": "var",
-     "line": 2359,
+     "line": 2363,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_fraglimit_field",
      "kind": "var",
-     "line": 2360,
+     "line": 2364,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_maxclients_field",
      "kind": "var",
-     "line": 2361,
+     "line": 2365,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_hostname_field",
      "kind": "var",
-     "line": 2362,
+     "line": 2366,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_startmap_list",
      "kind": "var",
-     "line": 2363,
+     "line": 2367,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_rules_box",
      "kind": "var",
-     "line": 2364,
+     "line": 2368,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "DMOptionsFunc",
      "kind": "def",
-     "line": 2366,
+     "line": 2370,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "RulesChangeFunc",
      "kind": "def",
-     "line": 2373,
+     "line": 2377,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "StartServerActionFunc",
      "kind": "def",
-     "line": 2410,
+     "line": 2414,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "StartServer_MenuInit",
      "kind": "def",
-     "line": 2482,
+     "line": 2486,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "StartServer_MenuDraw",
      "kind": "def",
-     "line": 2672,
+     "line": 2676,
      "yq": null
     },
     {
      "name": "StartServer_MenuKey",
      "kind": "def",
-     "line": 2677,
+     "line": 2681,
      "yq": null
     },
     {
      "name": "M_Menu_StartServer_f",
      "kind": "def",
-     "line": 2689,
+     "line": 2693,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "dmoptions_statusbar",
      "kind": "var",
-     "line": 2702,
+     "line": 2706,
      "yq": null
     },
     {
      "name": "s_dmoptions_menu",
      "kind": "var",
-     "line": 2704,
+     "line": 2708,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_friendlyfire_box",
      "kind": "var",
-     "line": 2706,
+     "line": 2710,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_falls_box",
      "kind": "var",
-     "line": 2707,
+     "line": 2711,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_weapons_stay_box",
      "kind": "var",
-     "line": 2708,
+     "line": 2712,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_instant_powerups_box",
      "kind": "var",
-     "line": 2709,
+     "line": 2713,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_powerups_box",
      "kind": "var",
-     "line": 2710,
+     "line": 2714,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_health_box",
      "kind": "var",
-     "line": 2711,
+     "line": 2715,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_spawn_farthest_box",
      "kind": "var",
-     "line": 2712,
+     "line": 2716,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_teamplay_box",
      "kind": "var",
-     "line": 2713,
+     "line": 2717,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_samelevel_box",
      "kind": "var",
-     "line": 2714,
+     "line": 2718,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_force_respawn_box",
      "kind": "var",
-     "line": 2715,
+     "line": 2719,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_armor_box",
      "kind": "var",
-     "line": 2716,
+     "line": 2720,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_allow_exit_box",
      "kind": "var",
-     "line": 2717,
+     "line": 2721,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_infinite_ammo_box",
      "kind": "var",
-     "line": 2718,
+     "line": 2722,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_fixed_fov_box",
      "kind": "var",
-     "line": 2719,
+     "line": 2723,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_quad_drop_box",
      "kind": "var",
-     "line": 2720,
+     "line": 2724,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_no_mines_box",
      "kind": "var",
-     "line": 2723,
+     "line": 2727,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_no_nukes_box",
      "kind": "var",
-     "line": 2724,
+     "line": 2728,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_stack_double_box",
      "kind": "var",
-     "line": 2725,
+     "line": 2729,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_no_spheres_box",
      "kind": "var",
-     "line": 2726,
+     "line": 2730,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "DMFlagCallback",
      "kind": "def",
-     "line": 2729,
+     "line": 2733,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "DMOptions_MenuInit",
      "kind": "def",
-     "line": 2873,
+     "line": 2877,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "DMOptions_MenuDraw",
      "kind": "def",
-     "line": 3098,
+     "line": 3102,
      "yq": null
     },
     {
      "name": "DMOptions_MenuKey",
      "kind": "def",
-     "line": 3103,
+     "line": 3107,
      "yq": null
     },
     {
      "name": "M_Menu_DMOptions_f",
      "kind": "def",
-     "line": 3108,
+     "line": 3112,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_downloadoptions_menu",
      "kind": "var",
-     "line": 3121,
+     "line": 3125,
      "yq": null
     },
     {
      "name": "s_download_title",
      "kind": "var",
-     "line": 3123,
+     "line": 3127,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_allow_download_box",
      "kind": "var",
-     "line": 3124,
+     "line": 3128,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_allow_download_maps_box",
      "kind": "var",
-     "line": 3125,
+     "line": 3129,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_allow_download_models_box",
      "kind": "var",
-     "line": 3126,
+     "line": 3130,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_allow_download_players_box",
      "kind": "var",
-     "line": 3127,
+     "line": 3131,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_allow_download_sounds_box",
      "kind": "var",
-     "line": 3128,
+     "line": 3132,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "DownloadCallback",
      "kind": "def",
-     "line": 3130,
+     "line": 3134,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "DownloadOptions_MenuInit",
      "kind": "def",
-     "line": 3155,
+     "line": 3159,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "DownloadOptions_MenuDraw",
      "kind": "def",
-     "line": 3229,
+     "line": 3233,
      "yq": null
     },
     {
      "name": "DownloadOptions_MenuKey",
      "kind": "def",
-     "line": 3234,
+     "line": 3238,
      "yq": null
     },
     {
      "name": "M_Menu_DownloadOptions_f",
      "kind": "def",
-     "line": 3239,
+     "line": 3243,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "NUM_ADDRESSBOOK_ENTRIES",
      "kind": "var",
-     "line": 3251,
+     "line": 3255,
      "yq": "client/header/client.h"
     },
     {
      "name": "s_addressbook_menu",
      "kind": "var",
-     "line": 3253,
+     "line": 3257,
      "yq": null
     },
     {
      "name": "s_addressbook_fields",
      "kind": "var",
-     "line": 3254,
+     "line": 3258,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "AddressBook_MenuInit",
      "kind": "def",
-     "line": 3258,
+     "line": 3262,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "AddressBook_MenuKey",
      "kind": "def",
-     "line": 3290,
+     "line": 3294,
      "yq": null
     },
     {
      "name": "AddressBook_MenuDraw",
      "kind": "def",
-     "line": 3305,
+     "line": 3309,
      "yq": null
     },
     {
      "name": "M_Menu_AddressBook_f",
      "kind": "def",
-     "line": 3311,
+     "line": 3315,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_player_config_menu",
      "kind": "var",
-     "line": 3324,
+     "line": 3328,
      "yq": null
     },
     {
      "name": "s_player_name_field",
      "kind": "var",
-     "line": 3325,
+     "line": 3329,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_player_model_box",
      "kind": "var",
-     "line": 3326,
+     "line": 3330,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_player_skin_box",
      "kind": "var",
-     "line": 3327,
+     "line": 3331,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_player_handedness_box",
      "kind": "var",
-     "line": 3328,
+     "line": 3332,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_player_rate_box",
      "kind": "var",
-     "line": 3329,
+     "line": 3333,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_player_skin_title",
      "kind": "var",
-     "line": 3330,
+     "line": 3334,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_player_model_title",
      "kind": "var",
-     "line": 3331,
+     "line": 3335,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_player_hand_title",
      "kind": "var",
-     "line": 3332,
+     "line": 3336,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_player_rate_title",
      "kind": "var",
-     "line": 3333,
+     "line": 3337,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "s_player_download_action",
      "kind": "var",
-     "line": 3334,
+     "line": 3338,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "MAX_DISPLAYNAME",
      "kind": "var",
-     "line": 3336,
+     "line": 3340,
      "yq": null
     },
     {
      "name": "MAX_PLAYERMODELS",
      "kind": "var",
-     "line": 3337,
+     "line": 3341,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "playermodelinfo_s",
      "kind": "class",
-     "line": 3339,
+     "line": 3343,
      "yq": null
     },
     {
      "name": "s_pmi",
      "kind": "var",
-     "line": 3348,
+     "line": 3352,
      "yq": null
     },
     {
      "name": "s_pmnames",
      "kind": "var",
-     "line": 3351,
+     "line": 3355,
      "yq": null
     },
     {
      "name": "s_numplayermodels",
      "kind": "var",
-     "line": 3352,
+     "line": 3356,
      "yq": null
     },
     {
      "name": "rate_tbl",
      "kind": "var",
-     "line": 3354,
+     "line": 3358,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "rate_names",
      "kind": "var",
-     "line": 3355,
+     "line": 3359,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "DownloadOptionsFunc",
      "kind": "def",
-     "line": 3358,
+     "line": 3362,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "HandednessCallback",
      "kind": "def",
-     "line": 3363,
+     "line": 3367,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "RateCallback",
      "kind": "def",
-     "line": 3368,
+     "line": 3372,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "ModelCallback",
      "kind": "def",
-     "line": 3374,
+     "line": 3378,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "FreeFileList",
      "kind": "def",
-     "line": 3380,
+     "line": 3384,
      "yq": null
     },
     {
      "name": "IconOfSkinExists",
      "kind": "def",
-     "line": 3391,
+     "line": 3395,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "PlayerConfig_ScanDirectories",
      "kind": "def",
-     "line": 3408,
+     "line": 3412,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "pmicmpfnc",
      "kind": "def",
-     "line": 3553,
+     "line": 3557,
      "yq": null
     },
     {
      "name": "PlayerConfig_MenuInit",
      "kind": "def",
-     "line": 3578,
+     "line": 3582,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "yaw",
      "kind": "var",
-     "line": 3740,
+     "line": 3744,
      "yq": null
     },
     {
      "name": "PlayerConfig_MenuDraw",
      "kind": "def",
-     "line": 3742,
+     "line": 3746,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "PlayerConfig_MenuKey",
      "kind": "def",
-     "line": 3805,
+     "line": 3809,
      "yq": null
     },
     {
      "name": "M_Menu_PlayerConfig_f",
      "kind": "def",
-     "line": 3835,
+     "line": 3839,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_Quit_Key",
      "kind": "def",
-     "line": 3871,
+     "line": 3875,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_Quit_Draw",
      "kind": "def",
-     "line": 3881,
+     "line": 3885,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_Menu_Quit_f",
      "kind": "def",
-     "line": 3888,
+     "line": 3892,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_Init",
      "kind": "def",
-     "line": 3904,
+     "line": 3908,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_Draw",
      "kind": "def",
-     "line": 3935,
+     "line": 3939,
      "yq": "client/menu/menu.c"
     },
     {
      "name": "M_Keydown",
      "kind": "def",
-     "line": 3969,
+     "line": 3973,
      "yq": "client/menu/menu.c"
     }
    ]
@@ -11063,205 +10964,205 @@
     {
      "name": "RCOLUMN_OFFSET",
      "kind": "var",
-     "line": 33,
+     "line": 35,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "LCOLUMN_OFFSET",
      "kind": "var",
-     "line": 34,
+     "line": 36,
      "yq": "client/menu/header/qmenu.h"
     },
     {
      "name": "VID_WIDTH",
      "kind": "def",
-     "line": 39,
+     "line": 41,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "VID_HEIGHT",
      "kind": "def",
-     "line": 40,
+     "line": 42,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Draw_Char",
      "kind": "def",
-     "line": 42,
+     "line": 44,
      "yq": null
     },
     {
      "name": "Draw_Fill",
      "kind": "def",
-     "line": 44,
+     "line": 46,
      "yq": "client/vid/vid.c"
     },
     {
      "name": "Action_DoEnter",
      "kind": "def",
-     "line": 47,
+     "line": 49,
      "yq": null
     },
     {
      "name": "Action_Draw",
      "kind": "def",
-     "line": 52,
+     "line": 54,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Field_DoEnter",
      "kind": "def",
-     "line": 71,
+     "line": 73,
      "yq": null
     },
     {
      "name": "Field_Draw",
      "kind": "def",
-     "line": 81,
+     "line": 83,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Field_Key",
      "kind": "def",
-     "line": 126,
+     "line": 128,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Menu_AddItem",
      "kind": "def",
-     "line": 221,
+     "line": 223,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Menu_AdjustCursor",
      "kind": "def",
-     "line": 244,
+     "line": 246,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Menu_Center",
      "kind": "def",
-     "line": 292,
+     "line": 294,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Menu_Draw",
      "kind": "def",
-     "line": 299,
+     "line": 301,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Menu_DrawStatusBar",
      "kind": "def",
-     "line": 367,
+     "line": 369,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Menu_DrawString",
      "kind": "def",
-     "line": 378,
+     "line": 380,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Menu_DrawStringDark",
      "kind": "def",
-     "line": 385,
+     "line": 387,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Menu_DrawStringR2L",
      "kind": "def",
-     "line": 391,
+     "line": 393,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Menu_DrawStringR2LDark",
      "kind": "def",
-     "line": 397,
+     "line": 399,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Menu_ItemAtCursor",
      "kind": "def",
-     "line": 403,
+     "line": 405,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Menu_SelectItem",
      "kind": "def",
-     "line": 411,
+     "line": 413,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Menu_SetStatusBar",
      "kind": "def",
-     "line": 432,
+     "line": 434,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Menu_SlideItem",
      "kind": "def",
-     "line": 437,
+     "line": 439,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Menu_TallySlots",
      "kind": "def",
-     "line": 449,
+     "line": 451,
      "yq": null
     },
     {
      "name": "Menulist_DoEnter",
      "kind": "def",
-     "line": 462,
+     "line": 464,
      "yq": null
     },
     {
      "name": "MenuList_Draw",
      "kind": "def",
-     "line": 473,
+     "line": 475,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Separator_Draw",
      "kind": "def",
-     "line": 494,
+     "line": 496,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Slider_DoSlide",
      "kind": "def",
-     "line": 500,
+     "line": 502,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "SLIDER_RANGE",
      "kind": "var",
-     "line": 515,
+     "line": 517,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "Slider_Draw",
      "kind": "def",
-     "line": 517,
+     "line": 519,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "SpinControl_DoEnter",
      "kind": "def",
-     "line": 537,
+     "line": 539,
      "yq": null
     },
     {
      "name": "SpinControl_DoSlide",
      "kind": "def",
-     "line": 548,
+     "line": 550,
      "yq": "client/menu/qmenu.c"
     },
     {
      "name": "SpinControl_Draw",
      "kind": "def",
-     "line": 562,
+     "line": 564,
      "yq": "client/menu/qmenu.c"
     }
    ]
@@ -11344,7 +11245,7 @@
     {
      "name": "refimport_t",
      "kind": "class",
-     "line": 245,
+     "line": 249,
      "yq": "client/vid/header/ref.h"
     }
    ]
@@ -11355,325 +11256,325 @@
     {
      "name": "SOUND_FULLVOLUME",
      "kind": "var",
-     "line": 47,
+     "line": 50,
      "yq": "client/sound/header/local.h"
     },
     {
      "name": "SOUND_LOOPATTENUATE",
      "kind": "var",
-     "line": 49,
+     "line": 52,
      "yq": "client/sound/header/local.h"
     },
     {
      "name": "s_registration_sequence",
      "kind": "var",
-     "line": 51,
+     "line": 54,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "channels",
      "kind": "var",
-     "line": 52,
+     "line": 55,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "i",
      "kind": "alias",
-     "line": 53,
+     "line": 56,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "snd_initialized",
      "kind": "var",
-     "line": 56,
+     "line": 59,
      "yq": null
     },
     {
      "name": "snd_is_underwater",
      "kind": "var",
-     "line": 57,
+     "line": 60,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "sound_started",
      "kind": "var",
-     "line": 58,
+     "line": 61,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "dma",
      "kind": "var",
-     "line": 60,
+     "line": 63,
      "yq": null
     },
     {
      "name": "listener_origin",
      "kind": "var",
-     "line": 62,
+     "line": 65,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "listener_forward",
      "kind": "var",
-     "line": 63,
+     "line": 66,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "listener_right",
      "kind": "var",
-     "line": 64,
+     "line": 67,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "listener_up",
      "kind": "var",
-     "line": 65,
+     "line": 68,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "s_registering",
      "kind": "var",
-     "line": 67,
+     "line": 70,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "soundtime",
      "kind": "var",
-     "line": 69,
+     "line": 72,
      "yq": "client/sound/sdl.c"
     },
     {
      "name": "paintedtime",
      "kind": "var",
-     "line": 70,
+     "line": 73,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "MAX_SFX",
      "kind": "var",
-     "line": 76,
+     "line": 79,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "known_sfx",
      "kind": "var",
-     "line": 77,
+     "line": 80,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "num_sfx",
      "kind": "var",
-     "line": 81,
+     "line": 84,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "s_pendingplays",
      "kind": "var",
-     "line": 87,
+     "line": 90,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "s_beginofs",
      "kind": "var",
-     "line": 88,
+     "line": 91,
      "yq": null
     },
     {
      "name": "s_volume",
      "kind": "var",
-     "line": 90,
+     "line": 93,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "s_testsound",
      "kind": "var",
-     "line": 91,
+     "line": 94,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "s_loadas8bit",
      "kind": "var",
-     "line": 92,
+     "line": 95,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "s_khz",
      "kind": "var",
-     "line": 93,
+     "line": 96,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "s_show",
      "kind": "var",
-     "line": 94,
+     "line": 97,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "s_mixahead",
      "kind": "var",
-     "line": 95,
+     "line": 98,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "s_primary",
      "kind": "var",
-     "line": 96,
+     "line": 99,
      "yq": null
     },
     {
      "name": "s_rawend",
      "kind": "var",
-     "line": 98,
+     "line": 101,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "s_rawsamples",
      "kind": "var",
-     "line": 99,
+     "line": 102,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "S_SoundInfo_f",
      "kind": "def",
-     "line": 109,
+     "line": 112,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "S_Init",
      "kind": "def",
-     "line": 133,
+     "line": 136,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "S_Shutdown",
      "kind": "def",
-     "line": 189,
+     "line": 192,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "S_FindName",
      "kind": "def",
-     "line": 227,
+     "line": 230,
      "yq": null
     },
     {
      "name": "S_AliasName",
      "kind": "def",
-     "line": 280,
+     "line": 283,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "S_BeginRegistration",
      "kind": "def",
-     "line": 320,
+     "line": 323,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "S_RegisterSound",
      "kind": "def",
-     "line": 333,
+     "line": 336,
      "yq": null
     },
     {
      "name": "S_EndRegistration",
      "kind": "def",
-     "line": 356,
+     "line": 359,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "S_PickChannel",
      "kind": "def",
-     "line": 397,
+     "line": 400,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "S_SpatializeOrigin",
      "kind": "def",
-     "line": 452,
+     "line": 455,
      "yq": null
     },
     {
      "name": "S_Spatialize",
      "kind": "def",
-     "line": 506,
+     "line": 509,
      "yq": null
     },
     {
      "name": "S_IssuePlaysound",
      "kind": "def",
-     "line": 576,
+     "line": 579,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "S_RegisterSexedSound",
      "kind": "def",
-     "line": 616,
+     "line": 619,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "S_StartSound",
      "kind": "def",
-     "line": 684,
+     "line": 687,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "S_StartLocalSound",
      "kind": "def",
-     "line": 762,
+     "line": 766,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "S_ClearBuffer",
      "kind": "def",
-     "line": 782,
+     "line": 786,
      "yq": null
     },
     {
      "name": "S_StopAllSounds",
      "kind": "def",
-     "line": 810,
+     "line": 814,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "S_AddLoopSounds",
      "kind": "def",
-     "line": 858,
+     "line": 862,
      "yq": null
     },
     {
      "name": "S_RawSamples",
      "kind": "def",
-     "line": 960,
+     "line": 964,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "S_Update",
      "kind": "def",
-     "line": 1078,
+     "line": 1082,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "GetSoundtime",
      "kind": "def",
-     "line": 1168,
+     "line": 1172,
      "yq": null
     },
     {
      "name": "S_Update_",
      "kind": "def",
-     "line": 1203,
+     "line": 1207,
      "yq": null
     },
     {
      "name": "S_Play",
      "kind": "def",
-     "line": 1253,
+     "line": 1257,
      "yq": "client/sound/sound.c"
     },
     {
      "name": "S_SoundList",
      "kind": "def",
-     "line": 1273,
+     "line": 1277,
      "yq": "client/sound/sound.c"
     }
    ]
@@ -11918,51 +11819,69 @@
      "yq": null
     },
     {
+     "name": "Draw_CharScaled",
+     "kind": "def",
+     "line": 103,
+     "yq": "client/vid/vid.c"
+    },
+    {
+     "name": "Draw_PicScaled",
+     "kind": "def",
+     "line": 150,
+     "yq": "client/vid/vid.c"
+    },
+    {
+     "name": "Draw_PicScaledCol",
+     "kind": "def",
+     "line": 154,
+     "yq": "client/vid/vid.c"
+    },
+    {
      "name": "Draw_FindPic",
      "kind": "def",
-     "line": 100,
+     "line": 199,
      "yq": null
     },
     {
      "name": "Draw_GetPicSize",
      "kind": "def",
-     "line": 120,
+     "line": 219,
      "yq": "client/vid/vid.c"
     },
     {
      "name": "Draw_StretchPic",
      "kind": "def",
-     "line": 134,
+     "line": 233,
      "yq": "client/vid/vid.c"
     },
     {
      "name": "Draw_Pic",
      "kind": "def",
-     "line": 171,
+     "line": 270,
      "yq": null
     },
     {
      "name": "Draw_TileClear",
      "kind": "def",
-     "line": 211,
+     "line": 310,
      "yq": "client/vid/vid.c"
     },
     {
      "name": "Draw_Fill",
      "kind": "def",
-     "line": 248,
+     "line": 347,
      "yq": "client/vid/vid.c"
     },
     {
      "name": "Draw_FadeScreen",
      "kind": "def",
-     "line": 290,
+     "line": 389,
      "yq": "client/vid/vid.c"
     },
     {
      "name": "Draw_StretchRaw",
      "kind": "def",
-     "line": 318,
+     "line": 417,
      "yq": "client/vid/vid.c"
     }
    ]
@@ -14403,307 +14322,313 @@
     {
      "name": "screen",
      "kind": "var",
-     "line": 28,
+     "line": 30,
      "yq": null
     },
     {
      "name": "glwstate_t",
      "kind": "class",
-     "line": 67,
+     "line": 69,
      "yq": null
     },
     {
      "name": "glw_state",
      "kind": "var",
-     "line": 74,
+     "line": 76,
      "yq": null
     },
     {
      "name": "mouse_avail",
      "kind": "var",
-     "line": 97,
+     "line": 99,
      "yq": null
     },
     {
      "name": "mx",
      "kind": "var",
-     "line": 98,
+     "line": 100,
      "yq": null
     },
     {
      "name": "my",
      "kind": "var",
-     "line": 98,
+     "line": 100,
      "yq": null
     },
     {
      "name": "old_mouse_x",
      "kind": "var",
-     "line": 99,
+     "line": 101,
      "yq": null
     },
     {
      "name": "old_mouse_y",
      "kind": "var",
-     "line": 99,
+     "line": 101,
      "yq": null
     },
     {
      "name": "win_x",
      "kind": "var",
-     "line": 101,
+     "line": 103,
      "yq": null
     },
     {
      "name": "win_y",
      "kind": "var",
-     "line": 101,
+     "line": 103,
      "yq": null
     },
     {
      "name": "m_filter",
      "kind": "var",
-     "line": 103,
+     "line": 105,
      "yq": "client/input/sdl2.c"
     },
     {
      "name": "in_mouse",
      "kind": "var",
-     "line": 104,
+     "line": 106,
      "yq": null
     },
     {
      "name": "in_dgamouse",
      "kind": "var",
-     "line": 105,
+     "line": 107,
      "yq": null
     },
     {
      "name": "vidmode_active",
      "kind": "var",
-     "line": 114,
+     "line": 116,
      "yq": null
     },
     {
      "name": "mlooking",
      "kind": "var",
-     "line": 116,
+     "line": 118,
      "yq": "client/input/sdl2.c"
     },
     {
      "name": "mouse_active",
      "kind": "var",
-     "line": 118,
+     "line": 120,
      "yq": null
     },
     {
      "name": "dgamouse",
      "kind": "var",
-     "line": 119,
+     "line": 121,
      "yq": null
     },
     {
      "name": "vidmode_ext",
      "kind": "var",
-     "line": 120,
+     "line": 122,
      "yq": null
     },
     {
      "name": "in_state",
      "kind": "var",
-     "line": 123,
+     "line": 125,
      "yq": null
     },
     {
      "name": "sensitivity",
      "kind": "var",
-     "line": 125,
+     "line": 127,
      "yq": "client/input/sdl2.c"
     },
     {
      "name": "lookstrafe",
      "kind": "var",
-     "line": 126,
+     "line": 128,
      "yq": "client/input/sdl2.c"
     },
     {
      "name": "m_side",
      "kind": "var",
-     "line": 127,
+     "line": 129,
      "yq": "client/input/sdl2.c"
     },
     {
      "name": "m_yaw",
      "kind": "var",
-     "line": 128,
+     "line": 130,
      "yq": "client/input/sdl2.c"
     },
     {
      "name": "m_pitch",
      "kind": "var",
-     "line": 129,
+     "line": 131,
      "yq": "client/input/sdl2.c"
     },
     {
      "name": "m_forward",
      "kind": "var",
-     "line": 130,
+     "line": 132,
      "yq": "client/input/sdl2.c"
     },
     {
      "name": "freelook",
      "kind": "var",
-     "line": 131,
+     "line": 133,
      "yq": "client/input/sdl2.c"
     },
     {
      "name": "install_grabs",
      "kind": "def",
-     "line": 140,
+     "line": 142,
      "yq": null
     },
     {
      "name": "uninstall_grabs",
      "kind": "def",
-     "line": 171,
+     "line": 173,
      "yq": null
     },
     {
      "name": "Force_CenterView_f",
      "kind": "def",
-     "line": 190,
+     "line": 192,
      "yq": null
     },
     {
      "name": "RW_IN_MLookDown",
      "kind": "def",
-     "line": 195,
+     "line": 197,
      "yq": null
     },
     {
      "name": "RW_IN_MLookUp",
      "kind": "def",
-     "line": 202,
+     "line": 204,
      "yq": null
     },
     {
      "name": "RW_IN_Init",
      "kind": "def",
-     "line": 210,
+     "line": 212,
      "yq": null
     },
     {
      "name": "RW_IN_Shutdown",
      "kind": "def",
-     "line": 241,
+     "line": 245,
      "yq": null
     },
     {
      "name": "RW_IN_Commands",
      "kind": "def",
-     "line": 253,
+     "line": 257,
      "yq": null
     },
     {
      "name": "RW_IN_Move",
      "kind": "def",
-     "line": 263,
+     "line": 267,
      "yq": null
     },
     {
      "name": "IN_DeactivateMouse",
      "kind": "def",
-     "line": 300,
+     "line": 304,
      "yq": null
     },
     {
      "name": "IN_ActivateMouse",
      "kind": "def",
-     "line": 312,
+     "line": 316,
      "yq": null
     },
     {
      "name": "RW_IN_Frame",
      "kind": "def",
-     "line": 325,
+     "line": 329,
      "yq": null
     },
     {
      "name": "RW_IN_Activate",
      "kind": "def",
-     "line": 330,
+     "line": 334,
      "yq": null
     },
     {
      "name": "XLateKey",
      "kind": "def",
-     "line": 343,
+     "line": 349,
+     "yq": null
+    },
+    {
+     "name": "consoleKeyCode",
+     "kind": "var",
+     "line": 453,
      "yq": null
     },
     {
      "name": "HandleEvents",
      "kind": "def",
-     "line": 448,
+     "line": 455,
      "yq": null
     },
     {
      "name": "Key_Event_fp",
      "kind": "var",
-     "line": 509,
+     "line": 553,
      "yq": null
     },
     {
      "name": "KBD_Init",
      "kind": "def",
-     "line": 511,
+     "line": 555,
      "yq": null
     },
     {
      "name": "KBD_Update",
      "kind": "def",
-     "line": 518,
+     "line": 562,
      "yq": null
     },
     {
      "name": "KBD_Close",
      "kind": "def",
-     "line": 524,
+     "line": 568,
      "yq": null
     },
     {
      "name": "GLimp_SetMode",
      "kind": "def",
-     "line": 559,
+     "line": 603,
      "yq": null
     },
     {
      "name": "GLimp_Shutdown",
      "kind": "def",
-     "line": 747,
+     "line": 791,
      "yq": "client/vid/glimp_sdl2.c"
     },
     {
      "name": "GLimp_Init",
      "kind": "def",
-     "line": 769,
+     "line": 813,
      "yq": "client/vid/glimp_sdl2.c"
     },
     {
      "name": "GLimp_BeginFrame",
      "kind": "def",
-     "line": 779,
+     "line": 823,
      "yq": null
     },
     {
      "name": "GLimp_EndFrame",
      "kind": "def",
-     "line": 791,
+     "line": 835,
      "yq": null
     },
     {
      "name": "GLimp_AppActivate",
      "kind": "def",
-     "line": 802,
+     "line": 846,
      "yq": null
     }
    ]
@@ -14920,70 +14845,100 @@
      "yq": "common/frame.c"
     },
     {
-     "name": "Sys_Milliseconds",
+     "name": "Sys_Rename",
      "kind": "def",
      "line": 105,
      "yq": "backends/unix/system.c"
     },
     {
+     "name": "Sys_Microseconds_first",
+     "kind": "var",
+     "line": 117,
+     "yq": null
+    },
+    {
+     "name": "Sys_Microseconds",
+     "kind": "def",
+     "line": 119,
+     "yq": "backends/unix/system.c"
+    },
+    {
+     "name": "Sys_Milliseconds",
+     "kind": "def",
+     "line": 137,
+     "yq": "backends/unix/system.c"
+    },
+    {
      "name": "Sys_Mkdir",
      "kind": "def",
-     "line": 143,
+     "line": 174,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "findbase",
      "kind": "var",
-     "line": 150,
+     "line": 181,
      "yq": null
     },
     {
      "name": "findpath",
      "kind": "var",
-     "line": 151,
+     "line": 182,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "findpattern",
      "kind": "var",
-     "line": 152,
+     "line": 183,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "fdir",
      "kind": "var",
-     "line": 153,
+     "line": 184,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "fdirCursor",
      "kind": "var",
-     "line": 154,
+     "line": 185,
      "yq": null
     },
     {
      "name": "CompareAttributes",
      "kind": "def",
-     "line": 156,
+     "line": 187,
      "yq": null
     },
     {
      "name": "Sys_FindFirst",
      "kind": "def",
-     "line": 179,
+     "line": 210,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "Sys_FindNext",
      "kind": "def",
-     "line": 223,
+     "line": 254,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "Sys_FindClose",
      "kind": "def",
-     "line": 243,
+     "line": 274,
      "yq": "backends/unix/system.c"
+    },
+    {
+     "name": "Sys_Nanosleep",
+     "kind": "def",
+     "line": 284,
+     "yq": "backends/unix/system.c"
+    },
+    {
+     "name": "Sys_CpuPause",
+     "kind": "def",
+     "line": 289,
+     "yq": "common/frame.c"
     }
    ]
   },
@@ -15111,163 +15066,163 @@
     {
      "name": "nostdout",
      "kind": "var",
-     "line": 62,
+     "line": 63,
      "yq": null
     },
     {
      "name": "sys_frame_time",
      "kind": "var",
-     "line": 64,
+     "line": 65,
      "yq": "client/input/sdl2.c"
     },
     {
      "name": "stdin_active",
      "kind": "var",
-     "line": 68,
+     "line": 69,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "Sys_ConsoleOutput",
      "kind": "def",
-     "line": 75,
+     "line": 76,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "Sys_Quit",
      "kind": "def",
-     "line": 108,
+     "line": 109,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "Sys_Init",
      "kind": "def",
-     "line": 117,
+     "line": 118,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "Sys_Error",
      "kind": "def",
-     "line": 125,
+     "line": 126,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "Sys_ConsoleInput",
      "kind": "def",
-     "line": 182,
+     "line": 183,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "game_library",
      "kind": "var",
-     "line": 220,
+     "line": 221,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "Sys_UnloadGame",
      "kind": "def",
-     "line": 227,
+     "line": 228,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "Sys_GetGameAPI",
      "kind": "def",
-     "line": 243,
+     "line": 244,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "Sys_AppActivate",
      "kind": "def",
-     "line": 297,
+     "line": 298,
      "yq": null
     },
     {
      "name": "Sys_SendKeyEvents",
      "kind": "def",
-     "line": 301,
+     "line": 302,
      "yq": null
     },
     {
      "name": "cfgdir",
      "kind": "alias",
-     "line": 320,
+     "line": 321,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "user_cfgdir",
      "kind": "var",
-     "line": 321,
+     "line": 322,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "PORT_CFGDIRNAME_SHORT",
      "kind": "var",
-     "line": 325,
+     "line": 326,
      "yq": null
     },
     {
      "name": "setCustomCfgDir",
      "kind": "def",
-     "line": 327,
+     "line": 328,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "Sys_Mkdir",
      "kind": "def",
-     "line": 334,
+     "line": 335,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "Sys_IsDir",
      "kind": "def",
-     "line": 343,
+     "line": 344,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "Sys_IsFile",
      "kind": "def",
-     "line": 347,
+     "line": 348,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "_homedir",
      "kind": "var",
-     "line": 351,
+     "line": 352,
      "yq": null
     },
     {
      "name": "Sys_GetHomeDir",
      "kind": "def",
-     "line": 353,
+     "line": 354,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "Sys_Realpath",
      "kind": "def",
-     "line": 377,
+     "line": 378,
      "yq": "backends/unix/system.c"
     },
     {
      "name": "_exeDir",
      "kind": "var",
-     "line": 387,
+     "line": 388,
      "yq": null
     },
     {
      "name": "Sys_GetBinaryDir",
      "kind": "def",
-     "line": 389,
+     "line": 390,
      "yq": "backends/generic/misc.c"
     },
     {
      "name": "Sys_GetClipboardData",
      "kind": "def",
-     "line": 400,
+     "line": 401,
      "yq": null
     },
     {
      "name": "main",
      "kind": "def",
-     "line": 405,
+     "line": 406,
      "yq": "backends/unix/main.c"
     }
    ]
@@ -15278,229 +15233,229 @@
     {
      "name": "REF_SOFT",
      "kind": "var",
-     "line": 33,
+     "line": 35,
      "yq": null
     },
     {
      "name": "REF_SOFTX11",
      "kind": "var",
-     "line": 34,
+     "line": 36,
      "yq": null
     },
     {
      "name": "REF_MESA3D",
      "kind": "var",
-     "line": 35,
+     "line": 37,
      "yq": null
     },
     {
      "name": "REF_3DFXGL",
      "kind": "var",
-     "line": 36,
+     "line": 38,
      "yq": null
     },
     {
      "name": "REF_OPENGLX",
      "kind": "var",
-     "line": 37,
+     "line": 39,
      "yq": null
     },
     {
      "name": "REF_MESA3DGLX",
      "kind": "var",
-     "line": 38,
+     "line": 40,
      "yq": null
     },
     {
      "name": "gl_mode",
      "kind": "var",
-     "line": 47,
+     "line": 49,
      "yq": null
     },
     {
      "name": "gl_driver",
      "kind": "var",
-     "line": 48,
+     "line": 50,
      "yq": null
     },
     {
      "name": "gl_picmip",
      "kind": "var",
-     "line": 49,
+     "line": 51,
      "yq": null
     },
     {
      "name": "gl_ext_palettedtexture",
      "kind": "var",
-     "line": 50,
+     "line": 52,
      "yq": null
     },
     {
      "name": "sw_mode",
      "kind": "var",
-     "line": 52,
+     "line": 54,
      "yq": null
     },
     {
      "name": "sw_stipplealpha",
      "kind": "var",
-     "line": 53,
+     "line": 55,
      "yq": null
     },
     {
      "name": "_windowed_mouse",
      "kind": "var",
-     "line": 55,
+     "line": 57,
      "yq": null
     },
     {
      "name": "SOFTWARE_MENU",
      "kind": "var",
-     "line": 66,
+     "line": 68,
      "yq": null
     },
     {
      "name": "OPENGL_MENU",
      "kind": "var",
-     "line": 67,
+     "line": 69,
      "yq": null
     },
     {
      "name": "s_software_menu",
      "kind": "var",
-     "line": 69,
+     "line": 71,
      "yq": null
     },
     {
      "name": "s_opengl_menu",
      "kind": "var",
-     "line": 70,
+     "line": 72,
      "yq": "client/menu/videomenu.c"
     },
     {
      "name": "s_current_menu",
      "kind": "var",
-     "line": 71,
+     "line": 73,
      "yq": null
     },
     {
      "name": "s_current_menu_index",
      "kind": "var",
-     "line": 72,
+     "line": 74,
      "yq": null
     },
     {
      "name": "s_mode_list",
      "kind": "var",
-     "line": 74,
+     "line": 76,
      "yq": "client/menu/videomenu.c"
     },
     {
      "name": "s_ref_list",
      "kind": "var",
-     "line": 75,
+     "line": 77,
      "yq": null
     },
     {
      "name": "s_tq_slider",
      "kind": "var",
-     "line": 76,
+     "line": 78,
      "yq": null
     },
     {
      "name": "s_screensize_slider",
      "kind": "var",
-     "line": 77,
+     "line": 79,
      "yq": null
     },
     {
      "name": "s_brightness_slider",
      "kind": "var",
-     "line": 78,
+     "line": 80,
      "yq": "client/menu/videomenu.c"
     },
     {
      "name": "s_fs_box",
      "kind": "var",
-     "line": 79,
+     "line": 81,
      "yq": "client/menu/videomenu.c"
     },
     {
      "name": "s_stipple_box",
      "kind": "var",
-     "line": 80,
+     "line": 82,
      "yq": null
     },
     {
      "name": "s_paletted_texture_box",
      "kind": "var",
-     "line": 81,
+     "line": 83,
      "yq": null
     },
     {
      "name": "s_windowed_mouse",
      "kind": "var",
-     "line": 82,
+     "line": 84,
      "yq": null
     },
     {
      "name": "s_apply_action",
      "kind": "var",
-     "line": 83,
+     "line": 85,
      "yq": "client/menu/videomenu.c"
     },
     {
      "name": "s_defaults_action",
      "kind": "var",
-     "line": 84,
+     "line": 86,
      "yq": "client/menu/videomenu.c"
     },
     {
      "name": "DriverCallback",
      "kind": "def",
-     "line": 86,
+     "line": 88,
      "yq": null
     },
     {
      "name": "ScreenSizeCallback",
      "kind": "def",
-     "line": 97,
+     "line": 99,
      "yq": null
     },
     {
      "name": "BrightnessCallback",
      "kind": "def",
-     "line": 104,
+     "line": 106,
      "yq": null
     },
     {
      "name": "ResetDefaults",
      "kind": "def",
-     "line": 121,
+     "line": 123,
      "yq": "client/menu/videomenu.c"
     },
     {
      "name": "ApplyChanges",
      "kind": "def",
-     "line": 126,
+     "line": 128,
      "yq": "client/menu/videomenu.c"
     },
     {
      "name": "VID_MenuInit",
      "kind": "def",
-     "line": 195,
+     "line": 197,
      "yq": "client/menu/videomenu.c"
     },
     {
      "name": "VID_MenuDraw",
      "kind": "def",
-     "line": 371,
+     "line": 373,
      "yq": null
     },
     {
      "name": "VID_MenuKey",
      "kind": "def",
-     "line": 404,
+     "line": 406,
      "yq": null
     }
    ]
@@ -15511,253 +15466,253 @@
     {
      "name": "re",
      "kind": "var",
-     "line": 48,
+     "line": 52,
      "yq": "client/vid/vid.c"
     },
     {
      "name": "vid_gamma",
      "kind": "var",
-     "line": 51,
+     "line": 55,
      "yq": "client/refresh/gl1/gl1_main.c"
     },
     {
      "name": "vid_ref",
      "kind": "var",
-     "line": 52,
+     "line": 56,
      "yq": null
     },
     {
      "name": "vid_xpos",
      "kind": "var",
-     "line": 53,
+     "line": 57,
      "yq": null
     },
     {
      "name": "vid_ypos",
      "kind": "var",
-     "line": 54,
+     "line": 58,
      "yq": null
     },
     {
      "name": "vid_fullscreen",
      "kind": "var",
-     "line": 55,
+     "line": 59,
      "yq": "client/vid/vid.c"
     },
     {
      "name": "viddef_t",
      "kind": "class",
-     "line": 57,
+     "line": 61,
      "yq": "client/vid/header/vid.h"
     },
     {
      "name": "viddef",
      "kind": "var",
-     "line": 63,
+     "line": 67,
      "yq": "client/vid/vid.c"
     },
     {
      "name": "reflib_active",
      "kind": "var",
-     "line": 66,
+     "line": 70,
      "yq": null
     },
     {
      "name": "KBD_Update_fp",
      "kind": "var",
-     "line": 77,
+     "line": 81,
      "yq": null
     },
     {
      "name": "KBD_Init_fp",
      "kind": "var",
-     "line": 78,
+     "line": 82,
      "yq": null
     },
     {
      "name": "KBD_Close_fp",
      "kind": "var",
-     "line": 79,
+     "line": 83,
      "yq": null
     },
     {
      "name": "in_state_t",
      "kind": "class",
-     "line": 83,
+     "line": 87,
      "yq": null
     },
     {
      "name": "in_state",
      "kind": "var",
-     "line": 93,
+     "line": 98,
      "yq": null
     },
     {
      "name": "RW_IN_Init_fp",
      "kind": "var",
-     "line": 95,
+     "line": 100,
      "yq": null
     },
     {
      "name": "RW_IN_Shutdown_fp",
      "kind": "var",
-     "line": 96,
+     "line": 101,
      "yq": null
     },
     {
      "name": "RW_IN_Activate_fp",
      "kind": "var",
-     "line": 97,
+     "line": 102,
      "yq": null
     },
     {
      "name": "RW_IN_Commands_fp",
      "kind": "var",
-     "line": 98,
+     "line": 103,
      "yq": null
     },
     {
      "name": "RW_IN_Move_fp",
      "kind": "var",
-     "line": 99,
+     "line": 104,
      "yq": null
     },
     {
      "name": "RW_IN_Frame_fp",
      "kind": "var",
-     "line": 100,
+     "line": 105,
      "yq": null
     },
     {
      "name": "VID_Printf",
      "kind": "def",
-     "line": 115,
+     "line": 120,
      "yq": null
     },
     {
      "name": "VID_Error",
      "kind": "def",
-     "line": 132,
+     "line": 137,
      "yq": null
     },
     {
      "name": "VID_Restart_f",
      "kind": "def",
-     "line": 157,
+     "line": 162,
      "yq": "client/vid/vid.c"
     },
     {
      "name": "vidmode_t",
      "kind": "class",
-     "line": 166,
+     "line": 171,
      "yq": null
     },
     {
      "name": "vid_modes",
      "kind": "var",
-     "line": 174,
+     "line": 179,
      "yq": "client/vid/vid.c"
     },
     {
      "name": "VID_NUM_MODES",
      "kind": "var",
-     "line": 187,
+     "line": 192,
      "yq": "client/vid/vid.c"
     },
     {
      "name": "VID_GetModeInfo",
      "kind": "def",
-     "line": 189,
+     "line": 194,
      "yq": "client/vid/vid.c"
     },
     {
      "name": "VID_NewWindow",
      "kind": "def",
-     "line": 202,
+     "line": 207,
      "yq": null
     },
     {
      "name": "VID_FreeReflib",
      "kind": "def",
-     "line": 207,
+     "line": 212,
      "yq": null
     },
     {
      "name": "VID_LoadRefresh",
      "kind": "def",
-     "line": 240,
+     "line": 245,
      "yq": null
     },
     {
      "name": "VID_CheckChanges",
      "kind": "def",
-     "line": 404,
+     "line": 410,
      "yq": "client/vid/vid.c"
     },
     {
      "name": "VID_Init",
      "kind": "def",
-     "line": 466,
+     "line": 472,
      "yq": "client/vid/vid.c"
     },
     {
      "name": "VID_Shutdown",
      "kind": "def",
-     "line": 496,
+     "line": 504,
      "yq": "client/vid/vid.c"
     },
     {
      "name": "in_joystick",
      "kind": "var",
-     "line": 516,
+     "line": 524,
      "yq": null
     },
     {
      "name": "IN_Init",
      "kind": "def",
-     "line": 519,
+     "line": 527,
      "yq": "client/input/sdl2.c"
     },
     {
      "name": "Real_IN_Init",
      "kind": "def",
-     "line": 526,
+     "line": 534,
      "yq": null
     },
     {
      "name": "IN_Shutdown",
      "kind": "def",
-     "line": 532,
+     "line": 540,
      "yq": "client/input/sdl2.c"
     },
     {
      "name": "IN_Commands",
      "kind": "def",
-     "line": 538,
+     "line": 546,
      "yq": null
     },
     {
      "name": "IN_Move",
      "kind": "def",
-     "line": 544,
+     "line": 552,
      "yq": "client/input/sdl2.c"
     },
     {
      "name": "IN_Frame",
      "kind": "def",
-     "line": 550,
+     "line": 558,
      "yq": null
     },
     {
      "name": "IN_Activate",
      "kind": "def",
-     "line": 563,
+     "line": 571,
      "yq": null
     },
     {
      "name": "Do_Key_Event",
      "kind": "def",
-     "line": 568,
+     "line": 576,
      "yq": null
     }
    ]

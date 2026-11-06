@@ -28,7 +28,7 @@ from __future__ import annotations
 from client import cl_keyboard
 
 import struct
-from client import snd_dma, menu, cl_cin, cl_parse
+from client import snd_dma, cl_cin, cl_parse
 from linux import q_shlinux, vid_so, net_udp, sys_linux
 from common.header import common as common_h
 from common.header import shared
@@ -47,6 +47,7 @@ from client import cl_screen
 from client.header import client as client_h
 from client.sound import ogg
 from client.vid import vid
+from client.menu import menu
 
 """
 #include "header/client.h"

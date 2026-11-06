@@ -33,7 +33,7 @@ from client.sound.header import vorbis
 
 import os
 import struct
-from client import snd_dma, cl_view, menu, cl_input, cl_cin, cl_parse, cl_fx, cl_tent
+from client import snd_dma, cl_view, cl_input, cl_cin, cl_parse
 from linux import q_shlinux, vid_so, net_udp, cd_linux, sys_linux
 from common.header import common as common_h
 from common.header import shared
@@ -58,6 +58,10 @@ from client import cl_prediction
 from client import cl_screen
 from client import cl_view
 from client.header import client as client_h
+from client import cl_effects
+from client import cl_lights
+from client import cl_tempentities
+from client.menu import menu
 
 """
 #include <errno.h>
@@ -436,8 +440,8 @@ def CL_ClearState(): #void
 	global cl
 
 	snd_dma.S_StopAllSounds()
-	cl_fx.CL_ClearEffects()
-	cl_tent.CL_ClearTEnts()
+	cl_effects.CL_ClearEffects()
+	cl_tempentities.CL_ClearTEnts()
 
 	# wipe the entire cl structure
 	cl.reset() # memset(&cl, 0, sizeof(cl));
@@ -997,8 +1001,8 @@ def CL_Frame(packetdelta: int, renderdelta: int, timedelta: int, packetframe: bo
 		snd_dma.S_Update(cl.refdef.vieworg, cl.v_forward, cl.v_right, cl.v_up)
 
 		# advance local effects for next frame
-		cl_fx.CL_RunDLights()
-		cl_fx.CL_RunLightStyles()
+		cl_lights.CL_RunDLights()
+		cl_lights.CL_RunLightStyles()
 		cl_cin.SCR_RunCinematic()
 		cl_screen.SCR_RunConsole()
 

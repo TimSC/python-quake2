@@ -26,6 +26,8 @@ This is the Quake II input system backend, implemented with SDL.
 """
 from __future__ import annotations
 
+import math
+
 import pygame
 
 from linux import sys_linux, vid_so
@@ -42,6 +44,9 @@ from client.header import keyboard as keyboard_h
 from client import cl_keyboard
 
 joy_current_lbls = client_h.gamepad_labels_t.LBL_SDL #gamepad_labels_t
+
+# Using japanese style for confirm & cancel buttons on gamepad
+japanese_confirm = False #qboolean
 
 # Console Variables
 freelook = None #cvar_t *
@@ -619,3 +624,95 @@ def In_FlushQueue(): #void
 	pygame.event.clear() # SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
 	cl_keyboard.Key_MarkAllUp()
 	IN_JoyAltSelectorUp()
+
+def IN_NumpadIsOn()->bool: #void (returns qboolean)
+
+	mod = pygame.key.get_mods() # SDL_Keymod mod = SDL_GetModState();
+
+	if (mod & pygame.KMOD_NUM) == pygame.KMOD_NUM:
+
+		return True
+
+
+	return False
+
+show_gamepad, show_haptic, show_gyro = False, False, False #qboolean
+
+first_init = True #static qboolean
+
+"""
+ * Gyro calibration functions, called from menu
+"""
+def StartCalibration(): #void
+
+	# Q2PORT: no gamepads or gyros until input/sdl2.c is ported (group 14)
+	#ifdef NO_SDL_GYRO
+	#ImuJoy_ResetSamples();
+	#endif
+	#IN_GYRO_ResetSamples();
+	#updates_countdown = 300;
+	#countdown_reason = REASON_GYROCALIBRATION;
+	pass
+
+def IsCalibrationZero()->bool: #void (returns qboolean)
+
+	return (not gyro_calibration_x.value and not gyro_calibration_y.value and not gyro_calibration_z.value)
+
+class joy_preset_t(object):
+
+	def __init__(self, yawspeed, pitchspeed, extra_yawspeed, extra_pitchspeed, ramp_time):
+
+		self.yawspeed = yawspeed #float
+		self.pitchspeed = pitchspeed #float
+		self.extra_yawspeed = extra_yawspeed #float
+		self.extra_pitchspeed = extra_pitchspeed #float
+		self.ramp_time = ramp_time #float
+
+joy_presets = [ #static const joy_preset_t []
+	joy_preset_t(   0.0,   0.0,   0.0,   0.0, 0.00 ),
+	joy_preset_t(  50.0,  50.0,  60.0,   0.0, 0.50 ),
+	joy_preset_t(  80.0,  50.0, 150.0, 120.0, 0.30 ),
+	joy_preset_t( 160.0, 120.0, 220.0,   0.0, 0.35 ), # Default
+	joy_preset_t( 240.0, 200.0, 220.0,   0.0, 0.30 ),
+	joy_preset_t( 380.0, 240.0,   0.0,   0.0, 0.00 ),
+	joy_preset_t( 450.0, 300.0,   0.0,   0.0, 0.00 ),
+	joy_preset_t( 500.0, 500.0,   0.0,   0.0, 0.00 ),
+	joy_preset_t( 720.0, 720.0,   0.0,   0.0, 0.00 ),
+]
+
+def IN_ApplyJoyPreset(): #void
+
+	final_preset = len(joy_presets) - 1 #static const int, ARRLEN(joy_presets) - 1
+	i = int(math.floor(shared.Q_clamp(joy_sensitivity.value, 0, final_preset) + 0.5)) # lroundf
+
+	joy_sensitivity.modified = False
+	if first_init: return
+
+	cvar.Cvar_SetValue("joy_yawspeed", joy_presets[i].yawspeed)
+	cvar.Cvar_SetValue("joy_pitchspeed",
+				  joy_presets[i].pitchspeed * shared.Q_signf(joy_pitchspeed.value))
+	cvar.Cvar_SetValue("joy_extra_yawspeed", joy_presets[i].extra_yawspeed)
+	cvar.Cvar_SetValue("joy_extra_pitchspeed", joy_presets[i].extra_pitchspeed)
+	cvar.Cvar_SetValue("joy_ramp_time", joy_presets[i].ramp_time)
+
+def EQF(a, b): return (abs((a) - (b)) < 1.0e-6) #define EQF(a, b)
+
+def IN_MatchJoyPreset()->bool: #void (returns qboolean)
+
+	num_presets = len(joy_presets) #static const int, ARRLEN(joy_presets)
+
+	for i in range(num_presets):
+
+		if (EQF(joy_presets[i].yawspeed, joy_yawspeed.value)
+			and EQF(joy_presets[i].pitchspeed, abs(joy_pitchspeed.value))
+			and EQF(joy_presets[i].extra_yawspeed, joy_extra_yawspeed.value)
+			and EQF(joy_presets[i].extra_pitchspeed, joy_extra_pitchspeed.value)
+			and EQF(joy_presets[i].ramp_time, joy_ramp_time.value)):
+
+			cvar.Cvar_SetValue("joy_sensitivity", i)
+			joy_sensitivity.modified = False
+			return True
+
+
+
+	return False

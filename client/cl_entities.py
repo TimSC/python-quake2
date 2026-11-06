@@ -29,7 +29,7 @@ import math
 
 import numpy as np
 
-from client import cl_tent, cl_fx, cl_newfx, ref
+from client import ref
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -41,6 +41,10 @@ from client import cl_main
 from client import cl_view
 from client.header import client as client_h
 from client.vid import vid
+from client import cl_effects
+from client import cl_lights
+from client import cl_particles
+from client import cl_tempentities
 
 """
 #include <math.h>
@@ -496,7 +500,7 @@ def CL_AddPacketEntities(frame: client_h.frame_t): #frame_t * (static)
 
 		if effects & shared.EF_POWERSCREEN:
 
-			ent.model = cl_tent.CL_PowerScreenModel()
+			ent.model = cl_tempentities.CL_PowerScreenModel()
 			ent.oldframe = 0
 			ent.frame = 0
 			ent.flags |= (shared.RF_TRANSLUCENT | shared.RF_SHELL_GREEN)
@@ -509,7 +513,7 @@ def CL_AddPacketEntities(frame: client_h.frame_t): #frame_t * (static)
 
 			if effects & shared.EF_ROCKET:
 
-				cl_fx.CL_RocketTrail(cent.lerp_origin, ent.origin, cent)
+				cl_effects.CL_RocketTrail(cent.lerp_origin, ent.origin, cent)
 
 				if cl_main.cl_r1q2_lightstyle.value:
 
@@ -528,12 +532,12 @@ def CL_AddPacketEntities(frame: client_h.frame_t): #frame_t * (static)
 
 				if effects & shared.EF_TRACKER:
 
-					cl_newfx.CL_BlasterTrail2(cent.lerp_origin, ent.origin)
+					cl_effects.CL_BlasterTrail2(cent.lerp_origin, ent.origin)
 					cl_view.V_AddLight(ent.origin, 200, 0, 1, 0)
 
 				else:
 
-					cl_fx.CL_BlasterTrail(cent.lerp_origin, ent.origin)
+					cl_effects.CL_BlasterTrail(cent.lerp_origin, ent.origin)
 					cl_view.V_AddLight(ent.origin, 200, 1, 1, 0)
 
 
@@ -550,17 +554,17 @@ def CL_AddPacketEntities(frame: client_h.frame_t): #frame_t * (static)
 
 			elif effects & shared.EF_GIB:
 
-				cl_fx.CL_DiminishingTrail(cent.lerp_origin, ent.origin,
+				cl_effects.CL_DiminishingTrail(cent.lerp_origin, ent.origin,
 						cent, effects)
 
 			elif effects & shared.EF_GRENADE:
 
-				cl_fx.CL_DiminishingTrail(cent.lerp_origin, ent.origin,
+				cl_effects.CL_DiminishingTrail(cent.lerp_origin, ent.origin,
 						cent, effects)
 
 			elif effects & shared.EF_FLIES:
 
-				cl_fx.CL_FlyEffect(cent, ent.origin)
+				cl_effects.CL_FlyEffect(cent, ent.origin)
 
 			elif effects & shared.EF_BFG:
 
@@ -568,7 +572,7 @@ def CL_AddPacketEntities(frame: client_h.frame_t): #frame_t * (static)
 
 				if effects & shared.EF_ANIM_ALLFAST:
 
-					cl_fx.CL_BfgParticles(ent)
+					cl_effects.CL_BfgParticles(ent)
 					i = 200
 
 				else:
@@ -581,23 +585,23 @@ def CL_AddPacketEntities(frame: client_h.frame_t): #frame_t * (static)
 			elif effects & shared.EF_TRAP:
 
 				ent.origin[2] += 32
-				cl_fx.CL_TrapParticles(ent)
+				cl_effects.CL_TrapParticles(ent)
 				i = (rand.randk() % 100) + 100
 				cl_view.V_AddLight(ent.origin, i, 1, 0.8, 0.1)
 
 			elif effects & shared.EF_FLAG1:
 
-				cl_fx.CL_FlagTrail(cent.lerp_origin, ent.origin, 242)
+				cl_effects.CL_FlagTrail(cent.lerp_origin, ent.origin, 242)
 				cl_view.V_AddLight(ent.origin, 225, 1, 0.1, 0.1)
 
 			elif effects & shared.EF_FLAG2:
 
-				cl_fx.CL_FlagTrail(cent.lerp_origin, ent.origin, 115)
+				cl_effects.CL_FlagTrail(cent.lerp_origin, ent.origin, 115)
 				cl_view.V_AddLight(ent.origin, 225, 0.1, 0.1, 1)
 
 			elif effects & shared.EF_TAGTRAIL:
 
-				cl_newfx.CL_TagTrail(cent.lerp_origin, ent.origin, 220)
+				cl_effects.CL_TagTrail(cent.lerp_origin, ent.origin, 220)
 				cl_view.V_AddLight(ent.origin, 225, 1.0, 1.0, 0.0)
 
 			elif effects & shared.EF_TRACKERTRAIL:
@@ -613,18 +617,18 @@ def CL_AddPacketEntities(frame: client_h.frame_t): #frame_t * (static)
 
 				else:
 
-					cl_newfx.CL_Tracker_Shell(cent.lerp_origin)
+					cl_effects.CL_Tracker_Shell(cent.lerp_origin)
 					cl_view.V_AddLight(ent.origin, 155, -1.0, -1.0, -1.0)
 
 
 			elif effects & shared.EF_TRACKER:
 
-				cl_newfx.CL_TrackerTrail(cent.lerp_origin, ent.origin, 0)
+				cl_effects.CL_TrackerTrail(cent.lerp_origin, ent.origin, 0)
 				cl_view.V_AddLight(ent.origin, 200, -1, -1, -1)
 
 			elif effects & shared.EF_IONRIPPER:
 
-				cl_fx.CL_IonripperTrail(cent.lerp_origin, ent.origin)
+				cl_effects.CL_IonripperTrail(cent.lerp_origin, ent.origin)
 				cl_view.V_AddLight(ent.origin, 100, 1, 0.5, 0.5)
 
 			elif effects & shared.EF_BLUEHYPERBLASTER:
@@ -635,7 +639,7 @@ def CL_AddPacketEntities(frame: client_h.frame_t): #frame_t * (static)
 
 				if effects & shared.EF_ANIM_ALLFAST:
 
-					cl_fx.CL_BlasterTrail(cent.lerp_origin, ent.origin)
+					cl_effects.CL_BlasterTrail(cent.lerp_origin, ent.origin)
 
 
 				cl_view.V_AddLight(ent.origin, 130, 1, 0.5, 0.5)
@@ -904,10 +908,10 @@ def CL_AddEntities(): #
 
 	CL_CalcViewValues()
 	CL_AddPacketEntities(cl_main.cl.frame)
-	cl_tent.CL_AddTEnts()
-	cl_fx.CL_AddParticles()
-	cl_fx.CL_AddDLights()
-	cl_fx.CL_AddLightStyles()
+	cl_tempentities.CL_AddTEnts()
+	cl_particles.CL_AddParticles()
+	cl_lights.CL_AddDLights()
+	cl_lights.CL_AddLightStyles()
 """
  * Called to get the sound spatialization
 

@@ -29,7 +29,7 @@ from client.input import sdl2
 
 import copy
 import numpy as np
-from client import cl_main, cl_fx, cl_view, ref
+from client import cl_main, cl_view, ref
 from common.header import common as common_h
 from common.header import shared
 from common import clientserver
@@ -49,137 +49,7 @@ from client.header import client as client_h
 
 vidref_val = shared.VIDREF_GL # int
 
-"""
-/*
-=========================================================================
-
-FRAME PARSING
-
-=========================================================================
-*/
-
-#if 0
-
-typedef struct
-{
-	int		modelindex;
-	int		num; // entity number
-	int		effects;
-	vec3_t	origin;
-	vec3_t	oldorigin;
-	vec3_t	angles;
-	qboolean present;
-} projectile_t;
-"""
-MAX_PROJECTILES = 64
-
-
-class projectile_t(object):
-
-	def __init__(self):
-		self.modelindex = 0
-		self.num = 0
-		self.effects = 0
-		self.origin = np.zeros(3, dtype=np.float32)
-		self.oldorigin = np.zeros(3, dtype=np.float32)
-		self.angles = np.zeros(3, dtype=np.float32)
-		self.present = False
-
-
-cl_projectiles = [projectile_t() for _ in range(MAX_PROJECTILES)]
-
-
-def CL_ClearProjectiles():
-	for proj in cl_projectiles:
-		proj.present = False
-
-"""
-=====================
-CL_ParseProjectiles
-
-Flechettes are passed as efficient temporary entities
-=====================
-"""
-def CL_ParseProjectiles():
-	count = movemsg.MSG_ReadByte(netchan.net_message)
-	for _ in range(count):
-		bits = [movemsg.MSG_ReadByte(netchan.net_message) for _ in range(5)]
-
-		pr_proj = projectile_t()
-		pr_proj.origin[0] = ((bits[0] + ((bits[1] & 15) << 8)) << 1) - 4096
-		pr_proj.origin[1] = (((bits[1] >> 4) + (bits[2] << 4)) << 1) - 4096
-		pr_proj.origin[2] = ((bits[3] + ((bits[4] & 15) << 8)) << 1) - 4096
-		shared.VectorCopy(pr_proj.origin, pr_proj.oldorigin)
-
-		if bits[4] & shared.EF_BLASTER:
-			pr_proj.effects = shared.EF_BLASTER
-		else:
-			pr_proj.effects = 0
-
-		old = False
-		if bits[4] & 128:
-			old = True
-			bits = [movemsg.MSG_ReadByte(netchan.net_message) for _ in range(5)]
-			pr_proj.oldorigin[0] = ((bits[0] + ((bits[1] & 15) << 8)) << 1) - 4096
-			pr_proj.oldorigin[1] = (((bits[1] >> 4) + (bits[2] << 4)) << 1) - 4096
-			pr_proj.oldorigin[2] = ((bits[3] + ((bits[4] & 15) << 8)) << 1) - 4096
-
-		bits = [movemsg.MSG_ReadByte(netchan.net_message) for _ in range(3)]
-
-		pr_proj.angles[0] = 360.0 * bits[0] / 256.0
-		pr_proj.angles[1] = 360.0 * bits[1] / 256.0
-		pr_proj.modelindex = bits[2]
-
-		b = movemsg.MSG_ReadByte(netchan.net_message)
-		pr_proj.num = (b & 0x7f)
-		if b & 128:
-			pr_proj.num |= movemsg.MSG_ReadByte(netchan.net_message) << 7
-
-		pr_proj.present = True
-
-		lastempty = -1
-		for j in range(MAX_PROJECTILES):
-			slot = cl_projectiles[j]
-			if slot.modelindex:
-				if slot.num == pr_proj.num:
-					if not old:
-						shared.VectorCopy(slot.origin, pr_proj.oldorigin)
-					cl_projectiles[j] = pr_proj
-					break
-			else:
-				lastempty = j
-		else:
-			j = MAX_PROJECTILES
-
-		if j == MAX_PROJECTILES and lastempty != -1:
-			cl_projectiles[lastempty] = pr_proj
-
-
-def CL_AddProjectiles():
-	ent = ref.entity_t()
-	for pr in cl_projectiles:
-		if pr.modelindex < 1:
-			pr.present = False
-			continue
-		if not pr.present:
-			pr.modelindex = 0
-			continue
-
-		ent.model = cl_main.cl.model_draw[pr.modelindex]
-		for i in range(3):
-			ent.origin[i] = ent.oldorigin[i] = (
-				pr.oldorigin[i] + cl_main.cl.lerpfrac * (pr.origin[i] - pr.oldorigin[i])
-			)
-		if pr.effects & shared.EF_BLASTER and hasattr(cl_fx, "CL_BlasterTrail"):
-			cl_fx.CL_BlasterTrail(pr.oldorigin, ent.origin)
-			cl_view.V_AddLight(ent.origin, 200, 1, 1, 0)
-		if pr.effects & shared.EF_BLASTER and not hasattr(cl_fx, "CL_BlasterTrail"):
-			cl_view.V_AddLight(ent.origin, 200, 1, 1, 0)
-
-		shared.VectorCopy(pr.angles, ent.angles)
-		cl_view.V_AddEntity(ent)
-
-from client import cl_main, cl_view, cl_cin, cl_fx, snd_dma, cl_tent
+from client import cl_main, cl_view, cl_cin, snd_dma
 from linux import cd_linux, sys_linux, vid_so
 from common.header import common as common_h
 from common.header import shared
@@ -200,6 +70,9 @@ from client import cl_view
 from client.header import client as client_h
 from client.sound import ogg
 from client.vid import vid
+from client import cl_effects
+from client import cl_lights
+from client import cl_tempentities
 
 pass
 pass
@@ -250,7 +123,7 @@ def CL_RegisterSounds(): #
 	"""
 
 	snd_dma.S_BeginRegistration()
-	cl_tent.CL_RegisterTEntSounds()
+	cl_tempentities.CL_RegisterTEntSounds()
 	for i in range(1, shared.MAX_SOUNDS):
 
 		if not cl_main.cl.configstrings[shared.CS_SOUNDS + i]: # !cl.configstrings[CS_SOUNDS + i][0]
@@ -382,7 +255,7 @@ def CL_ParseDelta (fromEnt, toEnt, number, bits): #const entity_state_t *from, e
 		toEnt.angles[2] = movemsg.MSG_ReadAngle(netchan.net_message)
 
 	if bits & common_h.U_OLDORIGIN:
-		toEnt.old_origin = movemsg.MSG_ReadPos (netchan.net_message)
+		movemsg.MSG_ReadPos(netchan.net_message, toEnt.old_origin)
 
 	if bits & common_h.U_SOUND:
 		toEnt.sound = movemsg.MSG_ReadByte (netchan.net_message)
@@ -736,12 +609,12 @@ def CL_FireEntityEvents(frame): #frame_t * (static)
 		s1 = cl_main.cl_parse_entities[num]
 		if s1.event:
 
-			cl_fx.CL_EntityEvent(s1)
+			cl_effects.CL_EntityEvent(s1)
 
 
 		if s1.effects & shared.EF_TELEPORTER:
 
-			cl_fx.CL_TeleporterParticles(s1)
+			cl_effects.CL_TeleporterParticles(s1)
 	
 
 
@@ -1263,7 +1136,7 @@ def CL_ParseConfigString(): #void
 
 	if (i >= shared.CS_LIGHTS) and (i < shared.CS_LIGHTS + shared.MAX_LIGHTSTYLES):
 
-		cl_fx.CL_SetLightstyle(i - shared.CS_LIGHTS)
+		cl_lights.CL_SetLightstyle(i - shared.CS_LIGHTS)
 
 	elif i == shared.CS_CDTRACK:
 
@@ -1522,15 +1395,15 @@ def CL_ParseServerMessage(): #void
 
 		elif cmd == common_h.svc_ops_e.svc_temp_entity.value:
 
-			cl_tent.CL_ParseTEnt()
+			cl_tempentities.CL_ParseTEnt()
 
 		elif cmd == common_h.svc_ops_e.svc_muzzleflash.value:
 
-			cl_fx.CL_ParseMuzzleFlash() # Q2PORT: Yamagi's CL_AddMuzzleFlash (cl_effects.c, group 11)
+			cl_effects.CL_AddMuzzleFlash()
 
 		elif cmd == common_h.svc_ops_e.svc_muzzleflash2.value:
 
-			cl_fx.CL_ParseMuzzleFlash2() # Q2PORT: Yamagi's CL_AddMuzzleFlash2 (cl_effects.c, group 11)
+			cl_effects.CL_AddMuzzleFlash2()
 
 		elif cmd == common_h.svc_ops_e.svc_download.value:
 

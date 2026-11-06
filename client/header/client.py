@@ -703,3 +703,93 @@ class gamepad_labels_t(Enum):
 	LBL_PLAYSTATION = 2
 	LBL_SWITCH = 3
 	LBL_MAX_COUNT = 4
+
+import numpy as np
+
+class cdlight_t(object):
+
+	def __init__(self):
+		self.key = 0
+		self.color = np.zeros((3,), dtype=np.float32)
+		self.origin = np.zeros((3,), dtype=np.float32)
+		self.radius = 0.0
+		self.die = 0.0
+		self.decay = 0.0
+		self.minlight = 0.0
+
+	def clear(self):
+		self.key = 0
+		self.color[:] = 0.0
+		self.origin[:] = 0.0
+		self.radius = 0.0
+		self.die = 0.0
+		self.decay = 0.0
+		self.minlight = 0.0
+
+# ROGUE
+# ======
+# --- Xian's shit ends ---
+
+
+"""
+/*
+==============================================================
+
+PARTICLE MANAGEMENT
+
+==============================================================
+*/
+
+/*
+// THIS HAS BEEN RELOCATED TO CLIENT.H
+typedef struct particle_s
+{
+	struct particle_s	*next;
+
+	float		time;
+
+	vec3_t		org;
+	vec3_t		vel;
+	vec3_t		accel;
+	float		color;
+	float		colorvel;
+	float		alpha;
+	float		alphavel;
+} cparticle_t;
+
+
+#define	PARTICLE_GRAVITY	40
+*/
+
+cparticle_t	*active_particles, *free_particles;
+
+cparticle_t	particles[MAX_PARTICLES];
+int			cl_numparticles = MAX_PARTICLES;
+"""
+"""
+/*
+===============
+CL_ClearParticles
+===============
+"""
+class cparticle_t(object):
+
+	def __init__(self):
+		self.time = 0.0
+		self.org = np.zeros((3,), dtype=np.float32)
+		self.vel = np.zeros((3,), dtype=np.float32)
+		self.accel = np.zeros((3,), dtype=np.float32)
+		self.color = 0
+		self.colorvel = 0.0
+		self.alpha = 0.0
+		self.alphavel = 0.0
+
+	
+
+
+"""
+===============
+CL_FlyParticles
+===============
+"""
+BEAMLENGTH = 16

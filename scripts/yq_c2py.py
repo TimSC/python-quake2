@@ -59,8 +59,10 @@ SEARCH_CLIENT = [("vid", "client.vid.vid"), ("client_h", "client.header.client")
 	("cl_entities", "client.cl_entities"), ("cl_prediction", "client.cl_prediction"), ("cl_input", "client.cl_input"),
 	("cl_keyboard", "client.cl_keyboard"), ("cl_console", "client.cl_console"), ("cl_screen", "client.cl_screen"),
 	("cl_view", "client.cl_view"), ("cl_inventory", "client.cl_inventory"), ("cl_cin", "client.cl_cin"),
-	("cl_fx", "client.cl_fx"), ("cl_tent", "client.cl_tent"), ("cl_tempentities", "client.cl_tempentities"),
-	("menu", "client.menu"), ("snd_dma", "client.snd_dma"), ("clientserver", "common.clientserver"),
+	("cl_effects", "client.cl_effects"), ("cl_lights", "client.cl_lights"), ("cl_particles", "client.cl_particles"),
+	("cl_tempentities", "client.cl_tempentities"), ("qmenu_h", "client.menu.header.qmenu"), ("qmenu", "client.menu.qmenu"),
+	("menu", "client.menu.menu"), ("videomenu", "client.menu.videomenu"), ("sdl2", "client.input.sdl2"), ("gyro_h", "client.input.header.gyro"), ("vorbis", "client.sound.header.vorbis"), ("sv_main", "server.sv_main"), ("ref", "client.ref"),
+	("ogg", "client.sound.ogg"), ("cl_image", "client.cl_image"), ("snd_dma", "client.snd_dma"), ("clientserver", "common.clientserver"),
 	("cvar", "common.cvar"), ("cmdparser", "common.cmdparser"), ("movemsg", "common.movemsg"),
 	("filesystem", "common.filesystem"), ("netchan", "common.netchan"), ("szone", "common.szone"), ("frame", "common.frame"),
 	("common_h", "common.header.common"), ("shared", "common.header.shared"), ("shared_c", "common.shared.shared"),
@@ -117,6 +119,8 @@ class Ctx(object):
 			if hasattr(m, name) and not (alias == "shared_c" and name in ("rand",)):
 				self.needed.add(alias)
 				return alias + "." + name
+		if name in ("int", "float", "len", "abs", "min", "max", "round", "str"):
+			return name	# the Python builtins the translation itself writes
 		self.fixmes.append(name)
 		return name
 
@@ -124,7 +128,20 @@ class Ctx(object):
 def tokens_to_py(expr, ctx):
 	"""Translate one C expression."""
 	e = expr.strip()
+	# string literals are set aside so the operator rewrites below don't touch them
+	strs = []
+	def keep(m):
+		strs.append(m.group(0)); return "__CSTR%d__" % (len(strs) - 1)
+	e = re.sub(r'"(?:\\.|[^"\\])*"', keep, e)
+	if getattr(ctx, "client", False):
+		# int and float casts keep their conversion: (int)(x) -> int(x), (int)x -> int(x)
+		e = re.sub(r"\(\s*(?:unsigned\s+|signed\s+)?(int|short|long|unsigned|byte)\s*\)\s*\(", "int(", e)
+		e = re.sub(r"\(\s*(?:unsigned\s+|signed\s+)?(?:int|short|long|unsigned|byte)\s*\)\s*([A-Za-z_][\w.\->]*(?:\[[^\]]*\])*|\d+\.?\d*)", r"int(\1)", e)
+		e = re.sub(r"\(\s*(?:float|double)\s*\)\s*\(", "float(", e)
+		e = re.sub(r"\(\s*(?:float|double)\s*\)\s*([A-Za-z_][\w.\->]*(?:\[[^\]]*\])*|\d+\.?\d*)", r"float(\1)", e)
+	e = re.sub(r"\(\s*(?:const\s+)?void\s*\*\s*\)\s*(?=[\w(&])", "", e)
 	e = re.sub(r"\(\s*(?:const\s+)?(?:unsigned\s+|signed\s+)?(?:int|float|unsigned|short|byte|char|double|long|long long|qboolean|size_t|gitem_armor_t\s*\*|gitem_t\s*\*|edict_t\s*\*|char\s*\*|byte\s*\*)\s*\)\s*(?=[\w(\-])", "", e)
+	e = re.sub(r"\(\s*(?:const\s+)?(?:struct\s+)?\w+_[ts]\s*\*\s*\)\s*(?=[\w(])", "", e)	# pointer casts: (beam_t *)b
 	e = re.sub(r"\bstrtol\s*\(([^(),]+),[^(),]*,\s*10\s*\)", r"atoi(\1)", e)
 	e = re.sub(r"\b__func__\b", '"%s"' % getattr(ctx, "funcname", ""), e)
 	e = e.replace("->", ".")
@@ -156,6 +173,8 @@ def tokens_to_py(expr, ctx):
 			out.append(tok.rstrip("uUlL")); continue
 		if (tok[0].isalpha() or tok[0] == "_") and e[:t.start()].rstrip().endswith("."):
 			out.append(tok); continue	# attribute after "]." or ")."
+		if tok.startswith("__CSTR"):
+			out.append(tok); continue
 		if tok[0].isalpha() or tok[0] == "_":
 			head, _, rest = tok.partition(".")
 			if head in ("and", "or", "not", "if", "else", "None", "True", "False"):
@@ -170,18 +189,21 @@ def tokens_to_py(expr, ctx):
 	s = s.replace("not  ", "not ")
 	s = re.sub(r"([\w.\[\]]+)\s*(<=|>=|<|>)\s*(\w+\.\w+_t\.\w+)\b", r"\1.value \2 \3.value", s)
 	s = re.sub(r"(\w+\.\w+_t\.\w+)\s*(<=|>=|<|>)\s*([\w.\[\]]+)", r"\1.value \2 \3.value", s)
+	s = re.sub(r"__CSTR(\d+)__", lambda m: strs[int(m.group(1))], s)
 	return s
 
 
 def split_decl(line):
 	"""'vec3_t a, b;' -> ('vec3_t', ['a', 'b'], {init})"""
+	line = re.sub(r"^(\s*)(unsigned|signed)\s+(short|long)\s+int\b", r"\1\2 \3", line)
+	line = re.sub(r"^(\s*)(unsigned|signed)\s+(short|long)\b", r"\1\3", line)
 	m = re.match(r"\s*((?:static\s+|const\s+)*(?:unsigned\s+)?[A-Za-z_]\w*(?:\s*\*)*)\s+(.*);\s*$", line)
 	if not m: return None
 	typ, rest = m.group(1), m.group(2)
 	first = re.match(r"[A-Za-z_]\w*", typ).group(0)
-	if first not in TYPES and not first.endswith("_t"): return None
+	if first not in TYPES and not first.endswith(("_t", "_s")): return None
 	names = []
-	for part in re.split(r",(?![^{]*\})", rest):
+	for part in split_top(rest):
 		part = part.strip()
 		mm = re.match(r"(\**)\s*([A-Za-z_]\w*)\s*(\[[^\]]*\])?\s*(?:=\s*(.*))?$", part)
 		if not mm: return None
@@ -444,7 +466,58 @@ def emit(nodes, ctx, depth, out, indent="\t"):
 			_, head, body = n
 			parts = split_top(head, ";")
 			init, cond, step = [p.strip() for p in parts]
+			# C99: for (int i = 0; ...) declares the loop variable
+			mt = re.match(r"(?:const\s+)?(?:unsigned\s+|signed\s+)?(?:short\s+|long\s+)*(?:int|size_t|unsigned|float|char|qboolean|[A-Za-z_]\w*_[ts])\s*(\**)\s*(?=\w+\s*=)", init)
+			if mt:
+				init = init[mt.end():]
+			# a pointer walk over an array: for (b = list; b < &list[N]; b++)
+			pw = re.fullmatch(r"(\w+)\s*=\s*(\w+)", init)
+			pw = pw and re.fullmatch(r"%s\s*<\s*&\s*%s\s*\[(.+)\]" % (pw.group(1), pw.group(2)), cond) and \
+				re.fullmatch(r"%s\s*\+\+|\+\+\s*%s" % (pw.group(1), pw.group(1)), step) and pw
+			# an index and a pointer together: for (i = 0, x = list; i < N; i++, x++)
+			ip = re.fullmatch(r"(\w+)\s*=\s*0\s*,\s*(\w+)\s*=\s*(\w+)", init)
+			ip = ip and re.fullmatch(r"%s\s*<\s*(.+)" % ip.group(1), cond) and \
+				re.fullmatch(r"%s\s*\+\+\s*,\s*%s\s*\+\+" % (ip.group(1), ip.group(2)), step) and ip
+			# for (i = 0; i < N; i++, x++) with x = list set just before the loop
+			ix = re.fullmatch(r"(\w+)\s*=\s*0", init)
+			ix = ix and re.fullmatch(r"%s\s*<\s*(.+)" % ix.group(1), cond) and \
+				re.fullmatch(r"%s\s*\+\+\s*,\s*(\w+)\s*\+\+" % ix.group(1), step) and ix
+			if ix:
+				i_ = ix.group(1); v = re.fullmatch(r"%s\s*\+\+\s*,\s*(\w+)\s*\+\+" % i_, step).group(1)
+				pv = ctx.resolve(v); base = None
+				for k2 in range(len(out) - 1, -1, -1):
+					mb = re.fullmatch(r"\s*%s = (\S+)" % re.escape(pv), out[k2])
+					if mb:
+						base = mb.group(1); del out[k2]; break
+					if out[k2].strip(): break
+				if base:
+					n_ = re.fullmatch(r"%s\s*<\s*(.+)" % i_, cond).group(1); ctx.locals.update((i_, v))
+					out.append(pad + "for %s in range(%s): # for (%s; %s; %s)" % (ctx.resolve(i_), tokens_to_py(n_, ctx), init, cond, step)); out.append("")
+					out.append(pad + indent + "%s = %s[%s]" % (pv, base, ctx.resolve(i_))); out.append("")
+					body2 = []
+					emit(body, ctx, depth + 1, body2)
+					out.extend(body2); out.append(""); out.append("")
+					continue
+			if pw:
+				v, lst = pw.group(1), pw.group(2); ctx.locals.add(v)
+				n_ = re.fullmatch(r"%s\s*<\s*&\s*%s\s*\[(.+)\]" % (v, lst), cond).group(1)
+				out.append(pad + "for %s in %s[:%s]: # for (%s; %s; %s)" % (ctx.resolve(v), tokens_to_py(lst, ctx), tokens_to_py(n_, ctx), init, cond, step)); out.append("")
+				body2 = []
+				emit(body, ctx, depth + 1, body2)
+				out.extend(body2 or [pad + indent + "pass"]); out.append(""); out.append("")
+				continue
+			if ip:
+				i_, v, lst = ip.group(1), ip.group(2), ip.group(3); ctx.locals.update((i_, v))
+				n_ = re.fullmatch(r"%s\s*<\s*(.+)" % i_, cond).group(1)
+				out.append(pad + "for %s in range(%s): # for (%s; %s; %s)" % (ctx.resolve(i_), tokens_to_py(n_, ctx), init, cond, step)); out.append("")
+				out.append(pad + indent + "%s = %s[%s]" % (ctx.resolve(v), tokens_to_py(lst, ctx), ctx.resolve(i_))); out.append("")
+				body2 = []
+				emit(body, ctx, depth + 1, body2)
+				out.extend(body2); out.append(""); out.append("")
+				continue
 			m1 = re.fullmatch(r"(\w+)\s*=\s*(.+)", init)
+			if m1 and m1.group(1) in ctx.floats:
+				m1 = None	# a float loop variable: a while loop, range() only takes ints
 			m2 = m1 and re.fullmatch(r"%s\s*(<=|<|>=|>)\s*(.+)" % m1.group(1), cond)
 			m3 = m1 and re.fullmatch(r"(?:%s\s*(\+\+|--)|(?:\+\+|--)%s|%s\s*(\+=|-=)\s*(.+))" % ((m1.group(1),) * 3), step)
 			if m1 and m2 and m3:
@@ -521,6 +594,9 @@ def emit(nodes, ctx, depth, out, indent="\t"):
 		if k == "stmt":
 			s = n[1]
 			if not s: continue
+			if re.match(r"extern\b", s):	# a declaration of a global from another file
+				out.append(pad + "#" + s + ";")
+				continue
 			d = split_decl(s + ";")
 			if d:
 				typ, names = d
@@ -544,6 +620,8 @@ def emit(nodes, ctx, depth, out, indent="\t"):
 						ctx.arrays.add(nm)
 					if not ptr and not arr and re.search(r"\b(int|short|byte|unsigned|long|size_t)\b", typ):
 						ctx.ints.add(nm)
+					if not ptr and not arr and re.search(r"\b(float|double|vec_t)\b", typ):
+						ctx.floats.add(nm)
 					line = decl_init(typ, nm, ptr, arr, init, ctx)
 					if line is None: continue
 					if depth == 1: ctx.inits.append(line)
@@ -573,6 +651,13 @@ def decl_init(typ, nm, ptr, arr, init, ctx):
 			fill = "0.0" if re.search(r"\b(float|vec_t|double)\b", typ) else ("None" if "char" in typ else "0")
 			return "%s = [%s] * %s" % (pn, fill, n)
 		return "%s = [%s]" % (pn, tokens_to_py(inner, ctx))
+	if init is None and not ptr and not arr and re.fullmatch(r"(?:struct\s+)?\w+_[ts]", typ.replace("static ", "").replace("const ", "").strip()):
+		tname = typ.replace("static ", "").replace("const ", "").replace("struct ", "").strip()
+		r = ctx.resolve(tname)
+		if "." in r:	# a struct local: a new object, as the C has zeroed or filled storage
+			if ctx.fixmes and ctx.fixmes[-1] == tname: ctx.fixmes.pop()
+			return "%s = %s() #%s" % (pn, r, tname)
+		if ctx.fixmes and ctx.fixmes[-1] == tname: ctx.fixmes.pop()
 	if init is not None:
 		v = tokens_to_py(init, ctx)
 		if nm in ctx.ints and "/" in v and "//" not in v:
@@ -631,6 +716,7 @@ def translate(cfunc, ctx, indent="\t"):
 	ctx.locals = set(pnames)
 	ctx.decls, ctx.inits = [], []
 	ctx.ints = set()
+	ctx.floats = set()
 	ctx.static_locals = {}
 	ctx.funcname = name
 	ctx.arrays = set()
@@ -673,6 +759,14 @@ def translate(cfunc, ctx, indent="\t"):
 
 def stmt(s, ctx):
 	s = s.rstrip(";").strip()
+	# x = (y += n) / x = y += n: the assignment inside the expression goes first
+	m = re.fullmatch(r"([\w.\->\[\]]+)\s*=\s*\(?\s*(\w+)\s*(\+=|-=)\s*([^()]+?)\s*\)?", s)
+	if m and "=" not in m.group(4):
+		return "%s %s %s; %s = %s" % (ctx.resolve(m.group(2)), m.group(3), tokens_to_py(m.group(4), ctx),
+			tokens_to_py(m.group(1), ctx), ctx.resolve(m.group(2)))
+	m = re.fullmatch(r"memset\s*\(\s*&?\s*([\w.\->\[\]]+)\s*,\s*0\s*,\s*sizeof\s*\(.*\)\s*\)", s)
+	if m:	# Q2PORT: a struct cleared in place
+		return "%s.clear() # memset(%s)" % (tokens_to_py(m.group(1), ctx), s[7:-1])
 	m = re.fullmatch(r"Draw_GetPicSize\s*\(\s*&\s*([\w.\->\[\]]+)\s*,\s*&\s*([\w.\->\[\]]+)\s*,\s*(.+)\)", s)
 	if m:	# Q2PORT: vid.Draw_GetPicSize returns (w, h)
 		return "%s, %s = %s(%s)" % (tokens_to_py(m.group(1), ctx), tokens_to_py(m.group(2), ctx),

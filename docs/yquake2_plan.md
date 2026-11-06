@@ -253,6 +253,51 @@ The current `ref_gl/` keeps the game running until group 15 replaces it.
   options menu (group 12), the effects calls go to `cl_fx`/`cl_tent`
   (group 11), and `S_RawSamples` has no volume argument (group 13).
 
+- **Group 11:** `cl_fx.py`, `cl_newfx.py` and `cl_tent.py` are now
+  `cl_effects.py`, `cl_lights.py`, `cl_particles.py` and
+  `cl_tempentities.py`, as in Yamagi, with Yamagi's `randk`/`frandk`/`crandk`
+  in place of `random` and id's `frand`/`crand` (gone from `frame.py`). The
+  particle linked lists are Python lists, newest last, walked `reversed()`
+  where the C walks from the head (`cl_particles.py`). Heat beams, the beam
+  helpers and `CL_AddMuzzleFlash` come from Yamagi; id's player beams,
+  `CL_FlameEffects` and the unused projectile code in `cl_parse.py` are gone.
+  `MSG_ReadPos` and `MSG_ReadDir` fill their vector as in C. Values read from
+  the network are ints, so `CL_ParseTEnt` and `CL_EntityEvent` compare with
+  `temp_event_t.X.value`; translated code needs this wherever a switch is on
+  a network byte. Translator fixes: string literals are left alone (it had
+  turned `!` into `not` in messages), C pointer walks become loops over the
+  list, float loop variables become while loops, and pointer casts go.
+  `INSTANT_PARTICLE` was +10000 in the port; it is -10000 as in C.
+
+- **Group 12:** the menus are Yamagi's: `client/menu/menu.py`,
+  `qmenu.py`, `videomenu.py` and `client/menu/header/qmenu.py`, ported
+  from scratch, with id's versions gone. Every menu Yamagi has opens,
+  including the gamepad, stick and gyro menus, though there is no gamepad
+  input until group 14. In C every item struct starts with a `menucommon_s
+  generic` and the code casts item pointers to `menucommon_s *`; here the
+  item classes subclass `menucommon_s` and set `generic` to themselves, so
+  both spellings work. Where the C points a menu's status bar or an item's
+  name at a char buffer and rewrites the buffer later (the mods and DM
+  options status bars, the player icon, the server list), the port also
+  updates the alias (`Q2PORT`). `strlist_t` and the `StrList_*` API are
+  ported (`shared.py`); `FS_ListFiles`, `FS_ListFiles2` and `FS_ListMods`
+  return a `strlist_t` again, and their callers changed to match. The video
+  menu writes Yamagi's cvars (`r_mode`, `r_vsync`, `r_anisotropic`, ...);
+  id's renderer only reads `r_mode` (in place of `gl_mode`) and the mode
+  table in `vid_so` is now Yamagi's, until groups 14 and 15. Yamagi's cvar
+  rename turns an old `gl_mode 3` (640x480 in id's table) into `r_mode 3`,
+  which is 640x400 in Yamagi's table, the same as in Yamagi. The renderer
+  menu offers only gl1 (`VID_HasRenderer`). New helpers: `IN_Init`'s cvars,
+  `IN_NumpadIsOn`, the joystick presets and `In_FlushQueue` (`sdl2.py`),
+  `gyro.h`, `Sys_RemoveDir`, `Q_strisnum`, `Q_strrchrs`, `Q_clamp`,
+  `COM_StripExtension2`. More translator fixes: `(int)` and `(float)`
+  casts become `int()` and `float()`, `x = (y += n)`, C99 `for (int i = ...)`,
+  `extern` locals, struct locals become new objects, declarations with
+  calls in the initialiser, and the data section of a C file is generated
+  by `scripts/yq_cdata.py`.
+  `tests/menu_settings_test.py` now opens every menu, changes sliders and
+  spin controls, walks a menu with the keys and applies the video menu.
+
 ## Progress
 
 - [x] 0. Tooling and conventions
@@ -266,8 +311,8 @@ The current `ref_gl/` keeps the game running until group 15 replaces it.
 - [x] 8. Game: monsters and AI
 - [x] 9. Game: save games
 - [x] 10. Client core
-- [ ] 11. Client effects
-- [ ] 12. Menus
+- [x] 11. Client effects
+- [x] 12. Menus
 - [ ] 13. Sound
 - [ ] 14. Platform layer
 - [ ] 15. Renderer

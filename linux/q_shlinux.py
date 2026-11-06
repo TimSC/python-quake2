@@ -291,3 +291,35 @@ def Sys_CpuPause(): #void
 	# Q2PORT: Yamagi's backends/unix/system.c, until group 14; the C runs a
 	# PAUSE instruction, which Python has no use for
 	pass
+
+def Sys_RemoveDir(path: str): #const char *
+
+	# Q2PORT: Yamagi's backends/unix/system.c, until group 14
+	"""
+	char filepath[MAX_OSPATH];
+	struct dirent *file;
+	DIR *directory;
+	"""
+
+	if os.path.isdir(path): # Sys_IsDir(path)
+
+		try:
+
+			names = os.listdir(path) # directory = opendir(path);
+
+		except OSError:
+
+			return
+
+		for name in names: # while ((file = readdir(directory)) != NULL)
+
+			filepath = "{}/{}".format(path, name) # snprintf(filepath, MAX_OSPATH, "%s/%s", path, file->d_name);
+			try:
+				os.remove(filepath) # Sys_Remove(filepath);
+			except OSError:
+				pass
+
+		try:
+			os.rmdir(path) # Sys_Remove(path);
+		except OSError:
+			pass

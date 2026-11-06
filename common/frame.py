@@ -97,12 +97,6 @@ userGivenGame = "" #char [MAX_QPATH]
 # Hack for the signal handlers.
 quitnextframe = False #qboolean
 
-# Q2PORT: id's frand and crand, until their users (the client effects, group 11) use frandk and crandk
-def frand(): # 0 to 1
-	return random.random()
-
-def crand(): # -1 to 1
-	return random.random() * 2.0 - 1.0
 
 """
 static YQ2_ATTR_INLINE void Sys_CpuPause(void)

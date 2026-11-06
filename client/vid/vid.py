@@ -203,3 +203,9 @@ def GLimp_GetRefreshRate()->float: #void (returns float)
 	# Q2PORT: from glimp_sdl2.c (group 14). Only called while R_IsVSyncActive(),
 	# which id's renderer never is
 	return 60.0
+
+def VID_HasRenderer(renderer: str)->bool: #const char * (returns qboolean)
+
+	# Q2PORT: the C looks for the renderer's library (ref_<name>.so); the port
+	# has one renderer built in, id's, which stands for gl1 (group 14)
+	return renderer == "gl1"

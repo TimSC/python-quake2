@@ -899,7 +899,7 @@ def Cmd_CompleteMapCommand(partial: str): #const char * (returns char *)
 	mapNames = filesystem.FS_ListFiles2("maps/*.bsp", 0, 0)
 	retval = "" # static char retval[256], memset(retval, 0, sizeof(retval));
 
-	if len(mapNames):
+	if mapNames.num:
 
 		#size_t len;
 		#int i, j, k, nbMatches;
@@ -912,9 +912,9 @@ def Cmd_CompleteMapCommand(partial: str): #const char * (returns char *)
 
 		pmatch = []
 
-		for i in range(len(mapNames)):
+		for i in range(mapNames.num):
 
-			mapName = mapNames[i]
+			mapName = mapNames.data[i]
 			if '/' in mapName: # lastsep = strrchr(mapNames.data[i], '/')
 
 				mapName = mapName[mapName.rindex('/') + 1:]

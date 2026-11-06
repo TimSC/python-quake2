@@ -337,16 +337,16 @@ def SV_ListMaps_f(): #void
 
 	userMapNames = filesystem.FS_ListFiles2("maps/*.bsp", 0, 0)
 
-	for i in range(len(userMapNames)):
+	for i in range(userMapNames.num):
 
-		lastsep = userMapNames[i].rfind('/')
+		lastsep = userMapNames.data[i].rfind('/')
 		if lastsep != -1:
 
-			mapName = userMapNames[i][lastsep + 1:]
+			mapName = userMapNames.data[i][lastsep + 1:]
 
 		else:
 
-			mapName = userMapNames[i]
+			mapName = userMapNames.data[i]
 
 
 		mapName = mapName.split(".")[0] #strtok(mapName, ".");

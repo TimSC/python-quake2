@@ -40,7 +40,7 @@ import numpy as np
 from client.vid import vid
 
 import copy
-from client import cl_main, menu, cl_cin, snd_dma, cl_view
+from client import cl_main, cl_cin, snd_dma, cl_view
 from linux import q_shlinux, vid_so, cd_linux
 from common.header import shared
 from common import clientserver
@@ -54,6 +54,7 @@ from client import cl_main
 from client import cl_view
 from client.header import client as client_h
 from client.vid.header import vid as vid_h
+from client.menu import menu
 
 """
 #include "header/client.h"

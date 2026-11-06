@@ -51,6 +51,11 @@ PITCH = 0	# up / down
 YAW = 1		# left / right
 ROLL = 2	# fall over
 
+def Q_min(a, b): return (a if ((a) < (b)) else b) #define Q_min(a, b)
+def Q_max(a, b): return (a if ((a) > (b)) else b) #define Q_max(a, b)
+def Q_clamp(x, l, u): return (l if (l) > (x) else (u if (x) > (u) else x)) #define Q_clamp(x, l, u)
+def Q_signf(x): return (-1.0 if (x) < 0.0 else 1.0) #define Q_signf(x)
+
 MAX_STRING_CHARS = 2048	# max length of a string passed to Cmd_TokenizeString
 
 MAX_STRING_TOKENS = 80		# max tokens resulting from Cmd_TokenizeString
@@ -1613,3 +1618,38 @@ class pmove_t(object):
 		self.waterlevel = 0
 		self.trace = None
 		self.pointcontents = None
+
+"""
+ * strlist_t
+ *   similar to stringlist_t but uses malloc instead of Z_Malloc
+ *   (switch entirely to stringlist_t?)
+"""
+
+class strlist_t(object):
+
+	def __init__(self):
+
+		self.data = None #char **, NULL terminated
+		self.num = 0 #int
+		self.cap = 0 #int
+
+"""
+/* sl_eqfunc
+ *   An equals test function used by StrList_Find
+ *   list_s is the string inside the list being tested
+ *   targ_s is the target string passed to StrList_Find
+ *   Return 0 if found, a non-0 value otherwise
+ */
+typedef int (*sl_eqfunc)(const char *list_s, const char *targ_s);
+"""
+
+# StrList_Contains
+#   Evaluates to 1 if s is in the list, 0 otherwise
+#   Use Contains2 to provide your own equals test function
+def StrList_Contains(sl, s): #define StrList_Contains(sl, s)
+
+	return (shared_c.StrList_Find(sl, None, s) < (sl).num)
+
+def StrList_Contains2(sl, eq, s): #define StrList_Contains2(sl, eq, s)
+
+	return (shared_c.StrList_Find(sl, eq, s) < (sl).num)

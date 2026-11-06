@@ -36,7 +36,7 @@ from client.vid import vid
 import math
 import functools
 import numpy as np
-from client import cl_tent, cl_main, ref
+from client import cl_main, ref
 from linux import q_shlinux, vid_so, cd_linux, sys_linux
 from common.header import shared
 from common.shared import shared as shared_c
@@ -53,6 +53,7 @@ from client import cl_prediction
 from client import cl_screen
 from client.sound import ogg
 from client.header import client as client_h
+from client import cl_tempentities
 
 pass
 pass
@@ -324,7 +325,7 @@ def CL_PrepRefresh(): #void
 	cl_screen.SCR_UpdateScreen()
 	cl_screen.SCR_TouchPics()
 
-	cl_tent.CL_RegisterTEntModels()
+	cl_tempentities.CL_RegisterTEntModels()
 
 	num_cl_weaponmodels = 1
 	cl_weaponmodels[0] = "weapon.md2" # strcpy

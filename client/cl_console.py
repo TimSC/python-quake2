@@ -34,7 +34,7 @@ from client.vid import vid
 
 import os
 from linux import vid_so
-from client import cl_main, menu
+from client import cl_main
 from common.header import common as common_h
 from common import clientserver
 from common import cmdparser
@@ -46,6 +46,7 @@ from client import cl_screen
 from client.header import client as client_h
 from client.header import console as console_h
 from client.header import keyboard as keyboard_h
+from client.menu import menu
 
 """
 #include "header/client.h"

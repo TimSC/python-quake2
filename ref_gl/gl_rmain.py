@@ -1086,7 +1086,7 @@ def R_Register():
 	gl_modulate = ri.Cvar_Get ("gl_modulate", "1", shared.CVAR_ARCHIVE )
 	gl_log = ri.Cvar_Get( "gl_log", "0", 0 )
 	gl_bitdepth = ri.Cvar_Get( "gl_bitdepth", "0", 0 )
-	gl_mode = ri.Cvar_Get( "gl_mode", "3", shared.CVAR_ARCHIVE )
+	gl_mode = ri.Cvar_Get( "r_mode", "4", shared.CVAR_ARCHIVE ) # Q2PORT: Yamagi's name (and mode table) for gl_mode, until group 15
 	gl_lightmap = ri.Cvar_Get ("gl_lightmap", "0", 0)
 	gl_shadows = ri.Cvar_Get ("gl_shadows", "0", shared.CVAR_ARCHIVE )
 	gl_dynamic = ri.Cvar_Get ("gl_dynamic", "1", 0)
@@ -1174,7 +1174,7 @@ def R_SetMode (): # (returns qboolean)
 		
 		elif err == rserr_t.rserr_invalid_mode:
 		
-			ri.Cvar_SetValue( "gl_mode", gl_state.prev_mode )
+			ri.Cvar_SetValue( "r_mode", gl_state.prev_mode ) # Q2PORT: gl_mode is r_mode
 			gl_mode.modified = False
 			ri.Con_Printf( shared.PRINT_ALL, "ref_gl::R_SetMode() - invalid mode\n" )
 		

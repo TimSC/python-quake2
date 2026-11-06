@@ -1069,15 +1069,15 @@ def FS_Link_f(): #void
 """
  * Create a list of files that match a criteria.
 """
-def FS_ListFiles(findname: str, musthave: int, canthave: int)->list: #const char *, unsigned, unsigned (returns strlist_t)
-	# Q2PORT: strlist_t is a Python list
+def FS_ListFiles(findname: str, musthave: int, canthave: int)->shared.strlist_t: #const char *, unsigned, unsigned (returns strlist_t)
 
 	"""
 	strlist_t list;
 	const char *s;
 	"""
 
-	lst = [] #StrList_Init(&list, 0);
+	lst = shared.strlist_t()
+	shared_c.StrList_Init(lst, 0)
 
 	s = q_shlinux.Sys_FindFirst(findname, musthave, canthave)
 
@@ -1085,7 +1085,7 @@ def FS_ListFiles(findname: str, musthave: int, canthave: int)->list: #const char
 
 		if s[-1] != '.':
 
-			lst.append(s) #StrList_Append(&list, s);
+			shared_c.StrList_Append(lst, s)
 
 
 		s = q_shlinux.Sys_FindNext(musthave, canthave)
@@ -1160,15 +1160,15 @@ def ComparePackFiles(findname: str, name: str, musthave: int, canthave: int): #c
  * Searchs are relative to the game directory and use all the search paths
  * including .pak and .pk3 files.
 """
-def FS_ListFiles2(findname: str, musthave: int, canthave: int)->list: #const char *, unsigned, unsigned (returns strlist_t)
-	# Q2PORT: strlist_t is a Python list
+def FS_ListFiles2(findname: str, musthave: int, canthave: int)->shared.strlist_t: #const char *, unsigned, unsigned (returns strlist_t)
 
 	"""
 	strlist_t list;
 	fsSearchPath_t *search;
 	"""
 
-	lst = [] #StrList_Init(&list, 0);
+	lst = shared.strlist_t()
+	shared_c.StrList_Init(lst, 0)
 
 	for search in fs_searchPaths:
 
@@ -1192,9 +1192,9 @@ def FS_ListFiles2(findname: str, musthave: int, canthave: int)->list: #const cha
 							musthave, canthave)
 				if ok:
 
-					if path not in lst: #if (!StrList_Contains(&list, path))
+					if not shared.StrList_Contains(lst, path):
 
-						lst.append(path)
+						shared_c.StrList_Append(lst, path)
 
 
 
@@ -1212,17 +1212,17 @@ def FS_ListFiles2(findname: str, musthave: int, canthave: int)->list: #const cha
 
 		splen = len(search.path)
 
-		for i in range(len(tmplist)):
+		for i in range(tmplist.num):
 
-			s = tmplist[i][splen + 1:]
+			s = tmplist.data[i][splen + 1:]
 
-			if s not in lst:
+			if not shared.StrList_Contains(lst, s):
 
-				lst.append(s)
+				shared_c.StrList_Append(lst, s)
 
 
 
-		#StrList_Free(&tmplist);
+		shared_c.StrList_Free(tmplist)
 
 
 	return lst
@@ -1271,8 +1271,8 @@ def HasValidPack(dir: str)->bool: #const char * (returns static qboolean)
 		findnamepattern = "{}/*.{}".format(dir, pkt.suffix)
 
 		packs = FS_ListFiles(findnamepattern, 0, 0)
-		npacks = len(packs)
-		#StrList_Free(&packs);
+		npacks = packs.num
+		shared_c.StrList_Free(packs)
 
 		if npacks:
 
@@ -1282,14 +1282,14 @@ def HasValidPack(dir: str)->bool: #const char * (returns static qboolean)
 
 	return False
 
-def FS_ListMods()->list: #(returns strlist_t)
-	# Q2PORT: strlist_t is a Python list
+def FS_ListMods()->shared.strlist_t: #(returns strlist_t)
 
 	"""
 	strlist_t list;
 	"""
 
-	lst = [] #StrList_Init(&list, 0);
+	lst = shared.strlist_t()
+	shared_c.StrList_Init(lst, 0)
 
 	for search in fs_rawPath:
 
@@ -1322,36 +1322,36 @@ def FS_ListMods()->list: #(returns strlist_t)
 
 		# iterate over the children of this Raw path (unless we've already got enough mods)
 		i = 0
-		while i < len(dirchildren) and len(lst) < MAX_MODS:
+		while i < dirchildren.num and lst.num < MAX_MODS:
 
-			if not HasValidPack(dirchildren[i]):
+			if not HasValidPack(dirchildren.data[i]):
 
 				i += 1
 				continue
 
 
-			modname = dirchildren[i].rfind('/')
+			modname = dirchildren.data[i].rfind('/')
 			if modname == -1:
 
 				i += 1
 				continue
 
 
-			modname = dirchildren[i][modname + 1:]
+			modname = dirchildren.data[i][modname + 1:]
 
-			if modname not in lst:
+			if not shared.StrList_Contains(lst, modname):
 
-				lst.append(modname)
+				shared_c.StrList_Append(lst, modname)
 
 			i += 1
 
 
-		#StrList_Free(&dirchildren);
+		shared_c.StrList_Free(dirchildren)
 
 
-	if len(lst) > 1:
+	if lst.num > 1:
 
-		lst.sort(key=Q_sort_modcmp) #qsort(list.data, list.num, sizeof(char *), Q_sort_modcmp);
+		lst.data[:lst.num] = sorted(lst.data[:lst.num], key=Q_sort_modcmp) #qsort(list.data, list.num, sizeof(char *), Q_sort_modcmp);
 
 
 	return lst
@@ -1383,15 +1383,15 @@ def FS_Dir_f(): #void
 
 		dirs = FS_ListFiles(findname, 0, 0)
 
-		for i in range(len(dirs)):
+		for i in range(dirs.num):
 
-			lastsep = dirs[i].rfind('/')
+			lastsep = dirs.data[i].rfind('/')
 
 			clientserver.Com_Printf("%s\n",
-				dirs[i][lastsep + 1:] if lastsep != -1 else dirs[i])
+				dirs.data[i][lastsep + 1:] if lastsep != -1 else dirs.data[i])
 
 
-		#StrList_Free(&dirs);
+		shared_c.StrList_Free(dirs)
 
 		clientserver.Com_Printf("\n")
 
@@ -1610,7 +1610,7 @@ def FS_AddDirToSearchPath(dir: str, create: bool): #char *, qboolean
 
 		lst = FS_ListFiles(path, 0, 0)
 
-		for j in range(len(lst)):
+		for j in range(lst.num):
 
 			# Sort out numbered paks. This is as inefficient as
 			# it can be, but it doesn't matter. This is done only
@@ -1619,7 +1619,7 @@ def FS_AddDirToSearchPath(dir: str, create: bool): #char *, qboolean
 
 			for k in range(MAX_PAKS):
 
-				file = os.path.basename(lst[j]) #basename(tmp)
+				file = os.path.basename(lst.data[j]) #basename(tmp)
 
 				path = "pak{}.{}".format(k, fs_packtypes[i].suffix)
 
@@ -1637,9 +1637,9 @@ def FS_AddDirToSearchPath(dir: str, create: bool): #char *, qboolean
 
 			pack = None
 			if fs_packtypes[i].format == fsPackFormat_t.PAK:
-				pack = FS_LoadPAK(lst[j])
+				pack = FS_LoadPAK(lst.data[j])
 			elif fs_packtypes[i].format == fsPackFormat_t.PK3:
-				pack = FS_LoadPK3(lst[j])
+				pack = FS_LoadPK3(lst.data[j])
 
 			if pack is None:
 
@@ -1655,7 +1655,7 @@ def FS_AddDirToSearchPath(dir: str, create: bool): #char *, qboolean
 			fs_searchPaths.insert(0, search)
 
 
-		#StrList_Free(&list);
+		shared_c.StrList_Free(lst)
 
 def FS_BuildGenericSearchPath(): #void
 
@@ -1703,7 +1703,7 @@ def FS_BuildGameSpecificSearchPath(dir: str): #const char *
 	global fs_gamedir
 
 	from client import cl_main
-	from client import menu	# Q2PORT: imported here, the client imports the filesystem
+	from client.menu import menu	# Q2PORT: imported here, the client imports the filesystem
 
 	# We may not use the va() function from shared.c
 	# since its buffersize is 1024 while most OS have
@@ -1795,8 +1795,7 @@ def FS_BuildGameSpecificSearchPath(dir: str): #const char *
 
 	# ...and the current list of maps in the "start network server" menu is
 	# cleared so that it will be re-initialized when the menu is accessed
-	#CleanCachedMapsList();
-	# Q2PORT: comes with the menus (group 12)
+	menu.CleanCachedMapsList()
 
 	# Start the demoloop, if requested. This is kind of hacky: Normaly the
 	# demo loop would be started by the menu, after changeing the 'game'
@@ -1807,12 +1806,11 @@ def FS_BuildGameSpecificSearchPath(dir: str): #const char *
 	# here, right after the game was changed. Do it only when the game was
 	# changed though the menu, otherwise we might break into the demo loop
 	# after we've received a latched cvar from the server.
-	#if (menu_startdemoloop)
-	#{
-	#	Cbuf_AddText("d1\n");
-	#	menu_startdemoloop = false;
-	#}
-	# Q2PORT: comes with the menus (group 12)
+	if menu.menu_startdemoloop:
+
+		cmdparser.Cbuf_AddText("d1\n")
+		menu.menu_startdemoloop = False
+
 	#endif
 
 # returns the filename used to open f, but (if opened from pack) in correct case
@@ -1971,13 +1969,3 @@ def FS_ShutdownFilesystem(): #void
 
 	fs_baseSearchPaths = 0
 
-def Developer_searchpath(who: int)->int: #int (returns int)
-	# Q2PORT: id's function, gone in Yamagi; the menus use it until they're ported (group 12)
-
-	for search in fs_searchPaths:
-		filename = search.pack.name if search.pack is not None else search.path
-		if "xatrix" in filename:
-			return 1
-		if "rogue" in filename:
-			return 2
-	return 0

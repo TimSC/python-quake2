@@ -34,7 +34,7 @@ from client.input import sdl2
 
 from common import frame
 
-from client import menu
+pass
 from linux import sys_linux, q_shlinux
 from common.header import shared
 from common.shared import shared as shared_c
@@ -47,6 +47,7 @@ from client import cl_main
 from client import cl_screen
 from client.header import client as client_h
 from client.header import keyboard as keyboard_h
+from client.menu import menu
 
 """
 #include "header/client.h"
@@ -1051,7 +1052,7 @@ def Key_Bind_f(): # (static)
 		if cmdparser.doneWithDefaultCfg:
 
 			# don't warn about this when it's from default.cfg, we can't change that anyway
-			clientserver.Com_Printf("You can't bind the special key \"%s\" not \n", cmdparser.Cmd_Argv(1))
+			clientserver.Com_Printf("You can't bind the special key \"%s\"!\n", cmdparser.Cmd_Argv(1))
 
 
 		return

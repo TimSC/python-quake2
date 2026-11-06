@@ -476,10 +476,7 @@ def MSG_WriteDir (sb, dir): #sizebuf_t *, vec3_t
 		
 	MSG_WriteByte (sb, best)
 
-def MSG_ReadDir (sb, dirOut=None): #sizebuf_t *, vec3_t
-
-	# Q2PORT: fills dirOut as the C does; also returns it, and makes a new one if
-	# no vector is given (id's callers in cl_tent.py until group 11)
+def MSG_ReadDir (sb, dirOut): #sizebuf_t *, vec3_t
 
 	if not isinstance(sb, common_h.sizebuf_t):
 		raise RuntimeError("Wrong input type")
@@ -490,10 +487,7 @@ def MSG_ReadDir (sb, dirOut=None): #sizebuf_t *, vec3_t
 		clientserver.Com_Error (shared.ERR_DROP, "%s: unexpected message end", "MSG_ReadDir")
 	if b >= common_h.NUMVERTEXNORMALS:
 		clientserver.Com_Error (shared.ERR_DROP, "%s: out of range", "MSG_ReadDir")
-	if dirOut is None:
-		dirOut = np.zeros((3,), dtype=np.float32)
 	shared.VectorCopy (bytedirs[b], dirOut)
-	return dirOut
 
 
 """
@@ -789,16 +783,11 @@ def MSG_ReadCoord (msg_read: common_h.sizebuf_t)->float:
 	return MSG_ReadShort(msg_read) * (1.0/8.0)
 
 
-def MSG_ReadPos (msg_read: common_h.sizebuf_t, pos=None): #sizebuf_t *, vec3_t
+def MSG_ReadPos (msg_read: common_h.sizebuf_t, pos): #sizebuf_t *, vec3_t
 
-	# Q2PORT: fills pos as the C does; also returns it, and makes a new one if
-	# no pos is given (id's callers in cl_tent.py until group 11)
-	if pos is None:
-		pos = np.empty((3,))
 	pos[0] = MSG_ReadShort(msg_read) * (1.0/8.0)
 	pos[1] = MSG_ReadShort(msg_read) * (1.0/8.0)
 	pos[2] = MSG_ReadShort(msg_read) * (1.0/8.0)
-	return pos
 
 
 def MSG_ReadAngle (msg_read: common_h.sizebuf_t)->float:
