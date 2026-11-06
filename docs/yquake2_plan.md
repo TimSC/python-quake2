@@ -227,6 +227,32 @@ The current `ref_gl/` keeps the game running until group 15 replaces it.
   entity after loading. It passes on base1, base2, jail1 and bunk1; one
   bunk1 run timed out waiting after the load and later runs passed.
 
+- **Group 10:** the client modules follow Yamagi's names and layout
+  (`cl_network`, `cl_prediction`, `cl_screen`, `cl_console`, `cl_keyboard`,
+  `client/header/*.py`, `client/vid/vid.py` for the renderer wrappers).
+  Simple functions came from `yq_c2py.py`; the rest were ported by hand.
+  The client runs Yamagi's loop: `Qcommon_Mainloop` and the client
+  `Qcommon_Frame(usec)` in `common/frame.py` split packet frames from render
+  frames, and `CL_Frame` builds the move command over several frames
+  (`CL_RefreshCmd`, sent by `CL_SendCmd`). `curtime` is `frame.curtime`,
+  and `Sys_Milliseconds` is Yamagi's monotonic clock; id's wall clock left
+  cinematics stuck. `cl_entities` grows with `CL_AllocEntity`. Keys take
+  Yamagi's split: `Key_Event(key, down, special)` for keys and
+  `Char_Event` for typed text, fed from pygame's `TEXTINPUT` events in
+  `linux/gl_glx.py`, which uses Yamagi's `IN_TranslateSDLtoQ2Key`
+  (`client/input/sdl2.py`). `In_FlushQueue` and the cvars of `IN_Init` are
+  there too; the mouse is still the pygame code in `linux/` (group 14).
+  `client/cl_image.py` is Yamagi's PCX decoder for static cinematic pics.
+  `CL_ParseConfigString` keeps the whole statusbar string in one
+  configstring, where C runs it on into the next slots. The translator
+  had made C array initialisers (`{0, 0}`) into Python sets, and `!s[0]`
+  into `not s[0]`, which fails on empty strings; both fixed, and
+  `cl.configstrings` start as `""`. `in_mouse 0` or the
+  `Q2PORT_NOMOUSE` environment variable (set by the test scripts) stops
+  the mouse capture. Left for later groups: menu.py still has id's
+  options menu (group 12), the effects calls go to `cl_fx`/`cl_tent`
+  (group 11), and `S_RawSamples` has no volume argument (group 13).
+
 ## Progress
 
 - [x] 0. Tooling and conventions
@@ -239,7 +265,7 @@ The current `ref_gl/` keeps the game running until group 15 replaces it.
 - [x] 7. Game: doors, triggers, targets, misc
 - [x] 8. Game: monsters and AI
 - [x] 9. Game: save games
-- [ ] 10. Client core
+- [x] 10. Client core
 - [ ] 11. Client effects
 - [ ] 12. Menus
 - [ ] 13. Sound

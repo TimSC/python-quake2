@@ -21,6 +21,7 @@ else
 fi
 export BSP="$OUT/${MAP:-base1}.bsp"
 export PYGAME_HIDE_SUPPORT_PROMPT=1
+export Q2PORT_NOMOUSE=1	# no mouse capture while the tests run
 fail=0
 for h in cm pm; do
 	"$OUT/${h}harness" < "$OUT/${h}_in.txt" > "$OUT/${h}_c.out"

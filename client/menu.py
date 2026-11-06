@@ -40,6 +40,7 @@ from client import cl_screen
 from client import cl_view
 from client.header import client as client_h
 from client.header import keyboard as keyboard_h
+from client.input import sdl2
 
 """
 #include <ctype.h>
@@ -242,7 +243,7 @@ def M_ForceMenuOff ():
 	cl_main.cls.key_dest = client_h.keydest_t.key_game
 	#m_menudepth = 0
 	m_layers = []
-	cl_keyboard.Key_ClearStates ()
+	cl_keyboard.Key_MarkAllUp () # Q2PORT: Yamagi has no Key_ClearStates (menu.c is group 12)
 	cvar.Cvar_Set ("paused", "0")
 
 
@@ -318,16 +319,8 @@ def Default_MenuKey( m, key ): # menuframework_s *, int (returns const char *)
 			sound = menu_move_sound
 
 
-	elif key in [keyboard_h.K_MOUSE1, keyboard_h.K_MOUSE2, keyboard_h.K_MOUSE3,
-		keyboard_h.K_JOY1, keyboard_h.K_JOY2, keyboard_h.K_JOY3, keyboard_h.K_JOY4,
-		keyboard_h.K_AUX1, keyboard_h.K_AUX2, keyboard_h.K_AUX3, keyboard_h.K_AUX4,
-		keyboard_h.K_AUX5, keyboard_h.K_AUX6, keyboard_h.K_AUX7, keyboard_h.K_AUX8,
-		keyboard_h.K_AUX9, keyboard_h.K_AUX10, keyboard_h.K_AUX11, keyboard_h.K_AUX12,
-		keyboard_h.K_AUX13, keyboard_h.K_AUX14, keyboard_h.K_AUX15, keyboard_h.K_AUX16,
-		keyboard_h.K_AUX17, keyboard_h.K_AUX18, keyboard_h.K_AUX19, keyboard_h.K_AUX20,
-		keyboard_h.K_AUX21, keyboard_h.K_AUX22, keyboard_h.K_AUX23, keyboard_h.K_AUX24,
-		keyboard_h.K_AUX25, keyboard_h.K_AUX26, keyboard_h.K_AUX27, keyboard_h.K_AUX28,
-		keyboard_h.K_AUX29, keyboard_h.K_AUX30, keyboard_h.K_AUX31, keyboard_h.K_AUX32,
+	elif key in [keyboard_h.K_MOUSE1, keyboard_h.K_MOUSE2, keyboard_h.K_MOUSE3, # Q2PORT: Yamagi's keys (menu.c is group 12)
+		keyboard_h.K_MOUSE4, keyboard_h.K_MOUSE5,
 		keyboard_h.K_KP_ENTER, keyboard_h.K_ENTER]:
 		
 		if m is not None:
@@ -1159,24 +1152,26 @@ def ClampCvar( minIn, maxIn, value ): #float, float, float (returns float)
 
 def ControlsSetMenuItemValues( ):
 
+	# Q2PORT: until menu.c (group 12), the look cvars are input/sdl2.c's, and Yamagi has no lookspring
+
 	s_options_sfxvolume_slider.curvalue		= int(cvar.Cvar_VariableValue( "s_volume" ) * 10)
 	s_options_cdvolume_box.curvalue 		= int(not cvar.Cvar_VariableValue("cd_nocd"))
 	s_options_quality_list.curvalue			= int(not cvar.Cvar_VariableValue( "s_loadas8bit" ))
-	s_options_sensitivity_slider.curvalue	= int (( cl_main.sensitivity.value ) * 2)
+	s_options_sensitivity_slider.curvalue	= int (( sdl2.sensitivity.value ) * 2)
 
 	cvar.Cvar_SetValue( "cl_run", ClampCvar( 0, 1, cl_input.cl_run.value ) )
 	s_options_alwaysrun_box.curvalue		= int(cl_input.cl_run.value)
 
-	s_options_invertmouse_box.curvalue		= int(cl_main.m_pitch.value < 0)
+	s_options_invertmouse_box.curvalue		= int(sdl2.m_pitch.value < 0)
 
-	cvar.Cvar_SetValue( "lookspring", ClampCvar( 0, 1, cl_main.lookspring.value ) )
-	s_options_lookspring_box.curvalue		= int(cl_main.lookspring.value)
+	cvar.Cvar_SetValue( "lookspring", ClampCvar( 0, 1, cvar.Cvar_Get("lookspring", "0", shared.CVAR_ARCHIVE).value ) )
+	s_options_lookspring_box.curvalue		= int(cvar.Cvar_Get("lookspring", "0", shared.CVAR_ARCHIVE).value)
 
-	cvar.Cvar_SetValue( "lookstrafe", ClampCvar( 0, 1, cl_main.lookstrafe.value ) )
-	s_options_lookstrafe_box.curvalue		= int(cl_main.lookstrafe.value)
+	cvar.Cvar_SetValue( "lookstrafe", ClampCvar( 0, 1, sdl2.lookstrafe.value ) )
+	s_options_lookstrafe_box.curvalue		= int(sdl2.lookstrafe.value)
 
-	cvar.Cvar_SetValue( "freelook", ClampCvar( 0, 1, cl_main.freelook.value ) )
-	s_options_freelook_box.curvalue			= int(cl_main.freelook.value)
+	cvar.Cvar_SetValue( "freelook", ClampCvar( 0, 1, sdl2.freelook.value ) )
+	s_options_freelook_box.curvalue			= int(sdl2.freelook.value)
 
 	cvar.Cvar_SetValue( "crosshair", ClampCvar( 0, 3, cl_view.crosshair.value ) )
 	s_options_crosshair_box.curvalue		= int(cl_view.crosshair.value)
@@ -1197,17 +1192,17 @@ def ControlsResetDefaultsFunc( unused ):
 
 def InvertMouseFunc( unused ):
 
-	cvar.Cvar_SetValue( "m_pitch", -cl_main.m_pitch.value )
+	cvar.Cvar_SetValue( "m_pitch", -sdl2.m_pitch.value )
 
 
 def LookspringFunc( unused ):
 
-	cvar.Cvar_SetValue( "lookspring", cl_main.lookspring.value != 0.0 )
+	cvar.Cvar_SetValue( "lookspring", cvar.Cvar_Get("lookspring", "0", shared.CVAR_ARCHIVE).value != 0.0 )
 
 
 def LookstrafeFunc( unused ):
 
-	cvar.Cvar_SetValue( "lookstrafe", cl_main.lookstrafe.value != 0.0 )
+	cvar.Cvar_SetValue( "lookstrafe", sdl2.lookstrafe.value != 0.0 )
 
 
 def UpdateVolumeFunc( unused ):

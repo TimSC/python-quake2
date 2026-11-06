@@ -102,12 +102,43 @@ Sys_Milliseconds
 """
 curtime = 0 #int
 
+def Sys_Rename(from_: str, to: str)->int: #const char *, const char * (returns int)
+
+	# Q2PORT: Yamagi's backends/unix/system.c, until group 14
+	try:
+
+		os.rename(from_, to)
+		return 0
+
+	except OSError:
+
+		return -1
+
+Sys_Microseconds_first = None #static struct timespec first
+
+def Sys_Microseconds(): #void (returns long long)
+
+	# Q2PORT: Yamagi's backends/unix/system.c, until group 14; the C's
+	# monotonic clock_gettime is time.monotonic_ns
+	global Sys_Microseconds_first
+
+	now = time.monotonic_ns()
+
+	if Sys_Microseconds_first is None:
+
+		# set back first by 1ms so neither this function nor Sys_Milliseconds()
+		# (which calls this) will ever return 0
+		Sys_Microseconds_first = now - 1000000
+
+
+	return (now - Sys_Microseconds_first) // 1000
+
+
 def Sys_Milliseconds (): #(returns int)
 
-	global curtime
-	curtime = int(time.time() * 1000.0)
-
-	return curtime
+	# Q2PORT: Yamagi's backends/unix/system.c, until group 14. It's on the
+	# same clock as Sys_Microseconds, which the main loop's curtime comes from
+	return int(Sys_Microseconds() // 1000)
 	"""
 	struct timeval tp;
 	struct timezone tzp;
@@ -249,3 +280,14 @@ def Sys_FindClose ():
 """
 //============================================
 """
+
+def Sys_Nanosleep(nanosec: int): #int
+
+	# Q2PORT: Yamagi's backends/unix/system.c, until group 14
+	time.sleep(nanosec / 1000000000.0)
+
+def Sys_CpuPause(): #void
+
+	# Q2PORT: Yamagi's backends/unix/system.c, until group 14; the C runs a
+	# PAUSE instruction, which Python has no use for
+	pass

@@ -91,6 +91,7 @@ class in_state_t(object): # rw_linux.h
 		# Pointers to functions back in client, set by vid_so
 		self.IN_CenterView_fp = None #void (*)(void)
 		self.Key_Event_fp = None #Key_Event_fp_t
+		self.Char_Event_fp = None #void (*)(int), Q2PORT: Yamagi's Char_Event
 		self.viewangles = None #vec_t *
 		self.in_strafe_state = None #int *, the in_strafe kbutton_t here, its state is read
 
@@ -354,6 +355,7 @@ def VID_LoadRefresh(name): #char * (returns qboolean)
 	# Init IN (Mouse)
 	in_state.IN_CenterView_fp = cl_input.IN_CenterView
 	in_state.Key_Event_fp = Do_Key_Event
+	in_state.Char_Event_fp = cl_keyboard.Char_Event # Q2PORT
 	in_state.viewangles = cl_main.cl.viewangles
 	in_state.in_strafe_state = cl_input.in_strafe # &in_strafe.state
 
@@ -478,6 +480,8 @@ def VID_Init ():
 	else:
 		vid_ref = cvar.Cvar_Get ("vid_ref", "soft", shared.CVAR_ARCHIVE)
 	vid_xpos = cvar.Cvar_Get ("vid_xpos", "3", shared.CVAR_ARCHIVE)
+	from client.vid import vid # Q2PORT: Yamagi's vid.c cvar, "gl1" as that is the port's renderer
+	vid.vid_renderer = cvar.Cvar_Get ("vid_renderer", "gl1", shared.CVAR_ARCHIVE)
 	vid_ypos = cvar.Cvar_Get ("vid_ypos", "22", shared.CVAR_ARCHIVE)
 	vid_fullscreen = cvar.Cvar_Get ("vid_fullscreen", "0", shared.CVAR_ARCHIVE)
 	vid_gamma = cvar.Cvar_Get( "vid_gamma", "1", shared.CVAR_ARCHIVE )
@@ -569,7 +573,7 @@ def IN_Activate (active): #qboolean
 	pass
 
 
-def Do_Key_Event(key, down): #int, qboolean
+def Do_Key_Event(key, down, special): #int, qboolean, qboolean (Q2PORT: Yamagi's Key_Event takes special)
 
-	cl_keyboard.Key_Event(key, down, q_shlinux.Sys_Milliseconds())
+	cl_keyboard.Key_Event(key, down, special)
 

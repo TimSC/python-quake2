@@ -10,6 +10,7 @@ OUT=${OUT:-/tmp/q2tests}
 export OUT SHOT="${OUT}/vr_t%d.png"
 mkdir -p "$OUT"
 export PYGAME_HIDE_SUPPORT_PROMPT=1
+export Q2PORT_NOMOUSE=1	# no mouse capture while the tests run
 fail=0
 run() {	# name timeout expected-regex args...
 	name=$1; t=$2; want=$3; shift 3

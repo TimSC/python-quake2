@@ -843,3 +843,8 @@ void SV_Init (void);
 void SV_Shutdown (char *finalmsg, qboolean reconnect);
 void SV_Frame (int msec);
 """
+
+def FS_FileExists(path: str)->bool: #define FS_FileExists(path) (FS_LoadFile2(path, NULL, 0) >= 0)
+
+	from common import filesystem # Q2PORT: the macro, as a function
+	return filesystem.FS_LoadFile2(path, 0)[0] >= 0

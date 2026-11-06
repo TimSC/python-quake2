@@ -278,13 +278,14 @@ def PM_Friction():
 
 
 """
-/* Used for speedoomter display. */
-void GetPlayerSpeed(float *speed, float *speedxy)
-{
-	*speedxy = sqrt(pml.velocity[0] * pml.velocity[0] + pml.velocity[1] * pml.velocity[1]);
-	*speed = VectorLength(pml.velocity);
-}
+Used for speedoomter display.
 """
+def GetPlayerSpeed(): #float *, float *
+
+	# Q2PORT: returns (speed, speedxy) instead of filling them
+	speedxy = math.sqrt(pml.velocity[0] * pml.velocity[0] + pml.velocity[1] * pml.velocity[1])
+	speed = shared_c.VectorLength(pml.velocity)
+	return speed, speedxy
 
 """
 ==============

@@ -78,8 +78,8 @@ def SV_BuildClientFrame(cl):
 sv_entities.SV_BuildClientFrame = SV_BuildClientFrame
 
 o_cf = cl_main.CL_Frame
-def CL_Frame(msec):
-	o_cf(msec)
+def CL_Frame(*args):
+	o_cf(*args)
 	if cl_main.cls.state.name != "ca_active": return
 	fr = cl_main.cl.frame
 	nums = set()

@@ -1736,3 +1736,6 @@ def CL_AddTEnts ():
 	# PMM - set up sustain
 	CL_ProcessSustain()
 
+def CL_PowerScreenModel(): # (returns struct model_s *), Q2PORT: Yamagi's cl_tempentities.c (group 11)
+
+	return cl_mod_powerscreen

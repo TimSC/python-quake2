@@ -28,13 +28,20 @@ client!
 """
 from __future__ import annotations
 
-from client import cl_main, menu
-from linux import sys_linux
+from client.header import console as console_h
+
+from client.input import sdl2
+
+from common import frame
+
+from client import menu
+from linux import sys_linux, q_shlinux
 from common.header import shared
 from common.shared import shared as shared_c
 from common import clientserver
 from common import cmdparser
 from common import cvar
+from client import cl_cin
 from client import cl_console
 from client import cl_main
 from client import cl_screen
@@ -45,52 +52,51 @@ from client.header import keyboard as keyboard_h
 #include "header/client.h"
 """
 
-key_lines = [] #char[32][MAXCMDLINE]
-for i in range(32):
-	key_lines.append(None)
-key_linepos = 0 #int
+cfg_unbindall = None #static cvar_t *
 
+# key up events are sent even if in console mode
+
+key_lines = ["" for _ in range(keyboard_h.NUM_KEY_LINES)] #char [NUM_KEY_LINES][MAXCMDLINE]
+key_linepos = 0 #int
 anykeydown = 0 #int
 
-edit_line=0 #int
-history_line=0 #int
+edit_line = 0 #int
+history_line = 0 #int
 
-key_waiting = None # int
+keybindings = [None] * keyboard_h.K_LAST #char *[K_LAST]
+consolekeys = [False] * keyboard_h.K_LAST #qboolean[K_LAST], if true, can't be rebound while in console
+menubound = [False] * keyboard_h.K_LAST #qboolean[K_LAST], if true, can't be rebound while in menu
+key_repeats = [0] * keyboard_h.K_LAST #int[K_LAST], if > 1, it is autorepeating
+keydown = [False] * keyboard_h.K_LAST #qboolean[K_LAST]
 
-keybindings = [] #char	*[256]
-for i in range(256):
-	keybindings.append(None)
-
-consolekeys = [] #qboolean[256], if true, can't be rebound while in console
-for i in range(256):
-	consolekeys.append(False)
-
-menubound = [] #qboolean[256], if true, can't be rebound while in menu
-for i in range(256):
-	menubound.append(False)
-
-key_repeats = [] #int[256], if > 1, it is autorepeating
-for i in range(256):
-	key_repeats.append(0)
-
-keydown = [] #qboolean	[256];
-for i in range(256):
-	keydown.append(False)
+#qboolean Cmd_IsComplete(const char *cmd);
 
 """
 typedef struct
 {
-	char	*name;
-	int		keynum;
+	char *name;
+	int keynum;
 } keyname_t;
 """
-keynames = [ #keyname_t[]
 
+# Translates internal key representations
+# into human readable strings.
+keynames = [ #keyname_t []
 	["TAB", keyboard_h.K_TAB],
 	["ENTER", keyboard_h.K_ENTER],
 	["ESCAPE", keyboard_h.K_ESCAPE],
 	["SPACE", keyboard_h.K_SPACE],
+	["SEMICOLON", ord(';')], # because a raw semicolon separates commands
+	["DOUBLEQUOTE", ord('"')], # because "" has special meaning in configs
+	["QUOTE", ord('\'')], # just to be sure
+	["DOLLAR", ord('$')], # $ is used in macros => can occur in configs
 	["BACKSPACE", keyboard_h.K_BACKSPACE],
+
+	["COMMAND", keyboard_h.K_COMMAND],
+	["CAPSLOCK", keyboard_h.K_CAPSLOCK],
+	["POWER", keyboard_h.K_POWER],
+	["PAUSE", keyboard_h.K_PAUSE],
+
 	["UPARROW", keyboard_h.K_UPARROW],
 	["DOWNARROW", keyboard_h.K_DOWNARROW],
 	["LEFTARROW", keyboard_h.K_LEFTARROW],
@@ -99,7 +105,14 @@ keynames = [ #keyname_t[]
 	["ALT", keyboard_h.K_ALT],
 	["CTRL", keyboard_h.K_CTRL],
 	["SHIFT", keyboard_h.K_SHIFT],
-	
+
+	["INS", keyboard_h.K_INS],
+	["DEL", keyboard_h.K_DEL],
+	["PGDN", keyboard_h.K_PGDN],
+	["PGUP", keyboard_h.K_PGUP],
+	["HOME", keyboard_h.K_HOME],
+	["END", keyboard_h.K_END],
+
 	["F1", keyboard_h.K_F1],
 	["F2", keyboard_h.K_F2],
 	["F3", keyboard_h.K_F3],
@@ -112,79 +125,252 @@ keynames = [ #keyname_t[]
 	["F10", keyboard_h.K_F10],
 	["F11", keyboard_h.K_F11],
 	["F12", keyboard_h.K_F12],
+	["F13", keyboard_h.K_F13],
+	["F14", keyboard_h.K_F14],
+	["F15", keyboard_h.K_F15],
 
-	["INS", keyboard_h.K_INS],
-	["DEL", keyboard_h.K_DEL],
-	["PGDN", keyboard_h.K_PGDN],
-	["PGUP", keyboard_h.K_PGUP],
-	["HOME", keyboard_h.K_HOME],
-	["END", keyboard_h.K_END],
+	["KP_HOME", keyboard_h.K_KP_HOME],
+	["KP_UPARROW", keyboard_h.K_KP_UPARROW],
+	["KP_PGUP", keyboard_h.K_KP_PGUP],
+	["KP_LEFTARROW", keyboard_h.K_KP_LEFTARROW],
+	["KP_5", keyboard_h.K_KP_5],
+	["KP_RIGHTARROW", keyboard_h.K_KP_RIGHTARROW],
+	["KP_END", keyboard_h.K_KP_END],
+	["KP_DOWNARROW", keyboard_h.K_KP_DOWNARROW],
+	["KP_PGDN", keyboard_h.K_KP_PGDN],
+	["KP_ENTER", keyboard_h.K_KP_ENTER],
+	["KP_INS", keyboard_h.K_KP_INS],
+	["KP_DEL", keyboard_h.K_KP_DEL],
+	["KP_SLASH", keyboard_h.K_KP_SLASH],
+	["KP_MINUS", keyboard_h.K_KP_MINUS],
+	["KP_PLUS", keyboard_h.K_KP_PLUS],
+	["KP_NUMLOCK", keyboard_h.K_KP_NUMLOCK],
+	["KP_STAR", keyboard_h.K_KP_STAR],
+	["KP_EQUALS", keyboard_h.K_KP_EQUALS],
 
 	["MOUSE1", keyboard_h.K_MOUSE1],
 	["MOUSE2", keyboard_h.K_MOUSE2],
 	["MOUSE3", keyboard_h.K_MOUSE3],
+	["MOUSE4", keyboard_h.K_MOUSE4],
+	["MOUSE5", keyboard_h.K_MOUSE5],
 
-	["JOY1", keyboard_h.K_JOY1],
-	["JOY2", keyboard_h.K_JOY2],
-	["JOY3", keyboard_h.K_JOY3],
-	["JOY4", keyboard_h.K_JOY4],
+	["MWHEELUP", keyboard_h.K_MWHEELUP],
+	["MWHEELDOWN", keyboard_h.K_MWHEELDOWN],
 
-	["AUX1", keyboard_h.K_AUX1],
-	["AUX2", keyboard_h.K_AUX2],
-	["AUX3", keyboard_h.K_AUX3],
-	["AUX4", keyboard_h.K_AUX4],
-	["AUX5", keyboard_h.K_AUX5],
-	["AUX6", keyboard_h.K_AUX6],
-	["AUX7", keyboard_h.K_AUX7],
-	["AUX8", keyboard_h.K_AUX8],
-	["AUX9", keyboard_h.K_AUX9],
-	["AUX10", keyboard_h.K_AUX10],
-	["AUX11", keyboard_h.K_AUX11],
-	["AUX12", keyboard_h.K_AUX12],
-	["AUX13", keyboard_h.K_AUX13],
-	["AUX14", keyboard_h.K_AUX14],
-	["AUX15", keyboard_h.K_AUX15],
-	["AUX16", keyboard_h.K_AUX16],
-	["AUX17", keyboard_h.K_AUX17],
-	["AUX18", keyboard_h.K_AUX18],
-	["AUX19", keyboard_h.K_AUX19],
-	["AUX20", keyboard_h.K_AUX20],
-	["AUX21", keyboard_h.K_AUX21],
-	["AUX22", keyboard_h.K_AUX22],
-	["AUX23", keyboard_h.K_AUX23],
-	["AUX24", keyboard_h.K_AUX24],
-	["AUX25", keyboard_h.K_AUX25],
-	["AUX26", keyboard_h.K_AUX26],
-	["AUX27", keyboard_h.K_AUX27],
-	["AUX28", keyboard_h.K_AUX28],
-	["AUX29", keyboard_h.K_AUX29],
-	["AUX30", keyboard_h.K_AUX30],
-	["AUX31", keyboard_h.K_AUX31],
-	["AUX32", keyboard_h.K_AUX32],
+	["SUPER", keyboard_h.K_SUPER],
+	["COMPOSE", keyboard_h.K_COMPOSE],
+	["MODE", keyboard_h.K_MODE],
+	["HELP", keyboard_h.K_HELP],
+	["PRINT", keyboard_h.K_PRINT],
+	["SYSREQ", keyboard_h.K_SYSREQ],
+	["SCROLLOCK", keyboard_h.K_SCROLLOCK],
+	["MENU", keyboard_h.K_MENU],
+	["UNDO", keyboard_h.K_UNDO],
 
-	["KP_HOME",			keyboard_h.K_KP_HOME ],
-	["KP_UPARROW",		keyboard_h.K_KP_UPARROW ],
-	["KP_PGUP",			keyboard_h.K_KP_PGUP ],
-	["KP_LEFTARROW",	keyboard_h.K_KP_LEFTARROW ],
-	["KP_5",			keyboard_h.K_KP_5 ],
-	["KP_RIGHTARROW",	keyboard_h.K_KP_RIGHTARROW ],
-	["KP_END",			keyboard_h.K_KP_END ],
-	["KP_DOWNARROW",	keyboard_h.K_KP_DOWNARROW ],
-	["KP_PGDN",			keyboard_h.K_KP_PGDN ],
-	["KP_ENTER",		keyboard_h.K_KP_ENTER ],
-	["KP_INS",			keyboard_h.K_KP_INS ],
-	["KP_DEL",			keyboard_h.K_KP_DEL ],
-	["KP_SLASH",		keyboard_h.K_KP_SLASH ],
-	["KP_MINUS",		keyboard_h.K_KP_MINUS ],
-	["KP_PLUS",			keyboard_h.K_KP_PLUS ],
+	# entries for the mapped scancodes, see comment above K_SC_A in keyboard.h
+# #define MY_SC_ENTRY(X) { #X , K_ ## X }
 
-	["MWHEELUP", keyboard_h.K_MWHEELUP ],
-	["MWHEELDOWN", keyboard_h.K_MWHEELDOWN ],
+	# { "SC_A", K_SC_A },
+	["SC_A", keyboard_h.K_SC_A],
+	["SC_B", keyboard_h.K_SC_B],
+	["SC_C", keyboard_h.K_SC_C],
+	["SC_D", keyboard_h.K_SC_D],
+	["SC_E", keyboard_h.K_SC_E],
+	["SC_F", keyboard_h.K_SC_F],
+	["SC_G", keyboard_h.K_SC_G],
+	["SC_H", keyboard_h.K_SC_H],
+	["SC_I", keyboard_h.K_SC_I],
+	["SC_J", keyboard_h.K_SC_J],
+	["SC_K", keyboard_h.K_SC_K],
+	["SC_L", keyboard_h.K_SC_L],
+	["SC_M", keyboard_h.K_SC_M],
+	["SC_N", keyboard_h.K_SC_N],
+	["SC_O", keyboard_h.K_SC_O],
+	["SC_P", keyboard_h.K_SC_P],
+	["SC_Q", keyboard_h.K_SC_Q],
+	["SC_R", keyboard_h.K_SC_R],
+	["SC_S", keyboard_h.K_SC_S],
+	["SC_T", keyboard_h.K_SC_T],
+	["SC_U", keyboard_h.K_SC_U],
+	["SC_V", keyboard_h.K_SC_V],
+	["SC_W", keyboard_h.K_SC_W],
+	["SC_X", keyboard_h.K_SC_X],
+	["SC_Y", keyboard_h.K_SC_Y],
+	["SC_Z", keyboard_h.K_SC_Z],
+	["SC_MINUS", keyboard_h.K_SC_MINUS],
+	["SC_EQUALS", keyboard_h.K_SC_EQUALS],
+	["SC_LEFTBRACKET", keyboard_h.K_SC_LEFTBRACKET],
+	["SC_RIGHTBRACKET", keyboard_h.K_SC_RIGHTBRACKET],
+	["SC_BACKSLASH", keyboard_h.K_SC_BACKSLASH],
+	["SC_NONUSHASH", keyboard_h.K_SC_NONUSHASH],
+	["SC_SEMICOLON", keyboard_h.K_SC_SEMICOLON],
+	["SC_APOSTROPHE", keyboard_h.K_SC_APOSTROPHE],
+	["SC_GRAVE", keyboard_h.K_SC_GRAVE],
+	["SC_COMMA", keyboard_h.K_SC_COMMA],
+	["SC_PERIOD", keyboard_h.K_SC_PERIOD],
+	["SC_SLASH", keyboard_h.K_SC_SLASH],
+	["SC_NONUSBACKSLASH", keyboard_h.K_SC_NONUSBACKSLASH],
+	["SC_INTERNATIONAL1", keyboard_h.K_SC_INTERNATIONAL1],
+	["SC_INTERNATIONAL2", keyboard_h.K_SC_INTERNATIONAL2],
+	["SC_INTERNATIONAL3", keyboard_h.K_SC_INTERNATIONAL3],
+	["SC_INTERNATIONAL4", keyboard_h.K_SC_INTERNATIONAL4],
+	["SC_INTERNATIONAL5", keyboard_h.K_SC_INTERNATIONAL5],
+	["SC_INTERNATIONAL6", keyboard_h.K_SC_INTERNATIONAL6],
+	["SC_INTERNATIONAL7", keyboard_h.K_SC_INTERNATIONAL7],
+	["SC_INTERNATIONAL8", keyboard_h.K_SC_INTERNATIONAL8],
+	["SC_INTERNATIONAL9", keyboard_h.K_SC_INTERNATIONAL9],
+	["SC_THOUSANDSSEPARATOR", keyboard_h.K_SC_THOUSANDSSEPARATOR],
+	["SC_DECIMALSEPARATOR", keyboard_h.K_SC_DECIMALSEPARATOR],
+	["SC_CURRENCYUNIT", keyboard_h.K_SC_CURRENCYUNIT],
+	["SC_CURRENCYSUBUNIT", keyboard_h.K_SC_CURRENCYSUBUNIT],
 
-	["PAUSE", keyboard_h.K_PAUSE],
+# #undef MY_SC_ENTRY
 
-	["SEMICOLON", ord(';')],	# because a raw semicolon seperates commands
+	[None, 0]
 ]
+
+gamepadbtns = [ #static char *[]
+	# It is imperative that this list of buttons follow EXACTLY the order they
+	# appear in QKEYS enum in keyboard.h, which in turn is the same order as
+	# they appear in SDL_GamepadButton / SDL_GameControllerButton enum.
+	"BTN_SOUTH",
+	"BTN_EAST",
+	"BTN_WEST",
+	"BTN_NORTH",
+	"BTN_BACK",
+	"BTN_GUIDE",
+	"",	# START
+	"STICK_LEFT",
+	"STICK_RIGHT",
+	"SHOULDR_LEFT",
+	"SHOULDR_RIGHT",
+	"DP_UP",
+	"DP_DOWN",
+	"DP_LEFT",
+	"DP_RIGHT",
+	"BTN_MISC1",
+	"PADDL_RIGHT1",
+	"PADDL_LEFT1",
+	"PADDL_RIGHT2",
+	"PADDL_LEFT2",
+	"TOUCHPAD",
+	"BTN_MISC2",
+	"BTN_MISC3",
+	"BTN_MISC4",
+	"BTN_MISC5",
+	"BTN_MISC6",
+	"TRIG_LEFT",
+	"TRIG_RIGHT",
+	# Same with _ALT buttons ( button + 'alt modifier' pressed )
+	"BTN_SOUTH_ALT",
+	"BTN_EAST_ALT",
+	"BTN_WEST_ALT",
+	"BTN_NORTH_ALT",
+	"BTN_BACK_ALT",
+	"BTN_GUIDE_ALT",
+	"",	# START ALT
+	"STICK_LEFT_ALT",
+	"STICK_RIGHT_ALT",
+	"SHOULDR_LEFT_ALT",
+	"SHOULDR_RIGHT_ALT",
+	"DP_UP_ALT",
+	"DP_DOWN_ALT",
+	"DP_LEFT_ALT",
+	"DP_RIGHT_ALT",
+	"BTN_MISC1_ALT",
+	"PADDL_RIGHT1_ALT",
+	"PADDL_LEFT1_ALT",
+	"PADDL_RIGHT2_ALT",
+	"PADDL_LEFT2_ALT",
+	"TOUCHPAD_ALT",
+	"BTN_MISC2_ALT",
+	"BTN_MISC3_ALT",
+	"BTN_MISC4_ALT",
+	"BTN_MISC5_ALT",
+	"BTN_MISC6_ALT",
+	"TRIG_LEFT_ALT",
+	"TRIG_RIGHT_ALT",
+]
+
+gpbtns_face = [ #static char *[]
+	# Xbox
+	"A",
+	"B",
+	"X",
+	"Y",
+	"VIEW",	# BACK
+	"XBOX",
+	"",	# MENU / START
+	"LS",
+	"RS",
+	"LB",
+	"RB",
+	# Playstation
+	"CROSS",
+	"CIRCLE",
+	"SQUARE",
+	"TRIANGLE",
+	"CREATE",	# SELECT
+	"PS",
+	"",	# OPTIONS / START
+	"L3",
+	"R3",
+	"L1",
+	"R1",
+	# Nintendo Switch
+	"B",
+	"A",
+	"Y",
+	"X",
+	"-",
+	"HOME",
+	"",	# "+"
+	"L stick",
+	"R stick",
+	"L btn",
+	"R btn",
+]
+
+gpbtns_paddles = [ #static char *[]
+	# Xbox
+	"SHARE",
+	"P1",
+	"P3",
+	"P2",
+	"P4",
+	# Playstation
+	"MIC",
+	"RB",
+	"LB",
+	"Right Fn",
+	"Left Fn",
+	# Switch
+	"CAPTURE",
+	"Right SR",
+	"Left SL",
+	"Right SL",
+	"Left SR",	# JoyCon btn positions suck
+]
+
+gpbtns_triggers = [ #static char *[]
+	# Xbox
+	"LT",
+	"RT",
+	# Playstation
+	"L2",
+	"R2",
+	# Switch
+	"ZL",
+	"ZR",
+]
+
+# ------------------------------------------------------------------
+
+# Q2PORT: cl_keyboard.c defines these further down, before Key_Message
+chat_team = False #qboolean
+chat_buffer = "" #char [MAXCMDLINE]
+chat_bufferlen = 0 #int
+chat_cursorpos = 0 #int
 
 """
 ==============================================================================
@@ -194,69 +380,76 @@ keynames = [ #keyname_t[]
 ==============================================================================
 """
 
-def CompleteCommand ():
+tinystr = "" #static char [2], in Key_KeynumToString
+num_gamepad_btns = len(gamepadbtns) #static const int, in Key_StringToKeynum
 
-	#char	*cmd, *s;
-	global key_lines, edit_line
+def CompleteCommand(): #void (static)
+
+	global key_linepos
+
+	"""
+	const char *cmd, *s;
+	"""
 
 	s = key_lines[edit_line]
-	if len(s) > 1:
-		cursor = 1
-		if s[cursor] == '\\' or s[cursor] == '/':
-			cursor+=1
-		s = s[cursor:]
 
-	cmdStr = cmdparser.Cmd_CompleteCommand (s)
-	if cmdStr is None:
-		cmdStr = cvar.Cvar_CompleteVariable (s)
-	if cmdStr is not None:
-	
-		line = ']/' + cmdStr + ' '
-		key_lines[edit_line] = line
+	if (s[:1] == '\\') or (s[:1] == '/'):
+
+		s = s[1:]
+
+
+	cmd = cmdparser.Cmd_CompleteCommand(s)
+	if not cmd:
 
 		return
+
+
+	key_lines[edit_line] = ("/" + cmd)[:keyboard_h.MAXCMDLINE - 1]
+	key_linepos = len(cmd) + 1
+
+	if cmdparser.Cmd_IsComplete(cmd):
+
+		key_lines[edit_line] += ' '
+		key_linepos += 1
+
 	
-r"""
-static void
-CompleteMapNameCommand(void)
-{
+def CompleteMapNameCommand(): #void (static)
+
+	global key_linepos
+
+	"""
 	const char *s, *cmdArg;
 	const char *mapCmdString = "map ";
+	"""
+	mapCmdString = "map "
 
-	s = key_lines[edit_line];
+	s = key_lines[edit_line]
 
-	if ((*s == '\\') || (*s == '/'))
-	{
-		s++;
-	}
+	if (s[:1] == '\\') or (s[:1] == '/'):
 
-	if (strncmp(mapCmdString, s, strlen(mapCmdString)) != 0)
-	{
-		return;
-	}
+		s = s[1:]
 
-	cmdArg = Cmd_CompleteMapCommand(s + strlen(mapCmdString));
 
-	if (cmdArg)
-	{
-		snprintf(key_lines[edit_line], MAXCMDLINE, "/%s%s", mapCmdString, cmdArg);
-		key_linepos = strlen(key_lines[edit_line]);
-	}
-}
+	if s[:len(mapCmdString)] != mapCmdString:
+
+		return
+
+
+	cmdArg = cmdparser.Cmd_CompleteMapCommand(s[len(mapCmdString):])
+
+	if cmdArg:
+
+		key_lines[edit_line] = ("/%s%s" % (mapCmdString, cmdArg))[:keyboard_h.MAXCMDLINE - 1]
+		key_linepos = len(key_lines[edit_line])
+
+
 """
-
-"""
-/*
  * Interactive line editing and console scrollback
- */
-static int
-IsInConsole(void)
-{
-	return cls.key_dest == key_console ||
-		(cls.key_dest == key_game &&
-		(cls.state == ca_disconnected || cls.state == ca_connecting));
-}
+
 """
+def IsInConsole(): # (returns static int)
+
+	return cl_main.cls.key_dest == client_h.keydest_t.key_console or (cl_main.cls.key_dest == client_h.keydest_t.key_game and (cl_main.cls.state == client_h.connstate_t.ca_disconnected or cl_main.cls.state == client_h.connstate_t.ca_connecting))
 
 """
 ====================
@@ -265,187 +458,371 @@ Key_Console
 Interactive line editing and console scrollback
 ====================
 """
-def Key_Console (key): #int
-	
-	global key_lines, key_linepos, edit_line, history_line
+def Key_Console(key: int): #int (static)
 
-	if key in keyboard_h.keypadMapping:
-		key = keyboard_h.keypadMapping[key]
+	global key_linepos, edit_line, history_line
 
 	"""
-	# Clipboard
-	if ( ( chr(key).upper() == 'V' and keydown[K_CTRL] ) or
-		 ( ( ( key == K_INS ) or ( key == K_KP_INS ) ) and keydown[K_SHIFT] ) )
-	{
-		#char *cbd;
-		
-		if ( ( cbd = Sys_GetClipboardData() ) != 0 )
-		{
-			int i;
-
-			strtok( cbd, "\n\r\b" );
-
-			i = strlen( cbd );
-			if ( i + key_linepos >= MAXCMDLINE)
-				i= MAXCMDLINE - key_linepos;
-
-			if ( i > 0 )
-			{
-				cbd[i]=0;
-				strcat( key_lines[edit_line], cbd );
-				key_linepos += i;
-			}
-			free( cbd );
-		}
-
-		return;
-	}
+	char txt[2];
+	char cliptext[256];
 	"""
 
-	if key == ord('l'): 
-		if keydown[keyboard_h.K_CTRL]:
-			cmdparser.Cbuf_AddText ("clear\n")
+	#
+	# Ignore keypad in console to prevent duplicate
+	# entries through key presses processed as a
+	# normal char event and additionally as key
+	# event.
+	#
+	if key in (keyboard_h.K_KP_SLASH, keyboard_h.K_KP_MINUS, keyboard_h.K_KP_PLUS, keyboard_h.K_KP_HOME,
+		keyboard_h.K_KP_UPARROW, keyboard_h.K_KP_PGUP, keyboard_h.K_KP_LEFTARROW, keyboard_h.K_KP_5,
+		keyboard_h.K_KP_RIGHTARROW, keyboard_h.K_KP_END, keyboard_h.K_KP_DOWNARROW, keyboard_h.K_KP_PGDN,
+		keyboard_h.K_KP_INS, keyboard_h.K_KP_DEL):
+
+		return
+
+
+	if keydown[keyboard_h.K_CTRL]:
+
+		if key == ord('l'):
+
+			cmdparser.Cbuf_AddText("clear\n")
 			return
-	
-	if key == keyboard_h.K_ENTER or key == keyboard_h.K_KP_ENTER:
-		# backslash text are commands, else chat
-		if len(key_lines[edit_line]) >= 2 and (key_lines[edit_line][1] == '\\' or key_lines[edit_line][1] == '/'):
-			cmdparser.Cbuf_AddText (key_lines[edit_line][2:])	# skip the >
+
+
+		if key == ord('c') or key == ord('x'):
+
+			if key_lines[edit_line]:
+
+				if sdl2.IN_SetClipboardText(key_lines[edit_line]):
+
+					clientserver.Com_Printf("Copy to clipboard failed.\n")
+
+				elif key == ord('x'):
+
+					cl_console.Key_ClearTyping()
+
+
+
+			return
+
+
+		if key == ord('v'):
+
+			cliptext = sdl2.IN_GetClipboardText(256)
+
+			if cliptext:
+
+				key_lines[edit_line], n = shared_c.Q_strins(key_lines[edit_line], cliptext, key_linepos, keyboard_h.MAXCMDLINE)
+				key_linepos += n
+
+
+			return
+
+
+
+	if (key == keyboard_h.K_ENTER) or (key == keyboard_h.K_KP_ENTER):
+
+		# slash text are commands, else chat
+		if (key_lines[edit_line][:1] == '\\') or (key_lines[edit_line][:1] == '/'):
+
+			cmdparser.Cbuf_AddText(key_lines[edit_line][1:]) # skip the >
+
 		else:
-			cmdparser.Cbuf_AddText (key_lines[edit_line][1:])	# valid command
 
-		cmdparser.Cbuf_AddText ("\n")
-		clientserver.Com_Printf ("{}\n".format(key_lines[edit_line]))
-		edit_line = (edit_line + 1) & 31
+			cmdparser.Cbuf_AddText(key_lines[edit_line]) # valid command
+
+
+		cmdparser.Cbuf_AddText("\n")
+		clientserver.Com_Printf("%c%s\n", console_h.CON_INPUT_INDICATOR, key_lines[edit_line])
+
+		edit_line = (edit_line + 1) & (keyboard_h.NUM_KEY_LINES - 1)
 		history_line = edit_line
-		key_lines[edit_line] = ']'
-		key_linepos = 1
+
+		cl_console.Key_ClearTyping()
+
 		if cl_main.cls.state == client_h.connstate_t.ca_disconnected:
-			cl_screen.SCR_UpdateScreen ()		# force an update, because the command
-											# may take some time
+
+			cl_screen.SCR_UpdateScreen() # force an update, because the command
+										 # may take some time
+
+
 		return
-	
+
+
 	if key == keyboard_h.K_TAB:
+
 		# command completion
-		CompleteCommand ()
-		return
-	
-	if ( key == keyboard_h.K_BACKSPACE ) or ( key == keyboard_h.K_LEFTARROW ) or ( key == keyboard_h.K_KP_LEFTARROW ) or ( ( key == 'h' ) and ( keydown[keyboard_h.K_CTRL] ) ):
+		CompleteCommand()
+		CompleteMapNameCommand()
 
-		if key_linepos > 1:
-			key_lines[edit_line] = key_lines[edit_line][:-1]
-			key_linepos-=1
 		return
 
-	"""
-	if ( ( key == K_UPARROW ) || ( key == K_KP_UPARROW ) ||
-		 ( ( key == 'p' ) && keydown[K_CTRL] ) )
-	{
-		do
-		{
-			history_line = (history_line - 1) & 31;
-		} while (history_line != edit_line
-				&& !key_lines[history_line][1]);
-		if (history_line == edit_line)
-			history_line = (edit_line+1)&31;
-		strcpy(key_lines[edit_line], key_lines[history_line]);
-		key_linepos = strlen(key_lines[edit_line]);
-		return;
-	}
 
-	if ( ( key == K_DOWNARROW ) || ( key == K_KP_DOWNARROW ) ||
-		 ( ( key == 'n' ) && keydown[K_CTRL] ) )
-	{
-		if (history_line == edit_line) return;
-		do
-		{
-			history_line = (history_line + 1) & 31;
-		}
-		while (history_line != edit_line
-			&& !key_lines[history_line][1]);
-		if (history_line == edit_line)
-		{
-			key_lines[edit_line][0] = ']';
-			key_linepos = 1;
-		}
-		else
-		{
-			strcpy(key_lines[edit_line], key_lines[history_line]);
-			key_linepos = strlen(key_lines[edit_line]);
-		}
-		return;
-	}
-	"""
-	if key == keyboard_h.K_PGUP or key == keyboard_h.K_KP_PGUP:
-	
+	if key == keyboard_h.K_LEFTARROW:
+
+		if key_linepos > 0:
+
+			key_linepos -= 1
+
+
+		return
+
+
+	if key == keyboard_h.K_RIGHTARROW:
+
+		if key_linepos < len(key_lines[edit_line]): # key_lines[edit_line][key_linepos] != '\0'
+
+			key_linepos += 1
+
+
+		return
+
+
+	if (key == keyboard_h.K_BACKSPACE) or \
+		((key == ord('h')) and (keydown[keyboard_h.K_CTRL])):
+
+		if key_linepos > 0:
+
+			key_lines[edit_line] = shared_c.Q_strdel(key_lines[edit_line], key_linepos - 1, 1)
+			key_linepos -= 1
+
+
+		return
+
+
+	if key == keyboard_h.K_DEL:
+
+		if key_linepos < len(key_lines[edit_line]): # key_lines[edit_line][key_linepos] != '\0'
+
+			key_lines[edit_line] = shared_c.Q_strdel(key_lines[edit_line], key_linepos, 1)
+
+
+		return
+
+
+	if (key == keyboard_h.K_UPARROW) or (key == keyboard_h.K_KP_UPARROW) or \
+		((key == ord('p')) and keydown[keyboard_h.K_CTRL]):
+
+		while True:
+
+			history_line = (history_line - 1) & (keyboard_h.NUM_KEY_LINES-1)
+
+			if not (history_line != edit_line and not key_lines[history_line]):
+
+				break
+
+
+
+		if history_line == edit_line:
+
+			history_line = (edit_line + 1) & (keyboard_h.NUM_KEY_LINES-1)
+
+
+		key_lines[edit_line] = key_lines[history_line] # memmove
+		key_linepos = len(key_lines[edit_line])
+
+		return
+
+
+	if (key == keyboard_h.K_DOWNARROW) or (key == keyboard_h.K_KP_DOWNARROW) or \
+		((key == ord('n')) and keydown[keyboard_h.K_CTRL]):
+
+		if history_line == edit_line:
+
+			return
+
+
+		while True:
+
+			history_line = (history_line + 1) & (keyboard_h.NUM_KEY_LINES-1)
+
+			if not (history_line != edit_line and not key_lines[history_line]):
+
+				break
+
+
+
+		if history_line == edit_line:
+
+			cl_console.Key_ClearTyping()
+
+		else:
+
+			key_lines[edit_line] = key_lines[history_line] # memmove
+			key_linepos = len(key_lines[edit_line])
+
+
+		return
+
+
+	if (key == keyboard_h.K_PGUP) or (key == keyboard_h.K_KP_PGUP) or (key == keyboard_h.K_MWHEELUP) or \
+		(key == keyboard_h.K_MOUSE4):
+
 		cl_console.con.display -= 2
 		return
-	
-	if key == keyboard_h.K_PGDN or key == keyboard_h.K_KP_PGDN:
-	
+
+
+	if (key == keyboard_h.K_PGDN) or (key == keyboard_h.K_KP_PGDN) or (key == keyboard_h.K_MWHEELDOWN) or \
+		(key == keyboard_h.K_MOUSE5):
+
 		cl_console.con.display += 2
+
 		if cl_console.con.display > cl_console.con.current:
+
 			cl_console.con.display = cl_console.con.current
-		return
-	
-	if key == keyboard_h.K_HOME or key == keyboard_h.K_KP_HOME:
-	
-		cl_console.con.display = cl_console.con.current - cl_console.con.totallines + 10
+
+
 		return
 
-	if key == keyboard_h.K_END or key == keyboard_h.K_KP_END:
-	
-		cl_console.con.display = cl_console.con.current
-		return
-	
-	if key < 32 or key > 127:
-		return # non printable
-	
-	# handle normal character
-	if key_linepos < keyboard_h.MAXCMDLINE-1:
-	
-		key_lines[edit_line] = key_lines[edit_line][:key_linepos] + chr(key)
-		key_linepos+=1
 
-chat_buffer = ""
-chat_bufferlen = 0
-def Key_Message (key): #int 
+	if (key == keyboard_h.K_HOME) or (key == keyboard_h.K_KP_HOME):
 
-	global chat_buffer, chat_bufferlen
+		if keydown[keyboard_h.K_CTRL]:
 
-	if key == keyboard_h.K_ENTER or key == keyboard_h.K_KP_ENTER:
-		if keyboard_h.chat_team:
-			cmdparser.Cbuf_AddText("say_team \"")
+			cl_console.con.display = cl_console.con.current - cl_console.con.totallines + 10
+
 		else:
+
+			key_linepos = 0
+
+
+		return
+
+
+	if (key == keyboard_h.K_END) or (key == keyboard_h.K_KP_END):
+
+		if keydown[keyboard_h.K_CTRL]:
+
+			cl_console.con.display = cl_console.con.current
+
+		else:
+
+			key_linepos = len(key_lines[edit_line])
+
+
+		return
+
+
+	if (key < 32) or (key > 127):
+
+		return # non printable character
+
+
+	txt = chr(key)
+
+	key_lines[edit_line], n = shared_c.Q_strins(key_lines[edit_line], txt, key_linepos, keyboard_h.MAXCMDLINE)
+	key_linepos += n
+
+
+def Key_Message(key: int): #int (static)
+
+	global chat_bufferlen, chat_buffer, chat_cursorpos
+
+	"""
+	char last;
+	"""
+
+	if (key == keyboard_h.K_ENTER) or (key == keyboard_h.K_KP_ENTER):
+
+		if chat_team:
+
+			cmdparser.Cbuf_AddText("say_team \"")
+
+		else:
+
 			cmdparser.Cbuf_AddText("say \"")
+
+
 		cmdparser.Cbuf_AddText(chat_buffer)
 		cmdparser.Cbuf_AddText("\"\n")
 
 		cl_main.cls.key_dest = client_h.keydest_t.key_game
-		chat_buffer = ""
 		chat_bufferlen = 0
+		chat_buffer = ""
+		chat_cursorpos = 0
 		return
+
 
 	if key == keyboard_h.K_ESCAPE:
+
 		cl_main.cls.key_dest = client_h.keydest_t.key_game
-		chat_buffer = ""
+		chat_cursorpos = 0
 		chat_bufferlen = 0
+		chat_buffer = ""
 		return
 
-	if key < 32 or key > 127:
-		return
 
 	if key == keyboard_h.K_BACKSPACE:
-		if chat_bufferlen:
+
+		if chat_cursorpos:
+
+			chat_buffer = chat_buffer[:chat_cursorpos - 1] + chat_buffer[chat_cursorpos:] # memmove
+			chat_cursorpos -= 1
 			chat_bufferlen -= 1
-			chat_buffer = chat_buffer[:chat_bufferlen]
+
+
 		return
 
-	if chat_bufferlen >= keyboard_h.MAXCMDLINE - 1:
+
+	if key == keyboard_h.K_DEL:
+
+		if chat_bufferlen and (chat_cursorpos != chat_bufferlen):
+
+			chat_buffer = chat_buffer[:chat_cursorpos] + chat_buffer[chat_cursorpos + 1:] # memmove
+			chat_bufferlen -= 1
+
+
 		return
 
-	chat_buffer += chr(key)
+
+	if key == keyboard_h.K_LEFTARROW:
+
+		if chat_cursorpos > 0:
+
+			chat_cursorpos -= 1
+
+
+		return
+
+
+	if key == keyboard_h.K_HOME:
+
+		chat_cursorpos = 0
+		return
+
+
+	if key == keyboard_h.K_END:
+
+		chat_cursorpos = chat_bufferlen
+		return
+
+
+	if key == keyboard_h.K_RIGHTARROW:
+
+		if chat_cursorpos < len(chat_buffer): # chat_buffer[chat_cursorpos]
+
+			chat_cursorpos += 1
+
+
+		return
+
+
+	if (key < 32) or (key > 127):
+
+		return # non printable charcter
+
+
+	if chat_bufferlen == keyboard_h.MAXCMDLINE - 1: # sizeof(chat_buffer) - 1
+
+		return # all full, this should never happen on modern systems
+
+
+	# Q2PORT: the memmove and the character store as one string insert
+	chat_buffer = chat_buffer[:chat_cursorpos] + chr(key) + chat_buffer[chat_cursorpos:]
+
 	chat_bufferlen += 1
+	chat_cursorpos += 1
+
 """
 #============================================================================
 
@@ -458,19 +835,42 @@ the given string.  Single ascii characters return themselves, while
 the K_* names are matched up.
 ===================
 """
-def Key_StringToKeynum (strIn): #char * (returns int)
+def Key_StringToKeynum(str_): #char * (returns static int)
 
-	#keyname_t	*kn;
-	
-	if strIn is None or len(strIn) == 0:
+	"""
+	static const int num_gamepad_btns = ARRLEN(gamepadbtns);
+	keyname_t *kn;
+	int i;
+	"""
+
+	if not str_: # !str || !str[0]
+
 		return -1
-	if len(strIn) == 1:
-		return ord(strIn)
 
-	for kn in keynames:
-		if not shared_c.Q_strcasecmp(strIn, kn[0]):
-			return kn[1]
-	
+
+	if len(str_) == 1: # !str[1]
+
+		return ord(str_[0])
+
+
+	kn = 0 # kn = keynames
+	while keynames[kn][0]: # kn->name
+
+		if not shared_c.Q_stricmp(str_, keynames[kn][0]):
+
+			return keynames[kn][1]
+
+
+		kn += 1
+
+
+	for i in range(num_gamepad_btns):
+
+		if not shared_c.Q_stricmp(str_, gamepadbtns[i]):
+
+			return keyboard_h.K_JOY_FIRST_BTN + i
+
+
 	return -1
 	
 	
@@ -483,66 +883,87 @@ given keynum.
 FIXME: handle quote special (general escape sequence?)
 ===================
 """
-def Key_KeynumToString (keynum): # int (returns char *)
+def Key_KeynumToString(keynum): #int (returns char *)
 
-	#keyname_t	*kn;	
-	
+	global tinystr
+
+	"""
+	keyname_t *kn;
+	static char tinystr[2] = {0};
+	"""
+
 	if keynum == -1:
+
 		return "<KEY NOT FOUND>"
-	if keynum > 32 and keynum < 127:
-		# printable ascii
-		return chr(keynum)
-		
-	for kn in keynames:
-		if keynum == kn[1]:
-			return kn[0]
+
+
+	if (keynum > 32) and (keynum < 127) and keynum != ord(';') and keynum != ord('"') and keynum != ord('\'') and keynum != ord('$'):
+
+		# printable ASCII, except for special cases that have special meanings
+		# in configs like quotes or ; (separates commands) or $ (used to expand
+		# cvars to their values in macros/commands) and thus need escaping
+		tinystr = chr(keynum) # tinystr[0] = keynum;
+		return tinystr
+
+
+	if keynum >= keyboard_h.K_JOY_FIRST_BTN:
+
+		# gamepad button
+		return gamepadbtns[keynum - keyboard_h.K_JOY_FIRST_BTN]
+
+
+	kn = 0 # kn = keynames
+	while keynames[kn][0]: # kn->name
+
+		if keynum == keynames[kn][1]:
+
+			return keynames[kn][0]
+
+
+		kn += 1
+
 
 	return "<UNKNOWN KEYNUM>"
 
-"""
-/*
- * Same as Key_KeynumToString(), but for joystick/gamepad buttons.
- */
-char *
-Key_KeynumToString_Joy(int key)
-{
+def Key_KeynumToString_Joy(key: int)->str: #int (returns char *)
+
+	"""
 	extern gamepad_labels_t joy_current_lbls;
 	const int lbl_style = (int)joy_current_lbls - 1;
+	"""
+	lbl_style = sdl2.joy_current_lbls.value - 1
 
-	if (key < K_JOY_FIRST_BTN)
-	{
-		return Key_KeynumToString(key);
-	}
+	if key < keyboard_h.K_JOY_FIRST_BTN:
 
-	// Don't print the _ALT buttons (buttons with the alt modifier pressed)
-	if (key >= K_JOY_FIRST_BTN_ALT)
-	{
-		key -= K_JOY_FIRST_BTN_ALT - K_JOY_FIRST_BTN;
-	}
+		return Key_KeynumToString(key)
 
-	if (lbl_style < 0) // was SDL
-	{
-		goto exit_sdl;
-	}
 
-	// Alter this logic if new gamepad buttons are added in SDL
-	if (key < K_DPAD_UP) // face & shoulder buttons
-	{
-		return gpbtns_face[lbl_style * (K_DPAD_UP - K_BTN_SOUTH) + key - K_BTN_SOUTH];
-	}
-	else if (key >= K_TRIG_LEFT) // triggers
-	{
-		return gpbtns_triggers[lbl_style * (K_JOY_FIRST_BTN_ALT - K_TRIG_LEFT) + key - K_TRIG_LEFT];
-	}
-	else if (key > K_DPAD_RIGHT && key < K_TOUCHPAD) // paddles & misc1
-	{
-		return gpbtns_paddles[lbl_style * (K_TOUCHPAD - K_BTN_MISC1) + key - K_BTN_MISC1];
-	}
+	# Don't print the _ALT buttons (buttons with the alt modifier pressed)
+	if key >= keyboard_h.K_JOY_FIRST_BTN_ALT:
 
-exit_sdl:
-	return gamepadbtns[key - K_JOY_FIRST_BTN];
-}
-"""
+		key -= keyboard_h.K_JOY_FIRST_BTN_ALT - keyboard_h.K_JOY_FIRST_BTN
+
+
+	if lbl_style >= 0: # Q2PORT: if (lbl_style < 0) goto exit_sdl; // was SDL
+
+		# Alter this logic if new gamepad buttons are added in SDL
+		if key < keyboard_h.K_DPAD_UP: # face & shoulder buttons
+
+			return gpbtns_face[lbl_style * (keyboard_h.K_DPAD_UP - keyboard_h.K_BTN_SOUTH) + key - keyboard_h.K_BTN_SOUTH]
+
+		elif key >= keyboard_h.K_TRIG_LEFT: # triggers
+
+			return gpbtns_triggers[lbl_style * (keyboard_h.K_JOY_FIRST_BTN_ALT - keyboard_h.K_TRIG_LEFT) + key - keyboard_h.K_TRIG_LEFT]
+
+		elif key > keyboard_h.K_DPAD_RIGHT and key < keyboard_h.K_TOUCHPAD: # paddles & misc1
+
+			return gpbtns_paddles[lbl_style * (keyboard_h.K_TOUCHPAD - keyboard_h.K_BTN_MISC1) + key - keyboard_h.K_BTN_MISC1]
+
+
+
+	# exit_sdl:
+	return gamepadbtns[key - keyboard_h.K_JOY_FIRST_BTN]
+
 
 """
 ===================
@@ -584,11 +1005,17 @@ def Key_Unbind_f ():
 
 	Key_SetBinding (b, "")
 
-def Key_Unbindall_f ():
-	
-	for i in range(256):
+def Key_Unbindall_f(): # (static)
+
+	"""
+	int i;
+	"""
+
+	for i in range(keyboard_h.K_LAST):
+
 		if keybindings[i]:
-			Key_SetBinding (i, "")
+
+			Key_SetBinding(i, "")
 
 
 """
@@ -596,40 +1023,66 @@ def Key_Unbindall_f ():
 Key_Bind_f
 ===================
 """
-def Key_Bind_f ():
-	
+def Key_Bind_f(): # (static)
+
+	"""
+	int i, c, b;
+	char cmd[1024];
+	"""
+	cmd = [None] * 1024
+
 	c = cmdparser.Cmd_Argc()
-
 	if c < 2:
-	
-		clientserver.Com_Printf ("bind <key> [command] : attach a command to a key\n")
-		return
-	
-	b = Key_StringToKeynum (cmdparser.Cmd_Argv(1))
 
-	if b==-1:
-	
-		clientserver.Com_Printf ("\"{}\" isn't a valid key\n".format(cmdparser.Cmd_Argv(1)))
+		clientserver.Com_Printf("bind <key> [command] : attach a command to a key\n")
 		return
-	
+
+
+	b = Key_StringToKeynum(cmdparser.Cmd_Argv(1))
+	if b == -1:
+
+		clientserver.Com_Printf("\"%s\" isn't a valid key\n", cmdparser.Cmd_Argv(1))
+		return
+
+
+	# don't allow binding escape or the special console keys
+	if b == keyboard_h.K_ESCAPE or b == ord('^') or b == ord('`') or b == ord('~'):
+
+		if cmdparser.doneWithDefaultCfg:
+
+			# don't warn about this when it's from default.cfg, we can't change that anyway
+			clientserver.Com_Printf("You can't bind the special key \"%s\" not \n", cmdparser.Cmd_Argv(1))
+
+
+		return
+
+
 	if c == 2:
-	
-		if keybindings[b] is not None:
-			clientserver.Com_Printf ("\"{}\" = \"{}\"\n".format(cmdparser.Cmd_Argv(1), keybindings[b]))
+
+		if keybindings[b]:
+
+			clientserver.Com_Printf("\"%s\" = \"%s\"\n", cmdparser.Cmd_Argv(1), keybindings[b])
+
 		else:
-			clientserver.Com_Printf ("\"{}\" is not bound\n".format( cmdparser.Cmd_Argv(1)) )
+
+			clientserver.Com_Printf("\"%s\" is not bound\n", cmdparser.Cmd_Argv(1))
+
+
 		return
-	
-	
+
+
 	# copy the rest of the command line
-	cmdArr = []		# start out with a null string
+	cmd = "" # cmd[0] = 0
+	# start out with a null string
 	for i in range(2, c):
-	
-		cmdArr.append(cmdparser.Cmd_Argv(i))
-		if i != (c-1):
-			cmdArr.append(" ")
-	
-	Key_SetBinding (b, "".join(cmdArr))
+
+		cmd += cmdparser.Cmd_Argv(i) # Q_strlcat
+		if i != (c - 1):
+
+			cmd += " " # Q_strlcat
+
+
+	Key_SetBinding(b, cmd)
 
 
 """
@@ -639,122 +1092,132 @@ Key_WriteBindings
 Writes lines containing "bind key value"
 ============
 """
-def Key_WriteBindings (f): #FILE *
+def Key_WriteBindings(f): #FILE *
 
-	#int		i;
+	"""
+	int i;
+	"""
 
-	for i in range(256):
-		if keybindings[i] is not None and len(keybindings[i])>0:
-			f.write("bind {} \"{}\"\n".format(Key_KeynumToString(i), keybindings[i]))
+	if cfg_unbindall.value:
 
-r"""
-void
-Key_WriteConsoleHistory()
-{
+		f.write("unbindall\n")
+
+
+	for i in range(keyboard_h.K_LAST):
+
+		if keybindings[i]:
+
+			f.write("bind %s \"%s\"\n" %
+					(Key_KeynumToString(i), keybindings[i]))
+
+
+def Key_WriteConsoleHistory(): #void
+
+	"""
 	int i;
 	char path[MAX_OSPATH];
+	"""
 
-	if (is_portable)
-	{
-		Com_sprintf(path, sizeof(path), "%sconsole_history.txt", Sys_GetBinaryDir());
-	}
-	else
-	{
-		Com_sprintf(path, sizeof(path), "%sconsole_history.txt", Sys_GetHomeDir());
-	}
+	if frame.is_portable:
 
-	FILE* f = Q_fopen(path, "w");
+		path = "%sconsole_history.txt" % sys_linux.Sys_GetBinaryDir()
 
-	if(f==NULL)
-	{
-		Com_Printf("Opening console history %s for writing failed!\n", path);
-		return;
-	}
+	else:
 
-	// save the oldest lines first by starting at edit_line
-	// and going forward (and wrapping around)
-	const char* lastWrittenLine = "";
-	for(i=0; i<NUM_KEY_LINES; ++i)
-	{
-		int lineIdx = (edit_line+i) & (NUM_KEY_LINES-1);
-		const char* line = key_lines[lineIdx];
+		path = "%sconsole_history.txt" % sys_linux.Sys_GetHomeDir()
 
-		if(*line != '\0' && strcmp(lastWrittenLine, line) != 0)
-		{
-			// if the line actually contains something besides the ] prompt,
-			// and is not identical to the last written line, write it to the file
-			fputs(line, f);
-			fputc('\n', f);
 
-			lastWrittenLine = line;
-		}
-	}
+	try:
 
-	fclose(f);
-}
+		f = open(path, "w", encoding="latin-1", errors="replace") # Q_fopen(path, "w")
+
+	except OSError:
+
+		clientserver.Com_Printf("Opening console history %s for writing failed!\n", path)
+		return
+
+
+	# save the oldest lines first by starting at edit_line
+	# and going forward (and wrapping around)
+	lastWrittenLine = ""
+	for i in range(keyboard_h.NUM_KEY_LINES):
+
+		lineIdx = (edit_line+i) & (keyboard_h.NUM_KEY_LINES-1)
+		line = key_lines[lineIdx]
+
+		if line and lastWrittenLine != line:
+
+			# if the line actually contains something besides the ] prompt,
+			# and is not identical to the last written line, write it to the file
+			f.write(line)
+			f.write('\n')
+
+			lastWrittenLine = line
+
+
+
+	f.close()
+
+
 """
+ initializes key_lines from history file, if available
+"""
+def Key_ReadConsoleHistory(): #void
 
-r"""
-/* initializes key_lines from history file, if available */
-void
-Key_ReadConsoleHistory()
-{
+	global edit_line, history_line
+
+	"""
 	FILE *f;
 	int i;
 
 	char path[MAX_OSPATH];
+	"""
 
-	if (is_portable)
-	{
-		Com_sprintf(path, sizeof(path), "%sconsole_history.txt", Sys_GetBinaryDir());
-	}
-	else
-	{
-		Com_sprintf(path, sizeof(path), "%sconsole_history.txt", Sys_GetHomeDir());
-	}
+	if frame.is_portable:
 
-	f = Q_fopen(path, "r");
-	if (f == NULL)
-	{
-		Com_DPrintf("Opening console history %s for reading failed!\n", path);
-		return;
-	}
+		path = "%sconsole_history.txt" % sys_linux.Sys_GetBinaryDir()
 
-	for (i = 0; i < NUM_KEY_LINES; i++)
-	{
-		int lastCharIdx;
+	else:
 
-		if(fgets(key_lines[i], MAXCMDLINE, f) == NULL)
-		{
-			// probably EOF.. adjust edit_line and history_line and we're done here
-			edit_line = i;
-			history_line = i;
-			break;
-		}
+		path = "%sconsole_history.txt" % sys_linux.Sys_GetHomeDir()
 
-		// remove trailing newlines
-		lastCharIdx = strlen(key_lines[i]) - 1;
-		while(lastCharIdx >= 0 && (
-			key_lines[i][lastCharIdx] == '\n' ||
-			key_lines[i][lastCharIdx] == '\r'))
-		{
-			key_lines[i][lastCharIdx] = '\0';
-			--lastCharIdx;
-		}
 
-		/* backwards compatibility with old history files */
-		if(key_lines[i][0] == ']')
-		{
-			memmove(key_lines[i], key_lines[i] + 1, MAXCMDLINE - 1);
-		}
-	}
+	try:
 
-	/* don't remember the input line */
-	Key_ClearTyping();
+		f = open(path, "r", encoding="latin-1", errors="replace") # Q_fopen(path, "r")
 
-	fclose(f);
-}
-"""
+	except OSError:
+
+		clientserver.Com_DPrintf("Opening console history %s for reading failed!\n", path)
+		return
+
+
+	for i in range(keyboard_h.NUM_KEY_LINES):
+
+		line = f.readline(keyboard_h.MAXCMDLINE - 1) # fgets(key_lines[i], MAXCMDLINE, f)
+		if not line:
+
+			# probably EOF.. adjust edit_line and history_line and we're done here
+			edit_line = i
+			history_line = i
+			break
+
+
+		# remove trailing newlines
+		key_lines[i] = line.rstrip("\r\n")
+
+		# backwards compatibility with old history files
+		if key_lines[i][:1] == ']':
+
+			key_lines[i] = key_lines[i][1:] # memmove(key_lines[i], key_lines[i] + 1, MAXCMDLINE - 1);
+
+
+
+	# don't remember the input line
+	cl_console.Key_ClearTyping()
+
+	f.close()
+
 
 """
 ============
@@ -762,32 +1225,45 @@ Key_Bindlist_f
 
 ============
 """
-def Key_Bindlist_f ():
+def Key_Bindlist_f(): # (static)
 
-	for i in range(256):
-		if keybindings[i] is not None:
-			clientserver.Com_Printf ("{} \"{}\"\n".format(Key_KeynumToString(i), keybindings[i]))
+	"""
+	int i;
+	"""
+
+	for i in range(keyboard_h.K_LAST):
+
+		if keybindings[i] and keybindings[i][0]:
+
+			clientserver.Com_Printf("%s \"%s\"\n", Key_KeynumToString(i), keybindings[i])
 
 """
 ===================
 Key_Init
 ===================
 """
-def Key_Init ():
+def Key_Init(): #
 
-	global key_lines, key_linepos, consolekeys, menubound
-	
-	for i in range(32):
-	
-		key_lines[i] = ']'
-	
-	key_linepos = 1
-	
-	#
-	# init ascii characters in console mode
-	#
+	global cfg_unbindall, key_linepos
+
+	"""
+	int i;
+	"""
+
+	for i in range(keyboard_h.NUM_KEY_LINES):
+
+		key_lines[i] = "" # key_lines[i][0] = 0
+
+
+	# can't call Key_ReadConsoleHistory() here because FS_Gamedir() isn't set yet
+	key_linepos = 0
+	# init 128 bit ascii characters in console mode
 	for i in range(32, 128):
+
 		consolekeys[i] = True
+
+
+	consolekeys[keyboard_h.K_DEL] = True
 	consolekeys[keyboard_h.K_ENTER] = True
 	consolekeys[keyboard_h.K_KP_ENTER] = True
 	consolekeys[keyboard_h.K_TAB] = True
@@ -813,317 +1289,328 @@ def Key_Init ():
 	consolekeys[keyboard_h.K_KP_INS] = True
 	consolekeys[keyboard_h.K_KP_DEL] = True
 	consolekeys[keyboard_h.K_KP_SLASH] = True
+	consolekeys[keyboard_h.K_KP_STAR] = True
 	consolekeys[keyboard_h.K_KP_PLUS] = True
 	consolekeys[keyboard_h.K_KP_MINUS] = True
 	consolekeys[keyboard_h.K_KP_5] = True
-
+	consolekeys[keyboard_h.K_MWHEELUP] = True
+	consolekeys[keyboard_h.K_MWHEELDOWN] = True
+	consolekeys[keyboard_h.K_MOUSE4] = True
+	consolekeys[keyboard_h.K_MOUSE5] = True
 	consolekeys[ord('`')] = False
 	consolekeys[ord('~')] = False
-	
-	for i in range(256):
-		keyboard_h.keyshift[i] = i
-	for i in range(ord('a'), ord('z')+1):
-		keyboard_h.keyshift[i] = i - ord('a') + ord('A')
-	keyboard_h.keyshift[ord('1')] = ord('!')
-	keyboard_h.keyshift[ord('2')] = ord('@')
-	keyboard_h.keyshift[ord('3')] = ord('#')
-	keyboard_h.keyshift[ord('4')] = ord('$')
-	keyboard_h.keyshift[ord('5')] = ord('%')
-	keyboard_h.keyshift[ord('6')] = ord('^')
-	keyboard_h.keyshift[ord('7')] = ord('&')
-	keyboard_h.keyshift[ord('8')] = ord('*')
-	keyboard_h.keyshift[ord('9')] = ord('(')
-	keyboard_h.keyshift[ord('0')] = ord(')')
-	keyboard_h.keyshift[ord('-')] = ord('_')
-	keyboard_h.keyshift[ord('=')] = ord('+')
-	keyboard_h.keyshift[ord(',')] = ord('<')
-	keyboard_h.keyshift[ord('.')] = ord('>')
-	keyboard_h.keyshift[ord('/')] = ord('?')
-	keyboard_h.keyshift[ord(';')] = ord(':')
-	keyboard_h.keyshift[ord('\'')] = ord('"')
-	keyboard_h.keyshift[ord('[')] = ord('{')
-	keyboard_h.keyshift[ord(']')] = ord('}')
-	keyboard_h.keyshift[ord('`')] = ord('~')
-	keyboard_h.keyshift[ord('\\')] = ord('|')
-
+	consolekeys[ord('^')] = False
 	menubound[keyboard_h.K_ESCAPE] = True
 	for i in range(12):
-		menubound[keyboard_h.K_F1+i] = True
 
-	#
+		menubound[keyboard_h.K_F1 + i] = True
+
+
+	# register our variables
+	cfg_unbindall = cvar.Cvar_Get("cfg_unbindall", "1", shared.CVAR_ARCHIVE)
 	# register our functions
-	#
+	cmdparser.Cmd_AddCommand("bind", Key_Bind_f)
+	cmdparser.Cmd_AddCommand("unbind", Key_Unbind_f)
+	cmdparser.Cmd_AddCommand("unbindall", Key_Unbindall_f)
+	cmdparser.Cmd_AddCommand("bindlist", Key_Bindlist_f)
 
-	cmdparser.Cmd_AddCommand ("bind",Key_Bind_f);
-	cmdparser.Cmd_AddCommand ("unbind",Key_Unbind_f);
-	cmdparser.Cmd_AddCommand ("unbindall",Key_Unbindall_f);
-	cmdparser.Cmd_AddCommand ("bindlist",Key_Bindlist_f);
+def Key_Shutdown(): #void
 
-"""
-void
-Key_Shutdown(void)
-{
+	"""
 	int i;
-	for (i = 0; i < K_LAST; ++i)
-	{
-		if (keybindings[i])
-		{
-			Z_Free(keybindings[i]);
-			keybindings[i] = NULL;
-		}
-	}
-}
-"""
+	"""
+	for i in range(keyboard_h.K_LAST):
+
+		if keybindings[i]:
+
+			keybindings[i] = None # Z_Free(keybindings[i]);
+
 
 """
-/*
  * Called every frame for every detected keypress.
  * ASCII input for the console, the menu and the
  * chat window are handled by this function.
  * Anything else is handled by Key_Event().
- */
-void
-Char_Event(int key)
-{
-	switch (cls.key_dest)
-	{
-		/* Chat */
-		case key_message:
-			Key_Message(key);
-			break;
-
-		/* Menu */
-		case key_menu:
-			M_Keydown(key);
-			break;
-
-		/* Console */
-		case key_console:
-			Key_Console(key);
-			break;
-
-		/* Console is really open but key_dest is game anyway (not connected) */
-		case key_game:
-			if(cls.state == ca_disconnected || cls.state == ca_connecting)
-				Key_Console(key);
-
-			break;
-
-		default:
-			break;
-	}
-}
-"""
 
 """
-===================
-Key_Event
-
-Called by the system between frames for both key up and key down events
-Should NOT be called during an interrupt!
-===================
-"""
-
-def Key_Event (key, down, timestamp): #int, qboolean, unsigned
-
-	#char	*kb;
-	#char	cmd[1024];
-
-	global key_waiting, key_repeats, keydown, menubound, consolekeys, anykeydown
-	# hack for modal presses
-	if key_waiting == -1:
-	
-		if down:
-			key_waiting = key
-		return
-	
-	# update auto-repeat status
-	if down:
-	
-		key_repeats[key] += 1
-		if key != keyboard_h.K_BACKSPACE \
-			and key != keyboard_h.K_PAUSE \
-			and key != keyboard_h.K_PGUP \
-			and key != keyboard_h.K_KP_PGUP \
-			and key != keyboard_h.K_PGDN \
-			and key != keyboard_h.K_KP_PGDN \
-			and key_repeats[key] > 1:
-			return	# ignore most autorepeats
-			
-		if key >= 200 and not keybindings[key]:
-			clientserver.Com_Printf ("{} is unbound, hit F4 to set.\n".format(Key_KeynumToString (key) ))
-	
-	else:
-	
-		key_repeats[key] = 0
-	
-	
-	if key == keyboard_h.K_SHIFT:
-		keyboard_h.shift_down = down
-
-	# console key is hardcoded, so the user can never unbind it
-	if key == ord('`') or key == ord('~'):
-	
-		if not down:
-			return
-		cl_console.Con_ToggleConsole_f ()
-		return
-	
-	
-	# any key during the attract mode will bring up the menu
-	if cl_main.cl.attractloop and cl_main.cls.key_dest != client_h.keydest_t.key_menu and \
-		not(key >= keyboard_h.K_F1 and key <= keyboard_h.K_F12):
-		key = keyboard_h.K_ESCAPE
-
-	# menu key is hardcoded, so the user can never unbind it
-	if key == keyboard_h.K_ESCAPE:
-	
-		if not down:
-			return
-
-		if cl_main.cl.frame.playerstate.stats[shared.STAT_LAYOUTS] and cl_main.cls.key_dest == client_h.keydest_t.key_game:
-			# put away help computer / inventory
-			cmdparser.Cbuf_AddText ("cmd putaway\n")
-			return
-		
-		if cl_main.cls.key_dest == client_h.keydest_t.key_message:
-			Key_Message (key)
-		elif cl_main.cls.key_dest == client_h.keydest_t.key_menu:
-			menu.M_Keydown (key)
-		elif cl_main.cls.key_dest in [client_h.keydest_t.key_game, client_h.keydest_t.key_console]:
-			menu.M_Menu_Main_f ()
-		else:
-			clientserver.Com_Error (shared.ERR_FATAL, "Bad cls.key_dest")
-
-		return
-	
-	
-	# track if any key is down for BUTTON_ANY
-	keydown[key] = down
-	if down:
-	
-		if key_repeats[key] == 1:
-			anykeydown+=1
-	
-	else:
-	
-		anykeydown-=1
-		if anykeydown < 0:
-			anykeydown = 0
-	
-
-	#
-	# key up events only generate commands if the game key binding is
-	# a button command (leading + sign).  These will occur even in console mode,
-	# to keep the character from continuing an action started before a console
-	# switch.  Button commands include the kenum as a parameter, so multiple
-	# downs can be matched with ups
-	#
-	if not down:
-	
-		kb = keybindings[key]
-		if kb and kb[0] == '+':
-		
-			cmdStr = "-{} {} {}\n".format(kb[1:], key, timestamp)
-			cmdparser.Cbuf_AddText (cmdStr)
-		
-		if keyboard_h.keyshift[key] != key:
-		
-			kb = keybindings[keyboard_h.keyshift[key]]
-			if kb and kb[0] == '+':
-			
-				cmdStr = "-{} {} {}\n".format(kb[1:], key, timestamp)
-				cmdparser.Cbuf_AddText (cmdStr)
-		
-		return
-	
-
-	#
-	# if not a consolekey, send to the interpreter no matter what mode is
-	#
-	if ( (cl_main.cls.key_dest == client_h.keydest_t.key_menu and menubound[key])
-		or (cl_main.cls.key_dest == client_h.keydest_t.key_console and not consolekeys[key])
-		or (cl_main.cls.key_dest == client_h.keydest_t.key_game and ( cl_main.cls.state == client_h.connstate_t.ca_active or not consolekeys[key] ) ) ):
-	
-		kb = keybindings[key]
-		if kb:
-		
-			if kb[0] == '+':
-				# button commands add keynum and timestamp as a parm
-				cmdStr = "{} {} {}\n".format(kb, key, timestamp)
-				cmdparser.Cbuf_AddText (cmdStr)
-			
-			else:			
-				cmdparser.Cbuf_AddText (kb)
-				cmdparser.Cbuf_AddText ("\n")
-
-		return
-	
-	if not down:
-		return		# other systems only care about key down events
-
-	if keyboard_h.shift_down:
-		key = keyboard_h.keyshift[key]
+def Char_Event(key): #int
 
 	if cl_main.cls.key_dest == client_h.keydest_t.key_message:
-		Key_Message (key)
+
+		# Chat
+		Key_Message(key)
+
 	elif cl_main.cls.key_dest == client_h.keydest_t.key_menu:
-		menu.M_Keydown (key)
-	elif cl_main.cls.key_dest in [client_h.keydest_t.key_game, client_h.keydest_t.key_console]:
-		Key_Console (key)
+
+		# Menu
+		menu.M_Keydown(key)
+
+	elif cl_main.cls.key_dest == client_h.keydest_t.key_console:
+
+		# Console
+		Key_Console(key)
+
+	elif cl_main.cls.key_dest == client_h.keydest_t.key_game:
+
+		# Console is really open but key_dest is game anyway (not connected)
+		if cl_main.cls.state == client_h.connstate_t.ca_disconnected or cl_main.cls.state == client_h.connstate_t.ca_connecting:
+
+			Key_Console(key)
+
+
 	else:
-		clientserver.Com_Error (shared.ERR_FATAL, "Bad cls.key_dest")
+
+		pass
 
 """
-===================
-Key_ClearStates
-===================
+ * Called every frame for every detected keypress.
+ * This is only for movement and special characters,
+ * anything else is handled by Char_Event().
 """
-def Key_ClearStates ():
+def Key_Event(key: int, down: bool, special: bool): #int, qboolean, qboolean
 
+	"""
+	char cmd[1024];
+	char *kb;
+	cvar_t *fullscreen;
+	"""
 	global anykeydown
 
-	#int		i;
+	time = q_shlinux.Sys_Milliseconds()
 
-	anykeydown = False
+	# evil hack for the joystick key altselector, which turns K_BTN_x into K_BTN_x_ALT
+	if keyboard_h.joy_altselector_pressed and key >= keyboard_h.K_JOY_FIRST_BTN and key < keyboard_h.K_JOY_FIRST_BTN_ALT:
 
-	for i in range(256):
-	
-		if keydown[i] or key_repeats[i]:
-			Key_Event( i, False, 0 )
-		keydown[i] = 0
-		key_repeats[i] = 0
-	
+		# make sure key is not the altselector itself (which we won't turn into *_ALT)
+		if keybindings[key] is None or keybindings[key] != "+joyaltselector":
+
+			altkey = key + (keyboard_h.K_JOY_FIRST_BTN_ALT - keyboard_h.K_JOY_FIRST_BTN)
+			# allow fallback to binding with non-alt key
+			if keybindings[altkey] is not None or keybindings[key] is None:
+				key = altkey
+
+	# Track if key is down
+	keydown[key] = down
+
+	# Evil hack against spurious cinematic aborts.
+	if down and (key != keyboard_h.K_ESCAPE) and not keydown[keyboard_h.K_SHIFT]:
+
+		cl_cin.abort_cinematic = cl_main.cls.realtime
+
+	# Ignore most autorepeats
+	if down:
+
+		key_repeats[key] += 1
+
+		if ((key != keyboard_h.K_BACKSPACE) and
+			(key != keyboard_h.K_PAUSE) and
+			(key != keyboard_h.K_PGUP) and
+			(key != keyboard_h.K_KP_PGUP) and
+			(key != keyboard_h.K_PGDN) and
+			(key != keyboard_h.K_KP_PGDN) and
+			(key_repeats[key] > 1)):
+
+			return
+
+	else:
+
+		key_repeats[key] = 0
+
+	# Fullscreen switch through Alt + Return
+	if down and keydown[keyboard_h.K_ALT] and key == keyboard_h.K_ENTER:
+
+		fullscreen = cvar.Cvar_Get("vid_fullscreen", "0", shared.CVAR_ARCHIVE)
+
+		if not fullscreen.value:
+
+			cvar.Cvar_Set("vid_fullscreen", "1")
+			cmdparser.Cbuf_AddText("vid_restart\n")
+
+		else:
+
+			cvar.Cvar_Set("vid_fullscreen", "0")
+			cmdparser.Cbuf_AddText("vid_restart\n")
+
+		return
+
+	# Toogle console through Shift + Escape or special K_CONSOLE key
+	if key == keyboard_h.K_CONSOLE or (keydown[keyboard_h.K_SHIFT] and key == keyboard_h.K_ESCAPE):
+
+		if down:
+
+			cl_console.Con_ToggleConsole_f()
+
+		return
+
+	# Key is unbound
+	if ((key >= keyboard_h.K_MOUSE1) and not keybindings[key] and (cl_main.cls.key_dest != client_h.keydest_t.key_console) and
+		(cl_main.cls.state == client_h.connstate_t.ca_active)):
+
+		clientserver.Com_Printf("{} ({}) is unbound, hit F4 to set.\n".format(Key_KeynumToString(key), key))
+
+	# While in attract loop all keys besides F1 to F12 (to
+	# allow quick load and the like) are treated like escape.
+	if (cl_main.cl.attractloop and (cl_main.cls.key_dest != client_h.keydest_t.key_menu) and
+		not ((key >= keyboard_h.K_F1) and (key <= keyboard_h.K_F12))):
+
+		key = keyboard_h.K_ESCAPE
+
+	# Escape has a special meaning. Depending on the situation it
+	# - pauses the game and breaks into the menu
+	# - stops the attract loop and breaks into the menu
+	# - closes the console and breaks into the menu
+	# - moves one menu level up
+	# - closes the menu
+	# - closes the help computer
+	# - closes the chat window
+	if key == keyboard_h.K_ESCAPE and not cl_main.cls.disable_screen:
+
+		if not down:
+
+			return
+
+		# Close the help computer
+		if (cl_main.cl.frame.playerstate.stats[shared.STAT_LAYOUTS] and
+			(cl_main.cls.key_dest == client_h.keydest_t.key_game)):
+
+			cmdparser.Cbuf_AddText("cmd putaway\n")
+			return
+
+		if cl_main.cls.key_dest == client_h.keydest_t.key_message:
+
+			# Close chat window
+			Key_Message(key)
+
+		elif cl_main.cls.key_dest == client_h.keydest_t.key_menu:
+
+			# Close menu or one layer up
+			menu.M_Keydown(key)
+
+		elif cl_main.cls.key_dest in (client_h.keydest_t.key_game, client_h.keydest_t.key_console):
+
+			# Pause game and / or leave console,
+			# break into the menu.
+			menu.M_Menu_Main_f()
+
+		return
+
+	# This is one of the most ugly constructs I've
+	# found so far in Quake II. When the game is in
+	# the intermission, the player can press any key
+	# to end it and advance into the next level. It
+	# should be easy to figure out at server level if
+	# a button is pressed. But somehow the developers
+	# decided, that they'll need special move state
+	# BUTTON_ANY to solve this problem. So there's
+	# this global variable anykeydown. If it's not
+	# 0, CL_FinalizeCmd() encodes BUTTON_ANY into the
+	# button state. The server reads this value and
+	# sends it to gi->ClientThink() where it's used
+	# to determine if the intermission shall end.
+	# Needless to say that this is the only consumer
+	# of BUTTON_ANY.
+	#
+	# Since we cannot alter the network protocol nor
+	# the server <-> game API, I'll leave things alone
+	# and try to forget.
+	if down:
+
+		if key_repeats[key] == 1:
+
+			anykeydown += 1
+
+	else:
+
+		anykeydown -= 1
+
+		if anykeydown < 0:
+
+			anykeydown = 0
+
+	# key up events only generate commands if the game key binding
+	# is a button command (leading+ sign). These will occur even in
+	# console mode, to keep the character from continuing an action
+	# started before a console switch. Button commands include the
+	# kenum as a parameter, so multiple downs can be matched with ups
+	if not down:
+
+		kb = keybindings[key]
+
+		if kb and (kb[0] == '+'):
+
+			cmd = "-{} {} {}\n".format(kb[1:], key, time)
+			cmdparser.Cbuf_AddText(cmd)
+
+		return
+
+	elif (((cl_main.cls.key_dest == client_h.keydest_t.key_menu) and menubound[key]) or
+			((cl_main.cls.key_dest == client_h.keydest_t.key_console) and not consolekeys[key]) or
+			((cl_main.cls.key_dest == client_h.keydest_t.key_game) and ((cl_main.cls.state == client_h.connstate_t.ca_active) or
+			  not consolekeys[key]))):
+
+		kb = keybindings[key]
+
+		if kb:
+
+			if kb[0] == '+':
+
+				# button commands add keynum and time as a parm
+				cmd = "{} {} {}\n".format(kb, key, time)
+				cmdparser.Cbuf_AddText(cmd)
+
+			else:
+
+				cmdparser.Cbuf_AddText(kb)
+				cmdparser.Cbuf_AddText("\n")
+
+		return
+
+	# FIXME: Better way to do CTRL+<key> actions in the console?
+	# special should be set to true in this case.
+	if (keydown[keyboard_h.K_CTRL] and
+		(IsInConsole() or cl_main.cls.key_dest == client_h.keydest_t.key_menu) and
+		key >= ord('a') and key <= ord('z')):
+
+		special = True
+
+	# All input subsystems handled after this point only
+	# care for key down events (=> if(!down) returns above).
+
+	# Everything that's not a special char
+	# is processed by Char_Event().
+	if not special:
+
+		return
+
+	# Send key to the active input subsystem
+	if cl_main.cls.key_dest == client_h.keydest_t.key_message:
+
+		# Chat
+		Key_Message(key)
+
+	elif cl_main.cls.key_dest == client_h.keydest_t.key_menu:
+
+		# Menu
+		menu.M_Keydown(key)
+
+	elif cl_main.cls.key_dest in (client_h.keydest_t.key_game, client_h.keydest_t.key_console):
+
+		# Console
+		Key_Console(key)
+
 
 """
-===================
-Key_GetKey
-===================
-"""
-def Key_GetKey (): #(returns int)
-
-	global key_waiting
-
-	key_waiting = -1
-
-	while key_waiting == -1:
-		sys_linux.Sys_SendKeyEvents ()
-
-	return key_waiting
-"""
-/*
  * Marks all keys as "up"
- */
-void
-Key_MarkAllUp(void)
-{
-	int key;
 
-	for (key = 0; key < K_LAST; key++)
-	{
-		key_repeats[key] = 0;
-		keydown[key] = 0;
-	}
-}
 """
+def Key_MarkAllUp(): #
+
+	"""
+	int key;
+	"""
+
+	for key in range(keyboard_h.K_LAST):
+
+		key_repeats[key] = 0
+		keydown[key] = 0
 

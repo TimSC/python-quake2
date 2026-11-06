@@ -25,6 +25,8 @@ This file implements the camera, e.g the player's view
 """
 from __future__ import annotations
 
+from client.vid import vid
+
 
 """
 #include "header/client.h"
@@ -46,28 +48,37 @@ from common import collision
 from client import cl_console
 from client import cl_entities
 from client import cl_main
+from client import cl_parse
+from client import cl_prediction
 from client import cl_screen
+from client.sound import ogg
 from client.header import client as client_h
 
 pass
 pass
 """
 #include "client.h"
-
-//=============
-//
-// development tools for weapons
-//
-int			gun_frame;
-struct model_s	*gun_model;
-
-//=============
 """
+
+#=============
+#
+# development tools for weapons
+#
+gun_frame = 0 #int
+gun_model = None #struct model_s *
+
+#=============
 crosshair = None #cvar_t *
+crosshair_3d = None #cvar_t *
+crosshair_3d_glow = None #cvar_t *
 cl_testparticles = None #cvar_t *
 cl_testentities = None #cvar_t *
 cl_testlights = None #cvar_t *
 cl_testblend = None #cvar_t *
+
+crosshair_3d_glow_r = None #cvar_t *
+crosshair_3d_glow_g = None #cvar_t *
+crosshair_3d_glow_b = None #cvar_t *
 
 cl_stats = None #cvar_t *
 
@@ -93,6 +104,11 @@ for i in range(ref.MAX_PARTICLES):
 r_lightstyles = []
 for i in range(ref.MAX_LIGHTSTYLES):
 	r_lightstyles.append(ref.lightstyle_t())
+
+crosshair_scale = None #cvar_t *
+crosshair_color_r = None #cvar_t *
+crosshair_color_g = None #cvar_t *
+crosshair_color_b = None #cvar_t *
 
 """
 char cl_weaponmodels[MAX_CLIENTWEAPONMODELS][MAX_QPATH];
@@ -193,30 +209,35 @@ V_TestEntities
 If cl_testentities is set, create 32 player models
 ================
 """
-def V_TestEntities ():
+def V_TestEntities(): # (static)
 
+	"""
+	int i, j;
+	float f, r;
+	entity_t *ent;
+	"""
 	global r_numentities
-	#int			i, j;
-	#float		f, r;
-	#entity_t	*ent;
 
 	r_numentities = 32
-	for i in range(len(r_entities)): # memset (r_entities, 0, sizeof(r_entities));
+	for i in range(len(r_entities)): # memset(r_entities, 0, sizeof(r_entities));
 		r_entities[i] = ref.entity_t()
 
 	for i in range(r_numentities):
-	
+
 		ent = r_entities[i]
 
-		r = 64 * ( (i%4) - 1.5 )
-		f = 64 * (i//4) + 128
+		r = 64.0 * (float(i % 4) - 1.5)
+		f = float(64 * (i // 4) + 128)
 
 		for j in range(3):
-			ent.origin[j] = cl_main.cl.refdef.vieworg[j] + cl_main.cl.v_forward[j]*f + \
-			cl_main.cl.v_right[j]*r
+
+			ent.origin[j] = cl_main.cl.refdef.vieworg[j] + cl_main.cl.v_forward[j] * f + \
+							 cl_main.cl.v_right[j] * r
+
 
 		ent.model = cl_main.cl.baseclientinfo.model
 		ent.skin = cl_main.cl.baseclientinfo.skin
+
 	
 
 """
@@ -226,31 +247,41 @@ V_TestLights
 If cl_testlights is set, create 32 lights models
 ================
 """
-def V_TestLights ():
+def V_TestLights(): # (static)
 
+	"""
+	int i;
+	"""
 	global r_numdlights
-	#int			i, j;
-	#float		f, r;
-	#dlight_t	*dl;
 
 	r_numdlights = 32
-	for i in range(len(r_dlights)): # memset (r_dlights, 0, sizeof(r_dlights));
+	for i in range(len(r_dlights)): # memset(r_dlights, 0, sizeof(r_dlights));
 		r_dlights[i] = ref.dlight_t()
 
 	for i in range(r_numdlights):
-	
+
+		"""
+		dlight_t *dl;
+		float f, r;
+		int j;
+		"""
+
 		dl = r_dlights[i]
 
-		r = 64 * ( (i%4) - 1.5 )
-		f = 64 * (i//4) + 128
+		r = 64 * ((i % 4) - 1.5)
+		f = 64 * (i / 4.0) + 128
 
 		for j in range(3):
-			dl.origin[j] = cl_main.cl.refdef.vieworg[j] + cl_main.cl.v_forward[j]*f + \
-			cl_main.cl.v_right[j]*r
-		dl.color[0] = ((i%6)+1) & 1
-		dl.color[1] = (((i%6)+1) & 2)>>1
-		dl.color[2] = (((i%6)+1) & 4)>>2
+
+			dl.origin[j] = cl_main.cl.refdef.vieworg[j] + cl_main.cl.v_forward[j] * f + \
+							cl_main.cl.v_right[j] * r
+
+
+		dl.color[0] = float(((i % 6) + 1) & 1)
+		dl.color[1] = float((((i % 6) + 1) & 2) >> 1)
+		dl.color[2] = float((((i % 6) + 1) & 4) >> 2)
 		dl.intensity = 200
+
 	
 
 # ===================================================================
@@ -258,162 +289,184 @@ def V_TestLights ():
 #
 # Call before entering a new level, or after changing dlls
 # ===================================================================
-def CL_PrepRefresh ():
+def CL_PrepRefresh(): #void
 
-	global cl_weaponmodels, num_cl_weaponmodels
-	
+	"""
+	char mapname[MAX_QPATH];
+	int i;
+	char *name;
+	float rotate;
+	vec3_t axis;
+	"""
+	global num_cl_weaponmodels
+
 	axis = np.zeros((3,), dtype=np.float32)
 
-	if not cl_main.cl.configstrings[shared.CS_MODELS+1]:
-		return		# no map loaded
+	if not cl_main.cl.configstrings[shared.CS_MODELS + 1]: # [0]
 
-	cl_screen.SCR_AddDirtyPoint (0, 0)
-	cl_screen.SCR_AddDirtyPoint (vid_so.viddef.width-1, vid_so.viddef.height-1)
+		return
 
-	# let the render dll load the map
-	mapname = cl_main.cl.configstrings[shared.CS_MODELS+1]
-	if mapname and mapname.startswith("maps/"):
-		mapname = mapname[5:]
-	if mapname and mapname.endswith(".bsp"):
-		mapname = mapname[:-4]
 
-	cl_weaponmodels[0] = "weapon.md2"
-	num_cl_weaponmodels = 1
+	cl_screen.SCR_AddDirtyPoint(0, 0)
+	cl_screen.SCR_AddDirtyPoint(vid_so.viddef.width - 1, vid_so.viddef.height - 1)
 
-	clientserver.Com_Printf ("Map: {}\r".format(mapname))
-	cl_screen.SCR_UpdateScreen ()
-	vid_so.re.BeginRegistration (mapname)
-	clientserver.Com_Printf ("                                     \r")
+	# let the refresher load the map
+	mapname = cl_main.cl.configstrings[shared.CS_MODELS + 1][5:][:shared.MAX_QPATH - 1] # skip "maps/"
+	mapname = mapname[:len(mapname) - 4] # cut off ".bsp"
+
+	# register models, pics, and skins
+	clientserver.Com_Printf("Map: %s\r", mapname)
+	cl_screen.SCR_UpdateScreen()
+	vid.R_BeginRegistration (mapname)
 
 	# precache status bar pics
-	clientserver.Com_Printf ("pics\r")
-	cl_screen.SCR_UpdateScreen ()
-	cl_screen.SCR_TouchPics ()
-	clientserver.Com_Printf ("                                     \r")
+	clientserver.Com_Printf("pics\r")
+	cl_screen.SCR_UpdateScreen()
+	cl_screen.SCR_TouchPics()
 
-	cl_tent.CL_RegisterTEntModels ()
+	cl_tent.CL_RegisterTEntModels()
 
-	# register models
-	for i in range(1, shared.MAX_MODELS):
-		model_name = cl_main.cl.configstrings[shared.CS_MODELS + i]
-		if not model_name:
-			break
-		name = model_name[:37]
-		if not model_name.startswith('*'):
-			clientserver.Com_Printf ("{}\r".format(name))
-		cl_screen.SCR_UpdateScreen ()
-		sys_linux.Sys_SendKeyEvents ()
-		if model_name.startswith('#'):
+	num_cl_weaponmodels = 1
+	cl_weaponmodels[0] = "weapon.md2" # strcpy
+
+	clientserver.Com_Printf("models\r")
+	cl_screen.SCR_UpdateScreen()
+
+	i = 1
+	while i < shared.MAX_MODELS and cl_main.cl.configstrings[shared.CS_MODELS + i]:
+
+		name = cl_main.cl.configstrings[shared.CS_MODELS + i]
+
+		if name[0] == '#':
+
+			# special player weapon model
 			if num_cl_weaponmodels < client_h.MAX_CLIENTWEAPONMODELS:
-				cl_weaponmodels[num_cl_weaponmodels] = model_name[1:]
+
+				cl_weaponmodels[num_cl_weaponmodels] = cl_main.cl.configstrings[shared.CS_MODELS + i][1:][:shared.MAX_QPATH - 1] # Q_strlcpy
+
 				num_cl_weaponmodels += 1
-			if not model_name.startswith('*'):
-				clientserver.Com_Printf ("                                     \r")
-			continue
-		cl_main.cl.model_draw[i] = vid_so.re.RegisterModel (model_name)
-		if model_name.startswith('*'):
-			cl_main.cl.model_clip[i] = collision.CM_InlineModel (model_name)
+
+
 		else:
-			cl_main.cl.model_clip[i] = None
-		if not model_name.startswith('*'):
-			clientserver.Com_Printf ("                                     \r")
 
-	# precache images
-	clientserver.Com_Printf ("images\r")
-	cl_screen.SCR_UpdateScreen ()
-	for i in range(1, shared.MAX_IMAGES):
-		image_name = cl_main.cl.configstrings[shared.CS_IMAGES + i]
-		if not image_name:
-			break
-		cl_main.cl.image_precache[i] = vid_so.re.RegisterPic (image_name)
-		sys_linux.Sys_SendKeyEvents ()
-	clientserver.Com_Printf ("                                     \r")
+			cl_main.cl.model_draw[i] = vid.R_RegisterModel(cl_main.cl.configstrings[shared.CS_MODELS + i])
 
-	# cache player skins
-	from client import cl_parse as cl_parse_mod
+			cl_main.cl.model_clip[i] = collision.CM_InlineModel(name) if (name[0] == '*') else \
+				None
+
+		i += 1
+
+
+	clientserver.Com_Printf("images\r")
+	cl_screen.SCR_UpdateScreen()
+
+	i = 1
+	while i < shared.MAX_IMAGES and cl_main.cl.configstrings[shared.CS_IMAGES + i]:
+
+		cl_main.cl.image_precache[i] = vid.Draw_FindPic(cl_main.cl.configstrings[shared.CS_IMAGES + i])
+		i += 1
+
+
+	clientserver.Com_Printf("clients\r")
+	cl_screen.SCR_UpdateScreen()
 
 	for i in range(shared.MAX_CLIENTS):
-		info = cl_main.cl.configstrings[shared.CS_PLAYERSKINS + i]
-		if not info:
-			continue
-		clientserver.Com_Printf ("client {}\r".format(i))
-		cl_screen.SCR_UpdateScreen ()
-		sys_linux.Sys_SendKeyEvents ()
-		cl_parse_mod.CL_ParseClientinfo (i)
-		clientserver.Com_Printf ("                                     \r")
 
-	cl_parse_mod.CL_LoadClientinfo (cl_main.cl.baseclientinfo, "unnamed\\male/grunt")
+		if cl_main.cl.configstrings[shared.CS_PLAYERSKINS + i]: # [0]
+
+			cl_parse.CL_ParseClientinfo(i)
+
+
+
+	cl_parse.CL_LoadClientinfo(cl_main.cl.baseclientinfo, "unnamed\\male/grunt")
 
 	# set sky textures and speed
-	clientserver.Com_Printf ("sky\r")
-	cl_screen.SCR_UpdateScreen ()
-	try:
-		rotate = float(cl_main.cl.configstrings[shared.CS_SKYROTATE] or 0.0)
-	except (TypeError, ValueError):
-		rotate = 0.0
-	axis_values = (cl_main.cl.configstrings[shared.CS_SKYAXIS] or "0 0 1").split()
-	for idx in range(min(3, len(axis_values))):
+	clientserver.Com_Printf("sky\r")
+	cl_screen.SCR_UpdateScreen()
+	rotate = shared_c.atof(cl_main.cl.configstrings[shared.CS_SKYROTATE]) # (float)strtod(..., (char **)NULL)
+	# sscanf(cl.configstrings[CS_SKYAXIS], "%f %f %f", &axis[0], &axis[1], &axis[2]); stops at the first value it can't read
+	for j, v in enumerate(cl_main.cl.configstrings[shared.CS_SKYAXIS].split()[:3]):
 		try:
-			axis[idx] = float(axis_values[idx])
+			axis[j] = float(v)
 		except ValueError:
-			axis[idx] = 0.0
-	if len(axis_values) < 3:
-		for idx in range(len(axis_values), 3):
-			axis[idx] = 0.0
-	vid_so.re.SetSky (cl_main.cl.configstrings[shared.CS_SKY], rotate, axis)
-	clientserver.Com_Printf ("                                     \r")
+			break
+	vid.R_SetSky(cl_main.cl.configstrings[shared.CS_SKY], rotate, axis)
+
+	clientserver.Com_Printf("                                     \r")
 
 	# the renderer can now free unneeded stuff
-	vid_so.re.EndRegistration ()
+	vid.R_EndRegistration()
 
 	# clear any lines of console text
-	cl_console.Con_ClearNotify ()
+	cl_console.Con_ClearNotify()
 
-	cl_screen.SCR_UpdateScreen ()
+	cl_screen.SCR_UpdateScreen()
 	cl_main.cl.refresh_prepped = True
 	cl_main.cl.force_refdef = True # make sure we have a valid refdef
 
 	# start the cd track
-	try:
-		cd_track = int(cl_main.cl.configstrings[shared.CS_CDTRACK] or 0)
-	except (TypeError, ValueError):
-		cd_track = 0
-	cd_linux.CDAudio_Play (cd_track, True)
+	ogg.OGG_PlayTrack(cl_main.cl.configstrings[shared.CS_CDTRACK], True, True)
+
 
 
 # ====================
 # CalcFov
 # ====================
-def CalcFov (fov_x: float, width: float, height: float)->float:
+def CalcFov(fov_x, width, height): #float, float, float (returns float)
 
-	#float	a;
-	#float	x;
+	"""
+	float a;
+	float x;
+	"""
 
-	if fov_x < 1 or fov_x > 179:
-		clientserver.Com_Error (shared.ERR_DROP, "Bad fov: {}".format(fov_x))
+	if (fov_x < 1) or (fov_x > 179):
 
-	x = width/math.tan(fov_x/360*math.pi)
+		clientserver.Com_Error(shared.ERR_DROP, "Bad fov: %f", fov_x)
 
-	a = math.atan (height/x)
 
-	a = a*360.0/math.pi
-
+	x = width / math.tan(fov_x / 360 * math.pi)
+	a = math.atan(height / x)
+	a = a * 360 / math.pi
 	return a
 
 
-# =============================================================================
-# gun frame debugging functions
-def V_Gun_Next_f ():
-	pass
-	# C implementation is still unported.
+def V_Gun_Next_f(): # (static)
 
-def V_Gun_Prev_f ():
-	pass
-	# C implementation is still unported.
+	global gun_frame
 
-def V_Gun_Model_f ():
+	gun_frame += 1
+	clientserver.Com_Printf("frame %i\n", gun_frame)
 
-	pass
+def V_Gun_Prev_f(): # (static)
+
+	global gun_frame
+
+	gun_frame -= 1
+
+	if gun_frame < 0:
+
+		gun_frame = 0
+
+
+	clientserver.Com_Printf("frame %i\n", gun_frame)
+
+def V_Gun_Model_f(): # (static)
+
+	global gun_model
+
+	"""
+	char name[MAX_QPATH];
+	"""
+	name = [None] * shared.MAX_QPATH
+
+	if cmdparser.Cmd_Argc() != 2:
+
+		gun_model = None
+		return
+
+
+	name = "models/%s/tris.md2" % (cmdparser.Cmd_Argv(1),) # Com_sprintf
+	gun_model = vid.R_RegisterModel(name)
 
 # ==================
 # V_RenderView
@@ -423,154 +476,176 @@ def V_Gun_Model_f ():
 SCR_TimeRefresh_f
 ================
 """
-def entitycmpfnc( a, b )-> int: #(const entity_t *, const entity_t *)
+def entitycmpfnc(a, b): #const entity_t *, const entity_t * (returns static int)
 
-	#
+	# Q2PORT: the C compares the model and skin pointers; id() is the Python
+	# object's address, so entities still group by model then skin
+
 	# all other models are sorted by model then skin
-	#
+	if a.model is b.model:
 
-	amid = id(a.model)
-	bmid = id(b.model)
+		return 0 if (a.skin is b.skin) else \
+			(1 if (id(a.skin) > id(b.skin)) else -1)
 
-	if amid == bmid:
-		
-		aid = id(a.skin)
-		bid = id(b.skin)
-		if aid == bid: return 0
-
-		if aid > bid: return 1
-		return -1
-	
 	else:
-		if amid > bmid: return 1
-		return -1
 
-"""
-static void
-V_Render3dCrosshair(void)
-{
+		return 1 if (id(a.model) > id(b.model)) else -1
+
+
+def V_Render3dCrosshair(): # (static)
+
+	"""
 	trace_t crosshair_trace;
 	vec3_t end;
+	"""
+	global crosshair_3d, crosshair_3d_glow, crosshair_3d_glow_r, crosshair_3d_glow_g, crosshair_3d_glow_b
 
-	crosshair_3d = Cvar_Get("crosshair_3d", "0", CVAR_ARCHIVE);
-	crosshair_3d_glow = Cvar_Get("crosshair_3d_glow", "0", CVAR_ARCHIVE);
+	end = np.zeros((3,), dtype=np.float32)
+
+	crosshair_3d = cvar.Cvar_Get("crosshair_3d", "0", shared.CVAR_ARCHIVE)
+	crosshair_3d_glow = cvar.Cvar_Get("crosshair_3d_glow", "0", shared.CVAR_ARCHIVE)
 
 
-	if(crosshair_3d->value || crosshair_3d_glow->value){
-		VectorMA(cl.refdef.vieworg, 8192, cl.v_forward,end);
-		crosshair_trace = CL_PMTrace(cl.refdef.vieworg, vec3_origin, vec3_origin, end);
+	if crosshair_3d.value or crosshair_3d_glow.value:
+		shared_c.VectorMA(cl_main.cl.refdef.vieworg, 8192, cl_main.cl.v_forward, end)
+		crosshair_trace = cl_prediction.CL_PMTrace(cl_main.cl.refdef.vieworg, shared_c.vec3_origin, shared_c.vec3_origin, end)
 
-		if(crosshair_3d_glow->value){
-			crosshair_3d_glow_r = Cvar_Get("crosshair_3d_glow_r", "5", CVAR_ARCHIVE);
-			crosshair_3d_glow_g = Cvar_Get("crosshair_3d_glow_g", "1", CVAR_ARCHIVE);
-			crosshair_3d_glow_b = Cvar_Get("crosshair_3d_glow_b", "4", CVAR_ARCHIVE);
+		if crosshair_3d_glow.value:
+			crosshair_3d_glow_r = cvar.Cvar_Get("crosshair_3d_glow_r", "5", shared.CVAR_ARCHIVE)
+			crosshair_3d_glow_g = cvar.Cvar_Get("crosshair_3d_glow_g", "1", shared.CVAR_ARCHIVE)
+			crosshair_3d_glow_b = cvar.Cvar_Get("crosshair_3d_glow_b", "4", shared.CVAR_ARCHIVE)
 
 			V_AddLight(
 				crosshair_trace.endpos,
-				crosshair_3d_glow->value,
-				crosshair_3d_glow_r->value,
-				crosshair_3d_glow_g->value,
-				crosshair_3d_glow_b->value
-			);
-		}
+				crosshair_3d_glow.value,
+				crosshair_3d_glow_r.value,
+				crosshair_3d_glow_g.value,
+				crosshair_3d_glow_b.value
+			)
 
-		if(crosshair_3d->value){
-			entity_t crosshair_ent = {0};
 
-			crosshair_ent.origin[0] = crosshair_trace.endpos[0];
-			crosshair_ent.origin[1] = crosshair_trace.endpos[1];
-			crosshair_ent.origin[2] = crosshair_trace.endpos[2];
+		if crosshair_3d.value:
+			crosshair_ent = ref.entity_t() # entity_t crosshair_ent = {0};
 
-			crosshair_ent.model = R_RegisterModel("models/crosshair/tris.md2");
-			//crosshair_ent.skin = R_RegisterSkin("models/crosshair/skin.pcx");
+			crosshair_ent.origin[0] = crosshair_trace.endpos[0]
+			crosshair_ent.origin[1] = crosshair_trace.endpos[1]
+			crosshair_ent.origin[2] = crosshair_trace.endpos[2]
 
-			AngleVectors2(crosshair_trace.plane.normal, crosshair_ent.angles);
-			crosshair_ent.flags = RF_DEPTHHACK | RF_FULLBRIGHT | RF_NOSHADOW;
+			crosshair_ent.model = vid.R_RegisterModel("models/crosshair/tris.md2")
+			#crosshair_ent.skin = R_RegisterSkin("models/crosshair/skin.pcx");
 
-			V_AddEntity(&crosshair_ent);
-		}
-	}
-}
-"""
+			shared_c.AngleVectors2(crosshair_trace.plane.normal, crosshair_ent.angles)
+			crosshair_ent.flags = shared.RF_DEPTHHACK | shared.RF_FULLBRIGHT | shared.RF_NOSHADOW
 
-def V_RenderView( stereo_separation: float ):
+			V_AddEntity(crosshair_ent)
+
+
+def V_RenderView(stereo_separation: float): #float
 
 	global r_numdlights, r_numentities, r_numparticles
 
-	#extern int entitycmpfnc( const entity_t *, const entity_t * );
-
 	if cl_main.cls.state != client_h.connstate_t.ca_active:
+
+		vid.R_EndWorldRenderpass()
 		return
 
-	if not cl_main.cl.refresh_prepped:
-		return			# still loading
 
-	if int(cl_main.cl_timedemo.value):
-	
+	if not cl_main.cl.refresh_prepped:
+
+		vid.R_EndWorldRenderpass()
+		return # still loading
+
+
+	if frame.cl_timedemo.value:
+
 		if not cl_main.cl.timedemo_start:
-			cl_main.cl.timedemo_start = q_shlinux.Sys_Milliseconds ()
-		cl_main.cl.timedemo_frames+=1
-	
+
+			cl_main.cl.timedemo_start = q_shlinux.Sys_Milliseconds()
+
+
+		cl_main.cl.timedemo_frames += 1
+
+
 	# an invalid frame will just use the exact previous refdef
 	# we can't use the old frame if the video mode has changed, though...
-	if cl_main.cl.frame.valid and (cl_main.cl.force_refdef or not int(cl_main.cl_paused.value)):
-	
+	if cl_main.cl.frame.valid and (cl_main.cl.force_refdef or not cl_main.cl_paused.value):
+
 		cl_main.cl.force_refdef = False
 
-		V_ClearScene ()
+		V_ClearScene()
 
-		# build a refresh entity list and calc cl_main.cl.sim*
+		# build a refresh entity list and calc cl.sim*
 		# this also calls CL_CalcViewValues which loads
 		# v_forward, etc.
-		cl_entities.CL_AddEntities ()
+		cl_entities.CL_AddEntities()
 
-		if int(cl_testparticles.value):
-			V_TestParticles ()
-		if int(cl_testentities.value):
-			V_TestEntities ()
-		if int(cl_testlights.value):
-			V_TestLights ()
-		if int(cl_testblend.value):
-		
+		# before changing viewport we should trace the crosshair position
+		V_Render3dCrosshair()
+
+		if cl_testparticles.value:
+
+			V_TestParticles()
+
+
+		if cl_testentities.value:
+
+			V_TestEntities()
+
+
+		if cl_testlights.value:
+
+			V_TestLights()
+
+
+		if cl_testblend.value:
+
 			cl_main.cl.refdef.blend[0] = 1
 			cl_main.cl.refdef.blend[1] = 0.5
 			cl_main.cl.refdef.blend[2] = 0.25
 			cl_main.cl.refdef.blend[3] = 0.5
-		
 
-		# offset vieworg appropriately if we're doing stereo separation
+
+		# offset vieworg appropriately if
+		# we're doing stereo separation
+
 		if stereo_separation != 0:
-		
+
 			tmp = np.zeros((3,), dtype=np.float32) #vec3_t
 
-			shared_c.VectorScale( cl_main.cl.v_right, stereo_separation, tmp )
-			shared.VectorAdd( cl_main.cl.refdef.vieworg, tmp, cl_main.cl.refdef.vieworg )
-		
+			shared_c.VectorScale(cl_main.cl.v_right, stereo_separation, tmp)
+			shared.VectorAdd(cl_main.cl.refdef.vieworg, tmp, cl_main.cl.refdef.vieworg)
+
 
 		# never let it sit exactly on a node line, because a water plane can
-		# dissapear when viewed with the eye exactly on it.
-		# the server protocol only specifies to 1/8 pixel, so add 1/16 in each axis
-		cl_main.cl.refdef.vieworg[0] += 1.0/16
-		cl_main.cl.refdef.vieworg[1] += 1.0/16
-		cl_main.cl.refdef.vieworg[2] += 1.0/16
+		# dissapear when viewed with the eye exactly on it. the server protocol
+		# only specifies to 1/8 pixel, so add 1/16 in each axis
+		cl_main.cl.refdef.vieworg[0] += 1.0 / 16
+		cl_main.cl.refdef.vieworg[1] += 1.0 / 16
+		cl_main.cl.refdef.vieworg[2] += 1.0 / 16
 
-		cl_main.cl.refdef.x = cl_screen.scr_vrect.x
-		cl_main.cl.refdef.y = cl_screen.scr_vrect.y
-		cl_main.cl.refdef.width = cl_screen.scr_vrect.width
-		cl_main.cl.refdef.height = cl_screen.scr_vrect.height
-		cl_main.cl.refdef.fov_y = CalcFov (cl_main.cl.refdef.fov_x, cl_main.cl.refdef.width, cl_main.cl.refdef.height)
-		cl_main.cl.refdef.time = cl_main.cl.time*0.001
+		cl_main.cl.refdef.time = cl_main.cl.time * 0.001
 
 		cl_main.cl.refdef.areabits = cl_main.cl.frame.areabits
 
-		if not int(cl_main.cl_add_entities.value):
+		if not cl_main.cl_add_entities.value:
+
 			r_numentities = 0
-		if not int(cl_main.cl_add_particles.value):
+
+
+		if not cl_main.cl_add_particles.value:
+
 			r_numparticles = 0
-		if not int(cl_main.cl_add_lights.value):
+
+
+		if not cl_main.cl_add_lights.value:
+
 			r_numdlights = 0
-		if not int(cl_main.cl_add_blend.value):
-			shared.VectorClear (cl_main.cl.refdef.blend)	
+
+
+		if not cl_main.cl_add_blend.value:
+
+			shared.VectorClear(cl_main.cl.refdef.blend)
+
 
 		cl_main.cl.refdef.num_entities = r_numentities
 		cl_main.cl.refdef.entities = r_entities
@@ -583,49 +658,77 @@ def V_RenderView( stereo_separation: float ):
 		cl_main.cl.refdef.rdflags = cl_main.cl.frame.playerstate.rdflags
 
 		# sort entities for better cache locality
-		# qsort( cl.refdef.entities, cl.refdef.num_entities, ... ): only the first num_entities are live
-		cl_main.cl.refdef.entities[:r_numentities] = sorted(cl_main.cl.refdef.entities[:r_numentities], key=functools.cmp_to_key(entitycmpfnc))
-	
-	vid_so.re.RenderFrame (cl_main.cl.refdef)
+		# qsort(cl.refdef.entities, cl.refdef.num_entities, ...); only the first num_entities are live
+		cl_main.cl.refdef.entities[:cl_main.cl.refdef.num_entities] = sorted(
+				cl_main.cl.refdef.entities[:cl_main.cl.refdef.num_entities], key=functools.cmp_to_key(entitycmpfnc))
+
+	elif cl_main.cl.frame.valid and cl_main.cl_paused.value and cl_main.gl1_stereo.value:
+		# We need to adjust the refdef in stereo mode when paused.
+		tmp = np.zeros((3,), dtype=np.float32) #vec3_t
+		cl_entities.CL_CalcViewValues()
+		shared_c.VectorScale( cl_main.cl.v_right, stereo_separation, tmp )
+		shared.VectorAdd( cl_main.cl.refdef.vieworg, tmp, cl_main.cl.refdef.vieworg )
+
+		cl_main.cl.refdef.vieworg[0] += 1.0/16
+		cl_main.cl.refdef.vieworg[1] += 1.0/16
+		cl_main.cl.refdef.vieworg[2] += 1.0/16
+
+		cl_main.cl.refdef.time = cl_main.cl.time*0.001
+
+
+	cl_main.cl.refdef.x = cl_screen.scr_vrect.x
+	cl_main.cl.refdef.y = cl_screen.scr_vrect.y
+	cl_main.cl.refdef.width = cl_screen.scr_vrect.width
+	cl_main.cl.refdef.height = cl_screen.scr_vrect.height
+	cl_main.cl.refdef.fov_y = CalcFov(cl_main.cl.refdef.fov_x, float(cl_main.cl.refdef.width),
+				float(cl_main.cl.refdef.height))
+
+	vid.R_RenderFrame(cl_main.cl.refdef)
+
 	if cl_stats.value:
-		clientserver.Com_Printf ("ent:{}  lt:{}  part:{}\n".format(r_numentities, r_numdlights, r_numparticles))
-	if frame.log_stats.value and ( frame.log_stats_file is not None ):
-		frame.log_stats_file.write("%i,%i,%i," % (r_numentities, r_numdlights, r_numparticles))
 
-	cl_screen.SCR_AddDirtyPoint (cl_screen.scr_vrect.x, cl_screen.scr_vrect.y)
-	cl_screen.SCR_AddDirtyPoint (cl_screen.scr_vrect.x+cl_screen.scr_vrect.width-1,
-		cl_screen.scr_vrect.y+cl_screen.scr_vrect.height-1)
+		clientserver.Com_Printf("ent:%i  lt:%i  part:%i\n", r_numentities,
+				r_numdlights, r_numparticles)
 
-	cl_screen.SCR_DrawCrosshair ()
+
+	if frame.log_stats.value and (frame.log_stats_file is not None):
+
+		frame.log_stats_file.write("{},{},{},".format(r_numentities,
+				r_numdlights, r_numparticles))
+
+
+	cl_screen.SCR_AddDirtyPoint(cl_screen.scr_vrect.x, cl_screen.scr_vrect.y)
+	cl_screen.SCR_AddDirtyPoint(cl_screen.scr_vrect.x + cl_screen.scr_vrect.width - 1,
+			cl_screen.scr_vrect.y + cl_screen.scr_vrect.height - 1)
+
+	cl_screen.SCR_DrawCrosshair()
+
 
 
 # =============
 # V_Viewpos_f
 # =============
-def V_Viewpos_f ():
+def V_Viewpos_f(): # (static)
 
-	clientserver.Com_Printf ("({} {} {}) : {}\n".format(int(cl_main.cl.refdef.vieworg[0]),
-		int(cl_main.cl.refdef.vieworg[1]), int(cl_main.cl.refdef.vieworg[2]), 
-		int(cl_main.cl.refdef.viewangles[shared.YAW])))
+	clientserver.Com_Printf("position: %i %i %i, angles: %i %i %i\n", cl_main.cl.refdef.vieworg[0], cl_main.cl.refdef.vieworg[1], cl_main.cl.refdef.vieworg[2], cl_main.cl.refdef.viewangles[shared.PITCH], cl_main.cl.refdef.viewangles[shared.YAW], cl_main.cl.refdef.viewangles[shared.ROLL])
 
 # =============
 # V_Init
 # =============
-def V_Init ():
+def V_Init(): #
+	global cl_stats, cl_testblend, cl_testentities, cl_testlights, cl_testparticles, crosshair, crosshair_color_b, crosshair_color_g, crosshair_color_r, crosshair_scale
 
-	global crosshair, cl_testparticles, cl_testentities, cl_testlights, cl_testblend, cl_stats
-
-	cmdparser.Cmd_AddCommand ("gun_next", V_Gun_Next_f)
-	cmdparser.Cmd_AddCommand ("gun_prev", V_Gun_Prev_f)
-	cmdparser.Cmd_AddCommand ("gun_model", V_Gun_Model_f)
-
-	cmdparser.Cmd_AddCommand ("viewpos", V_Viewpos_f);
-	
-	crosshair = cvar.Cvar_Get ("crosshair", "0", shared.CVAR_ARCHIVE)
-
-	cl_testblend = cvar.Cvar_Get ("cl_testblend", "0", 0)
-	cl_testparticles = cvar.Cvar_Get ("cl_testparticles", "0", 0)
-	cl_testentities = cvar.Cvar_Get ("cl_testentities", "0", 0)
-	cl_testlights = cvar.Cvar_Get ("cl_testlights", "0", 0)
-
-	cl_stats = cvar.Cvar_Get ("cl_stats", "0", 0)
+	cmdparser.Cmd_AddCommand("gun_next", V_Gun_Next_f)
+	cmdparser.Cmd_AddCommand("gun_prev", V_Gun_Prev_f)
+	cmdparser.Cmd_AddCommand("gun_model", V_Gun_Model_f)
+	cmdparser.Cmd_AddCommand("viewpos", V_Viewpos_f)
+	crosshair = cvar.Cvar_Get("crosshair", "0", shared.CVAR_ARCHIVE)
+	crosshair_scale = cvar.Cvar_Get("crosshair_scale", "-1", shared.CVAR_ARCHIVE)
+	crosshair_color_r = cvar.Cvar_Get("crosshair_color_r", "1", shared.CVAR_ARCHIVE)
+	crosshair_color_g = cvar.Cvar_Get("crosshair_color_g", "1", shared.CVAR_ARCHIVE)
+	crosshair_color_b = cvar.Cvar_Get("crosshair_color_b", "1", shared.CVAR_ARCHIVE)
+	cl_testblend = cvar.Cvar_Get("cl_testblend", "0", 0)
+	cl_testparticles = cvar.Cvar_Get("cl_testparticles", "0", 0)
+	cl_testentities = cvar.Cvar_Get("cl_testentities", "0", 0)
+	cl_testlights = cvar.Cvar_Get("cl_testlights", "0", 0)
+	cl_stats = cvar.Cvar_Get("cl_stats", "0", 0)

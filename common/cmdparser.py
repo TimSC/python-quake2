@@ -890,146 +890,130 @@ def Cmd_CompleteCommand(partial): #const char * (returns const char *)
 	return None
 
 
-r"""
-const char *
-Cmd_CompleteMapCommand(const char *partial)
-{
+def Cmd_CompleteMapCommand(partial: str): #const char * (returns char *)
+
+	"""
 	strlist_t mapNames;
+	"""
 
-	mapNames = FS_ListFiles2("maps/*.bsp", 0, 0);
+	mapNames = filesystem.FS_ListFiles2("maps/*.bsp", 0, 0)
+	retval = "" # static char retval[256], memset(retval, 0, sizeof(retval));
 
-	if (mapNames.num)
-	{
-		size_t len;
-		int i, j, k, nbMatches;
-		char *mapName, *lastsep;
-		const char **pmatch;
-		qboolean partialFillContinue = true;
+	if len(mapNames):
 
-		len = strlen(partial);
-		nbMatches = 0;
-		memset(retval, 0, sizeof(retval));
+		#size_t len;
+		#int i, j, k, nbMatches;
+		#char *mapName, *lastsep;
+		#const char **pmatch;
+		partialFillContinue = True
 
-		pmatch = malloc(mapNames.num * sizeof(char*));
-		YQ2_COM_CHECK_OOM(pmatch, "malloc()", (mapNames.num + 1) * sizeof(char*))
-		if (!pmatch)
-		{
-			/* unaware about YQ2_ATTR_NORETURN_FUNCPTR? */
-			StrList_Free(&mapNames);
-			return retval;
-		}
+		len_ = len(partial)
+		nbMatches = 0
 
-		for (i = 0; i < mapNames.num; i++)
-		{
-			if ((lastsep = strrchr(mapNames.data[i], '/')))
-			{
-				mapName = lastsep + 1;
-			}
-			else
-			{
-				mapName = mapNames.data[i];
-			}
+		pmatch = []
 
-			mapName = strtok(mapName, ".");
+		for i in range(len(mapNames)):
 
-			/* check for exact match */
-			if (!Q_strcasecmp(partial, mapName))
-			{
-				Q_strlcpy(retval, partial, sizeof(retval));
-			}
+			mapName = mapNames[i]
+			if '/' in mapName: # lastsep = strrchr(mapNames.data[i], '/')
 
-			/* check for partial match */
-			else if (!Q_strncasecmp(partial, mapName, len))
-			{
-				pmatch[nbMatches] = mapName;
-				nbMatches++;
-			}
-		}
+				mapName = mapName[mapName.rindex('/') + 1:]
 
-		if (nbMatches == 1)
-		{
-			Q_strlcpy(retval, pmatch[0], sizeof(retval));
-		}
-		else if (nbMatches > 1)
-		{
-			Com_Printf("\n=================\n\n");
 
-			/* Sort it */
-			qsort(pmatch, nbMatches, sizeof(pmatch[0]), Q_sort_strcomp);
-			size_t pmatchlen = strlen(pmatch[0]);
+			mapName = mapName.split(".")[0] # strtok(mapName, ".")
 
-			for (j = 0; j < nbMatches; j++)
-			{
-				Com_Printf("%s\n", pmatch[j]);
-			}
+			# check for exact match
+			if not shared_c.Q_strcasecmp(partial, mapName):
 
-			//partial complete
-			for (j = 0; j < pmatchlen; j++)
-			{
-				for (k = 1; k < nbMatches; k++)
-				{
-					if (j >= strlen(pmatch[k]) || tolower((unsigned char)pmatch[0][j]) != tolower((unsigned char)pmatch[k][j]))
-					{
-						partialFillContinue = false;
-						break;
-					}
-				}
+				retval = partial[:256 - 1]
 
-				if (partialFillContinue)
-				{
-					retval[j] = pmatch[0][j];
-				}
-				else
-				{
-					break;
-				}
-			}
-		}
+			# check for partial match
+			elif partial.lower() == mapName[:len_].lower(): # !Q_strncasecmp(partial, mapName, len)
 
-		free(pmatch);
-		StrList_Free(&mapNames);
-	}
+				pmatch.append(mapName)
+				nbMatches += 1
 
-	return retval;
-}
-"""
 
-"""
-qboolean
-Cmd_IsComplete(const char *command)
-{
+
+		if nbMatches == 1:
+
+			retval = pmatch[0][:256 - 1]
+
+		elif nbMatches > 1:
+
+			clientserver.Com_Printf("\n=================\n\n")
+
+			# Sort it
+			pmatch.sort() # qsort(pmatch, nbMatches, sizeof(pmatch[0]), Q_sort_strcomp);
+			pmatchlen = len(pmatch[0])
+
+			for j in range(nbMatches):
+
+				clientserver.Com_Printf("%s\n", pmatch[j])
+
+
+			# partial complete
+			for j in range(pmatchlen):
+
+				for k in range(1, nbMatches):
+
+					if j >= len(pmatch[k]) or pmatch[0][j].lower() != pmatch[k][j].lower():
+
+						partialFillContinue = False
+						break
+
+
+
+				if partialFillContinue:
+
+					retval = retval[:j] + pmatch[0][j]
+
+				else:
+
+					break
+
+
+
+
+
+	return retval
+
+
+def Cmd_IsComplete(command: str)->bool: #const char * (returns qboolean)
+
+	"""
 	cmd_function_t *cmd;
 	cmdalias_t *a;
 	cvar_t *cvar;
+	"""
 
-	/* check for exact match */
-	for (cmd = cmd_functions; cmd; cmd = cmd->next)
-	{
-		if (!strcmp(command, cmd->name))
-		{
-			return true;
-		}
-	}
+	# check for exact match
+	for cmd in cmd_functions:
 
-	for (a = cmd_alias; a; a = a->next)
-	{
-		if (!strcmp(command, a->name))
-		{
-			return true;
-		}
-	}
+		if command == cmd.name:
 
-	for (cvar = cvar_vars; cvar; cvar = cvar->next)
-	{
-		if (!strcmp(command, cvar->name))
-		{
-			return true;
-		}
-	}
+			return True
 
-	return false;
-}
-"""
+
+
+	for a in cmd_alias:
+
+		if command == a.name:
+
+			return True
+
+
+
+	for cvar_ in cvar.cvar_vars:
+
+		if command == cvar_.name:
+
+			return True
+
+
+
+	return False
+
 
 """
  * A complete command line has been parsed, so try to execute it

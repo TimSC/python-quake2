@@ -19,6 +19,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from __future__ import annotations
 
+import os
+
 import pygame
 import OpenGL.GL as GL
 from ref_gl import gl_rmain
@@ -232,10 +234,12 @@ def RW_IN_Init(in_state_p): #in_state_t *
 	gl_rmain.ri.Cmd_AddCommand ("+mlook", RW_IN_MLookDown)
 	gl_rmain.ri.Cmd_AddCommand ("-mlook", RW_IN_MLookUp)
 
-	gl_rmain.ri.Cmd_AddCommand ("force_centerview", Force_CenterView_f)
+	#gl_rmain.ri.Cmd_AddCommand ("force_centerview", Force_CenterView_f) Q2PORT: Yamagi's CL_InitInput adds it (IN_ForceCenterView)
 
 	mx = my = 0.0
-	mouse_avail = True
+	# Q2PORT: id sets mouse_avail = true; here in_mouse 0, or the Q2PORT_NOMOUSE
+	# environment variable (the tests set it), leaves the mouse alone: no capture
+	mouse_avail = bool(in_mouse.value) and not os.environ.get("Q2PORT_NOMOUSE")
 
 
 def RW_IN_Shutdown():
@@ -340,6 +344,8 @@ def RW_IN_Activate(active): #qboolean
 /* KEYBOARD                                                                  */
 /*****************************************************************************/
 """
+# Q2PORT: no longer called; Yamagi's client takes keys the SDL way, through
+# IN_TranslateSDLtoQ2Key in client/input/sdl2.py (see HandleEvents)
 def XLateKey(ev): #XKeyEvent * (returns int), a pygame KEYDOWN or KEYUP event here
 
 	from client.header import keyboard as keyboard_h # the K_ values, imported here as the renderer loads before the client modules finish
@@ -444,12 +450,14 @@ def XLateKey(ev): #XKeyEvent * (returns int), a pygame KEYDOWN or KEYUP event he
 	
 	return key
 
+consoleKeyCode = 0 #static int, in IN_Update (Yamagi input/sdl2.c)
 
 def HandleEvents():
 
-	global mx, my
+	global mx, my, consoleKeyCode
 
 	from client.header import keyboard as keyboard_h # the K_ values, imported here as the renderer loads before the client modules finish
+	from client.input import sdl2 # Q2PORT: Yamagi's key translation (IN_TranslateSDLtoQ2Key), imported here for the same reason
 
 	#XEvent event;
 	#int b;
@@ -462,9 +470,45 @@ def HandleEvents():
 
 	for event in pygame.event.get(): # while (XPending(dpy)) { XNextEvent(dpy, &event);
 
-		if event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
+		# Q2PORT: Yamagi's client takes text and keys apart, as SDL gives them
+		# (IN_Update in input/sdl2.c): the typed characters go to Char_Event,
+		# and printable keys go to Key_Event with special false
+		if event.type == pygame.TEXTINPUT:
+			if in_state is not None and in_state.Char_Event_fp is not None and event.text:
+				c = ord(event.text[0])
+				# also make sure we don't get the char that corresponds to the
+				# "console key" (like "^" or "`") as text input
+				if (c >= ord(' ')) and (c <= ord('~')) and c != consoleKeyCode:
+					in_state.Char_Event_fp (c)
+
+		elif event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
 			if in_state is not None and in_state.Key_Event_fp is not None:
-				in_state.Key_Event_fp (XLateKey(event), event.type == pygame.KEYDOWN)
+				down = event.type == pygame.KEYDOWN
+				sc = event.scancode
+				kc = event.key
+				if sc >= pygame.KSCAN_1 and sc <= pygame.KSCAN_0:
+					# workaround for AZERTY-keyboards, which don't have 1, 2, ..., 9, 0 in first row
+					key = ord('0') # implicitly handles SDL_SCANCODE_0
+					if sc <= pygame.KSCAN_9:
+						key = ord('1') + (sc - pygame.KSCAN_1)
+					in_state.Key_Event_fp (key, down, False)
+				elif sc == pygame.KSCAN_GRAVE and kc != ord('\'') and kc != ord('"'):
+					# special case/hack: open the console with the "console key"
+					# (beneath Esc, left of 1, above Tab), only with no modifiers
+					if (event.mod & (pygame.KMOD_CAPS|pygame.KMOD_SHIFT|pygame.KMOD_ALT|pygame.KMOD_CTRL|pygame.KMOD_GUI)) == 0:
+						in_state.Key_Event_fp (keyboard_h.K_CONSOLE, down, True)
+						consoleKeyCode = kc
+				elif kc >= pygame.K_SPACE and kc < pygame.K_DELETE:
+					in_state.Key_Event_fp (kc, down, False)
+				else:
+					key = sdl2.IN_TranslateSDLtoQ2Key(kc)
+					if key == 0:
+						# fallback to scancodes if we don't know the keycode
+						key = sdl2.IN_TranslateScancodeToQ2Key(sc)
+					if key != 0:
+						in_state.Key_Event_fp (key, down, True)
+					else:
+						gl_rmain.ri.Con_Printf (shared.PRINT_DEVELOPER, "Pressed unknown key with SDL_Keycode {}, SDL_Scancode {}.\n".format(kc, sc)) # Com_DPrintf
 
 		elif event.type == pygame.MOUSEMOTION:
 			if mouse_active:
@@ -481,7 +525,7 @@ def HandleEvents():
 			elif event.button == 3:
 				b = 1
 			if b>=0 and in_state is not None and in_state.Key_Event_fp is not None:
-				in_state.Key_Event_fp (keyboard_h.K_MOUSE1 + b, True)
+				in_state.Key_Event_fp (keyboard_h.K_MOUSE1 + b, True, True)
 
 		elif event.type == pygame.MOUSEBUTTONUP:
 			b=-1
@@ -492,7 +536,7 @@ def HandleEvents():
 			elif event.button == 3:
 				b = 1
 			if b>=0 and in_state is not None and in_state.Key_Event_fp is not None:
-				in_state.Key_Event_fp (keyboard_h.K_MOUSE1 + b, False)
+				in_state.Key_Event_fp (keyboard_h.K_MOUSE1 + b, False, True)
 
 		elif event.type == pygame.QUIT: # Q2PORT: the window was closed, quit as the console command does
 			gl_rmain.ri.Cmd_ExecuteText (2, "quit\n") # EXEC_APPEND

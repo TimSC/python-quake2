@@ -25,6 +25,7 @@ Platform independent initialization, main loop and frame handling.
 """
 from __future__ import annotations
 
+import math
 import sys
 import random
 pass
@@ -42,11 +43,13 @@ from common import cmdparser
 from common import cvar
 from common import filesystem
 from common import zone
+from common import collision
 from common import netchan
 from server import sv_main
 from client import cl_keyboard
 from client import cl_main
 from client import cl_screen
+from client.vid import vid
 
 """
 #include "header/common.h"
@@ -164,58 +167,58 @@ def Qcommon_Buildstring(): #void
 	print("Platform: {}".format(common_h.YQ2OSTYPE))
 	print("Architecture: {}".format(common_h.YQ2ARCH))
 
-"""
-static void
-Qcommon_Mainloop(void)
-{
+def Qcommon_Mainloop(): # (static)
+
+	global curtime
+
+	"""
 	long long newtime;
 	long long oldtime = Sys_Microseconds();
+	"""
+	oldtime = q_shlinux.Sys_Microseconds()
 
-	/* The mainloop. The legend. */
-	while (1)
-	{
-#ifndef DEDICATED_ONLY
-		if (!cl_timedemo->value)
-		{
-			// Throttle the game a little bit.
-			if (busywait->value)
-			{
-				long long spintime = Sys_Microseconds();
+	# The mainloop. The legend.
+	while 1:
 
-				while (1)
-				{
-					/* Give the CPU a hint that this is a very tight
-					   spinloop. One PAUSE instruction each loop is
-					   enough to reduce power consumption and head
-					   dispersion a lot, it's 95°C against 67°C on
-					   a Kaby Lake laptop. */
-					Sys_CpuPause();
+		#ifndef DEDICATED_ONLY
+		if not cl_timedemo.value:
 
-					if (Sys_Microseconds() - spintime >= 5)
-					{
-						break;
-					}
-				}
-			}
-			else
-			{
-				Sys_Nanosleep(5000);
-			}
-		}
-#else
-		Sys_Nanosleep(850000);
-#endif
+			# Throttle the game a little bit.
+			if busywait.value:
 
-		newtime = Sys_Microseconds();
+				spintime = q_shlinux.Sys_Microseconds()
 
-		// Save global time for network- and input code.
-		curtime = (int)(newtime / 1000ll);
+				while 1:
 
-		Qcommon_Frame(newtime - oldtime);
-		oldtime = newtime;
-	}
-}
-"""
+					# Give the CPU a hint that this is a very tight
+					# spinloop. One PAUSE instruction each loop is
+					# enough to reduce power consumption and head
+					# dispersion a lot, it's 95°C against 67°C on
+					# a Kaby Lake laptop.
+					q_shlinux.Sys_CpuPause()
+
+					if q_shlinux.Sys_Microseconds() - spintime >= 5:
+
+						break
+
+
+
+			else:
+
+				q_shlinux.Sys_Nanosleep(5000)
+
+
+		#else
+		#Sys_Nanosleep(850000);
+		#endif
+
+		newtime = q_shlinux.Sys_Microseconds()
+
+		# Save global time for network- and input code.
+		curtime = int(newtime // 1000)
+
+		Qcommon_Frame(newtime - oldtime)
+		oldtime = newtime
 
 def Qcommon_ExecConfigs(gameStartUp: bool): #qboolean
 
@@ -437,204 +440,316 @@ def Qcommon_Init(): #int argc, char **argv
 
 	# Call the main loop
 	#Qcommon_Mainloop();
-	# Q2PORT: sys_linux.main runs the main loop until the platform layer (group 14) is ported
+	# Q2PORT: sys_linux.main calls Qcommon_Mainloop after this returns, until the platform layer (group 14) is ported
 
 
-"""
-=================
-Qcommon_Frame
-=================
-"""
-def Qcommon_Frame (msec): #int
-	# Q2PORT: id's Qcommon_Frame(msec), until the client has Yamagi's CL_Frame with packet and
-	# render frames (group 10) and Qcommon_Mainloop runs the loop (group 14)
+# Q2PORT: the client's Qcommon_Frame (#ifndef DEDICATED_ONLY); the dedicated
+# server build's one isn't needed, CL_Frame returns early when dedicated is set
 
-	global host_speeds
-	global time_before_game, time_after_game, time_before_ref, time_after_ref
+# Time since last packetframe in microsec.
+Qcommon_Frame_packetdelta = 1000000 #static int, in Qcommon_Frame
+
+# Time since last renderframe in microsec.
+Qcommon_Frame_renderdelta = 1000000 #static int, in Qcommon_Frame
+
+# Accumulated time since last client run.
+Qcommon_Frame_clienttimedelta = 0 #static int, in Qcommon_Frame
+
+# Accumulated time since last server run.
+Qcommon_Frame_servertimedelta = 0 #static int, in Qcommon_Frame
+
+def Qcommon_Frame(usec: int): #int (static)
+
+	global log_stats_file
+	global Qcommon_Frame_packetdelta, Qcommon_Frame_renderdelta, Qcommon_Frame_clienttimedelta, \
+		Qcommon_Frame_servertimedelta
 
 	"""
-	char	*s;
-	int		time_before, time_between, time_after;
+	// Used for the dedicated server console.
+	char *s;
 
-	if (setjmp (abortframe) )
-		return;			// an ERR_DROP was thrown
+	// Statistics.
+	int time_before = 0;
+	int time_between = 0;
+	int time_after;
 
-	if ( log_stats->modified )
-	{
-		log_stats->modified = false;
-		if ( log_stats->value )
-		{
-			if ( log_stats_file )
-			{
-				fclose( log_stats_file );
-				log_stats_file = 0;
-			}
-			log_stats_file = fopen( "stats.log", "w" );
-			if ( log_stats_file )
-				fprintf( log_stats_file, "entities,dlights,parts,frame time\n" );
-		}
-		else
-		{
-			if ( log_stats_file )
-			{
-				fclose( log_stats_file );
-				log_stats_file = 0;
-			}
-		}
-	}
+	// Target packetframerate.
+	float pfps;
 
-	if (fixedtime->value)
-		msec = fixedtime->value;
-	else if (timescale->value)
-	{
-		msec *= timescale->value;
-		if (msec < 1)
-			msec = 1;
-	}
+	// Target renderframerate.
+	float rfps;
+	"""
+	time_before = 0
+	time_between = 0
 
-	if (showtrace->value)
-	{
-		extern	int c_traces, c_brush_traces;
-		extern	int	c_pointcontents;
+	# A packetframe runs the server and the client,
+	# but not the renderer. The minimal interval of
+	# packetframes is about 10.000 microsec. If run
+	# more often the movement prediction in pmove.c
+	# breaks. That's the Q2 variant if the famous
+	# 125hz bug.
+	packetframe = True
 
-		Com_Printf ("%4i traces  %4i points\n", c_traces, c_pointcontents);
-		c_traces = 0;
-		c_brush_traces = 0;
-		c_pointcontents = 0;
-	}
-"""
-	try: # if (setjmp (abortframe) ) return;, an ERR_DROP was thrown
-		firstLoop = True
-		s = None
-		while firstLoop or s is not None:
-			firstLoop = False
-			s = sys_linux.Sys_ConsoleInput ()
-			if s is not None:
-				cmdparser.Cbuf_AddText ("{}\n".format(s))
-	
-		cmdparser.Cbuf_Execute ()
-	
+	# A rendererframe runs the renderer, but not the
+	# client or the server. The minimal interval is
+	# about 1000 microseconds.
+	renderframe = True
+
+
+	# Tells the client to shutdown.
+	# Used by the signal handlers.
+	if quitnextframe:
+
+		cmdparser.Cbuf_AddText("quit")
+
+
+
+	# In case of ERR_DROP we're jumping here. Don't know
+	# if that's really save but it seems to work. So leave
+	# it alone.
+	try: # if (YQ2_SETJMP(abortframe)) return;
+
+		if log_stats.modified:
+
+			log_stats.modified = False
+
+			if log_stats.value:
+
+				if log_stats_file:
+
+					log_stats_file.close()
+					log_stats_file = None
+
+
+				try:
+					log_stats_file = open("stats.log", "w") # Q_fopen("stats.log", "w")
+				except OSError:
+					log_stats_file = None
+
+				if log_stats_file:
+
+					log_stats_file.write("entities,dlights,parts,frame time\n")
+
+
+			else:
+
+				if log_stats_file:
+
+					log_stats_file.close()
+					log_stats_file = None
+
+
+
+
+		# Timing debug crap. Just for historical reasons.
+		if fixedtime.value:
+
+			usec = int(fixedtime.value)
+
+		elif timescale.value:
+
+			usec = int(usec * timescale.value)
+
+
+
+		if showtrace.value:
+
+			#extern int c_traces, c_brush_traces;
+			#extern int c_pointcontents;
+
+			clientserver.Com_Printf("%4i traces  %4i points\n", collision.c_traces, collision.c_pointcontents)
+			collision.c_traces = 0
+			collision.c_brush_traces = 0
+			collision.c_pointcontents = 0
+
+
+
+		# We can render 1000 frames at maximum, because the minimum
+		# frametime of the client is 1 millisecond. And of course we
+		# need to render something, the framerate can never be less
+		# then 1. Cap vid_maxfps between 1 and 999.
+		if vid_maxfps.value > 999 or vid_maxfps.value < 1:
+
+			cvar.Cvar_SetValue("vid_maxfps", 999)
+
+
+		if cl_maxfps.value > 250:
+
+			cvar.Cvar_SetValue("cl_maxfps", 250)
+
+
+		# Calculate target and renderframerate.
+		if vid.R_IsVSyncActive():
+
+			refreshrate = vid.GLimp_GetRefreshRate()
+
+			# using refreshRate - 2, because targeting a value slightly below the
+			# (possibly not 100% correctly reported) refreshRate would introduce jittering, so only
+			# use vid_maxfps if it looks like the user really means it to be different from refreshRate
+			if vid_maxfps.value < refreshrate - 2:
+
+				rfps = vid_maxfps.value
+				# we can't have more packet frames than render frames, so limit pfps to rfps
+				pfps = rfps if (cl_maxfps.value > rfps) else cl_maxfps.value
+
+			else: # target refresh rate, not vid_maxfps
+
+				# if vsync is active, we increase the target framerate a bit for two reasons
+				# 1. On Windows, GLimp_GetFrefreshRate() (or the SDL counterpart, or even
+				#    the underlying WinAPI function) often returns a too small value,
+				#    like 58 or 59 when it's really 59.95 and thus (as integer) should be 60
+				# 2. vsync will throttle us to refreshrate anyway, so there is no harm
+				#    in starting the frame *a bit* earlier, instead of risking starting
+				#    it too late
+				rfps = refreshrate * 1.2
+				# we can't have more packet frames than render frames, so limit pfps to rfps
+				# but in this case use tolerance for comparison and assign rfps with tolerance
+				pfps = cl_maxfps.value if (cl_maxfps.value < refreshrate - 2) else rfps
+
+
+		else:
+
+			rfps = vid_maxfps.value
+			# we can't have more packet frames than render frames, so limit pfps to rfps
+			pfps = rfps if (cl_maxfps.value > rfps) else cl_maxfps.value
+
+
+		# cl_maxfps <= 0 means: automatically choose a packet framerate that should work
+		# well with the render framerate, which is the case if rfps is a multiple of pfps
+		if cl_maxfps.value <= 0.0 and cl_async.value != 0.0:
+
+			# packet framerates between about 45 and 90 should be ok,
+			# with other values the game (esp. movement/clipping) can become glitchy
+			# as pfps must be <= rfps, for rfps < 90 just use that as pfps
+			if rfps < 90.0:
+
+				pfps = rfps
+
+			else:
+
+				# we want an integer divider, so every div-th renderframe is a packetframe.
+				# this formula gives nice dividers that keep pfps as close as possible
+				# to 60 (which seems to be ideal):
+				# - for < 150 rfps div will be 2, so pfps will be between 45 and ~75
+				#   => exactly every second renderframe we also run a packetframe
+				# - for < 210 rfps div will be 3, so pfps will be between 50 and ~70
+				#   => exactly every third renderframe we also run a packetframe
+				# - etc, the higher the rfps, the closer the pfps-range will be to 60
+				#   (and you probably get the very best results by running at a
+				#    render framerate that's a multiple of 60)
+				div = math.floor(rfps/60 + 0.5) # round(rfps/60), C rounds halves away from zero
+				pfps = rfps/div
+
+
+
+		# Calculate timings.
+		Qcommon_Frame_packetdelta += usec
+		Qcommon_Frame_renderdelta += usec
+		Qcommon_Frame_clienttimedelta += usec
+		Qcommon_Frame_servertimedelta += usec
+
+		if not cl_timedemo.value:
+
+			if cl_async.value:
+
+				# Render frames.
+				if Qcommon_Frame_renderdelta < (1000000.0 / rfps):
+
+					renderframe = False
+
+
+				# Network frames.
+				packettargetdelta = 1000000.0 / pfps
+				# "packetdelta + renderdelta/2 >= packettargetdelta" if now we're
+				# closer to when we want to run the next packetframe than we'd
+				# (probably) be after the next render frame
+				# also, we only run packetframes together with renderframes,
+				# because we must have at least one render frame between two packet frames
+				# TODO: does it make sense to use the average renderdelta of the last X frames
+				#       instead of just the last renderdelta?
+				if not renderframe or Qcommon_Frame_packetdelta + int(Qcommon_Frame_renderdelta/2) < packettargetdelta:
+
+					packetframe = False
+
+
+			else:
+
+				# Cap frames at target framerate.
+				if Qcommon_Frame_renderdelta < (1000000.0 / rfps):
+					renderframe = False
+					packetframe = False
+
+
+
+
+		# Dedicated server terminal console.
+		while True: # do { ... } while (s);
+			s = sys_linux.Sys_ConsoleInput()
+
+			if s:
+				cmdparser.Cbuf_AddText("{}\n".format(s))
+
+			if not s:
+				break
+
+		cmdparser.Cbuf_Execute()
 
 
 		if host_speeds.value:
-			time_before = q_shlinux.Sys_Milliseconds ()
-	
-		sv_main.SV_Frame (msec * 1000)	# Q2PORT: Yamagi's SV_Frame takes microseconds
-	
-		if host_speeds.value:
-			time_between = q_shlinux.Sys_Milliseconds ()
-	
-		cl_main.CL_Frame (msec)
-	
-		if host_speeds.value:
-			time_after = q_shlinux.Sys_Milliseconds ()
+
+			time_before = q_shlinux.Sys_Milliseconds()
+
+
+
+		# Run the serverframe.
+		if packetframe:
+			sv_main.SV_Frame(Qcommon_Frame_servertimedelta)
+			Qcommon_Frame_servertimedelta = 0
+
+
 
 		if host_speeds.value:
-	
-			#int			all, sv, gm, cl, rf;
 
-			allt = time_after - time_before
+			time_between = q_shlinux.Sys_Milliseconds()
+
+
+
+		# Run the client frame.
+		if packetframe or renderframe:
+			cl_main.CL_Frame(Qcommon_Frame_packetdelta, Qcommon_Frame_renderdelta, Qcommon_Frame_clienttimedelta, packetframe, renderframe)
+			Qcommon_Frame_clienttimedelta = 0
+
+
+
+		if host_speeds.value:
+
+			"""
+			int all, sv, gm, cl, rf;
+			"""
+
+			time_after = q_shlinux.Sys_Milliseconds()
+			all_ = time_after - time_before
 			sv = time_between - time_before
 			cl = time_after - time_between
 			gm = time_after_game - time_before_game
 			rf = time_after_ref - time_before_ref
 			sv -= gm
 			cl -= rf
-			clientserver.Com_Printf ("all:{: 3d} sv:{: 3d} gm:{: 3d} cl:{: 3d} rf:{: 3d}\n".format(
-				allt, sv, gm, cl, rf))
+			clientserver.Com_Printf("all:%3i sv:%3i gm:%3i cl:%3i rf:%3i\n", all_, sv, gm, cl, rf)
+
+
+
+		# Reset deltas and mark frame.
+		if packetframe:
+			Qcommon_Frame_packetdelta = 0
+
+
+		if renderframe:
+			Qcommon_Frame_renderdelta = 0
+
 	except clientserver.abortframe:
+
 		return
-
-r"""
-static void
-Qcommon_Frame(int usec)
-{
-	// For the dedicated server terminal console.
-	char *s;
-
-	// Target packetframerate.
-	int pfps;
-
-	// Time since last packetframe in microsec.
-	static int packetdelta = 1000000;
-
-	// Accumulated time since last server run.
-	static int servertimedelta = 0;
-
-	/* A packetframe runs the server and the client,
-	   but not the renderer. The minimal interval of
-	   packetframes is about 10.000 microsec. If run
-	   more often the movement prediction in pmove.c
-	   breaks. That's the Q2 variant if the famous
-	   125hz bug. */
-	qboolean packetframe = true;
-
-
-	/* Tells the client to shutdown.
-	   Used by the signal handlers. */
-	if (quitnextframe)
-	{
-		Cbuf_AddText("quit");
-	}
-
-
-	/* In case of ERR_DROP we're jumping here. Don't know
-	   if that' really save but it seems to work. So leave
-	   it alone. */
-	if (YQ2_SETJMP(abortframe))
-	{
-		return;
-	}
-
-
-	// Timing debug crap. Just for historical reasons.
-	if (fixedtime->value)
-	{
-		usec = (int)fixedtime->value;
-	}
-	else if (timescale->value)
-	{
-		usec *= timescale->value;
-	}
-
-
-	// Target framerate.
-	pfps = (int)cl_maxfps->value;
-
-
-	// Calculate timings.
-	packetdelta += usec;
-	servertimedelta += usec;
-
-
-	// Network frame time.
-	if (packetdelta < (1000000.0f / pfps)) {
-		packetframe = false;
-	}
-
-
-	// Dedicated server terminal console.
-	do {
-		s = Sys_ConsoleInput();
-
-		if (s) {
-			Cbuf_AddText(va("%s\n", s));
-		}
-	} while (s);
-
-	Cbuf_Execute();
-
-
-	// Run the serverframe.
-	if (packetframe) {
-		SV_Frame(servertimedelta);
-		servertimedelta = 0;
-
-		// Reset deltas if necessary.
-		packetdelta = 0;
-	}
-}
-"""
 
 def Qcommon_Shutdown ():
 	# Q2PORT: FS_ShutdownFilesystem, Cvar_Fini, Key_Shutdown and Cmd_Shutdown aren't ported yet

@@ -31,6 +31,7 @@ from linux import net_udp, q_shlinux
 from common.header import common as common_h
 from common.header import shared
 from common import clientserver
+from common import frame
 from common import cvar
 from common import movemsg
 from common import szone
@@ -129,7 +130,7 @@ def Netchan_Setup (sock: common_h.netsrc_t, chan: common_h.netchan_t, adr: commo
 	chan.sock = sock
 	chan.remote_address = adr
 	chan.qport = qport
-	chan.last_received = q_shlinux.curtime
+	chan.last_received = frame.curtime
 	chan.incoming_sequence = 0
 	chan.outgoing_sequence = 1
 
@@ -214,7 +215,7 @@ def Netchan_Transmit (chan: common_h.netchan_t, data: bytes | bytearray)->None: 
 	w2 = ( chan.incoming_sequence & ~(1<<31) ) | (chan.incoming_reliable_sequence<<31)
 
 	chan.outgoing_sequence+=1
-	chan.last_sent = q_shlinux.curtime
+	chan.last_sent = frame.curtime
 
 
 	movemsg.MSG_WriteLong(send, w1)
@@ -350,6 +351,6 @@ def Netchan_Process (chan: common_h.netchan_t, msg: common_h.sizebuf_t)->bool: #
 	#
 	# the message can now be read from the current message pointer
 	#
-	chan.last_received = q_shlinux.curtime
+	chan.last_received = frame.curtime
 
 	return True

@@ -150,64 +150,65 @@ def AngleVectors(angles, forward, right, up): #const vec3_t, vec3_t, vec3_t, vec
 		up[1] = (cr * sp * sy + - sr * cy)
 		up[2] = cr * cp
 
-"""
-void
-AngleVectors2(const vec3_t value1, vec3_t angles)
-{
+def AngleVectors2(value1, angles): #const vec3_t, vec3_t
+
+	"""
 	float yaw, pitch;
+	"""
 
-	if ((value1[1] == 0) && (value1[0] == 0))
-	{
-		yaw = 0;
+	if (value1[1] == 0) and (value1[0] == 0):
 
-		if (value1[2] > 0)
-		{
-			pitch = 90;
-		}
+		yaw = 0
 
-		else
-		{
-			pitch = 270;
-		}
-	}
-	else
-	{
+		if value1[2] > 0:
+
+			pitch = 90
+
+
+		else:
+
+			pitch = 270
+
+
+	else:
+
+		"""
 		float forward;
+		"""
 
-		if (value1[0])
-		{
-			yaw = ((float)atan2(value1[1], value1[0]) * 180 / M_PI);
-		}
+		if value1[0]:
 
-		else if (value1[1] > 0)
-		{
-			yaw = 90;
-		}
+			yaw = (float(math.atan2(value1[1], value1[0])) * 180 / math.pi)
 
-		else
-		{
-			yaw = 270;
-		}
 
-		if (yaw < 0)
-		{
-			yaw += 360;
-		}
+		elif value1[1] > 0:
 
-		forward = (float)sqrt(value1[0] * value1[0] + value1[1] * value1[1]);
-		pitch = ((float)atan2(value1[2], forward) * 180 / M_PI);
+			yaw = 90
 
-		if (pitch < 0)
-		{
-			pitch += 360;
-		}
-	}
 
-	angles[PITCH] = -pitch;
-	angles[YAW] = yaw;
-	angles[ROLL] = 0;
-}
-"""
+		else:
+
+			yaw = 270
+
+
+		if yaw < 0:
+
+			yaw += 360
+
+
+		forward = float(math.sqrt(value1[0] * value1[0] + value1[1] * value1[1]))
+		pitch = (float(math.atan2(value1[2], forward)) * 180 / math.pi)
+
+		if pitch < 0:
+
+			pitch += 360
+
+
+
+	angles[shared.PITCH] = -pitch
+	angles[shared.YAW] = yaw
+	angles[shared.ROLL] = 0
+
 
 def ProjectPointOnPlane(dst, p, normal):
 	if dst is None or p is None or normal is None:
@@ -703,20 +704,17 @@ COM_StripExtension2(char *path)
 }
 """
 
-"""
-const char *
-COM_FileExtension(const char *in)
-{
-	const char *ext = strrchr(in, '.');
+def COM_FileExtension(in_: str)->str: #const char * (returns const char *)
 
-	if (!ext || ext == in)
-	{
-		return "";
-	}
+	ext = in_.rfind('.') # strrchr(in, '.')
 
-	return ext + 1;
-}
-"""
+	if ext < 0 or ext == 0: # !ext || ext == in
+
+		return ""
+
+
+	return in_[ext + 1:]
+
 
 """
 void
@@ -1118,21 +1116,20 @@ Q_strncasecmp(const char *s1, const char *s2, int n)
 }
 """
 
-"""
-char *Q_strcasestr(const char *haystack, const char *needle)
-{
-	size_t len = strlen(needle);
+def Q_strcasestr(haystack: str, needle: str): #const char *, const char * (returns char *)
 
-	for (; *haystack; haystack++)
-	{
-		if (!Q_strncasecmp(haystack, needle, len))
-		{
-			return (char *)haystack;
-		}
-	}
-	return 0;
-}
-"""
+	# Q2PORT: returns the rest of haystack from the match, or None
+	len_ = len(needle)
+
+	for i in range(len(haystack)): # for (; *haystack; haystack++)
+
+		if haystack[i:i + len_].lower() == needle.lower(): # !Q_strncasecmp(haystack, needle, len)
+
+			return haystack[i:]
+
+
+
+	return None
 
 def Q_strcasecmp (s1, s2): #char *, char *
 
@@ -1274,55 +1271,51 @@ Q_strlcat(char *dst, const char *src, int size)
 }
 """
 
-r"""
-void
-Q_strdel(char *s, size_t i, size_t n)
-{
+def Q_strdel(s: str, i: int, n: int)->str: #char *, size_t, size_t
+
+	# Q2PORT: returns the changed string
+
+	"""
 	size_t len;
+	"""
 
-	if (!n)
-	{
-		return;
-	}
+	if not n:
 
-	len = strlen(s);
+		return s
 
-	if (i >= len || n > (len - i))
-	{
-		return;
-	}
 
-	memmove(s + i, s + i + n, len - i);
-	s[len - n] = '\0';
-}
-"""
+	len_ = len(s)
 
-r"""
-size_t
-Q_strins(char *dest, const char *src, size_t i, size_t n)
-{
+	if i >= len_ or n > (len_ - i):
+
+		return s
+
+
+	return s[:i] + s[i + n:] # memmove(s + i, s + i + n, len - i);
+
+def Q_strins(dest: str, src: str, i: int, n: int): #char *, const char *, size_t, size_t (returns size_t)
+
+	# Q2PORT: returns the changed string and the number of characters inserted
+
+	"""
 	size_t dlen;
 	size_t slen;
+	"""
 
-	if (!src || *src == '\0')
-	{
-		return 0;
-	}
+	if not src:
 
-	slen = strlen(src);
-	dlen = strlen(dest);
+		return dest, 0
 
-	if (i > dlen || (dlen + slen + 1) > n)
-	{
-		return 0;
-	}
 
-	memmove(dest + i + slen, dest + i, dlen - i + 1);
-	memcpy(dest + i, src, slen);
+	slen = len(src)
+	dlen = len(dest)
 
-	return slen;
-}
-"""
+	if i > dlen or (dlen + slen + 1) > n:
+
+		return dest, 0
+
+
+	return dest[:i] + src + dest[i:], slen
 
 r"""
 qboolean

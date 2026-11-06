@@ -19,8 +19,8 @@ def snapshot():
 		"monsters": (g_main.level.total_monsters, g_main.level.killed_monsters)}
 
 orig_frame = cl_main.CL_Frame
-def CL_Frame(msec):
-	orig_frame(msec)
+def CL_Frame(*args):
+	orig_frame(*args)
 	st["n"] += 1
 	active = cl_main.cls.state.name == "ca_active"
 	now = time.time()

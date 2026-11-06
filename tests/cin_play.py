@@ -6,8 +6,8 @@ from linux import sys_linux
 from client import cl_cin
 st = {"n": 0, "t": 0.0, "t0": time.time(), "none": 0}
 o = cl_cin.Huff1Decompress
-def H(d):
-	t = time.perf_counter(); r = o(d); st["t"] += time.perf_counter() - t; st["n"] += 1
+def H(d, n):
+	t = time.perf_counter(); r = o(d, n); st["t"] += time.perf_counter() - t; st["n"] += 1
 	if st["n"] % 20 == 0: print("cin: %d frames decoded, avg %.1f ms, %d bytes/frame" % (st["n"], st["t"] / st["n"] * 1000, len(r)))
 	return r
 cl_cin.Huff1Decompress = H

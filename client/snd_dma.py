@@ -703,7 +703,8 @@ def S_StartSound(origin, entnum, entchannel, sfx, fvol, attenuation, timeofs): #
 		return
 
 	if sfx.name[0] == '*':
-		sfx = S_RegisterSexedSound(cl_main.cl_entities[entnum].current, sfx.name)
+		ent = cl_main.CL_AllocEntity(entnum) # Q2PORT: until sound.c (group 13), which passes entnum
+		sfx = S_RegisterSexedSound(ent.current if ent else shared.entity_state_t(), sfx.name)
 
 	# make sure the sound is loaded
 	sc = snd_mem.S_LoadSound (sfx)

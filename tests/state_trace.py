@@ -11,8 +11,8 @@ seen = {"state": None, "n": 0}
 msgs = collections.Counter()
 calls = collections.Counter()
 orig_frame = cl_main.CL_Frame
-def CL_Frame(msec):
-	orig_frame(msec)
+def CL_Frame(*args):
+	orig_frame(*args)
 	seen["n"] += 1
 	st = (cl_main.cls.state, cl_main.cls.key_dest, cl_main.cl.refresh_prepped, cl_main.cls.disable_screen)
 	if st != seen["state"]:

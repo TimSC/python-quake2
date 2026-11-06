@@ -685,6 +685,6 @@ def SV_SendPrepClientMessages(): #void
 
 		# just update reliable	if needed
 		if c.netchan.message.cursize or \
-			(q_shlinux.curtime - c.netchan.last_sent > 1000):	# Q2PORT: curtime is Sys_Milliseconds' until the main loop (group 14)
+			(frame.curtime - c.netchan.last_sent > 1000):
 
 			netchan.Netchan_Transmit(c.netchan, b"")

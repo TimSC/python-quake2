@@ -25,6 +25,8 @@ This file implements generic network functions
 """
 from __future__ import annotations
 
+from client import cl_keyboard
+
 import struct
 from client import snd_dma, menu, cl_cin, cl_parse
 from linux import q_shlinux, vid_so, net_udp, sys_linux
@@ -34,6 +36,7 @@ from common.shared import shared as shared_c
 from common import clientserver
 from common import cmdparser
 from common import cvar
+from common import frame
 from common import movemsg
 from common import szone
 from common import netchan
@@ -42,6 +45,8 @@ from client import cl_main
 from client import cl_parse
 from client import cl_screen
 from client.header import client as client_h
+from client.sound import ogg
+from client.vid import vid
 
 """
 #include "header/client.h"
@@ -93,17 +98,24 @@ CL_Drop
 Called after an q_shared.ERR_DROP was thrown
 ================
 """
-def CL_Drop ():
+def CL_Drop(): #
+
 	if cl_main.cls.state == client_h.connstate_t.ca_uninitialized:
+
 		return
+
+
 	if cl_main.cls.state == client_h.connstate_t.ca_disconnected:
+
 		return
+
 
 	CL_Disconnect()
-
 	# drop loading plaque unless this is the initial game start
 	if cl_main.cls.disable_servercount != -1:
+
 		cl_screen.SCR_EndLoadingPlaque()
+		# get rid of loading plaque
 
 
 # =======================
@@ -185,32 +197,34 @@ CL_Connect_f
 
 ================
 """
-def CL_Connect_f ():
+def CL_Connect_f(): #
 
-	#char	*server;
+	"""
+	char server[256];
+	"""
+	server = [None] * 256
 
 	if cmdparser.Cmd_Argc() != 2:
-	
-		clientserver.Com_Printf ("usage: connect <server>\n")
-		return	
-	
-	if clientserver.Com_ServerState ():
+
+		clientserver.Com_Printf("usage: connect <server>\n")
+		return
+
+
+	server = cmdparser.Cmd_Argv(1) # Q_strlcpy
+	if clientserver.Com_ServerState():
+
 		# if running a local server, kill it and reissue
-		sv_main.SV_Shutdown ("Server quit\n", False)
-	
-	else:
-	
-		CL_Disconnect ()
-	
-	server = cmdparser.Cmd_Argv (1)
+		# note: this is connect with the save game system
+		sv_main.SV_Shutdown("Server quit\n", False)
 
-	net_udp.NET_Config (True)		# allow remote
 
-	CL_Disconnect ()
-
+	net_udp.NET_Config(True)
+	# allow remote
+	CL_Disconnect()
 	cl_main.cls.state = client_h.connstate_t.ca_connecting
-	cl_main.cls.servername = server[:shared.MAX_OSPATH-1] # strncpy (cls.servername, server, sizeof(cls.servername)-1);
-	cl_main.cls.connect_time = -99999	# CL_CheckForResend() will fire immediately
+	cl_main.cls.servername = server # Q_strlcpy
+	cl_main.cls.connect_time = -99999
+	# HACK: CL_CheckForResend() will fire immediately
 
 
 """
@@ -278,53 +292,81 @@ Sends a disconnect message to the server
 This is also called on Com_Error, so it shouldn't cause any errors
 =====================
 """
-def CL_Disconnect ():
-
+def CL_Disconnect(): #void
 
 	"""
-	byte	final[32];
+	byte final[32];
 	"""
 
 	if cl_main.cls.state == client_h.connstate_t.ca_disconnected:
+
 		return
 
-	if cl_main.cl_timedemo is not None and int(cl_main.cl_timedemo.value):
-	
-		#int	time;
-		
-		time = q_shlinux.Sys_Milliseconds () - cl_main.cl.timedemo_start
-		if time > 0:
-			clientserver.Com_Printf ("{} frames, {:3.1f} seconds: {:3.1f} fps\n".format(cl_main.cl.timedemo_frames,
-			time/1000.0, cl_main.cl.timedemo_frames*1000.0 / time))
-	
-	shared.VectorClear (cl_main.cl.refdef.blend)
-	vid_so.re.CinematicSetPalette(None)
 
-	menu.M_ForceMenuOff ()
+	if frame.cl_timedemo and frame.cl_timedemo.value:
+
+		"""
+		int time;
+		"""
+
+		time = q_shlinux.Sys_Milliseconds() - cl_main.cl.timedemo_start
+
+		if time > 0:
+
+			clientserver.Com_Printf("%i frames, %3.1f seconds: %3.1f fps\n\n",
+					cl_main.cl.timedemo_frames, time / 1000.0,
+					cl_main.cl.timedemo_frames * 1000.0 / time)
+
+
+
+	shared.VectorClear(cl_main.cl.refdef.blend)
+
+	vid.R_SetPalette(None)
+
+	menu.M_ForceMenuOff()
 
 	cl_main.cls.connect_time = 0
 
-	cl_cin.SCR_StopCinematic ()
+	cl_cin.SCR_StopCinematic()
+
+	ogg.OGG_Stop()
 
 	if cl_main.cls.demorecording:
-		cl_main.CL_Stop_f ()
+
+		cl_main.CL_Stop_f()
+
 
 	# send a disconnect message to the server
 	final = bytearray()
-	final += struct.pack("B", common_h.clc_ops_e.clc_stringcmd.value)
-	final += b"disconnect"
-	netchan.Netchan_Transmit (cl_main.cls.netchan, final)
-	netchan.Netchan_Transmit (cl_main.cls.netchan, final)
-	netchan.Netchan_Transmit (cl_main.cls.netchan, final)
+	final += struct.pack("B", common_h.clc_ops_e.clc_stringcmd.value) # final[0] = clc_stringcmd;
 
-	cl_main.CL_ClearState ()
+	final += b"disconnect" # strcpy((char *)final + 1, "disconnect");
 
-	# stop download
-	if cl_main.cls.download is not None:
-		cl_main.cls.download.close()
+	netchan.Netchan_Transmit(cl_main.cls.netchan, final) # strlen((const char *)final), final
+	netchan.Netchan_Transmit(cl_main.cls.netchan, final)
+	netchan.Netchan_Transmit(cl_main.cls.netchan, final)
+
+	cl_main.CL_ClearState()
+
+	# stop file download
+	if cl_main.cls.download:
+
+		cl_main.cls.download.close() # fclose(cls.download);
 		cl_main.cls.download = None
-	
+
+
+	# #ifdef USE_CURL
+	# #endif
+
 	cl_main.cls.state = client_h.connstate_t.ca_disconnected
+
+	snd_dma.snd_is_underwater = False
+
+	# save config for old game/mod
+	cl_main.CL_WriteConfiguration()
+
+	# we disconnected, so revert to default game/mod (might have been different mod on MP server)
+	cvar.Cvar_Set("game", frame.userGivenGame)
 
 
 def CL_Disconnect_f ():
@@ -394,16 +436,25 @@ Just sent as a hint to the client that they should
 drop to full console
 =================
 """
-def CL_Changing_f ():
+def CL_Changing_f(): #
 
-	#ZOID
-	#if we are downloading, we don't change!  This so we don't suddenly stop downloading a map
-	if cl_main.cls.download is not None:
+	# if we are downloading, we don't change!
+	# This so we don't suddenly stop downloading a map
+	if cl_main.cls.download:
+
 		return
 
-	cl_screen.SCR_BeginLoadingPlaque ()
-	cl_main.cls.state = client_h.connstate_t.ca_connected # not active anymore, but not disconnected
-	clientserver.Com_Printf ("\nChanging map...\n")
+
+	cl_screen.SCR_BeginLoadingPlaque()
+	cl_main.cls.state = client_h.connstate_t.ca_connected
+	# not active anymore, but not disconnected
+	# reset this to 0 just in case it didn't get a chance to settle normally
+	# this became a problem with the faster client connection changes
+	# but is a good idea to do this regardless
+	cl_keyboard.anykeydown = 0
+	clientserver.Com_Printf("\nChanging map...\n")
+	# #ifdef USE_CURL
+	# #endif
 
 """
 =================
@@ -453,9 +504,9 @@ def CL_PingServers_f ():
 	cvar_t		*noudp;
 	cvar_t		*noipx;
 	"""
-	adr = common_h.netadr_t()
+	adr = common_h.netadr_t() # memset(&adr, 0, sizeof(adr));
 
-	net_udp.NET_Config (True)		# allow remote
+	net_udp.NET_Config (True) # allow remote but do we even need lokal pings?
 
 	# send a broadcast packet
 	clientserver.Com_Printf ("pinging broadcast...\n")
@@ -466,6 +517,12 @@ def CL_PingServers_f ():
 		adr.type = common_h.netadrtype_t.NA_BROADCAST
 		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
 		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
+
+		# Q2PORT: id's network code has no IPv6 multicast (NA_MULTICAST6) until group 14
+		#Com_Printf("pinging multicast...\n");
+		#adr.type = NA_MULTICAST6;
+		#adr.port = BigShort(PORT_SERVER);
+		#Netchan_OutOfBandPrint(NS_CLIENT, adr, va("info %i", PROTOCOL_VERSION));
 	
 	noipx = cvar.Cvar_Get ("noipx", "0", shared.CVAR_NOSET)
 	if not noipx.value:
@@ -475,7 +532,7 @@ def CL_PingServers_f ():
 		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
 	
 	# send a packet to each address book entry
-	for i in range(16):
+	for i in range(client_h.NUM_ADDRESSBOOK_ENTRIES):
 	
 		name = "adr{}".format(i)
 		adrstring = cvar.Cvar_VariableString (name)
@@ -529,6 +586,58 @@ def CL_ConnectionlessPacket ():
 			return
 		
 		netchan.Netchan_Setup (common_h.netsrc_t.NS_CLIENT, cl_main.cls.netchan, netchan.net_from, cl_main.cls.quakePort)
+		# #ifdef USE_CURL
+		# #endif
+
+		for i in range(1, cmdparser.Cmd_Argc()):
+
+			p = cmdparser.Cmd_Argv(i)
+
+			if p[:9] == "dlserver=": # !strncmp(p, "dlserver=", 9)
+
+				# #ifdef USE_CURL
+				# #else
+				clientserver.Com_Printf("HTTP downloading supported by server but not the client.\n")
+				# #endif
+
+
+
+		# Put client into pause mode when connecting to a local server.
+		# This prevents the world from being forwarded while the client
+		# is connecting, loading assets, etc. It's not 100%, there're
+		# still 4 world frames (for baseq2) processed in the game and
+		# 100 frames by the server if the player enters a level that he
+		# or she already visited. In practise both shouldn't be a big
+		# problem. 4 frames are hardly enough for monsters staring to
+		# attack and in most levels the starting area in unreachable by
+		# monsters and free from environmental effects.
+		#
+		# Com_Serverstate() returns 2 if the server is local and we're
+		# running a real game and no timedemo, cinematic, etc. The 2 is
+		# taken from the server_state_t enum value 'ss_game'. If it's a
+		# local server, maxclients aus either 0 (for single player), or
+		# 2 to 8 (coop and deathmatch) if we're reaching this code.
+		# For remote servers it's always 1. So this should trigger only
+		# if it's a local single player server.
+		#
+		# Since the player can load savegames from a paused state (e.g.
+		# through the console) we'll need to communicate if we entered
+		# paused mode (and it should left as soon as the player joined
+		# the server) or if it was already there.
+		#
+		# Last but not least this can be disabled by cl_loadpaused 0.
+		if clientserver.Com_ServerState() == 2 and (cvar.Cvar_VariableValue("maxclients") <= 1):
+
+			if cl_main.cl_loadpaused.value:
+
+				if not cl_main.cl_paused.value:
+
+					cl_main.paused_at_load = True
+					cvar.Cvar_Set("paused", "1")
+
+
+
+
 		movemsg.MSG_WriteChar (cl_main.cls.netchan.message, struct.pack("B", common_h.clc_ops_e.clc_stringcmd.value))
 		movemsg.MSG_WriteString (cl_main.cls.netchan.message, b"new")	
 		cl_main.cls.state = client_h.connstate_t.ca_connected
@@ -548,7 +657,6 @@ def CL_ConnectionlessPacket ():
 			clientserver.Com_Printf ("Command packet from remote host.  Ignored.\n")
 			return
 		
-		sys_linux.Sys_AppActivate ()
 		s = movemsg.MSG_ReadString (netchan.net_message)
 		cmdparser.Cbuf_AddText (s)
 		cmdparser.Cbuf_AddText ("\n")

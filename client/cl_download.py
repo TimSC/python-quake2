@@ -25,6 +25,8 @@ This file implements the game media download from the server
 """
 from __future__ import annotations
 
+from linux import q_shlinux
+
 from client import cl_view, cl_parse
 from common.header import common as common_h
 from common.header import files as files_h
@@ -34,6 +36,7 @@ from common import clientserver
 from common import filesystem
 from common import movemsg
 from common import collision
+from common import cvar
 from server import sv_main
 from client import cl_main
 from client import cl_parse
@@ -52,13 +55,64 @@ TEXTURE_CNT = (ENV_CNT+13)
 
 env_suf = ["rt", "bk", "lf", "ft", "up", "dn"] #static const char *[6]
 
-def CL_RequestNextDownload ():
+# Forces all downloads to UDP.
+forceudp = False #static qboolean
 
-	pass
+# Gives HTTP downloads a second chance after
+# we've fallen trough to UDP downloads.
+httpSecondChance = True #static qboolean
 
-	#unsigned	map_checksum;		// for detecting cheater maps
-	#char fn[MAX_OSPATH];
-	#dmdl_t *pheader;
+# This - and some more code down below - is the 'Crazy Fallback
+# Magic'. First we're trying to download all files over HTTP with
+# r1q2-style URLs. If we encountered errors we reset the complete
+# precacher state and retry with HTTP and q2pro-style URLs. If we
+# still got errors we're falling back to UDP. So:
+#   - 0: Virgin state, r1q2-style URLs.
+#   - 1: Second iteration, q2pro-style URL.
+#   - 3: Third iteration, UDP downloads.
+precacherIteration = 0 #static unsigned int
+
+# Another quirk: Don't restart texture downloading from the beginning,
+# instead continue after the last requested texture. This is used to
+# skip over a texture missing on the server.
+dont_restart_texture_stage = False #static qboolean
+
+# r1q2 searches the global filelist at /, q2pro at /gamedir...
+gamedirForFilelist = False #static qboolean
+
+second_try = 0 #static static qboolean
+
+def CL_RequestNextDownload(): #void
+
+	"""
+	unsigned int map_checksum; /* for detecting cheater maps */
+	char fn[MAX_OSPATH];
+	dmdl_t *pheader;
+	"""
+	global forceudp, precacherIteration, gamedirForFilelist, httpSecondChance, dont_restart_texture_stage
+
+	if precacherIteration == 0:
+
+		pass
+		# #if USE_CURL
+		# #endif
+
+	elif precacherIteration == 1:
+
+		pass
+		# #if USE_CURL
+		# #endif
+
+	elif precacherIteration == 2:
+
+		# UDP Fallback.
+		forceudp = True
+
+	else:
+
+		# Cannot get here.
+		assert 1 and "Recursed from UDP fallback case"
+
 
 	if cl_main.cls.state != client_h.connstate_t.ca_connected:
 		return
@@ -66,7 +120,6 @@ def CL_RequestNextDownload ():
 	if not sv_main.allow_download.value and cl_main.precache_check < ENV_CNT:
 		cl_main.precache_check = ENV_CNT
 
-#ZOID
 	if cl_main.precache_check == shared.CS_MODELS: # confirm map
 		cl_main.precache_check = shared.CS_MODELS+2 # 0 isn't used
 		if sv_main.allow_download_maps.value:
@@ -240,19 +293,23 @@ def CL_RequestNextDownload ():
 					# move on to next model
 					cl_main.precache_check = shared.CS_PLAYERSKINS + (i + 1) * PLAYER_MULT
 				
-		# precache phase completed
-		cl_main.precache_check = ENV_CNT
-	
-	if cl_main.precache_check == ENV_CNT:
+	# #ifdef USE_CURL
+	# #endif
+
+	# precache phase completed
+	if not dont_restart_texture_stage:
+
 		cl_main.precache_check = ENV_CNT + 1
 
-		_, map_checksum = collision.CM_LoadMap (cl_main.cl.configstrings[shared.CS_MODELS+1], True)
 
-		if map_checksum != (shared_c.atoi(cl_main.cl.configstrings[shared.CS_MAPCHECKSUM]) & 0xffffffff): # atoi's int is converted to unsigned for the compare
-			clientserver.Com_Error (shared.ERR_DROP, "Local map version differs from server: {} != '{}'\n".format(
-				map_checksum, cl_main.cl.configstrings[shared.CS_MAPCHECKSUM]))
-			return
-		
+	_, map_checksum = collision.CM_LoadMap (cl_main.cl.configstrings[shared.CS_MODELS+1], True)
+
+	if map_checksum != (shared_c.atoi(cl_main.cl.configstrings[shared.CS_MAPCHECKSUM]) & 0xffffffff): # (int)strtol(...), converted to unsigned for the compare
+
+		clientserver.Com_Error (shared.ERR_DROP, "Local map version differs from server: {} != '{}'\n".format(
+			map_checksum, cl_main.cl.configstrings[shared.CS_MAPCHECKSUM]))
+		return
+
 	if cl_main.precache_check > ENV_CNT and cl_main.precache_check < TEXTURE_CNT:
 		if sv_main.allow_download.value and sv_main.allow_download_maps.value:
 			while cl_main.precache_check < TEXTURE_CNT:
@@ -291,12 +348,29 @@ def CL_RequestNextDownload ():
 			
 		cl_main.precache_check = TEXTURE_CNT+999
 	
-#ZOID
+	# #ifdef USE_CURL
+	# #endif
+
+	# This map is done, start over for next map.
+	forceudp = False
+	precacherIteration = 0
+	gamedirForFilelist = False
+	httpSecondChance = True
+	dont_restart_texture_stage = False
+
+	# #ifdef USE_CURL
+	# #endif
+
 	cl_parse.CL_RegisterSounds ()
 	cl_view.CL_PrepRefresh ()
 
+	# ensure ClientUserinfoChanged is called on reconnect
+	# and player skin config string gets broadcasted
+	cvar.userinfo_modified = True
+
 	movemsg.MSG_WriteByte (cl_main.cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value)
 	movemsg.MSG_WriteString (cl_main.cls.netchan.message, "begin {}\n".format(cl_main.precache_spawncount).encode('ascii') )
+	cl_main.cls.forcePacket = True
 
 import os
 from client import cl_main
@@ -321,63 +395,63 @@ def CL_DownloadFileName(fn): #char * (returns char *dest)
 		dest = "{}/{}".format(filesystem.FS_Gamedir(), fn)
 	return dest
 
-r"""
-/*
- * Returns true if a file is filtered and
- * should not be downloaded, false otherwise.
- */
-static qboolean
-CL_DownloadFilter(const char *filename)
-{
+def CL_DownloadFilter(filename: str)->bool: #const char * (returns qboolean)
+
+	"""
 	size_t i;
-	static const char *extensions[] = {
+	"""
+	extensions = [ #static const char *extensions[]
 		".dll",
 		".dylib",
 		".lib",
 		".so",
 		".a",
-		NULL,
-	};
+		None,
+	]
 
-	if ((*filename == '.') || (*filename == '/') || strchr(filename, ':') || strstr(filename, ".."))
-	{
-		Com_Printf("Refusing to download a path containing '..' or ':' or starting with '.' or '/': %s\n", filename);
-		return true;
-	}
+	if (filename[:1] == '.') or (filename[:1] == '/') or (':' in filename) or (".." in filename):
 
-	for (i = 0; extensions[i]; i++)
-	{
-		if (strstr(filename, extensions[i]))
-		{
-			Com_Printf("Refusing to download a path containing '%s': %s\n", extensions[i], filename);
-			return true;
-		}
-	}
+		clientserver.Com_Printf("Refusing to download a path containing '..' or ':' or starting with '.' or '/': %s\n", filename)
+		return True
 
-	char *nodownload = strdup(cl_nodownload_list->string);
-	char *nodownload_token = strtok(nodownload, " ");
-	while (nodownload_token != NULL)
-	{
-		Com_Printf("Token: %s\n", nodownload_token);
-		if (Q_strcasestr(filename, nodownload_token))
-		{
-			Com_Printf("Filename is filtered by cl_nodownload_list: %s\n", filename);
-			free(nodownload);
-			return true;
-		}
-		nodownload_token = strtok(NULL, " ");
-	}
-	free(nodownload);
 
-	if (FS_FileExists(filename))
-	{
-		/* it exists, no need to download */
-		return true;
-	}
+	i = 0
+	while extensions[i]:
 
-	return false;
-}
-"""
+		if extensions[i] in filename:
+
+			clientserver.Com_Printf("Refusing to download a path containing '%s': %s\n", extensions[i], filename)
+			return True
+
+
+		i += 1
+
+
+	#char *nodownload = strdup(cl_nodownload_list->string);
+	#char *nodownload_token = strtok(nodownload, " ");
+	for nodownload_token in cl_main.cl_nodownload_list.string.split(" "): # strtok
+
+		if not nodownload_token:
+
+			continue
+
+
+		clientserver.Com_Printf("Token: %s\n", nodownload_token)
+		if shared_c.Q_strcasestr(filename, nodownload_token):
+
+			clientserver.Com_Printf("Filename is filtered by cl_nodownload_list: %s\n", filename)
+			return True
+
+
+
+	if common_h.FS_FileExists(filename):
+
+		# it exists, no need to download
+		return True
+
+
+	return False
+
 
 """
 ===============
@@ -449,40 +523,39 @@ CL_Download_f
 Request a download from the server
 ===============
 """
-def CL_Download_f ():
+def CL_Download_f(): #void
 
-	#char filename[MAX_OSPATH];
+	"""
+	char filename[MAX_OSPATH];
+	"""
 
 	if cmdparser.Cmd_Argc() != 2:
+
 		clientserver.Com_Printf("Usage: download <filename>\n")
 		return
-	
-	filename = cmdparser.Cmd_Argv(1)
 
-	if ".." in filename:
-	
-		clientserver.Com_Printf ("Refusing to download a path with ..\n")
+
+	filename = ("%s" % cmdparser.Cmd_Argv(1))[:shared.MAX_OSPATH - 1]
+
+	if CL_DownloadFilter(filename):
+
 		return
-	
-	if filesystem.FS_LoadFile (filename)[0] != -1:
-		# it exists, no need to download
-		clientserver.Com_Printf("File already exists.\n")
-		return
-	
+
+
 	cl_main.cls.downloadname = filename
-	clientserver.Com_Printf ("Downloading {}\n".format(cl_main.cls.downloadname))
+	clientserver.Com_Printf("Downloading %s\n", cl_main.cls.downloadname)
 
 	# download to a temp name, and only rename
 	# to the real name when done, so if interrupted
 	# a runt file wont be left
-	cl_main.cls.downloadtempname = shared_c.COM_StripExtension (cl_main.cls.downloadname)
+	cl_main.cls.downloadtempname = shared_c.COM_StripExtension(cl_main.cls.downloadname)
 	cl_main.cls.downloadtempname += ".tmp"
 
-	movemsg.MSG_WriteByte (cl_main.cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value)
-	movemsg.MSG_WriteString (cl_main.cls.netchan.message,
-		"download {}".format(cl_main.cls.downloadname).encode('ascii'))
+	movemsg.MSG_WriteByte(cl_main.cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value)
+	movemsg.MSG_WriteString(cl_main.cls.netchan.message, ("download %s" % cl_main.cls.downloadname).encode("ascii"))
 
 	cl_main.cls.downloadnumber += 1
+
 
 
 """
@@ -492,90 +565,106 @@ CL_ParseDownload
 A download message has been received from the server
 =====================
 """
-def CL_ParseDownload ():
+def CL_ParseDownload(): #void
 
-	#int		size, percent;
-	#char	name[MAX_OSPATH];
-	#int		r;
+	global second_try, dont_restart_texture_stage
+
+	"""
+	char name[MAX_OSPATH];
+	int r, percent, size;
+	static qboolean second_try;
+	"""
 
 	# read the data
-	size = movemsg.MSG_ReadShort (netchan.net_message)
-	percent = movemsg.MSG_ReadByte (netchan.net_message)
+	size = movemsg.MSG_ReadShort(netchan.net_message)
+	percent = movemsg.MSG_ReadByte(netchan.net_message)
+
 	if size == -1:
-	
-		clientserver.Com_Printf ("Server does not have this file.\n")
-		if cl_main.cls.download is not None:
-		
-			# if here, we tried to resume a file but the server said no
-			cl_main.cls.download.close ()
+
+		clientserver.Com_Printf("Server does not have this file.\n")
+
+		if cl_main.cls.download:
+
+			# if here, we tried to resume a
+			# file but the server said no
+			cl_main.cls.download.close()
 			cl_main.cls.download = None
-		
-		CL_RequestNextDownload ()
+
+
+		if second_try:
+
+			cl_main.precache_check += 1
+			dont_restart_texture_stage = True
+			second_try = False
+
+		else:
+
+			second_try = True
+
+
+		CL_RequestNextDownload()
 		return
-	
+
+
+	second_try = False
+
 	# open the file if not opened yet
-	if cl_main.cls.download is None:
-	
+	if not cl_main.cls.download:
+
 		name = CL_DownloadFileName(cl_main.cls.downloadtempname)
 
-		filesystem.FS_CreatePath (name)
+		filesystem.FS_CreatePath(name)
 
 		try:
-			cl_main.cls.download = open (name, "wb")
+
+			cl_main.cls.download = open(name, "wb") # Q_fopen(name, "wb")
+
 		except OSError:
+
 			cl_main.cls.download = None
-		if cl_main.cls.download is None:
-		
+
+
+		if not cl_main.cls.download:
+
 			netchan.net_message.readcount += size
-			clientserver.Com_Printf ("Failed to open {}\n".format(cl_main.cls.downloadtempname))
-			CL_RequestNextDownload ()
+			clientserver.Com_Printf("Failed to open %s\n", cl_main.cls.downloadtempname)
+			CL_RequestNextDownload()
 			return
-		
-	cl_main.cls.download.write (netchan.net_message.data[netchan.net_message.readcount:netchan.net_message.readcount + size])
+
+
+
+	cl_main.cls.download.write(netchan.net_message.data[netchan.net_message.readcount:netchan.net_message.readcount + size]) # fwrite
 	netchan.net_message.readcount += size
 
 	if percent != 100:
-	
+
 		# request next block
-		"""
-// change display routines by zoid
-#if 0
-		Com_Printf (".");
-		if (10*(percent/10) != cls.downloadpercent)
-		{
-			cls.downloadpercent = 10*(percent/10);
-			Com_Printf ("%i%%", cls.downloadpercent);
-		}
-#endif
-		"""
 		cl_main.cls.downloadpercent = percent
 
-		movemsg.MSG_WriteByte (cl_main.cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value)
-		szone.SZ_Print (cl_main.cls.netchan.message, "nextdl")
-	
+		movemsg.MSG_WriteByte(cl_main.cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value)
+		szone.SZ_Print(cl_main.cls.netchan.message, "nextdl")
+		cl_main.cls.forcePacket = True
+
 	else:
-	
-		#char	oldn[MAX_OSPATH];
-		#char	newn[MAX_OSPATH];
 
-#		Com_Printf ("100%%\n");
+		#char oldn[MAX_OSPATH];
+		#char newn[MAX_OSPATH];
 
-		cl_main.cls.download.close ()
+		cl_main.cls.download.close()
 
-		# rename the temp file to it's final name
+		# rename the temp file to its final name
 		oldn = CL_DownloadFileName(cl_main.cls.downloadtempname)
 		newn = CL_DownloadFileName(cl_main.cls.downloadname)
-		try:
-			os.rename (oldn, newn)
-			r = 0
-		except OSError:
-			r = -1
+		r = q_shlinux.Sys_Rename(oldn, newn)
+
 		if r:
-			clientserver.Com_Printf ("failed to rename.\n")
+
+			clientserver.Com_Printf("failed to rename.\n")
+
 
 		cl_main.cls.download = None
 		cl_main.cls.downloadpercent = 0
 
 		# get another file if needed
+		CL_RequestNextDownload()
 
-		CL_RequestNextDownload ()

@@ -31,6 +31,7 @@ from common.header import common as common_h
 from common.shared import shared as shared_c
 from common.shared import rand
 from common import clientserver
+from common import frame
 from common import cmdparser
 from common import movemsg
 from common import netchan
@@ -126,7 +127,7 @@ def SVC_GetChallenge ():
 		# overwrite the oldest
 		sv_init.svs.challenges[oldest].challenge = rand.randk() & 0x7fff
 		sv_init.svs.challenges[oldest].adr = netchan.net_from
-		sv_init.svs.challenges[oldest].time = q_shlinux.curtime
+		sv_init.svs.challenges[oldest].time = frame.curtime
 		i = oldest
 
 	# send it back

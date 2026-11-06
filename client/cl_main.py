@@ -26,6 +26,11 @@ and support functions
 """
 from __future__ import annotations
 
+from client.input import sdl2
+
+from client.sound import ogg
+from client.sound.header import vorbis
+
 import os
 import struct
 from client import snd_dma, cl_view, menu, cl_input, cl_cin, cl_parse, cl_fx, cl_tent
@@ -66,11 +71,9 @@ cl_stereo_separation = None #cvar_t *
 cl_stereo = None #cvar_t *
 
 cl_add_blend, cl_add_lights, cl_add_particles, cl_add_entities = None, None, None, None
-cl_gun, cl_footsteps, cl_noskins, cl_autoskins, cl_predict, cl_maxfps = None, None, None, None, None, None
-cl_upspeed, cl_forwardspeed, cl_sidespeed, cl_yawspeed, cl_pitchspeed, cl_anglespeedkey = None, None, None, None, None, None
+cl_gun, cl_footsteps, cl_noskins, cl_autoskins, cl_predict = None, None, None, None, None
 
-m_pitch, m_yaw, m_forward, m_side = None, None, None, None
-cl_shownet, cl_showmiss, cl_showclamp, cl_timeout, cl_paused, cl_timedemo = None, None, None, None, None, None
+cl_shownet, cl_showmiss, cl_showclamp, cl_timeout, cl_paused = None, None, None, None, None
 rcon_client_password, rcon_address, cl_lightlevel = None, None, None
 info_password, info_spectator, name, skin, rate, msg, hand, fov, gender, gender_auto, cl_vwep = None, None, None, None, None, None, None, None, None, None, None
 
@@ -79,14 +82,26 @@ cls = client_h.client_static_t()
 cl = client_h.client_state_t()
 
 
-cl_entities = []
-for i in range(shared.MAX_EDICTS):
-	cl_entities.append(client_h.centity_t())
+# initialize the entities array to at least this many entities
+ALLOC_ENTITIES_MIN = 32
+
+cl_entities = [] #centity_t *, grown by CL_AllocEntity
+cl_numentities = 0 #int
 
 
-cl_parse_entities = [] 
+cl_parse_entities = [] #entity_state_t[MAX_PARSE_ENTITIES]
 for i in range(client_h.MAX_PARSE_ENTITIES):
 	cl_parse_entities.append(shared.entity_state_t())
+
+# Evil hack against too many power screen and power
+# shield impact sounds. For example if the player
+# fires his shotgun onto a Brain.
+num_power_sounds = 0 #int
+
+# Used to communicate if we entered paused mode
+# during server connect or if we were already in
+# it.
+paused_at_load = False #qboolean
 """
 extern	cvar_t *allow_download;
 extern	cvar_t *allow_download_players;
@@ -105,70 +120,88 @@ CL_WriteDemoMessage
 Dumps the current net message, prefixed by the length
 ====================
 """
-"""
-void
-CL_ClearEntities(void)
-{
-	if (cl_entities)
-	{
-		Z_Free(cl_entities);
-		cl_entities = NULL;
-	}
+def CL_ClearEntities(): #void
 
-	cl_numentities = 0;
-}
-"""
+	global cl_entities, cl_numentities
 
-"""
-centity_t *
-CL_AllocEntity(int entnum)
-{
+	if cl_entities:
+
+		cl_entities = [] # Z_Free(cl_entities); cl_entities = NULL;
+
+
+	cl_numentities = 0
+
+
+def CL_AllocEntity(entnum: int): #int (returns centity_t *)
+
+	global cl_entities, cl_numentities
+
+	"""
 	int nextpow2;
+	"""
 
-	if ((entnum < 0) || (entnum > MAX_CL_ENTNUM))
-	{
-		return NULL;
-	}
+	if (entnum < 0) or (entnum > client_h.MAX_CL_ENTNUM):
 
-	if (entnum >= cl_numentities)
-	{
-		nextpow2 = (cl_numentities || (entnum >= ALLOC_ENTITIES_MIN)) ?
-			(int)NextPow2gt(entnum) : ALLOC_ENTITIES_MIN;
+		return None
 
-		cl_entities = Z_Realloc(cl_entities, nextpow2 * sizeof(centity_t));
-		cl_numentities = nextpow2;
-	}
 
-	return &cl_entities[entnum];
-}
+	if entnum >= cl_numentities:
+
+		nextpow2 = int(shared_c.NextPow2gt(entnum)) if (cl_numentities or (entnum >= ALLOC_ENTITIES_MIN)) else \
+			ALLOC_ENTITIES_MIN
+
+		# cl_entities = Z_Realloc(cl_entities, nextpow2 * sizeof(centity_t));
+		while len(cl_entities) < nextpow2:
+
+			cl_entities.append(client_h.centity_t())
+
+
+		cl_numentities = nextpow2
+
+
+	return cl_entities[entnum]
+
+
 """
-
-"""
-/*
  * Returns max clients in the current session
  * Returns 1 if the value is bad (<= 0) or the configstring is blank
- */
-int
-CL_MaxClients(void)
-{
-	int i = 0;
-
-	sscanf(cl.configstrings[CS_MAXCLIENTS], " %i ", &i);
-
-	if (i > MAX_CLIENTS)
-	{
-		return MAX_CLIENTS;
-	}
-
-	return i <= 0 ? 1 : i;
-}
 """
+def CL_MaxClients()->int: #void (returns int)
+
+	"""
+	int i = 0;
+	"""
+
+	i = shared_c.atoi(cl.configstrings[shared.CS_MAXCLIENTS]) # sscanf(cl.configstrings[CS_MAXCLIENTS], " %i ", &i);
+
+	if i > shared.MAX_CLIENTS:
+
+		return shared.MAX_CLIENTS
+
+
+	return 1 if i <= 0 else i
 
 """
 // cl_main.c  -- client main loop
 
 #include "client.h"
 """
+
+cl_showfps = None #cvar_t *
+cl_showspeed = None #cvar_t *
+cl_kickangles = None #cvar_t *
+cl_laseralpha = None #cvar_t *
+cl_nodownload_list = None #cvar_t *
+cl_loadpaused = None #cvar_t *
+cl_audiopaused = None #cvar_t *
+cl_unpaused_scvis = None #cvar_t *
+cl_r1q2_lightstyle = None #cvar_t *
+cl_limitsparksounds = None #cvar_t *
+horplus = None #cvar_t *
+windowed_mouse = None #cvar_t *
+gl1_stereo = None #cvar_t *
+gl1_stereo_separation = None #cvar_t *
+gl1_stereo_convergence = None #cvar_t *
 
 def CL_WriteDemoMessage ():
 
@@ -216,13 +249,12 @@ Begins recording a demo from the current position
 def CL_Record_f ():
 
 	"""
-	char	name[MAX_OSPATH];
-	char	buf_data[MAX_MSGLEN];
-	sizebuf_t	buf;
-	int		i;
-	int		len;
-	entity_state_t	*ent;
-	entity_state_t	nullstate;
+	char name[MAX_OSPATH];
+	byte buf_data[MAX_MSGLEN];
+	sizebuf_t buf;
+	int i;
+	int len;
+	entity_state_t *ent;
 	"""
 	buf = common_h.sizebuf_t()
 
@@ -249,7 +281,7 @@ def CL_Record_f ():
 	clientserver.Com_Printf ("recording to {}.\n".format(name))
 	filesystem.FS_CreatePath (name)
 	try:
-		cls.demofile = open (name, "wb")
+		cls.demofile = open (name, "wb") # Q_fopen (name, "wb")
 	except OSError:
 		cls.demofile = None
 	if cls.demofile is None:
@@ -289,12 +321,10 @@ def CL_Record_f ():
 				buf.cursize = 0
 			
 			movemsg.MSG_WriteByte (buf, common_h.svc_ops_e.svc_configstring.value)
-			movemsg.MSG_WriteShort (buf, i)
-			movemsg.MSG_WriteString (buf, cl.configstrings[i].encode('ascii'))
+			movemsg.MSG_WriteConfigString (buf, i, cl.configstrings[i])
 		
 	# baselines
-	nullstate = shared.entity_state_t() # memset (&nullstate, 0, sizeof(nullstate));
-	for i in range(shared.MAX_EDICTS):
+	for i in range(cl_numentities):
 	
 		ent = cl_entities[i].baseline
 		if not ent.modelindex:
@@ -307,7 +337,7 @@ def CL_Record_f ():
 			buf.cursize = 0
 		
 		movemsg.MSG_WriteByte (buf, common_h.svc_ops_e.svc_spawnbaseline.value)		
-		movemsg.MSG_WriteDeltaEntity (nullstate, cl_entities[i].baseline, buf, True, True)
+		movemsg.MSG_WriteDeltaEntity (None, cl_entities[i].baseline, buf, True, True)
 	
 	movemsg.MSG_WriteByte (buf, common_h.svc_ops_e.svc_stufftext.value)
 	movemsg.MSG_WriteString (buf, b"precache\n")
@@ -319,36 +349,42 @@ def CL_Record_f ():
 
 	
 
-def CL_Setenv_f():
+def CL_Setenv_f(): # (static)
 
+	"""
+	int argc = Cmd_Argc();
+	"""
 	argc = cmdparser.Cmd_Argc()
 
 	if argc > 2:
-	
+
 		#char buffer[1000];
+		buffer = [None] * 1000
 		#int i;
-
-		name = cmdparser.Cmd_Argv(1)
-		buffer = ""
-
+		buffer = cmdparser.Cmd_Argv(1) # Q_strlcpy
+		buffer += "=" # Q_strlcat
 		for i in range(2, argc):
-		
-			buffer += cmdparser.Cmd_Argv( i )
-			buffer += " "
-		
-		os.environ[name] = buffer # strcpy( buffer, Cmd_Argv(1) ); strcat( buffer, "=" ); ... putenv( buffer );
-	
-	elif argc == 2:
-	
-		env = os.environ.get( cmdparser.Cmd_Argv(1) ) # getenv returns NULL when unset
 
-		if env is not None:
-		
-			clientserver.Com_Printf( "{}={}\n".format(cmdparser.Cmd_Argv(1), env) )
-		
+			buffer += cmdparser.Cmd_Argv(i) # Q_strlcat
+			buffer += " " # Q_strlcat
+
+
+		if os.putenv(buffer):
+
+			clientserver.Com_Printf("%s: putenv is failed: %s\n", "CL_Setenv_f", os.strerror(net_udp.errno))
+
+
+	elif argc == 2:
+
+		#char *env = getenv(Cmd_Argv(1));
+		env = os.getenv(cmdparser.Cmd_Argv(1))
+		if env:
+
+			clientserver.Com_Printf("%s=%s\n", cmdparser.Cmd_Argv(1), env)
+
 		else:
-		
-			clientserver.Com_Printf( "{} undefined\n".format(cmdparser.Cmd_Argv(1)) )
+
+			clientserver.Com_Printf("%s undefined\n", cmdparser.Cmd_Argv(1))
 
 	
 
@@ -359,15 +395,26 @@ def CL_Setenv_f():
 CL_Pause_f
 ==================
 """
-def CL_Pause_f ():
+def CL_Pause_f(): # (static)
+	# FIXME c2py: unresolved OGG_Status, vorbis.PAUSE, vorbis.PLAY
 
 	# never pause in multiplayer
-	if cvar.Cvar_VariableValue ("maxclients") > 1 or not clientserver.Com_ServerState ():
-	
-		cvar.Cvar_SetValue ("paused", 0)
+	if (cvar.Cvar_VariableValue("maxclients") > 1) or not clientserver.Com_ServerState():
+
+		cvar.Cvar_SetValue("paused", 0)
 		return
-	
-	cvar.Cvar_SetValue ("paused", cl_paused.value == 0.0)
+
+
+	cvar.Cvar_SetValue("paused", not cl_paused.value)
+	if cvar.Cvar_VariableValue("ogg_pausewithgame") == 1 and ogg.OGG_Status() == vorbis.PAUSE and cl_paused.value == 0:
+
+		# play music
+		cmdparser.Cbuf_AddText("ogg toggle\n")
+
+	elif cvar.Cvar_VariableValue("ogg_pausewithgame") == 1 and ogg.OGG_Status() == vorbis.PLAY and cl_paused.value == 1:
+
+		# pause music
+		cmdparser.Cbuf_AddText("ogg toggle\n")
 
 
 """
@@ -384,19 +431,20 @@ def CL_Quit_f ():
 # =====================
 # CL_ClearState
 # =====================
-def CL_ClearState ():
+def CL_ClearState(): #void
 
-	snd_dma.S_StopAllSounds ()
+	global cl
 
-	cl_fx.CL_ClearEffects ()
-	cl_tent.CL_ClearTEnts ()
+	snd_dma.S_StopAllSounds()
+	cl_fx.CL_ClearEffects()
+	cl_tent.CL_ClearTEnts()
 
-# wipe the entire cl structure
-	cl.reset()
-	for ent in cl_entities:
-		ent.clear()
+	# wipe the entire cl structure
+	cl.reset() # memset(&cl, 0, sizeof(cl));
+	CL_ClearEntities()
 
-	szone.SZ_Clear (cls.netchan.message)
+	szone.SZ_Clear(cls.netchan.message)
+
 
 
 """
@@ -427,18 +475,25 @@ CL_Skins_f
 Load or download any custom player skins and models
 =================
 """
-def CL_Skins_f ():
+def CL_Skins_f(): # (static)
+	# FIXME c2py: unresolved IN_Update
 
-	#int		i;
+	"""
+	int i;
+	"""
 
 	for i in range(shared.MAX_CLIENTS):
-	
-		if not cl.configstrings[shared.CS_PLAYERSKINS+i]:
+
+		if not cl.configstrings[shared.CS_PLAYERSKINS + i]: # !cl.configstrings[CS_PLAYERSKINS + i][0]
+
 			continue
-		clientserver.Com_Printf ("client {}: {}\n".format(i, cl.configstrings[shared.CS_PLAYERSKINS+i])) 
-		cl_screen.SCR_UpdateScreen ()
-		sys_linux.Sys_SendKeyEvents ()	# pump message loop
-		cl_parse.CL_ParseClientinfo (i)
+
+
+		clientserver.Com_Printf("client %i: %s\n", i, cl.configstrings[shared.CS_PLAYERSKINS + i])
+		cl_screen.SCR_UpdateScreen()
+		sdl2.IN_Update()
+		# pump message loop
+		cl_parse.CL_ParseClientinfo(i)
 
 
 """
@@ -459,31 +514,45 @@ def CL_DumpPackets ():
 	
 		clientserver.Com_Printf ("dumnping a packet\n")
 
-def CL_FixUpGender():
+def CL_FixUpGender(): #void
 
-	if not gender_auto.value:
-		return
+	"""
+	char *p;
+	char sk[80];
+	"""
 
-	if gender.modified:
-		# was set directly, don't override the user
+	if gender_auto.value:
+
+		if gender.modified:
+
+			# was set directly, don't override the user
+			gender.modified = False
+			return
+
+
+		sk = skin.string[:79] # Q_strlcpy(sk, skin->string, sizeof(sk));
+
+		p = sk.find('/')
+		if p >= 0: # (p = strchr(sk, '/')) != NULL
+
+			sk = sk[:p] # *p = 0;
+
+
+		if (shared_c.Q_stricmp(sk, "male") == 0) or (shared_c.Q_stricmp(sk, "cyborg") == 0):
+
+			cvar.Cvar_Set("gender", "male")
+
+		elif (shared_c.Q_stricmp(sk, "female") == 0) or (shared_c.Q_stricmp(sk, "crackhor") == 0):
+
+			cvar.Cvar_Set("gender", "female")
+
+		else:
+
+			cvar.Cvar_Set("gender", "none")
+
+
 		gender.modified = False
-		return
 
-	skin_name = skin.string
-	if "/" in skin_name:
-		skin_dir = skin_name.split("/", 1)[0]
-	elif "\\" in skin_name:
-		skin_dir = skin_name.split("\\", 1)[0]
-	else:
-		skin_dir = skin_name
-
-	if shared_c.Q_stricmp(skin_dir, "male") == 0 or shared_c.Q_stricmp(skin_dir, "cyborg") == 0:
-		cvar.Cvar_Set("gender", "male")
-	elif shared_c.Q_stricmp(skin_dir, "female") == 0 or shared_c.Q_stricmp(skin_dir, "crackhor") == 0:
-		cvar.Cvar_Set("gender", "female")
-	else:
-		cvar.Cvar_Set("gender", "none")
-	gender.modified = False
 
 
 # ==============
@@ -503,21 +572,24 @@ Restart the sound subsystem so it can pick up
 new parameters and flush all sounds
 =================
 """
-def CL_Snd_Restart_f ():
+def CL_Snd_Restart_f(): #
 
+	ogg.OGG_SaveState()
 	snd_dma.S_Shutdown()
 	snd_dma.S_Init()
-	cl_parse.CL_RegisterSounds ()
+	cl_parse.CL_RegisterSounds()
+	ogg.OGG_InitTrackList()
+	ogg.OGG_RecoverState()
 
 
-"""
-void CL_ResetPrecacheCheck (void)
-{
-	precache_check = CS_MODELS;
-	precache_model = 0;
-	precache_model_skin = 0;
-}
-"""
+def CL_ResetPrecacheCheck(): #void
+
+	global precache_check, precache_model, precache_model_skin
+
+	precache_check = shared.CS_MODELS
+	precache_model = None
+	precache_model_skin = 0
+
 
 precache_check: int = 0 # for autodownload of precache items
 precache_spawncount: int = 0
@@ -535,190 +607,151 @@ The server will send this command right
 before allowing the client into the server
 =================
 """
-def CL_Precache_f ():
+def CL_Precache_f(): #void
 
-	global precache_check, precache_spawncount, precache_tex, precache_model_skin, precache_model
-	
+	global precache_check, precache_spawncount, precache_model, precache_model_skin
+
 	# Yet another hack to let old demos work
-	# the old precache sequence
 	if cmdparser.Cmd_Argc() < 2:
-		#unsigned	map_checksum;		// for detecting cheater maps
 
-		map_checksum = collision.CM_LoadMap (cl.configstrings[shared.CS_MODELS+1], True)
-		cl_parse.CL_RegisterSounds ()
-		cl_view.CL_PrepRefresh ()
+		"""
+		unsigned map_checksum;    /* for detecting cheater maps */
+		"""
+
+		_, map_checksum = collision.CM_LoadMap(cl.configstrings[shared.CS_MODELS + 1], True)
+		cl_parse.CL_RegisterSounds()
+		cl_view.CL_PrepRefresh()
 		return
-	
+
 
 	precache_check = shared.CS_MODELS
-	precache_spawncount = int(cmdparser.Cmd_Argv(1))
+
+	precache_spawncount = shared_c.atoi(cmdparser.Cmd_Argv(1)) # (int)strtol(Cmd_Argv(1), (char **)NULL, 10)
 	precache_model = None
 	precache_model_skin = 0
 
 	cl_download.CL_RequestNextDownload()
 
 
-r"""
-static void
-CL_CurrentMap_f(void)
-{
-	Com_Printf("%s\n", cl.configstrings[CS_MODELS + 1]);
-}
-"""
+
+def CL_CurrentMap_f(): # (static)
+
+	clientserver.Com_Printf("%s\n", cl.configstrings[shared.CS_MODELS + 1])
 
 """
 =================
 CL_InitLocal
 =================
 """
-def CL_InitLocal ():
-
-	global adr0, adr1, adr2, adr3, adr4, adr5, adr6, adr7, adr8
-	global cl_stereo_separation, cl_stereo, cls
-	global cl_add_blend, cl_add_lights, cl_add_particles, cl_add_entities
-	global cl_gun, cl_footsteps, cl_noskins, cl_autoskins, cl_predict, cl_maxfps
-	global cl_upspeed, cl_forwardspeed, cl_sidespeed, cl_yawspeed, cl_pitchspeed, cl_anglespeedkey
-	global freelook, lookspring, lookstrafe, sensitivity
-	global m_pitch, m_yaw, m_forward, m_side
-	global cl_shownet, cl_showmiss, cl_showclamp, cl_timeout, cl_paused, cl_timedemo
-	global rcon_client_password, rcon_address, cl_lightlevel
-	global info_password, info_spectator, name, skin, rate, msg, hand, fov, gender, gender_auto, cl_vwep
+def CL_InitLocal(): # (static)
+	global cl_add_blend, cl_add_entities, cl_add_lights, cl_add_particles, cl_audiopaused, cl_footsteps, cl_gun, cl_kickangles, cl_laseralpha, cl_lightlevel, cl_limitsparksounds, cl_loadpaused, cl_nodownload_list, cl_noskins, cl_paused, cl_predict, cl_r1q2_lightstyle, cl_showclamp, cl_showfps, cl_showmiss, cl_shownet, cl_showspeed, cl_timeout, cl_unpaused_scvis, cl_vwep, fov, gender, gender_auto, gl1_stereo, gl1_stereo_convergence, gl1_stereo_separation, hand, horplus, name, rate, rcon_address, rcon_client_password, skin, windowed_mouse
 
 	cls.state = client_h.connstate_t.ca_disconnected
-	cls.realtime = q_shlinux.Sys_Milliseconds ()
-
-	cl_input.CL_InitInput ()
-
-	adr0 = cvar.Cvar_Get( "adr0", "", shared.CVAR_ARCHIVE )
-	adr1 = cvar.Cvar_Get( "adr1", "", shared.CVAR_ARCHIVE )
-	adr2 = cvar.Cvar_Get( "adr2", "", shared.CVAR_ARCHIVE )
-	adr3 = cvar.Cvar_Get( "adr3", "", shared.CVAR_ARCHIVE )
-	adr4 = cvar.Cvar_Get( "adr4", "", shared.CVAR_ARCHIVE )
-	adr5 = cvar.Cvar_Get( "adr5", "", shared.CVAR_ARCHIVE )
-	adr6 = cvar.Cvar_Get( "adr6", "", shared.CVAR_ARCHIVE )
-	adr7 = cvar.Cvar_Get( "adr7", "", shared.CVAR_ARCHIVE )
-	adr8 = cvar.Cvar_Get( "adr8", "", shared.CVAR_ARCHIVE )
-
-	#
+	cls.realtime = q_shlinux.Sys_Milliseconds()
+	cl_input.CL_InitInput()
 	# register our variables
-	#
-	cl_stereo_separation = cvar.Cvar_Get( "cl_stereo_separation", "0.4", shared.CVAR_ARCHIVE )
-	cl_stereo = cvar.Cvar_Get( "cl_stereo", "0", 0 )
-
-	cl_add_blend = cvar.Cvar_Get ("cl_blend", "1", 0)
-	cl_add_lights = cvar.Cvar_Get ("cl_lights", "1", 0)
-	cl_add_particles = cvar.Cvar_Get ("cl_particles", "1", 0)
-	cl_add_entities = cvar.Cvar_Get ("cl_entities", "1", 0)
-	cl_gun = cvar.Cvar_Get ("cl_gun", "1", 0)
-	cl_footsteps = cvar.Cvar_Get ("cl_footsteps", "1", 0)
-	cl_noskins = cvar.Cvar_Get ("cl_noskins", "0", 0)
-	cl_autoskins = cvar.Cvar_Get ("cl_autoskins", "0", 0)
-	cl_predict = cvar.Cvar_Get ("cl_predict", "1", 0)
-	## cl_minfps = cvar.Cvar_Get ("cl_minfps", "5", 0)
-	cl_maxfps = cvar.Cvar_Get ("cl_maxfps", "90", 0)
-
-	cl_upspeed = cvar.Cvar_Get ("cl_upspeed", "200", 0)
-	cl_forwardspeed = cvar.Cvar_Get ("cl_forwardspeed", "200", 0)
-	cl_sidespeed = cvar.Cvar_Get ("cl_sidespeed", "200", 0)
-	cl_yawspeed = cvar.Cvar_Get ("cl_yawspeed", "140", 0)
-	cl_pitchspeed = cvar.Cvar_Get ("cl_pitchspeed", "150", 0)
-	cl_anglespeedkey = cvar.Cvar_Get ("cl_anglespeedkey", "1.5", 0)
-
-	cl_input.cl_run = cvar.Cvar_Get ("cl_run", "0", shared.CVAR_ARCHIVE)
-	freelook = cvar.Cvar_Get( "freelook", "0", shared.CVAR_ARCHIVE )
-	lookspring = cvar.Cvar_Get ("lookspring", "0", shared.CVAR_ARCHIVE)
-	lookstrafe = cvar.Cvar_Get ("lookstrafe", "0", shared.CVAR_ARCHIVE)
-	sensitivity = cvar.Cvar_Get ("sensitivity", "3", shared.CVAR_ARCHIVE)
-	
-	m_pitch = cvar.Cvar_Get ("m_pitch", "0.022", shared.CVAR_ARCHIVE)
-	m_yaw = cvar.Cvar_Get ("m_yaw", "0.022", 0)
-	m_forward = cvar.Cvar_Get ("m_forward", "1", 0)
-	m_side = cvar.Cvar_Get ("m_side", "1", 0)
-
-	cl_shownet = cvar.Cvar_Get ("cl_shownet", "0", 0)
-	cl_showmiss = cvar.Cvar_Get ("cl_showmiss", "0", 0)
-	cl_showclamp = cvar.Cvar_Get ("showclamp", "0", 0)
-	cl_timeout = cvar.Cvar_Get ("cl_timeout", "120", 0)
-	cl_paused = cvar.Cvar_Get ("paused", "0", 0)
-	cl_timedemo = cvar.Cvar_Get ("timedemo", "0", 0)
-
-	rcon_client_password = cvar.Cvar_Get ("rcon_password", "", 0)
-	rcon_address = cvar.Cvar_Get ("rcon_address", "", 0)
-
-	cl_lightlevel = cvar.Cvar_Get ("r_lightlevel", "0", 0)
-
-	#
+	cl_cin.cin_force43 = cvar.Cvar_Get("cin_force43", "1", shared.CVAR_ARCHIVE)
+	cl_add_blend = cvar.Cvar_Get("cl_blend", "1", 0)
+	cl_add_lights = cvar.Cvar_Get("cl_lights", "1", 0)
+	cl_add_particles = cvar.Cvar_Get("cl_particles", "1", 0)
+	cl_add_entities = cvar.Cvar_Get("cl_entities", "1", 0)
+	cl_kickangles = cvar.Cvar_Get("cl_kickangles", "1", 0)
+	cl_gun = cvar.Cvar_Get("cl_gun", "2", shared.CVAR_ARCHIVE)
+	cl_footsteps = cvar.Cvar_Get("cl_footsteps", "1", 0)
+	cl_noskins = cvar.Cvar_Get("cl_noskins", "0", 0)
+	cl_predict = cvar.Cvar_Get("cl_predict", "1", 0)
+	cl_showfps = cvar.Cvar_Get("cl_showfps", "0", shared.CVAR_ARCHIVE)
+	cl_showspeed = cvar.Cvar_Get("cl_showspeed", "0", shared.CVAR_ARCHIVE)
+	cl_laseralpha = cvar.Cvar_Get("cl_laseralpha", "0.3", 0)
+	cl_nodownload_list = cvar.Cvar_Get("cl_nodownload_list", "", shared.CVAR_ARCHIVE)
+	cl_input.cl_upspeed = cvar.Cvar_Get("cl_upspeed", "200", 0)
+	cl_input.cl_forwardspeed = cvar.Cvar_Get("cl_forwardspeed", "200", 0)
+	cl_input.cl_sidespeed = cvar.Cvar_Get("cl_sidespeed", "200", 0)
+	cl_input.cl_yawspeed = cvar.Cvar_Get("cl_yawspeed", "140", 0)
+	cl_input.cl_pitchspeed = cvar.Cvar_Get("cl_pitchspeed", "150", 0)
+	cl_input.cl_anglespeedkey = cvar.Cvar_Get("cl_anglespeedkey", "1.5", 0)
+	cl_input.cl_run = cvar.Cvar_Get("cl_run", "0", shared.CVAR_ARCHIVE)
+	cl_shownet = cvar.Cvar_Get("cl_shownet", "0", 0)
+	cl_showmiss = cvar.Cvar_Get("cl_showmiss", "0", 0)
+	cl_showclamp = cvar.Cvar_Get("showclamp", "0", 0)
+	cl_timeout = cvar.Cvar_Get("cl_timeout", "120", 0)
+	cl_paused = cvar.Cvar_Get("paused", "0", 0)
+	cl_loadpaused = cvar.Cvar_Get("cl_loadpaused", "1", shared.CVAR_ARCHIVE)
+	cl_audiopaused = cvar.Cvar_Get("cl_audiopaused", "1", shared.CVAR_ARCHIVE)
+	cl_unpaused_scvis = cvar.Cvar_Get("cl_unpaused_scvis", "1", shared.CVAR_ARCHIVE)
+	gl1_stereo = cvar.Cvar_Get("gl1_stereo", "0", shared.CVAR_ARCHIVE)
+	gl1_stereo_separation = cvar.Cvar_Get("gl1_stereo_separation", "1", shared.CVAR_ARCHIVE)
+	gl1_stereo_convergence = cvar.Cvar_Get("gl1_stereo_convergence", "1.4", shared.CVAR_ARCHIVE)
+	rcon_client_password = cvar.Cvar_Get("rcon_password", "", 0)
+	rcon_address = cvar.Cvar_Get("rcon_address", "", 0)
+	cl_lightlevel = cvar.Cvar_Get("r_lightlevel", "0", 0)
+	cl_r1q2_lightstyle = cvar.Cvar_Get("cl_r1q2_lightstyle", "1", shared.CVAR_ARCHIVE)
+	cl_limitsparksounds = cvar.Cvar_Get("cl_limitsparksounds", "0", shared.CVAR_ARCHIVE)
 	# userinfo
-	#
-	info_password = cvar.Cvar_Get ("password", "", shared.CVAR_USERINFO)
-	info_spectator = cvar.Cvar_Get ("spectator", "0", shared.CVAR_USERINFO)
-	name = cvar.Cvar_Get ("name", "unnamed", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
-	skin = cvar.Cvar_Get ("skin", "male/grunt", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
-	rate = cvar.Cvar_Get ("rate", "25000", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE);	# FIXME
-	msg = cvar.Cvar_Get ("msg", "1", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
-	hand = cvar.Cvar_Get ("hand", "0", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
-	fov = cvar.Cvar_Get ("fov", "90", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
-	gender = cvar.Cvar_Get ("gender", "male", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
-	gender_auto = cvar.Cvar_Get ("gender_auto", "1", shared.CVAR_ARCHIVE)
-	gender.modified = False # clear this so we know when user sets it manually
-
-	cl_vwep = cvar.Cvar_Get ("cl_vwep", "1", shared.CVAR_ARCHIVE)
-
-	"""
-	//
-	// register our commands
-	//
-	"""
-	cmdparser.Cmd_AddCommand ("cmd", cl_network.CL_ForwardToServer_f)
-	cmdparser.Cmd_AddCommand ("pause", CL_Pause_f)
-	cmdparser.Cmd_AddCommand ("pingservers", cl_network.CL_PingServers_f)
-	cmdparser.Cmd_AddCommand ("skins", CL_Skins_f)
-	cmdparser.Cmd_AddCommand ("userinfo", CL_Userinfo_f);
-	cmdparser.Cmd_AddCommand ("snd_restart", CL_Snd_Restart_f);
-
-	cmdparser.Cmd_AddCommand ("changing", cl_network.CL_Changing_f)
-	cmdparser.Cmd_AddCommand ("disconnect", cl_network.CL_Disconnect_f)
-	cmdparser.Cmd_AddCommand ("record", CL_Record_f)
-	cmdparser.Cmd_AddCommand ("stop", CL_Stop_f)
-	cmdparser.Cmd_AddCommand ("quit", CL_Quit_f)
-	
-	cmdparser.Cmd_AddCommand ("connect", cl_network.CL_Connect_f)
-	cmdparser.Cmd_AddCommand ("reconnect", cl_network.CL_Reconnect_f)
-
-	cmdparser.Cmd_AddCommand ("rcon", cl_network.CL_Rcon_f)
-
- 	## Cmd_AddCommand ("packet", CL_Packet_f); # this is dangerous to leave in
-
-	cmdparser.Cmd_AddCommand ("setenv", CL_Setenv_f )
-
-	cmdparser.Cmd_AddCommand ("precache", CL_Precache_f)
-
-	cmdparser.Cmd_AddCommand ("download", cl_download.CL_Download_f)
-	#
+	name = cvar.Cvar_Get("name", "unnamed", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
+	skin = cvar.Cvar_Get("skin", "male/grunt", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
+	rate = cvar.Cvar_Get("rate", "8000", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
+	hand = cvar.Cvar_Get("hand", "0", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
+	fov = cvar.Cvar_Get("fov", "90", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
+	horplus = cvar.Cvar_Get("horplus", "1", shared.CVAR_ARCHIVE)
+	windowed_mouse = cvar.Cvar_Get("windowed_mouse", "1", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
+	gender = cvar.Cvar_Get("gender", "male", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
+	gender_auto = cvar.Cvar_Get("gender_auto", "1", shared.CVAR_ARCHIVE)
+	gender.modified = False
+	# USERINFO cvars are special, they just need to be registered
+	cvar.Cvar_Get("password", "", shared.CVAR_USERINFO)
+	cvar.Cvar_Get("spectator", "0", shared.CVAR_USERINFO)
+	cl_vwep = cvar.Cvar_Get("cl_vwep", "1", shared.CVAR_ARCHIVE)
+	# #ifdef USE_CURL
+	# #endif
+	# register our commands
+	cmdparser.Cmd_AddCommand("cmd", cl_network.CL_ForwardToServer_f)
+	cmdparser.Cmd_AddCommand("pause", CL_Pause_f)
+	cmdparser.Cmd_AddCommand("pingservers", cl_network.CL_PingServers_f)
+	cmdparser.Cmd_AddCommand("skins", CL_Skins_f)
+	cmdparser.Cmd_AddCommand("userinfo", CL_Userinfo_f)
+	cmdparser.Cmd_AddCommand("snd_restart", CL_Snd_Restart_f)
+	cmdparser.Cmd_AddCommand("changing", cl_network.CL_Changing_f)
+	cmdparser.Cmd_AddCommand("disconnect", cl_network.CL_Disconnect_f)
+	cmdparser.Cmd_AddCommand("record", CL_Record_f)
+	cmdparser.Cmd_AddCommand("stop", CL_Stop_f)
+	cmdparser.Cmd_AddCommand("quit", CL_Quit_f)
+	cmdparser.Cmd_AddCommand("connect", cl_network.CL_Connect_f)
+	cmdparser.Cmd_AddCommand("reconnect", cl_network.CL_Reconnect_f)
+	cmdparser.Cmd_AddCommand("rcon", cl_network.CL_Rcon_f)
+	cmdparser.Cmd_AddCommand("packet", cl_network.CL_Packet_f)
+	cmdparser.Cmd_AddCommand("setenv", CL_Setenv_f)
+	cmdparser.Cmd_AddCommand("precache", CL_Precache_f)
+	cmdparser.Cmd_AddCommand("download", cl_download.CL_Download_f)
+	cmdparser.Cmd_AddCommand("currentmap", CL_CurrentMap_f)
 	# forward to server commands
-	#
 	# the only thing this does is allow command completion
 	# to work -- all unknown commands are automatically
 	# forwarded to the server
-	cmdparser.Cmd_AddCommand ("wave", None)
-	cmdparser.Cmd_AddCommand ("inven", None)
-	cmdparser.Cmd_AddCommand ("kill", None)
-	cmdparser.Cmd_AddCommand ("use", None)
-	cmdparser.Cmd_AddCommand ("drop", None)
-	cmdparser.Cmd_AddCommand ("say", None)
-	cmdparser.Cmd_AddCommand ("say_team", None)
-	cmdparser.Cmd_AddCommand ("info", None)
-	cmdparser.Cmd_AddCommand ("prog", None)
-	cmdparser.Cmd_AddCommand ("give", None)
-	cmdparser.Cmd_AddCommand ("god", None)
-	cmdparser.Cmd_AddCommand ("notarget", None)
-	cmdparser.Cmd_AddCommand ("noclip", None)
-	cmdparser.Cmd_AddCommand ("invuse", None)
-	cmdparser.Cmd_AddCommand ("invprev", None)
-	cmdparser.Cmd_AddCommand ("invnext", None)
-	cmdparser.Cmd_AddCommand ("invdrop", None)
-	cmdparser.Cmd_AddCommand ("weapnext", None)
-	cmdparser.Cmd_AddCommand ("weapprev", None)
+	cmdparser.Cmd_AddCommand("wave", None)
+	cmdparser.Cmd_AddCommand("inven", None)
+	cmdparser.Cmd_AddCommand("kill", None)
+	cmdparser.Cmd_AddCommand("use", None)
+	cmdparser.Cmd_AddCommand("drop", None)
+	cmdparser.Cmd_AddCommand("say", None)
+	cmdparser.Cmd_AddCommand("say_team", None)
+	cmdparser.Cmd_AddCommand("info", None)
+	cmdparser.Cmd_AddCommand("prog", None)
+	cmdparser.Cmd_AddCommand("give", None)
+	cmdparser.Cmd_AddCommand("god", None)
+	cmdparser.Cmd_AddCommand("notarget", None)
+	cmdparser.Cmd_AddCommand("noclip", None)
+	cmdparser.Cmd_AddCommand("invuse", None)
+	cmdparser.Cmd_AddCommand("invprev", None)
+	cmdparser.Cmd_AddCommand("invnext", None)
+	cmdparser.Cmd_AddCommand("invdrop", None)
+	cmdparser.Cmd_AddCommand("weapnext", None)
+	cmdparser.Cmd_AddCommand("weapprev", None)
+	cmdparser.Cmd_AddCommand("listentities", None)
+	cmdparser.Cmd_AddCommand("teleport", None)
+	cmdparser.Cmd_AddCommand("spawnentity", None)
+	cmdparser.Cmd_AddCommand("spawnonstart", None)
+	cmdparser.Cmd_AddCommand("cycleweap", None)
 
 
 """
@@ -728,289 +761,343 @@ CL_WriteConfiguration
 Writes key bindings and archived cvars to config.cfg
 ===============
 """
-def CL_WriteConfiguration ():
+def CL_WriteConfiguration(): #void
 
-	#FILE	*f;
-	#char	path[MAX_QPATH];
+	"""
+	FILE *f;
+	char path[MAX_OSPATH];
+	"""
 
 	if cls.state == client_h.connstate_t.ca_uninitialized:
+
 		return
 
-	path = os.path.join(filesystem.FS_Gamedir(), "config.cfg")
+
+	path = "{}/config.cfg".format(filesystem.FS_Gamedir())[:shared.MAX_OSPATH - 1] # Com_sprintf
 
 	try:
-		f = open (path, "w")
-	except:
-		clientserver.Com_Printf ("Couldn't write config.cfg.\n")
+
+		f = open(path, "w") # Q_fopen(path, "w")
+
+	except OSError:
+
+		clientserver.Com_Printf("Couldn't write config.cfg.\n")
 		return
-	
-	f.write("// generated by quake, do not modify\n")
-	cl_keyboard.Key_WriteBindings (f)
+
+
+	f.write("// generated by quake, do not modify\n") # fprintf
+
+	cl_keyboard.Key_WriteBindings(f)
+
+	f.flush()
 	f.close()
 
-	cvar.Cvar_WriteVariables (path)
+	cvar.Cvar_WriteVariables(path)
 
 
-"""
-==================
-CL_FixCvarCheats
 
-==================
-*/
+class cheatvar_t(object):
 
-typedef struct
-{
-	char	*name;
-	char	*value;
-	cvar_t	*var;
-} cheatvar_t;
+	def __init__(self, name=None, value=None):
 
-cheatvar_t	cheatvars[] = {
-	{"timescale", "1"},
-	{"timedemo", "0"},
-	{"r_drawworld", "1"},
-	{"cl_testlights", "0"},
-	{"r_fullbright", "0"},
-	{"r_drawflat", "0"},
-	{"paused", "0"},
-	{"fixedtime", "0"},
-	{"sw_draworder", "0"},
-	{"gl_lightmap", "0"},
-	{"gl_saturatelighting", "0"},
-	{NULL, NULL}
-};
+		self.name = name #char *
+		self.value = value #char *
+		self.var = None #cvar_t *
 
-"""
-cheatvars = [
-	{"name": "timescale", "value": "1", "var": None},
-	{"name": "timedemo", "value": "0", "var": None},
-	{"name": "r_drawworld", "value": "1", "var": None},
-	{"name": "cl_testlights", "value": "0", "var": None},
-	{"name": "r_fullbright", "value": "0", "var": None},
-	{"name": "r_drawflat", "value": "0", "var": None},
-	{"name": "paused", "value": "0", "var": None},
-	{"name": "fixedtime", "value": "0", "var": None},
-	{"name": "sw_draworder", "value": "0", "var": None},
-	{"name": "gl_lightmap", "value": "0", "var": None},
-	{"name": "gl_saturatelighting", "value": "0", "var": None},
+cheatvars = [ #cheatvar_t []
+	cheatvar_t("timescale", "1"),
+	cheatvar_t("timedemo", "0"),
+	cheatvar_t("r_drawworld", "1"),
+	cheatvar_t("cl_testlights", "0"),
+	cheatvar_t("r_fullbright", "0"),
+	cheatvar_t("gl_drawflat", "0"),
+	cheatvar_t("paused", "0"),
+	cheatvar_t("fixedtime", "0"),
+	cheatvar_t("sw_draworder", "0"),
+	cheatvar_t("r_lightmap", "0"),
+	cheatvar_t("gl_saturatelighting", "0"),
+	cheatvar_t("cl_kickangles", "1"),
+	cheatvar_t("g_footsteps", "1"),
+	cheatvar_t("g_machinegun_norecoil", "0"),
+	cheatvar_t("g_swap_speed", "1"),
+	cheatvar_t(None, None)
 ]
 
-numcheatvars = 0
+numcheatvars = 0 #static int
 
-def CL_FixCvarCheats ():
+def CL_FixCvarCheats(): # (static)
 
-	maxclients = cl.configstrings[shared.CS_MAXCLIENTS]
-	if not maxclients or maxclients == "1":
-		return
-
+	"""
+	int i;
+	cheatvar_t *var;
+	"""
 	global numcheatvars
-	if numcheatvars == 0:
-		for cheat in cheatvars:
-			cheat["var"] = cvar.Cvar_Get(cheat["name"], cheat["value"], 0)
+
+	if (cl.configstrings[shared.CS_MAXCLIENTS] == "1" or
+		not cl.configstrings[shared.CS_MAXCLIENTS]):
+
+		return # single player can cheat
+
+
+	# find all the cvars if we haven't done it yet
+	if not numcheatvars:
+
+		while cheatvars[numcheatvars].name:
+
+			cheatvars[numcheatvars].var = cvar.Cvar_Get(cheatvars[numcheatvars].name,
+					cheatvars[numcheatvars].value, 0)
 			numcheatvars += 1
 
-	for cheat in cheatvars:
-		if cheat["var"] is None:
-			continue
-		if cheat["var"].string != cheat["value"]:
-			cvar.Cvar_Set(cheat["name"], cheat["value"])
-
-# =============================================================================
-
-# ==================
-# CL_SendCommand
-# ==================
-def CL_SendCommand ():
-	
-	# get new key events
-	sys_linux.Sys_SendKeyEvents ()
-
-	# allow mice or other external controllers to add commands
-	vid_so.IN_Commands ()
-
-	# process console commands
-	cmdparser.Cbuf_Execute ()
-
-	# fix any cheating cvars
-	CL_FixCvarCheats ()
-
-	# send intentions now
-	cl_input.CL_SendCmd ()
-
-	# resend a connection request if necessary
-	cl_network.CL_CheckForResend ()
 
 
-"""
-static void
-CL_UpdateWindowedMouse(void)
-{
-	if (cls.disable_screen)
-	{
-		return;
-	}
+	# make sure they are all set to the proper values
+	for i in range(numcheatvars):
 
-	if (cls.key_dest == key_menu || cls.key_dest == key_console ||
-		(cls.key_dest == key_game && (cls.state != ca_active || !cl.refresh_prepped)))
-	{
-		if (windowed_mouse->value)
-		{
-			Cvar_SetValue("windowed_mouse", 0);
-		}
-	}
-	else
-	{
-		if (!windowed_mouse->value)
-		{
-			Cvar_SetValue("windowed_mouse", 1);
-		}
-	}
-}
-"""
+		var = cheatvars[i]
+		if var.var.string != var.value:
 
-"""
-==================
-CL_Frame
+			cvar.Cvar_Set(var.name, var.value)
 
-==================
-"""
-extratime = 0
-lasttimecalled = 0
 
-def CL_Frame (msec): #int
 
-	global extratime, lasttimecalled
-	#static int	extratime;
-	#static int  lasttimecalled;
 
-	if frame.dedicated.value != 0:
+def CL_UpdateWindowedMouse(): # (static)
+
+	if cls.disable_screen:
+
 		return
 
-	extratime += msec
-	
-	if not int(cl_timedemo.value):
-	
-		if cls.state == client_h.connstate_t.ca_connected and extratime < 100:
-			return			# don't flood packets out while connecting
-		if extratime < 1000.0/int(cl_maxfps.value):
-			return			# framerate is too high
-	
-	# let the mouse activate or deactivate
-	vid_so.IN_Frame ()
 
-	# decide the simulation time
-	cls.frametime = extratime/1000.0
-	cl.time += extratime
+	if cls.key_dest == client_h.keydest_t.key_menu or cls.key_dest == client_h.keydest_t.key_console or (cls.key_dest == client_h.keydest_t.key_game and (cls.state != client_h.connstate_t.ca_active or not cl.refresh_prepped)):
 
-	cls.realtime = q_shlinux.curtime
+		if windowed_mouse.value:
 
-	extratime = 0
-	#if 0
-	##if (cls.frametime > (1.0 / cl_minfps->value))
-	##	cls.frametime = (1.0 / cl_minfps->value);
-	#else
-	if cls.frametime > (1.0 / 5.0):
-		cls.frametime = (1.0 / 5.0)
-	#endif
-
-	# if in the debugger last frame, don't timeout
-	if msec > 5000:
-		cls.netchan.last_received = q_shlinux.Sys_Milliseconds ()
-
-	# fetch results from server
-	cl_network.CL_ReadPackets ()
-
-	# send a new command message to the server
-	CL_SendCommand ()
-
-	# predict all unacknowledged movements
-	cl_prediction.CL_PredictMovement ()
-
-	# allow rendering DLL change
-	vid_so.VID_CheckChanges ()
-	
-	if not cl.refresh_prepped and cls.state == client_h.connstate_t.ca_active:
-		cl_view.CL_PrepRefresh ()
-
-	# update the screen
-	if frame.host_speeds.value:
-		frame.time_before_ref = q_shlinux.Sys_Milliseconds ()
-	cl_screen.SCR_UpdateScreen ()
-	if frame.host_speeds.value:
-		frame.time_after_ref = q_shlinux.Sys_Milliseconds ()
-
-	# update audio
-	snd_dma.S_Update (cl.refdef.vieworg, cl.v_forward, cl.v_right, cl.v_up)
-
-	cd_linux.CDAudio_Update()
-
-	# advance local effects for next frame
-	cl_fx.CL_RunDLights ()
-	cl_fx.CL_RunLightStyles ()
-	cl_cin.SCR_RunCinematic ()
-	cl_screen.SCR_RunConsole ()
-
-	cls.framecount+=1
+			cvar.Cvar_SetValue("windowed_mouse", 0)
 
 
-	# =============================================================================
-# CL_Init
-# =============================================================================
-def CL_Init ():
+	else:
+
+		if not windowed_mouse.value:
+
+			cvar.Cvar_SetValue("windowed_mouse", 1)
+
+lasttimecalled = 0 #static int, in CL_Frame
+
+def CL_Frame(packetdelta: int, renderdelta: int, timedelta: int, packetframe: bool, renderframe: bool):
+	#int, int, int, qboolean, qboolean
+
+	global lasttimecalled, num_power_sounds
+
+	#static int lasttimecalled;
+
+	# Dedicated?
+	if frame.dedicated.value:
+
+		return
+
+
+	# Calculate simulation time.
+	cls.nframetime = packetdelta / 1000000.0
+	cls.rframetime = renderdelta / 1000000.0
+	cls.realtime = frame.curtime
+	cl.time += int(timedelta / 1000)
+
+	# Don't extrapolate too far ahead.
+	if cls.nframetime > 0.5:
+
+		cls.nframetime = 0.5
+
+
+	if cls.rframetime > 0.5:
+
+		cls.rframetime = 0.5
+
+
+	# if in the debugger last frame, don't timeout.
+	if timedelta > 5000000:
+
+		cls.netchan.last_received = q_shlinux.Sys_Milliseconds()
+
+
+	# Reset power shield / power screen sound counter.
+	num_power_sounds = 0
+
+	if not frame.cl_timedemo.value:
+
+		# Don't throttle too much when connecting / loading.
+		if (cls.state == client_h.connstate_t.ca_connected) and (packetdelta > 100000):
+
+			packetframe = True
+
+
+
+	# Run HTTP downloads more often while connecting.
+	# #ifdef USE_CURL
+	# #endif
+
+	# Update input stuff.
+	if packetframe or renderframe:
+
+		cl_network.CL_ReadPackets()
+		CL_UpdateWindowedMouse()
+		sdl2.IN_Update()
+		cmdparser.Cbuf_Execute()
+		CL_FixCvarCheats()
+
+		if cls.state.value > client_h.connstate_t.ca_connecting.value:
+
+			cl_input.CL_RefreshCmd()
+
+		else:
+
+			cl_input.CL_RefreshMove()
+
+
+
+	if cls.forcePacket or cvar.userinfo_modified:
+
+		packetframe = True
+		cls.forcePacket = False
+
+
+	if packetframe:
+
+		cl_input.CL_SendCmd()
+		cl_network.CL_CheckForResend()
+
+		# Run HTTP downloads during game.
+		# #ifdef USE_CURL
+		# #endif
+
+
+	if renderframe:
+
+		vid_so.VID_CheckChanges() # Q2PORT: id's VID_CheckChanges until vid.c (group 14)
+		cl_prediction.CL_PredictMovement()
+
+		if not cl.refresh_prepped and (cls.state == client_h.connstate_t.ca_active):
+
+			cl_view.CL_PrepRefresh()
+
+
+		# update the screen
+		if frame.host_speeds.value:
+
+			frame.time_before_ref = q_shlinux.Sys_Milliseconds()
+
+
+		cl_screen.SCR_UpdateScreen()
+
+		if frame.host_speeds.value:
+
+			frame.time_after_ref = q_shlinux.Sys_Milliseconds()
+
+
+		# update audio
+		snd_dma.S_Update(cl.refdef.vieworg, cl.v_forward, cl.v_right, cl.v_up)
+
+		# advance local effects for next frame
+		cl_fx.CL_RunDLights()
+		cl_fx.CL_RunLightStyles()
+		cl_cin.SCR_RunCinematic()
+		cl_screen.SCR_RunConsole()
+
+		# Update framecounter
+		cls.framecount += 1
+
+		if frame.log_stats.value:
+
+			if cls.state == client_h.connstate_t.ca_active:
+
+				if not lasttimecalled:
+
+					lasttimecalled = q_shlinux.Sys_Milliseconds()
+
+					if frame.log_stats_file:
+
+						frame.log_stats_file.write("0\n")
+
+
+
+				else:
+
+					now = q_shlinux.Sys_Milliseconds()
+
+					if frame.log_stats_file:
+
+						frame.log_stats_file.write("{}\n".format(now - lasttimecalled))
+
+
+					lasttimecalled = now
+
+
+def CL_Init(): #void
 
 	if frame.dedicated.value:
-		return		# nothing running on the client
+
+		return # nothing running on the client
+
 
 	# all archived variables will now be loaded
+	cl_console.Con_Init()
 
-	cl_console.Con_Init ()
+	snd_dma.S_Init()
 
-	#if defined __linux__ || defined __sgi
-	snd_dma.S_Init ()
-	vid_so.VID_Init ()
-	#else
-	#VID_Init ();
-	#S_Init ();	// sound must be initialized after window is created
-	#endif
+	cl_screen.SCR_Init()
 
-	cl_view.V_Init ()
-	szone.SZ_Init(netchan.net_message, common_h.MAX_MSGLEN)
-	menu.M_Init ()
+	vid_so.VID_Init() # Q2PORT: id's VID_Init until vid.c (group 14)
 
-	cl_screen.SCR_Init ()
-	cls.disable_screen = True	# don't draw yet
-	
-	#CDAudio_Init ();
-	CL_InitLocal ()
-	vid_so.IN_Init ()
+	sdl2.IN_Init()
 
-	## Cbuf_AddText ("exec autoexec.cfg\n");	# Q2PORT: Yamagi execs autoexec.cfg in Qcommon_ExecConfigs
-	cmdparser.Cbuf_Execute ()
+	cl_view.V_Init()
+
+	szone.SZ_Init(netchan.net_message, common_h.MAX_MSGLEN) # net_message.data = net_message_buffer;
+
+	#net_message.maxsize = sizeof(net_message_buffer);
+
+	menu.M_Init()
+
+	# #ifdef USE_CURL
+	# #endif
+
+	cls.disable_screen = True # don't draw yet
+
+	CL_InitLocal()
+
+	cmdparser.Cbuf_Execute()
+
+	cl_keyboard.Key_ReadConsoleHistory()
 
 
-# ===============
-# CL_Shutdown
-#
-# FIXME: this is a callback from Sys_Quit and Com_Error.  It would be better
-# to run quit through here before the final handoff to the sys code.
-# ===============
-isdown = False
 
-def CL_Shutdown():
+isdown = False #static qboolean, in CL_Shutdown
+
+def CL_Shutdown(): #void
 
 	global isdown
+
 	#static qboolean isdown = false;
+
 	if isdown:
-	
-		print ("recursive shutdown\n")
+
+		print("recursive shutdown")
 		return
-	
+
+
 	isdown = True
 
-	CL_WriteConfiguration ()
+	# #ifdef USE_CURL
+	# #endif
 
-	#CDAudio_Shutdown ()
+	CL_WriteConfiguration()
+
+	cl_keyboard.Key_WriteConsoleHistory()
+
+	ogg.OGG_Stop()
 
 	snd_dma.S_Shutdown()
-	vid_so.IN_Shutdown ()
+	vid_so.IN_Shutdown()
 	vid_so.VID_Shutdown()
+
+	CL_ClearEntities()
+

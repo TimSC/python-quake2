@@ -25,6 +25,8 @@ This file implements the entity and network protocol parsing
 """
 from __future__ import annotations
 
+from client.input import sdl2
+
 import copy
 import numpy as np
 from client import cl_main, cl_fx, cl_view, ref
@@ -196,6 +198,8 @@ from client import cl_main
 from client import cl_screen
 from client import cl_view
 from client.header import client as client_h
+from client.sound import ogg
+from client.vid import vid
 
 pass
 pass
@@ -238,20 +242,27 @@ while len(svc_strings) < 256:
 CL_RegisterSounds
 ======================
 """
-def CL_RegisterSounds ():
+def CL_RegisterSounds(): #
+	# FIXME c2py: unresolved IN_Update
 
-	#int		i;
+	"""
+	int i;
+	"""
 
-	snd_dma.S_BeginRegistration ()
-	cl_tent.CL_RegisterTEntSounds ()
+	snd_dma.S_BeginRegistration()
+	cl_tent.CL_RegisterTEntSounds()
 	for i in range(1, shared.MAX_SOUNDS):
-	
-		if cl_main.cl.configstrings[shared.CS_SOUNDS+i] is None:
+
+		if not cl_main.cl.configstrings[shared.CS_SOUNDS + i]: # !cl.configstrings[CS_SOUNDS + i][0]
+
 			break
-		cl_main.cl.sound_precache[i] = snd_dma.S_RegisterSound (cl_main.cl.configstrings[shared.CS_SOUNDS+i])
-		sys_linux.Sys_SendKeyEvents ()	# pump message loop
-	
-	snd_dma.S_EndRegistration ()
+
+
+		cl_main.cl.sound_precache[i] = snd_dma.S_RegisterSound(cl_main.cl.configstrings[shared.CS_SOUNDS + i])
+		sdl2.IN_Update()
+
+
+	snd_dma.S_EndRegistration()
 
 
 bitcounts = [] #int[32], just for protocol profilingf
@@ -283,7 +294,7 @@ def CL_ParseEntityBits (): # (unsigned *bits)
 
 	# count the bits for net profiling
 	for i in range(32):
-		if total&(1<<i):
+		if total&(1<<i): # 1u << i
 			bitcounts[i]+=1
 
 	if total & common_h.U_NUMBER16:
@@ -299,10 +310,23 @@ def CL_ParseEntityBits (): # (unsigned *bits)
 	#
 	# Can go from either a baseline or a previous packet_entity
 	# ==================
-def CL_ParseDelta (fromEnt, toEnt, number, bits): #entity_state_t *from, entity_state_t *to, int number, int bits
+CL_ParseDelta_es_nullstate = shared.entity_state_t() #static const entity_state_t, in CL_ParseDelta
+
+def CL_ParseDelta (fromEnt, toEnt, number, bits): #const entity_state_t *from, entity_state_t *to, int number, int bits
+
+	#entity_state_t dummy;
+
+	if fromEnt is None:
+
+		fromEnt = CL_ParseDelta_es_nullstate
+
+
+	if toEnt is None:
+
+		toEnt = shared.entity_state_t() # to = &dummy;
+
 
 	# set everything to the state we are delta'ing from
-	
 	toEnt.copy(fromEnt)
 
 	shared.VectorCopy (fromEnt.origin, toEnt.old_origin)
@@ -378,12 +402,15 @@ def CL_ParseDelta (fromEnt, toEnt, number, bits): #entity_state_t *from, entity_
 	# Parses deltas from the given base and adds the resulting entity
 	# to the current frame
 	# ==================
-def CL_DeltaEntity (frame, newnum, old, bits): #frame_t *, int, entity_state_t *, int
+def CL_DeltaEntity (frame, newnum, old, bits): #frame_t *, int, const entity_state_t *, int
 
-		# centity_t	*ent;
-		# entity_state_t	*state;
+	#centity_t dummy, *ent;
+	#entity_state_t *state;
 
-	ent = cl_main.cl_entities[newnum]
+	ent = cl_main.CL_AllocEntity(newnum)
+	if not ent:
+
+		ent = client_h.centity_t() # memset(&dummy, 0, sizeof(dummy)); ent = &dummy;
 
 	state = cl_main.cl_parse_entities[cl_main.cl.parse_entities & (client_h.MAX_PARSE_ENTITIES-1)]
 	cl_main.cl.parse_entities+=1
@@ -392,15 +419,15 @@ def CL_DeltaEntity (frame, newnum, old, bits): #frame_t *, int, entity_state_t *
 	CL_ParseDelta (old, state, newnum, bits)
 
 	# some data changes will force no lerping
-	if (state.modelindex != ent.current.modelindex
-		or state.modelindex2 != ent.current.modelindex2
-		or state.modelindex3 != ent.current.modelindex3
-		or state.modelindex4 != ent.current.modelindex4
-		or abs(state.origin[0] - ent.current.origin[0]) > 512
-		or abs(state.origin[1] - ent.current.origin[1]) > 512
-		or abs(state.origin[2] - ent.current.origin[2]) > 512
-		or state.event == shared.EV_PLAYER_TELEPORT
-		or state.event == shared.EV_OTHER_TELEPORT
+	if ((state.modelindex != ent.current.modelindex) or
+		(state.modelindex2 != ent.current.modelindex2) or
+		(state.modelindex3 != ent.current.modelindex3) or
+		(state.modelindex4 != ent.current.modelindex4) or
+		(state.event == shared.EV_PLAYER_TELEPORT) or
+		(state.event == shared.EV_OTHER_TELEPORT) or
+		(abs(int(state.origin[0] - ent.current.origin[0])) > 512) or
+		(abs(int(state.origin[1] - ent.current.origin[1])) > 512) or
+		(abs(int(state.origin[2] - ent.current.origin[2])) > 512)
 		):
 	
 		ent.serverframe = -99
@@ -411,6 +438,9 @@ def CL_DeltaEntity (frame, newnum, old, bits): #frame_t *, int, entity_state_t *
 		ent.trailcount = 1024		# for diminishing rocket / grenade trails
 		# duplicate the current state so lerping doesn't hurt anything
 		ent.prev = copy.deepcopy(state) # ent->prev = *state;
+
+		ent.serverframe_created = cl_main.cl.frame.serverframe
+
 		if state.event == shared.EV_OTHER_TELEPORT:
 		
 			shared.VectorCopy (state.origin, ent.prev.origin)
@@ -439,10 +469,11 @@ def CL_DeltaEntity (frame, newnum, old, bits): #frame_t *, int, entity_state_t *
 	# ==================
 def CL_ParsePacketEntities (oldframe, newframe): #frame_t *, frame_t *
 
-	# int			newnum;
-	# int			bits;
-	# entity_state_t	*oldstate;
-	# int			oldindex, oldnum;
+	#unsigned int newnum;
+	#unsigned bits;
+	#centity_t *ent;
+	#entity_state_t *oldstate = NULL;
+	#int oldindex, oldnum;
 
 	newframe.parse_entities = cl_main.cl.parse_entities
 	newframe.num_entities = 0
@@ -465,11 +496,16 @@ def CL_ParsePacketEntities (oldframe, newframe): #frame_t *, frame_t *
 
 		newnum, bits = CL_ParseEntityBits ()
 
-		if newnum >= shared.MAX_EDICTS:
-			clientserver.Com_Error (shared.ERR_DROP,"CL_ParsePacketEntities: bad number:{}".format(newnum))
+		if newnum > client_h.MAX_CL_ENTNUM:
+
+			clientserver.Com_Error (shared.ERR_DROP, "%s: bad entity %d > %d\n", "CL_ParsePacketEntities", newnum, client_h.MAX_CL_ENTNUM)
+			return
+
 
 		if netchan.net_message.readcount > netchan.net_message.cursize:
-			clientserver.Com_Error (shared.ERR_DROP,"CL_ParsePacketEntities: end of message")
+
+			clientserver.Com_Error (shared.ERR_DROP, "%s: end of message", "CL_ParsePacketEntities")
+			return
 
 		if newnum==0:
 			break
@@ -498,7 +534,7 @@ def CL_ParsePacketEntities (oldframe, newframe): #frame_t *, frame_t *
 				clientserver.Com_Printf ("   remove: {}\n".format(newnum))
 
 			if oldnum != newnum:
-				clientserver.Com_Printf ("U_REMOVE: oldnum != newnum\n")
+				clientserver.Com_Printf ("U_REMOVE: oldnum != newnum: %d %d\n", oldnum, newnum)
 
 			oldindex+=1
 
@@ -535,7 +571,8 @@ def CL_ParsePacketEntities (oldframe, newframe): #frame_t *, frame_t *
 			# delta from baseline
 			if cl_main.cl_shownet.value == 3:
 				clientserver.Com_Printf ("   baseline: {}\n".format(newnum))
-			CL_DeltaEntity (newframe, newnum, cl_main.cl_entities[newnum].baseline, bits)
+			ent = cl_main.CL_AllocEntity(newnum)
+			CL_DeltaEntity (newframe, newnum, ent.baseline if ent else None, bits)
 			continue
 
 	# any remaining entities in the old frame are copied over
@@ -667,7 +704,7 @@ def CL_ParsePlayerstate (oldframe, newframe): #frame_t *, frame_t *
 
 
 	if flags & common_h.PS_FOV:
-		state.fov = movemsg.MSG_ReadByte (netchan.net_message)
+		state.fov = float(movemsg.MSG_ReadByte (netchan.net_message))
 
 	if flags & common_h.PS_RDFLAGS:
 		state.rdflags = movemsg.MSG_ReadByte (netchan.net_message)
@@ -675,7 +712,7 @@ def CL_ParsePlayerstate (oldframe, newframe): #frame_t *, frame_t *
 	# parse stats
 	statbits = movemsg.MSG_ReadLong (netchan.net_message)
 	for i in range(shared.MAX_STATS):
-		if statbits & (1<<i):
+		if statbits & (1<<i): # 1u << i
 			state.stats[i] = movemsg.MSG_ReadShort(netchan.net_message)
 
 
@@ -685,21 +722,26 @@ CL_FireEntityEvents
 
 ==================
 """
-def CL_FireEntityEvents (frame): #frame_t *
+def CL_FireEntityEvents(frame): #frame_t * (static)
 
-	#entity_state_t		*s1;
-	#int					pnum, num;
+	"""
+	int pnum;
+	"""
 
 	for pnum in range(frame.num_entities):
-	
-		num = (frame.parse_entities + pnum)&(client_h.MAX_PARSE_ENTITIES-1)
+
+		#entity_state_t *s1;
+		#int num;
+		num = (frame.parse_entities + pnum) & (client_h.MAX_PARSE_ENTITIES - 1)
 		s1 = cl_main.cl_parse_entities[num]
 		if s1.event:
-			cl_fx.CL_EntityEvent (s1)
 
-		# EF_TELEPORTER acts like an event, but is not cleared each frame
+			cl_fx.CL_EntityEvent(s1)
+
+
 		if s1.effects & shared.EF_TELEPORTER:
-			cl_fx.CL_TeleporterParticles (s1)
+
+			cl_fx.CL_TeleporterParticles(s1)
 	
 
 
@@ -715,29 +757,23 @@ def SHOWNET(s): #char *
 # ====================
 # CL_ParseServerMessage
 # ====================
-r"""
-static void
-CL_ShowNetCmd(int cmd)
-{
-	if (cmd < 0)
-	{
-		Com_Error(ERR_DROP, "%3i: unexpected message end",
-			net_message.readcount - 1);
-		return;
-	}
+def CL_ShowNetCmd(cmd): #int (static)
 
-	if (cl_shownet->value >= 2)
-	{
-		if (cmd >= ARRLEN(svc_strings))
-		{
-			Com_Printf("%3i:BAD CMD %i\n", net_message.readcount - 1, cmd);
-			return;
-		}
+	if cmd < 0:
 
-		SHOWNET(svc_strings[cmd]);
-	}
-}
-"""
+		clientserver.Com_Error(shared.ERR_DROP, "%3i: unexpected message end", netchan.net_message.readcount - 1)
+		return
+
+
+	if cl_main.cl_shownet.value >= 2:
+
+		if cmd >= len(svc_strings):
+
+			clientserver.Com_Printf("%3i:BAD CMD %i\n", netchan.net_message.readcount - 1, cmd)
+			return
+
+
+		SHOWNET(svc_strings[cmd])
 
 def CL_ParseFrame ():
 
@@ -747,11 +783,7 @@ def CL_ParseFrame ():
 	frame_t		*old;
 	"""
 
-	cl_main.cl.frame.clear()
-
-#if 0
-#	CL_ClearProjectiles(); // clear projectiles for new frame
-#endif
+	cl_main.cl.frame.clear() # memset(&cl.frame, 0, sizeof(cl.frame));
 
 	cl_main.cl.frame.serverframe = movemsg.MSG_ReadSLong (netchan.net_message)
 	cl_main.cl.frame.deltaframe = movemsg.MSG_ReadSLong (netchan.net_message)
@@ -807,16 +839,28 @@ def CL_ParseFrame ():
 
 	# read playerinfo
 	cmd = movemsg.MSG_ReadByte (netchan.net_message)
-	SHOWNET(svc_strings[cmd])
+	CL_ShowNetCmd(cmd)
+
 	if cmd != common_h.svc_ops_e.svc_playerinfo.value:
-		clientserver.Com_Error (shared.ERR_DROP, "CL_ParseFrame: not playerinfo")
+
+		clientserver.Com_Error (shared.ERR_DROP, "%s: 0x%X not playerinfo",
+			"CL_ParseFrame", cmd)
+		return
+
+
 	CL_ParsePlayerstate (old, cl_main.cl.frame)
 
 	# read packet entities
 	cmd = movemsg.MSG_ReadByte (netchan.net_message)
-	SHOWNET(svc_strings[cmd])
+	CL_ShowNetCmd(cmd)
+
 	if cmd != common_h.svc_ops_e.svc_packetentities.value:
-		clientserver.Com_Error (shared.ERR_DROP, "CL_ParseFrame: not packetentities")
+
+		clientserver.Com_Error (shared.ERR_DROP, "%s: 0x%X not packetentities",
+			"CL_ParseFrame", cmd)
+		return
+
+
 	CL_ParsePacketEntities (old, cl_main.cl.frame)
 
 	# save the frame off in the backup array for later delta comparisons
@@ -836,12 +880,28 @@ def CL_ParseFrame ():
 			if cl_main.cls.disable_servercount != cl_main.cl.servercount \
 				and cl_main.cl.refresh_prepped:
 				cl_screen.SCR_EndLoadingPlaque ()	# get rid of loading plaque
-		
-		cl_main.cl.sound_prepped = True	# can start mixing ambient sounds
-	
+
+			cl_main.cl.sound_prepped = True
+
+			if cl_main.paused_at_load:
+
+				if cl_main.cl_loadpaused.value == 1:
+
+					cvar.Cvar_Set("paused", "0")
+
+
+				cl_main.paused_at_load = False
+
+
+
 		# fire entity events
 		CL_FireEntityEvents (cl_main.cl.frame)
-		cl_prediction.CL_CheckPredictionError ()
+
+		if not (not cl_main.cl_predict.value or
+			  (cl_main.cl.frame.playerstate.pmove.pm_flags &
+			   shared.PMF_NO_PREDICTION)):
+
+			cl_prediction.CL_CheckPredictionError()
 	
 
 
@@ -901,10 +961,10 @@ def CL_GetEntitySoundOrigin (ent: int): # vec3_t
 	org = np.zeros((3,), dtype=np.float32)
 	#centity_t	*old;
 
-	if ent < 0 or ent >= shared.MAX_EDICTS:
-		clientserver.Com_Error (shared.ERR_DROP, "CL_GetEntitySoundOrigin: bad ent")
-	old = cl_main.cl_entities[ent]
-	shared.VectorCopy (old.lerp_origin, org)
+	# Q2PORT: Yamagi's bounds check (sound.c, group 13): entities the client hasn't allocated are at the origin
+	lerp_origin = cl_main.cl_entities[ent].lerp_origin if ((ent >= 0) and (ent < cl_main.cl_numentities)) else \
+		shared_c.vec3_origin
+	shared.VectorCopy (lerp_origin, org)
 
 	# FIXME: bmodel issues...
 
@@ -923,44 +983,75 @@ def CL_GetEntitySoundOrigin (ent: int): # vec3_t
 CL_ParseServerData
 ==================
 """
-def CL_ParseServerData ():
+def CL_ParseServerData(): #void
 
-	clientserver.Com_DPrintf ("Serverdata packet received.\n")
+	#extern cvar_t *fs_gamedirvar;
+	"""
+	char *str;
+	int i;
+	"""
 
-	cl_main.CL_ClearState ()
+	# Clear all key states
+	sdl2.In_FlushQueue()
+
+	clientserver.Com_DPrintf("Serverdata packet received.\n")
+
+	# wipe the client_state_t struct
+	cl_main.CL_ClearState()
 	cl_main.cls.state = client_h.connstate_t.ca_connected
 
-	protocol = movemsg.MSG_ReadLong (netchan.net_message)
-	cl_main.cls.serverProtocol = protocol
+	# parse protocol version number
+	i = movemsg.MSG_ReadLong(netchan.net_message)
+	cl_main.cls.serverProtocol = i
 
-	if not (clientserver.Com_ServerState() and common_h.PROTOCOL_VERSION == 34):
-		if protocol != common_h.PROTOCOL_VERSION:
-			clientserver.Com_Error (common_h.ERR_DROP, "Server returned version {}, not {}".format(protocol, common_h.PROTOCOL_VERSION))
+	# another demo hack
+	if clientserver.Com_ServerState() and (common_h.PROTOCOL_VERSION == 34):
 
-	cl_main.cl.servercount = movemsg.MSG_ReadLong (netchan.net_message)
-	cl_main.cl.attractloop = movemsg.MSG_ReadByte (netchan.net_message)
+		pass
 
-	gamedir = movemsg.MSG_ReadString (netchan.net_message)
-	cl_main.cl.gamedir = gamedir[:shared.MAX_QPATH]
+	elif i != common_h.PROTOCOL_VERSION:
 
-	fsvar = filesystem.fs_gamedirvar
-	if gamedir:
-		if not fsvar or not fsvar.string or fsvar.string != gamedir:
-			cvar.Cvar_Set ("game", gamedir)
-	elif fsvar and fsvar.string:
-		cvar.Cvar_Set ("game", gamedir)
+		clientserver.Com_Error(shared.ERR_DROP, "Server returned version %i, not %i",
+				i, common_h.PROTOCOL_VERSION)
+		return
 
-	cl_main.cl.playernum = movemsg.MSG_ReadSShort (netchan.net_message)
 
-	level_name = movemsg.MSG_ReadString (netchan.net_message)
+	cl_main.cl.servercount = movemsg.MSG_ReadLong(netchan.net_message)
+	cl_main.cl.attractloop = movemsg.MSG_ReadByte(netchan.net_message)
+
+	# game directory
+	str_ = movemsg.MSG_ReadString(netchan.net_message)
+	cl_main.cl.gamedir = str_[:shared.MAX_QPATH - 1] # Q_strlcpy
+
+	# set gamedir
+	fs_gamedirvar = filesystem.fs_gamedirvar
+	if ((str_ and (not fs_gamedirvar.string or not fs_gamedirvar.string[:1] or
+		  fs_gamedirvar.string != str_)) or
+		(not str_ and (fs_gamedirvar.string is not None and not fs_gamedirvar.string))):
+
+		cvar.Cvar_Set("game", str_)
+
+
+	# parse player entity number
+	cl_main.cl.playernum = movemsg.MSG_ReadSShort(netchan.net_message)
+
+	# get the full level name
+	str_ = movemsg.MSG_ReadString(netchan.net_message)
 
 	if cl_main.cl.playernum == -1:
-		cl_cin.SCR_PlayCinematic (level_name)
+
+		# playing a cinematic or showing a pic, not a level
+		cl_cin.SCR_PlayCinematic(str_)
+
 	else:
-		clientserver.Com_Printf ("\n\n\35\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\37\n\n")
-		clientserver.Com_Printf ("{}{}\n".format(chr(2), level_name))
+
+		# seperate the printfs so the server
+		# message can have a color
+		clientserver.Com_Printf("\n\n\35\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\37\n\n")
+		clientserver.Com_Printf("%c%s\n", 2, str_)
+
+		# need to prep refresh at next oportunity
 		cl_main.cl.refresh_prepped = False
-	
 
 
 """
@@ -971,17 +1062,14 @@ CL_ParseBaseline
 def CL_ParseBaseline ():
 
 	"""
-	entity_state_t	*es;
-	int				bits;
-	int				newnum;
-	entity_state_t	nullstate;
+	unsigned bits;
+	int newnum;
+	centity_t *ent;
 	"""
 
-	nullstate = shared.entity_state_t()
-
 	newnum, bits = CL_ParseEntityBits ()
-	es = cl_main.cl_entities[newnum].baseline
-	CL_ParseDelta (nullstate, es, newnum, bits)
+	ent = cl_main.CL_AllocEntity(newnum)
+	CL_ParseDelta (None, ent.baseline if ent else None, newnum, bits)
 
 """
 ================
@@ -1001,36 +1089,34 @@ def CL_LoadClientinfo (ci, s): #clientinfo_t *, char *
 	char		weapon_filename[MAX_QPATH];
 	"""
 
-	if s is None: # unset configstrings are None rather than ""
-		s = ""
-
-	ci.cinfo = s[:shared.MAX_QPATH-1] # strncpy(ci->cinfo, s, sizeof(ci->cinfo)); ci->cinfo[sizeof(ci->cinfo)-1] = 0;
+	ci.cinfo = s[:shared.MAX_QPATH-1] # Q_strlcpy(ci->cinfo, s, sizeof(ci->cinfo));
+	s = ci.cinfo
 
 	# isolate the player's name
-	ci.name = s[:shared.MAX_QPATH-1]
+	ci.name = s[:shared.MAX_QPATH-1] # Q_strlcpy(ci->name, s, sizeof(ci->name));
 	t = s.find ("\\")
 	if t != -1:
 	
 		ci.name = ci.name[:t] # ci->name[t-s] = 0;
 		s = s[t+1:]
 	
-	if cl_main.cl_noskins.value or len(s) == 0:
+	if cl_main.cl_noskins.value or (len(s) == 0): # *s == 0
 	
 		model_filename = "players/male/tris.md2"
 		weapon_filename = "players/male/weapon.md2"
 		skin_filename = "players/male/grunt.pcx"
 		ci.iconname = "/players/male/grunt_i.pcx"
-		ci.model = vid_so.re.RegisterModel (model_filename)
+		ci.model = vid.R_RegisterModel (model_filename)
 		for i in range(client_h.MAX_CLIENTWEAPONMODELS): # memset(ci->weaponmodel, 0, sizeof(ci->weaponmodel));
 			ci.weaponmodel[i] = None
-		ci.weaponmodel[0] = vid_so.re.RegisterModel (weapon_filename)
-		ci.skin = vid_so.re.RegisterSkin (skin_filename)
-		ci.icon = vid_so.re.RegisterPic (ci.iconname)
+		ci.weaponmodel[0] = vid.R_RegisterModel (weapon_filename)
+		ci.skin = vid.R_RegisterSkin (skin_filename)
+		ci.icon = vid.Draw_FindPic (ci.iconname)
 	
 	else:
 	
 		# isolate the model name
-		model_name = s
+		model_name = s[:shared.MAX_QPATH-1] # Q_strlcpy(model_name, s, sizeof(model_name));
 		t = model_name.find("/")
 		if t == -1:
 			t = model_name.find("\\")
@@ -1039,20 +1125,20 @@ def CL_LoadClientinfo (ci, s): #clientinfo_t *, char *
 		model_name = model_name[:t] # *t = 0;
 
 		# isolate the skin name
-		skin_name = s[len(model_name) + 1:]
+		skin_name = s[len(model_name) + 1:][:shared.MAX_QPATH-1] # Q_strlcpy
 
 		# model file
 		model_filename = "players/{}/tris.md2".format(model_name)
-		ci.model = vid_so.re.RegisterModel (model_filename)
+		ci.model = vid.R_RegisterModel (model_filename)
 		if not ci.model:
 		
 			model_name = "male"
 			model_filename = "players/male/tris.md2"
-			ci.model = vid_so.re.RegisterModel (model_filename)
+			ci.model = vid.R_RegisterModel (model_filename)
 		
 		# skin file
 		skin_filename = "players/{}/{}.pcx".format(model_name, skin_name)
-		ci.skin = vid_so.re.RegisterSkin (skin_filename)
+		ci.skin = vid.R_RegisterSkin (skin_filename)
 
 		# if we don't have the skin and the model wasn't male,
 		# see if the male has it (this is for CTF's skins)
@@ -1061,36 +1147,36 @@ def CL_LoadClientinfo (ci, s): #clientinfo_t *, char *
 			# change model to male
 			model_name = "male"
 			model_filename = "players/male/tris.md2"
-			ci.model = vid_so.re.RegisterModel (model_filename)
+			ci.model = vid.R_RegisterModel (model_filename)
 
 			# see if the skin exists for the male model
 			skin_filename = "players/{}/{}.pcx".format(model_name, skin_name)
-			ci.skin = vid_so.re.RegisterSkin (skin_filename)
+			ci.skin = vid.R_RegisterSkin (skin_filename)
 		
 		# if we still don't have a skin, it means that the male model didn't have
 		# it, so default to grunt
 		if not ci.skin:
 			# see if the skin exists for the male model
 			skin_filename = "players/{}/grunt.pcx".format(model_name)
-			ci.skin = vid_so.re.RegisterSkin (skin_filename)
+			ci.skin = vid.R_RegisterSkin (skin_filename)
 		
 		# weapon file
 		for i in range(cl_view.num_cl_weaponmodels):
 			weapon_filename = "players/{}/{}".format(model_name, cl_view.cl_weaponmodels[i])
-			ci.weaponmodel[i] = vid_so.re.RegisterModel(weapon_filename)
+			ci.weaponmodel[i] = vid.R_RegisterModel(weapon_filename)
 			if not ci.weaponmodel[i] and model_name == "cyborg":
 				# try male
 				weapon_filename = "players/male/{}".format(cl_view.cl_weaponmodels[i])
-				ci.weaponmodel[i] = vid_so.re.RegisterModel(weapon_filename)
+				ci.weaponmodel[i] = vid.R_RegisterModel(weapon_filename)
 			
 			if not cl_main.cl_vwep.value:
 				break # only one when vwep is off
 		
 		# icon file
 		ci.iconname = "/players/{}/{}_i.pcx".format(model_name, skin_name)
-		ci.icon = vid_so.re.RegisterPic (ci.iconname)
+		ci.icon = vid.Draw_FindPic (ci.iconname)
 	
-	# must have loaded all data types to be valud
+	# must have loaded all data types to be valid
 	if not ci.skin or not ci.icon or not ci.model or not ci.weaponmodel[0]:
 	
 		ci.skin = None
@@ -1121,59 +1207,109 @@ def CL_ParseClientinfo (player): #int
 # =================
 # CL_ParseConfigString
 # =================
-def CL_ParseConfigString ():
+def CL_ParseConfigString(): #void
 
-		# int		i;
-		# char	*s;
-		# char	olds[MAX_QPATH];
+	"""
+	size_t length, space;
+	int i, cs_changed;
+	char *s, *cs;
+	"""
+
+	i = movemsg.MSG_ReadShort(netchan.net_message)
+	s = movemsg.MSG_ReadString(netchan.net_message)
+
+	if (i < 0) or (i >= shared.MAX_CONFIGSTRINGS):
+
+		clientserver.Com_Printf("%s: bad index: %i\n", "CL_ParseConfigString", i)
+		return
 
 
-	i = movemsg.MSG_ReadShort (netchan.net_message)
-	if i < 0 or i >= shared.MAX_CONFIGSTRINGS:
-		clientserver.Com_Error (common_h.ERR_DROP, "configstring > MAX_CONFIGSTRINGS")
-	s = movemsg.MSG_ReadString (netchan.net_message)
+	cs = cl_main.cl.configstrings[i]
+	cs_changed = s != cs # strcmp(s, cs) != 0
 
-	olds = cl_main.cl.configstrings[i] or ""
-	cl_main.cl.configstrings[i] = s
+	length = len(s)
 
-	if i >= shared.CS_LIGHTS and i < shared.CS_LIGHTS + shared.MAX_LIGHTSTYLES:
-		cl_fx.CL_SetLightstyle (i - shared.CS_LIGHTS)
+	# statusbar code covers several configstring indices
+	if (i >= shared.CS_STATUSBAR) and (i < shared.CS_STATUSBAR_END):
+
+		space = shared.CS_STATUSBAR_SPACE(i)
+
+		if length >= space:
+
+			clientserver.Com_Printf("%s: %i: statusbar code too long: %i > %i\n",
+				"CL_ParseConfigString", i, length, space - 1)
+
+			return
+
+
+		# memcpy(cs, s, length + 1); Q2PORT: the whole string stays in
+		# configstrings[i], where the C runs it on into the next indices
+		cl_main.cl.configstrings[i] = s
+
+	else:
+
+		space = shared.MAX_QPATH # sizeof(cl.configstrings[i])
+
+		if length >= space:
+
+			clientserver.Com_Printf("%s: %i: string too long: %i > %i\n",
+				"CL_ParseConfigString", i, length, space - 1)
+
+			return
+
+
+		cl_main.cl.configstrings[i] = s # strcpy(cs, s);
+
+
+	if (i >= shared.CS_LIGHTS) and (i < shared.CS_LIGHTS + shared.MAX_LIGHTSTYLES):
+
+		cl_fx.CL_SetLightstyle(i - shared.CS_LIGHTS)
 
 	elif i == shared.CS_CDTRACK:
-		if cl_main.cl.refresh_prepped:
-			track = 0
-			try:
-				track = int (cl_main.cl.configstrings[shared.CS_CDTRACK] or "")
-			except ValueError:
-				pass
-			cd_linux.CDAudio_Play (track, True)
 
-	elif i >= shared.CS_MODELS and i < shared.CS_MODELS + shared.MAX_MODELS:
 		if cl_main.cl.refresh_prepped:
-			model_name = cl_main.cl.configstrings[i]
-			if model_name:
-				cl_main.cl.model_draw[i - shared.CS_MODELS] = vid_so.re.RegisterModel (model_name)
-				if model_name[0] == '*':
-					cl_main.cl.model_clip[i - shared.CS_MODELS] = collision.CM_InlineModel (model_name)
-				else:
-					cl_main.cl.model_clip[i - shared.CS_MODELS] = None
 
-	elif i >= shared.CS_SOUNDS and i < shared.CS_SOUNDS + shared.MAX_SOUNDS:
+			ogg.OGG_PlayTrack(cl_main.cl.configstrings[shared.CS_CDTRACK], True, True)
+
+
+	elif (i >= shared.CS_MODELS) and (i < shared.CS_MODELS + shared.MAX_MODELS):
+
 		if cl_main.cl.refresh_prepped:
-			sound_name = cl_main.cl.configstrings[i]
-			if sound_name:
-				cl_main.cl.sound_precache[i - shared.CS_SOUNDS] = snd_dma.S_RegisterSound (sound_name)
 
-	elif i >= shared.CS_IMAGES and i < shared.CS_IMAGES + shared.MAX_IMAGES:
+			cl_main.cl.model_draw[i - shared.CS_MODELS] = vid.R_RegisterModel(cl_main.cl.configstrings[i])
+
+			if cl_main.cl.configstrings[i][:1] == '*':
+
+				cl_main.cl.model_clip[i - shared.CS_MODELS] = collision.CM_InlineModel(cl_main.cl.configstrings[i])
+
+
+			else:
+
+				cl_main.cl.model_clip[i - shared.CS_MODELS] = None
+
+
+
+	elif (i >= shared.CS_SOUNDS) and (i < shared.CS_SOUNDS + shared.MAX_MODELS):
+
 		if cl_main.cl.refresh_prepped:
-			image_name = cl_main.cl.configstrings[i]
-			if image_name:
-				cl_main.cl.image_precache[i - shared.CS_IMAGES] = vid_so.re.RegisterPic (image_name)
 
-	elif i >= shared.CS_PLAYERSKINS and i < shared.CS_PLAYERSKINS + shared.MAX_CLIENTS:
-		if cl_main.cl.refresh_prepped and olds != s:
-			CL_ParseClientinfo (i - shared.CS_PLAYERSKINS)
-	
+			cl_main.cl.sound_precache[i - shared.CS_SOUNDS] = \
+				snd_dma.S_RegisterSound(cl_main.cl.configstrings[i])
+
+
+	elif (i >= shared.CS_IMAGES) and (i < shared.CS_IMAGES + shared.MAX_MODELS):
+
+		if cl_main.cl.refresh_prepped:
+
+			cl_main.cl.image_precache[i - shared.CS_IMAGES] = vid.Draw_FindPic(cl_main.cl.configstrings[i])
+
+
+	elif (i >= shared.CS_PLAYERSKINS) and (i < shared.CS_PLAYERSKINS + shared.MAX_CLIENTS):
+
+		if cl_main.cl.refresh_prepped and cs_changed:
+
+			CL_ParseClientinfo(i - shared.CS_PLAYERSKINS)
+
 
 
 # ======================================================================
@@ -1183,169 +1319,254 @@ def CL_ParseConfigString ():
 # ==================
 # CL_ParseStartSoundPacket
 # ==================
-def CL_ParseStartSoundPacket():
+def CL_ParseStartSoundPacket(): # (static)
 
-	# vec3_t  pos_v;
-	# float	*pos;
-	# int 	channel, ent;
-	# int 	sound_num;
-	# float 	volume;
-	# float 	attenuation;
-	# int		flags;
-	# float	ofs;
+	"""
+	vec3_t pos_v;
+	float *pos;
+	int channel, ent;
+	int sound_num;
+	float volume;
+	float attenuation;
+	int flags;
+	float ofs;
+	"""
+	pos_v = np.zeros((3,), dtype=np.float32)
 
+	flags = movemsg.MSG_ReadByte(netchan.net_message)
+	sound_num = movemsg.MSG_ReadByte(netchan.net_message)
+	if sound_num < 0:
 
-	flags = movemsg.MSG_ReadByte (netchan.net_message)
-	sound_num = movemsg.MSG_ReadByte (netchan.net_message)
+		clientserver.Com_Error(common_h.ERR_DROP, "%s: unexpected message end", "CL_ParseStartSoundPacket")
+
 
 	if flags & common_h.SND_VOLUME:
-		volume = movemsg.MSG_ReadByte (netchan.net_message) / 255.0
+
+		volume = movemsg.MSG_ReadByte(netchan.net_message) / 255.0
+
 	else:
+
 		volume = common_h.DEFAULT_SOUND_PACKET_VOLUME
-	
+
+
 	if flags & common_h.SND_ATTENUATION:
-		attenuation = movemsg.MSG_ReadByte (netchan.net_message) / 64.0
+
+		attenuation = movemsg.MSG_ReadByte(netchan.net_message) / 64.0
+
 	else:
+
 		attenuation = common_h.DEFAULT_SOUND_PACKET_ATTENUATION
 
+
 	if flags & common_h.SND_OFFSET:
-		ofs = movemsg.MSG_ReadByte (netchan.net_message) / 1000.0
+
+		ofs = movemsg.MSG_ReadByte(netchan.net_message) / 1000.0
+
 	else:
+
 		ofs = 0
 
+
 	if flags & common_h.SND_ENT:
+
 		# entity reletive
 		channel = movemsg.MSG_ReadShort(netchan.net_message)
-		ent = channel>>3
-		if ent > shared.MAX_EDICTS:
-			clientserver.Com_Error (common_h.ERR_DROP,"CL_ParseStartSoundPacket: ent = {}".format(ent))
+		ent = channel >> 3
+		if ent < 0:
+
+			clientserver.Com_Printf("%s: incorrect channel %d\n", "CL_ParseStartSoundPacket", channel)
+			return
+
 
 		channel &= 7
-	
+
 	else:
-	
+
 		ent = 0
 		channel = 0
-	
+
 
 	if flags & common_h.SND_POS:
+
 		# positioned in space
-		pos_v = movemsg.MSG_ReadPos (netchan.net_message)
- 
+		movemsg.MSG_ReadPos(netchan.net_message, pos_v)
 		pos = pos_v
-	
-	else:	# use entity number
+
+	else:
+
+		# use entity number
 		pos = None
 
-	if sound_num < 0 or sound_num >= len (cl_main.cl.sound_precache):
+
+	if sound_num >= shared.MAX_SOUNDS:
+
+		clientserver.Com_Printf("%s: incorrect sound id %d > MAX_SOUNDS\n", "CL_ParseStartSoundPacket", sound_num)
 		return
+
 
 	if not cl_main.cl.sound_precache[sound_num]:
+
 		return
 
-	snd_dma.S_StartSound (pos, ent, channel, cl_main.cl.sound_precache[sound_num], volume, attenuation, ofs)
+
+	snd_dma.S_StartSound(pos, ent, channel, cl_main.cl.sound_precache[sound_num], volume, attenuation, ofs)
 	   
 
 
-def CL_ParseServerMessage ():
+def CL_ParseServerMessage(): #void
 
-	#int			cmd;
-	#char		*s;
-	#int			i;
+	"""
+	int cmd;
+	char *s;
+	int i;
+	"""
 
-	#
 	# if recording demos, copy the message out
-	#
 	if cl_main.cl_shownet.value == 1:
-		clientserver.Com_Printf ("{:d} ".format(netchan.net_message.cursize))
+
+		clientserver.Com_Printf("%i ", netchan.net_message.cursize)
+
+
 	elif cl_main.cl_shownet.value >= 2:
-		clientserver.Com_Printf ("------------------\n")
 
-	#
+		clientserver.Com_Printf("------------------\n")
+
+
 	# parse the message
-	#
-	while True:
-		if netchan.net_message.readcount > netchan.net_message.cursize:
-			clientserver.Com_Error (common_h.ERR_DROP,"CL_ParseServerMessage: Bad server message")
-			break
+	while 1:
 
-		cmd_raw = movemsg.MSG_ReadByte (netchan.net_message)
-		if cmd_raw == -1:
+		if netchan.net_message.readcount > netchan.net_message.cursize:
+
+			clientserver.Com_Error(shared.ERR_DROP, "%s: Bad server message", "CL_ParseServerMessage")
+			return
+
+
+		cmd = movemsg.MSG_ReadByte(netchan.net_message)
+
+		if cmd == -1:
+
 			SHOWNET("END OF MESSAGE")
 			break
 
-		if cl_main.cl_shownet.value>=2:
 
-			if not svc_strings[cmd_raw]:
-				clientserver.Com_Printf ("{:3d}:BAD CMD {:d}".format(netchan.net_message.readcount-1,cmd_raw))
-			else:
-				SHOWNET(svc_strings[cmd_raw])
+		CL_ShowNetCmd(cmd)
 
-		try:
-			cmdval = common_h.svc_ops_e (cmd_raw)
-		except ValueError:
-			clientserver.Com_Error (common_h.ERR_DROP,"CL_ParseServerMessage: Illegible server message")
-			break
+		# other commands
+		if cmd == common_h.svc_ops_e.svc_nop.value:
 
-		if cmdval == common_h.svc_ops_e.svc_nop:
 			pass
-		elif cmdval == common_h.svc_ops_e.svc_disconnect:
-			clientserver.Com_Error (shared.ERR_DISCONNECT,"Server disconnected\n")
-		elif cmdval == common_h.svc_ops_e.svc_reconnect:
-			clientserver.Com_Printf ("Server disconnected, reconnecting\n")
+
+		elif cmd == common_h.svc_ops_e.svc_disconnect.value:
+
+			clientserver.Com_Error(shared.ERR_DISCONNECT, "Server disconnected\n")
+			return
+
+		elif cmd == common_h.svc_ops_e.svc_reconnect.value:
+
+			clientserver.Com_Printf("Server disconnected, reconnecting\n")
+
 			if cl_main.cls.download:
-				cl_main.cls.download.close ()
+
+				# close download
+				cl_main.cls.download.close() # fclose(cls.download);
 				cl_main.cls.download = None
 
+
 			cl_main.cls.state = client_h.connstate_t.ca_connecting
-			cl_main.cls.connect_time = -99999
-		elif cmdval == common_h.svc_ops_e.svc_print:
-			i = movemsg.MSG_ReadByte (netchan.net_message)
-			if i == shared.PRINT_CHAT:
-				snd_dma.S_StartLocalSound ("misc/talk.wav")
-				cl_console.con.ormask = 128
+			cl_main.cls.connect_time = -99999 # CL_CheckForResend() will fire immediately
 
-			clientserver.Com_Printf (movemsg.MSG_ReadString(netchan.net_message))
-			cl_console.con.ormask = 0
-		elif cmdval == common_h.svc_ops_e.svc_centerprint:
-			cl_screen.SCR_CenterPrint (movemsg.MSG_ReadString(netchan.net_message))
-		elif cmdval == common_h.svc_ops_e.svc_stufftext:
+		elif cmd == common_h.svc_ops_e.svc_print.value:
+
+			i = movemsg.MSG_ReadByte(netchan.net_message)
+			if i < 0:
+
+				SHOWNET("END OF MESSAGE")
+
+			else: # break; leaves the switch
+
+				if i == shared.PRINT_CHAT:
+
+					snd_dma.S_StartLocalSound("misc/talk.wav")
+					cl_console.con.ormask = 128
+
+
+				clientserver.Com_Printf("%s", movemsg.MSG_ReadString(netchan.net_message))
+				cl_console.con.ormask = 0
+
+		elif cmd == common_h.svc_ops_e.svc_centerprint.value:
+
+			cl_screen.SCR_CenterPrint(movemsg.MSG_ReadString(netchan.net_message))
+
+		elif cmd == common_h.svc_ops_e.svc_stufftext.value:
+
 			s = movemsg.MSG_ReadString(netchan.net_message)
-			clientserver.Com_DPrintf ("stufftext: {}\n".format(s))
-			cmdparser.Cbuf_AddText (s)
-		elif cmdval == common_h.svc_ops_e.svc_serverdata:
-			cmdparser.Cbuf_Execute ()
-			CL_ParseServerData ()
-		elif cmdval == common_h.svc_ops_e.svc_configstring:
-			CL_ParseConfigString ()
-		elif cmdval == common_h.svc_ops_e.svc_sound:
+			clientserver.Com_DPrintf("stufftext: %s\n", s)
+			cmdparser.Cbuf_AddText(s)
+
+		elif cmd == common_h.svc_ops_e.svc_serverdata.value:
+
+			cmdparser.Cbuf_Execute() # make sure any stuffed commands are done
+			CL_ParseServerData()
+
+		elif cmd == common_h.svc_ops_e.svc_configstring.value:
+
+			CL_ParseConfigString()
+
+		elif cmd == common_h.svc_ops_e.svc_sound.value:
+
 			CL_ParseStartSoundPacket()
-		elif cmdval == common_h.svc_ops_e.svc_spawnbaseline:
-			CL_ParseBaseline ()
-		elif cmdval == common_h.svc_ops_e.svc_temp_entity:
-			cl_tent.CL_ParseTEnt ()
-		elif cmdval == common_h.svc_ops_e.svc_muzzleflash:
-			cl_fx.CL_ParseMuzzleFlash ()
-		elif cmdval == common_h.svc_ops_e.svc_muzzleflash2:
-			cl_fx.CL_ParseMuzzleFlash2 ()
-		elif cmdval == common_h.svc_ops_e.svc_download:
-			cl_download.CL_ParseDownload ()
-		elif cmdval == common_h.svc_ops_e.svc_frame:
-			CL_ParseFrame ()
-		elif cmdval == common_h.svc_ops_e.svc_inventory:
-			cl_inventory.CL_ParseInventory ()
-		elif cmdval == common_h.svc_ops_e.svc_layout:
-			s = movemsg.MSG_ReadString(netchan.net_message)
-			cl_main.cl.layout = s
-		elif cmdval in [common_h.svc_ops_e.svc_playerinfo, common_h.svc_ops_e.svc_packetentities, common_h.svc_ops_e.svc_deltapacketentities]:
-			clientserver.Com_Error (common_h.ERR_DROP, "Out of place frame data")
-		else:
-			clientserver.Com_Error (common_h.ERR_DROP,"CL_ParseServerMessage: Illegible server message\n")
-	cl_screen.CL_AddNetgraph ()
 
-	#
-	# we don't know if it is ok to save a demo message until
-	# after we have parsed the frame
-	#
+		elif cmd == common_h.svc_ops_e.svc_spawnbaseline.value:
+
+			CL_ParseBaseline()
+
+		elif cmd == common_h.svc_ops_e.svc_temp_entity.value:
+
+			cl_tent.CL_ParseTEnt()
+
+		elif cmd == common_h.svc_ops_e.svc_muzzleflash.value:
+
+			cl_fx.CL_ParseMuzzleFlash() # Q2PORT: Yamagi's CL_AddMuzzleFlash (cl_effects.c, group 11)
+
+		elif cmd == common_h.svc_ops_e.svc_muzzleflash2.value:
+
+			cl_fx.CL_ParseMuzzleFlash2() # Q2PORT: Yamagi's CL_AddMuzzleFlash2 (cl_effects.c, group 11)
+
+		elif cmd == common_h.svc_ops_e.svc_download.value:
+
+			cl_download.CL_ParseDownload()
+
+		elif cmd == common_h.svc_ops_e.svc_frame.value:
+
+			CL_ParseFrame()
+
+		elif cmd == common_h.svc_ops_e.svc_inventory.value:
+
+			cl_inventory.CL_ParseInventory()
+
+		elif cmd == common_h.svc_ops_e.svc_layout.value:
+
+			s = movemsg.MSG_ReadString(netchan.net_message)
+			cl_main.cl.layout = s[:1023] # Q_strlcpy(cl.layout, s, sizeof(cl.layout));
+
+		elif cmd in (common_h.svc_ops_e.svc_playerinfo.value, common_h.svc_ops_e.svc_packetentities.value,
+				common_h.svc_ops_e.svc_deltapacketentities.value):
+
+			clientserver.Com_Error(shared.ERR_DROP, "Out of place frame data")
+			return
+
+		else:
+
+			clientserver.Com_Error(shared.ERR_DROP, "%s: Illegible server message\n",
+				"CL_ParseServerMessage")
+			return
+
+
+
+	cl_screen.CL_AddNetgraph()
+
+	# we don't know if it is ok to save a demo message
+	# until after we have parsed the frame
 	if cl_main.cls.demorecording and not cl_main.cls.demowaiting:
-		cl_main.CL_WriteDemoMessage ()
+
+		cl_main.CL_WriteDemoMessage()

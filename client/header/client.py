@@ -77,6 +77,7 @@ class centity_t(object):
 		self.prev = shared.entity_state_t()			# will always be valid, but might just be a copy of current
 
 		self.serverframe: int = 0		# if not current, this ent isn't in the frame
+		self.serverframe_created = 0 #int, set any time the client ent is initialized
 
 		self.trailcount: int = 0	# for diminishing grenade trails
 		self.lerp_origin = np.zeros((3,), dtype=np.float32) #vec3_t		;		// for trails (variable hz)
@@ -86,6 +87,10 @@ class centity_t(object):
 
 #define MAX_CLIENTWEAPONMODELS		20		// PGM -- upped from 16 to fit the chainfist vwep
 MAX_CLIENTWEAPONMODELS = 20
+PARTICLE_GRAVITY = 40
+INSTANT_PARTICLE = -10000.0
+NUM_ADDRESSBOOK_ENTRIES = 9
+MAX_CL_ENTNUM = 32767 # SHRT_MAX
 
 class clientinfo_t(object):
 
@@ -139,6 +144,7 @@ class client_state_t(object):
 		"""
 		self.refresh_prepped = False # false if on new level or new ref dll
 		self.sound_prepped = False # qboolean, ambient sounds can start
+		self.force_refdef = False #qboolean, vid has changed, so we can't use a paused refdef
 		"""
 		qboolean	force_refdef;		// vid has changed, so we can't use a paused refdef
 		"""
@@ -150,9 +156,7 @@ class client_state_t(object):
 		self.predicted_origins = [] #short[CMD_BACKUP][3], for debug comparing against server
 
 		for i in range(CMD_BACKUP):
-			self.cmds.append(shared.usercmd_t())
-			self.cmd_time.append(0)
-			self.predicted_origins.append(None)
+			self.predicted_origins.append(np.zeros((3,), dtype=np.int16))
 
 
 		self.predicted_step: float = None # float		;				 for stair up smoothing
@@ -216,7 +220,7 @@ class client_state_t(object):
 
 		self.configstrings = [] #char[MAX_CONFIGSTRINGS][MAX_QPATH]
 		for i in range(shared.MAX_CONFIGSTRINGS):
-			self.configstrings.append(None)
+			self.configstrings.append("")
 
 		#
 		# locally derived information from server state
@@ -285,7 +289,8 @@ class client_static_t(object):
 
 		self.framecount = 0 #int			     # int
 		self.realtime = 0			    # int, always increasing, no clamping, etc
-		self.frametime = 0.0 #float					# float, seconds since last frame
+		self.rframetime = 0.0 #float, seconds since last render frame
+		self.nframetime = 0.0 #float, network frame time
 
 		# screen rendering information
 
@@ -308,11 +313,14 @@ class client_static_t(object):
 
 		self.challenge = 0 #int, from the server to use for connecting
 
+		self.forcePacket = False #qboolean, Forces a package to be send at the next frame.
+
 		self.download = None # FILE	*, file transfer from server
 		self.downloadname = ""
 		self.downloadtempname = ""
 		self.downloadnumber = 0
 		self.downloadtype = 0
+		self.downloadposition = 0 #size_t
 		self.downloadpercent = 0
 		# demo recording info must be here, so it isn't cleared on level change
 		self.demorecording = False # qboolean	
@@ -676,269 +684,22 @@ unsigned long *x86_TimerGetHistogram( void );
 
 """
 
-"""
-/*
-===============================================================================
-
-KEY BUTTONS
-
-Continuous button event tracking is complicated by the fact that two different
-input sources (say, mouse button 1 and the control key) can both press the
-same button, but the button should only be released when both of the
-pressing key have been released.
-
-When a key event issues a button command (+forward, +attack, etc), it appends
-its key number as a parameter to the command so it can be matched up with
-the release.
-
-state bit 0 is the current state of the key
-state bit 1 is edge triggered on the up to down transition
-state bit 2 is edge triggered on the down to up transition
-
-Key_Event (int key, qboolean down, unsigned time);
-
-  +mlook src time
-
-===============================================================================
-*/
 class kbutton_t(object):
 
 	def __init__(self):
-		self.down = [0, 0]
-		self.state = 0
-		self.downtime = 0
-		self.msec = 0
 
-in_klook = kbutton_t()
-in_left = kbutton_t()
-in_right = kbutton_t()
-in_forward = kbutton_t()
-in_back = kbutton_t()
-in_lookup = kbutton_t()
-in_lookdown = kbutton_t()
-in_moveleft = kbutton_t()
-in_moveright = kbutton_t()
-in_strafe = kbutton_t()
-in_speed = kbutton_t()
-in_use = kbutton_t()
-in_attack = kbutton_t()
-in_up = kbutton_t()
-in_down = kbutton_t()
+		self.down = [0, 0] #int[2], key nums holding it down
+		self.downtime = 0 #unsigned, msec timestamp
+		self.msec = 0 #unsigned, msec down this frame
+		self.state = 0 #int
 
-in_impulse = 0
-
-cl_upspeed = None
-cl_forwardspeed = None
-cl_sidespeed = None
-cl_yawspeed = None
-cl_pitchspeed = None
-cl_run = None
-cl_anglespeedkey = None
-
-def KeyDown(b):
-	c = cmd.Cmd_Argv(1)
-	if c:
-		k = int(c)
-	else:
-		k = -1
-
-	if k == b.down[0] or k == b.down[1]:
-		return
-
-	if not b.down[0]:
-		b.down[0] = k
-	elif not b.down[1]:
-		b.down[1] = k
-	else:
-		common.Com_Printf("Three keys down for a button!\n")
-		return
-
-	if b.state & 1:
-		return
-
-	c = cmd.Cmd_Argv(2)
-	b.downtime = int(c) if c else 0
-	if not b.downtime:
-		b.downtime = sys_linux.sys_frame_time - 100
-
-	b.state |= 1 + 2
-
-def KeyUp(b):
-	c = cmd.Cmd_Argv(1)
-	if c:
-		k = int(c)
-	else:
-		b.down[0] = 0
-		b.down[1] = 0
-		b.state = 4
-		return
-
-	if b.down[0] == k:
-		b.down[0] = 0
-	elif b.down[1] == k:
-		b.down[1] = 0
-	else:
-		return
-	if b.down[0] or b.down[1]:
-		return
-
-	if not (b.state & 1):
-		return
-
-	c = cmd.Cmd_Argv(2)
-	uptime = int(c) if c else 0
-	if uptime:
-		b.msec += uptime - b.downtime
-	else:
-		b.msec += 10
-
-	b.state &= ~1
-	b.state |= 4
-
-def IN_KLookDown(): KeyDown(in_klook)
-def IN_KLookUp(): KeyUp(in_klook)
-def IN_UpDown(): KeyDown(in_up)
-def IN_UpUp(): KeyUp(in_up)
-def IN_DownDown(): KeyDown(in_down)
-def IN_DownUp(): KeyUp(in_down)
-def IN_LeftDown(): KeyDown(in_left)
-def IN_LeftUp(): KeyUp(in_left)
-def IN_RightDown(): KeyDown(in_right)
-def IN_RightUp(): KeyUp(in_right)
-def IN_ForwardDown(): KeyDown(in_forward)
-def IN_ForwardUp(): KeyUp(in_forward)
-def IN_BackDown(): KeyDown(in_back)
-def IN_BackUp(): KeyUp(in_back)
-def IN_LookupDown(): KeyDown(in_lookup)
-def IN_LookupUp(): KeyUp(in_lookup)
-def IN_LookdownDown(): KeyDown(in_lookdown)
-def IN_LookdownUp(): KeyUp(in_lookdown)
-def IN_MoveleftDown(): KeyDown(in_moveleft)
-def IN_MoveleftUp(): KeyUp(in_moveleft)
-def IN_MoverightDown(): KeyDown(in_moveright)
-def IN_MoverightUp(): KeyUp(in_moveright)
-def IN_SpeedDown(): KeyDown(in_speed)
-def IN_SpeedUp(): KeyUp(in_speed)
-def IN_StrafeDown(): KeyDown(in_strafe)
-def IN_StrafeUp(): KeyUp(in_strafe)
-def IN_AttackDown(): KeyDown(in_attack)
-def IN_AttackUp(): KeyUp(in_attack)
-def IN_UseDown(): KeyDown(in_use)
-def IN_UseUp(): KeyUp(in_use)
-
-def IN_Impulse():
-	global in_impulse
-	c = cmd.Cmd_Argv(1)
-	in_impulse = int(c) if c else 0
-
-def CL_KeyState(key):
-	global frame_msec
-
-	key.state &= 1
-
-	msec = key.msec
-	key.msec = 0
-
-	if key.state:
-		msec += sys_linux.sys_frame_time - key.downtime
-		key.downtime = sys_linux.sys_frame_time
-
-	val = float(msec) / float(frame_msec) if frame_msec else 0.0
-	if val < 0:
-		val = 0
-	if val > 1:
-		val = 1
-
-	return val
-
-def CL_AdjustAngles():
-	if in_speed.state & 1:
-		speed = cl_main.cls.frametime * cl_anglespeedkey.value
-	else:
-		speed = cl_main.cls.frametime
-
-	if not (in_strafe.state & 1):
-		cl_main.cl.viewangles[q_shared.YAW] -= speed * cl_yawspeed.value * CL_KeyState(in_right)
-		cl_main.cl.viewangles[q_shared.YAW] += speed * cl_yawspeed.value * CL_KeyState(in_left)
-	if in_klook.state & 1:
-		cl_main.cl.viewangles[q_shared.PITCH] -= speed * cl_pitchspeed.value * CL_KeyState(in_forward)
-		cl_main.cl.viewangles[q_shared.PITCH] += speed * cl_pitchspeed.value * CL_KeyState(in_back)
-
-	up = CL_KeyState(in_lookup)
-	down = CL_KeyState(in_lookdown)
-
-	cl_main.cl.viewangles[q_shared.PITCH] -= speed * cl_pitchspeed.value * up
-	cl_main.cl.viewangles[q_shared.PITCH] += speed * cl_pitchspeed.value * down
-
-kbutton_t	in_klook;
-kbutton_t	in_left, in_right, in_forward, in_back;
-kbutton_t	in_lookup, in_lookdown, in_moveleft, in_moveright;
-kbutton_t	in_strafe, in_speed, in_use, in_attack;
-kbutton_t	in_up, in_down;
-
-void IN_KLookDown (void) {KeyDown(&in_klook);}
-void IN_KLookUp (void) {KeyUp(&in_klook);}
-void IN_UpDown(void) {KeyDown(&in_up);}
-void IN_UpUp(void) {KeyUp(&in_up);}
-void IN_DownDown(void) {KeyDown(&in_down);}
-void IN_DownUp(void) {KeyUp(&in_down);}
-void IN_LeftDown(void) {KeyDown(&in_left);}
-void IN_LeftUp(void) {KeyUp(&in_left);}
-void IN_RightDown(void) {KeyDown(&in_right);}
-void IN_RightUp(void) {KeyUp(&in_right);}
-void IN_ForwardDown(void) {KeyDown(&in_forward);}
-void IN_ForwardUp(void) {KeyUp(&in_forward);}
-void IN_BackDown(void) {KeyDown(&in_back);}
-void IN_BackUp(void) {KeyUp(&in_back);}
-void IN_LookupDown(void) {KeyDown(&in_lookup);}
-void IN_LookupUp(void) {KeyUp(&in_lookup);}
-void IN_LookdownDown(void) {KeyDown(&in_lookdown);}
-void IN_LookdownUp(void) {KeyUp(&in_lookdown);}
-void IN_MoveleftDown(void) {KeyDown(&in_moveleft);}
-void IN_MoveleftUp(void) {KeyUp(&in_moveleft);}
-void IN_MoverightDown(void) {KeyDown(&in_moveright);}
-void IN_MoverightUp(void) {KeyUp(&in_moveright);}
-
-void IN_SpeedDown(void) {KeyDown(&in_speed);}
-void IN_SpeedUp(void) {KeyUp(&in_speed);}
-void IN_StrafeDown(void) {KeyDown(&in_strafe);}
-void IN_StrafeUp(void) {KeyUp(&in_strafe);}
-
-void IN_AttackDown(void) {KeyDown(&in_attack);}
-void IN_AttackUp(void) {KeyUp(&in_attack);}
-
-void IN_UseDown (void) {KeyDown(&in_use);}
-void IN_UseUp (void) {KeyUp(&in_use);}
-
-void IN_Impulse (void) {in_impulse=atoi(Cmd_Argv(1));}
 """
+extern 	kbutton_t 	in_strafe;
 """
 
-//==========================================================================
-
-cvar_t	*cl_upspeed;
-cvar_t	*cl_forwardspeed;
-cvar_t	*cl_sidespeed;
-
-cvar_t	*cl_yawspeed;
-cvar_t	*cl_pitchspeed;
-
-cvar_t	*cl_run;
-
-cvar_t	*cl_anglespeedkey;
-"""
-"""
-/*
-================
-CL_BaseMove
-
-Send the intended movement message to the server
-================
-"""
-class kbutton_t(object):
-
-	def __init__(self):
-		self.down = [0, 0]
-		self.state = 0
-		self.downtime = 0
-		self.msec = 0
+class gamepad_labels_t(Enum):
+	LBL_SDL = 0
+	LBL_XBOX = 1
+	LBL_PLAYSTATION = 2
+	LBL_SWITCH = 3
+	LBL_MAX_COUNT = 4

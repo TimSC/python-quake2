@@ -565,6 +565,14 @@ def decl_init(typ, nm, ptr, arr, init, ctx):
 		if init and init.strip().startswith("{"):
 			return "%s = np.array([%s], dtype=np.float32)" % (pn, init.strip()[1:-1])
 		return "%s = np.zeros((3,), dtype=np.float32)" % pn
+	if arr and not ptr and init is not None and init.strip().startswith("{"):
+		# an array initializer: {a, b} is a list, and {0} (or {}) zero-fills the array
+		n = tokens_to_py(arr[1:-1], ctx)
+		inner = init.strip()[1:-1].strip()
+		if inner in ("", "0"):
+			fill = "0.0" if re.search(r"\b(float|vec_t|double)\b", typ) else ("None" if "char" in typ else "0")
+			return "%s = [%s] * %s" % (pn, fill, n)
+		return "%s = [%s]" % (pn, tokens_to_py(inner, ctx))
 	if init is not None:
 		v = tokens_to_py(init, ctx)
 		if nm in ctx.ints and "/" in v and "//" not in v:

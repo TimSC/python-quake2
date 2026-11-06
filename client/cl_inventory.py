@@ -25,6 +25,10 @@ This file implements the inventory screen
 """
 from __future__ import annotations
 
+from client.header import keyboard as keyboard_h
+
+from client.vid import vid
+
 from client import cl_main
 from linux import vid_so
 from common.header import shared
@@ -47,31 +51,13 @@ def CL_ParseInventory ():
 		cl_main.cl.inventory[i] = movemsg.MSG_ReadShort (netchan.net_message)
 
 
-"""
-================
-Inv_DrawString
-================
-"""
-def Inv_DrawString (x, y, string): #int, int, char *
+def Inv_DrawStringScaled(x: int, y: int, string: str, factor: float): #int, int, char *, float (static)
 
 	for ch in string: # while (*string)
-	
-		vid_so.re.DrawChar (x, y, ord(ch))
-		x+=8
-	
 
-"""
-static void
-Inv_DrawStringScaled(int x, int y, char *string, float factor)
-{
-	while (*string)
-	{
-		Draw_CharScaled(x, y, *string, factor);
-		x += factor*8;
-		string++;
-	}
-}
-"""
+		vid.Draw_CharScaled(x, y, ord(ch), factor)
+		x += factor*8
+
 
 def SetStringHighBit (s): #char * (returns the changed string)
 
@@ -85,76 +71,90 @@ CL_DrawInventory
 """
 DISPLAY_ITEMS = 17
 
-def CL_DrawInventory ():
+def CL_DrawInventory(): #
+	# FIXME c2py: unresolved keyboard_h.K_LAST, SCR_GetHUDScale
 
 	"""
-	int		i, j;
-	int		num, selected_num, item;
-	int		index[MAX_ITEMS];
-	char	string[1024];
-	int		x, y;
-	char	binding[1024];
-	char	*bind;
-	int		selected;
-	int		top;
+	int i, j;
+	int num, selected_num, item;
+	char string[1024];
+	int x, y;
+	char binding[1024];
+	const char *bind;
+	int selected;
+	int top;
+	int index[MAX_ITEMS] = {0};
+	float scale = cl_screen.SCR_GetHUDScale();
 	"""
+	string = [None] * 1024
+	binding = [None] * 1024
 	index = [0] * shared.MAX_ITEMS
+	scale = cl_screen.SCR_GetHUDScale()
 
 	selected = cl_main.cl.frame.playerstate.stats[shared.STAT_SELECTED_ITEM]
-
 	num = 0
 	selected_num = 0
 	for i in range(shared.MAX_ITEMS):
-	
-		if i==selected:
+
+		if i == selected:
+
 			selected_num = num
+
+
 		if cl_main.cl.inventory[i]:
-		
+
 			index[num] = i
 			num += 1
-		
+
+
 	# determine scroll point
-	top = selected_num - DISPLAY_ITEMS//2
+	top = int(selected_num - DISPLAY_ITEMS / 2) # C int
 	if num - top < DISPLAY_ITEMS:
+
 		top = num - DISPLAY_ITEMS
+
+
 	if top < 0:
+
 		top = 0
 
-	x = (vid_so.viddef.width-256)//2
-	y = (vid_so.viddef.height-240)//2
 
+	x = int((vid_so.viddef.width - scale*256) / 2) # C int
+	y = int((vid_so.viddef.height - scale*240) / 2) # C int
 	# repaint everything next frame
-	cl_screen.SCR_DirtyScreen ()
+	cl_screen.SCR_DirtyScreen()
+	vid.Draw_PicScaled(x, y + scale*8, "inventory", scale)
+	y += scale*24
+	x += scale*24
+	Inv_DrawStringScaled(x, y, "hotkey ### item", scale)
+	Inv_DrawStringScaled(x, y + scale*8, "------ --- ----", scale)
+	y += scale*16
+	for i in range(top, num and i < top + DISPLAY_ITEMS):
 
-	vid_so.re.DrawPic (x, y+8, "inventory")
-
-	y += 24
-	x += 24
-	Inv_DrawString (x, y, "hotkey ### item")
-	Inv_DrawString (x, y+8, "------ --- ----")
-	y += 16
-	i = top
-	while i<num and i < top+DISPLAY_ITEMS:
-	
 		item = index[i]
 		# search for a binding
-		binding = "use {}".format(cl_main.cl.configstrings[shared.CS_ITEMS+item])
+		binding = "use %s" % (cl_main.cl.configstrings[shared.CS_ITEMS + item],) # Com_sprintf
 		bind = ""
-		for j in range(256):
-			if cl_keyboard.keybindings[j] and not shared_c.Q_stricmp (cl_keyboard.keybindings[j], binding):
-			
+		for j in range(keyboard_h.K_LAST):
+
+			if cl_keyboard.keybindings[j] and not shared_c.Q_stricmp(cl_keyboard.keybindings[j], binding):
+
 				bind = cl_keyboard.Key_KeynumToString(j)
 				break
-			
-		string = "{:>6} {:3d} {}".format(bind, cl_main.cl.inventory[item],
-			cl_main.cl.configstrings[shared.CS_ITEMS+item] ) # "%6s %3i %s"
+
+
+		string = "%6.6s %3i %s" % (bind, cl_main.cl.inventory[item], cl_main.cl.configstrings[shared.CS_ITEMS + item],) # Com_sprintf
 		if item != selected:
-			string = SetStringHighBit (string)
-		else:	# draw a blinky cursor by the selected item
-		
-			if int(cl_main.cls.realtime*10) & 1:
-				vid_so.re.DrawChar (x-8, y, 15)
-		
-		Inv_DrawString (x, y, string)
-		y += 8
-		i += 1
+
+			SetStringHighBit(string)
+
+		else:
+
+			# draw a blinky cursor by the selected item
+			if (cl_main.cls.realtime * 10) & 1:
+
+				vid.Draw_CharScaled(x - scale*8, y, 15, scale)
+
+
+		Inv_DrawStringScaled(x, y, string, scale)
+		y += scale*8

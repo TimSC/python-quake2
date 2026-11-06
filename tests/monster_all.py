@@ -44,8 +44,8 @@ def mons():
 	return [(e, c) for e, c in st["ents"] if e.inuse and e.classname == c]	# a freed edict may be reused by another entity
 
 o = cl_main.CL_Frame
-def CL_Frame(msec):
-	o(msec)
+def CL_Frame(*args):
+	o(*args)
 	if cl_main.cls.state.name != "ca_active": return
 	if st["t0"] is None: st["t0"] = time.time()
 	t = time.time() - st["t0"]

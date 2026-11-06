@@ -221,7 +221,7 @@ def CL_RunDLights ():
 		if dl.die < cl_main.cl.time:
 			dl.radius = 0.0
 			continue
-		dl.radius -= cl_main.cls.frametime * dl.decay
+		dl.radius -= cl_main.cls.rframetime * dl.decay # Q2PORT: Yamagi cl_lights.c (group 11)
 		if dl.radius < 0:
 			dl.radius = 0.0
 
@@ -258,7 +258,9 @@ def CL_ParseMuzzleFlash ():
 	silenced = weapon & shared.MZ_SILENCED
 	weapon &= ~shared.MZ_SILENCED
 
-	pl = cl_main.cl_entities[i]
+	pl = cl_main.CL_AllocEntity(i) # Q2PORT: Yamagi (cl_effects.c, group 11)
+	if not pl:
+		return
 
 	fv = np.zeros((3,), dtype=np.float32)
 	rv = np.zeros((3,), dtype=np.float32)
@@ -449,7 +451,9 @@ def CL_ParseMuzzleFlash2 ():
 	flash_number = movemsg.MSG_ReadByte (netchan.net_message)
 
 	# locate the origin
-	cent = cl_main.cl_entities[ent]
+	cent = cl_main.CL_AllocEntity(ent) # Q2PORT: Yamagi (cl_effects.c, group 11)
+	if not cent:
+		return
 	offset = flash.monster_flash_offset[flash_number]
 	shared_c.AngleVectors (cent.current.angles, forward, right, None)
 	origin[0] = cent.current.origin[0] + forward[0] * offset[0] + right[0] * offset[1]

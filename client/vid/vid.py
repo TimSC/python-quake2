@@ -39,6 +39,8 @@ from linux import vid_so
 # id's: re and ref_active are linux/vid_so.py's re and reflib_active, and
 # where Yamagi's refexport_t differs from id's the wrapper says so.
 
+vid_renderer = None #cvar_t *, Q2PORT: registered in linux/vid_so.py's VID_Init until group 14
+
 # ----
 
 # Wrappers for the functions provided by the renderer libs.
@@ -195,3 +197,9 @@ def R_IsVSyncActive()->bool: #void (returns qboolean)
 
 
 	return False
+
+def GLimp_GetRefreshRate()->float: #void (returns float)
+
+	# Q2PORT: from glimp_sdl2.c (group 14). Only called while R_IsVSyncActive(),
+	# which id's renderer never is
+	return 60.0

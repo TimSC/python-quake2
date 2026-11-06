@@ -481,20 +481,9 @@ def main (): #int argc, char **argv
 	##	printf ("Linux Quake -- Version %0.3f\n", LINUX_VERSION)
 
 
-	oldtime = time.time() * 1000.0
-	while 1:
-
-		# find time spent rendering last frame
-		firstLoop = True
-		while firstLoop or elapse_time < 1.0:
-			newtime = time.time() * 1000.0
-			elapse_time = newtime - oldtime
-			firstLoop = False
-			if elapse_time < 1.0:
-				time.sleep((1.0 - elapse_time) / 1000.0)
-
-		frame.Qcommon_Frame (elapse_time)
-		oldtime = newtime
+	# Q2PORT: Yamagi's Qcommon_Init ends by running Qcommon_Mainloop; here it
+	# returns first, so main can set nostdout (until group 14)
+	frame.Qcommon_Mainloop()
 
 """
 
