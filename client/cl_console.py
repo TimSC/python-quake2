@@ -112,7 +112,6 @@ Con_ToggleConsole_f
 ================
 """
 def Con_ToggleConsole_f(): #
-	# FIXME c2py: unresolved OGG_Status, vorbis.PAUSE, vorbis.PLAY
 
 	cl_screen.SCR_EndLoadingPlaque()
 	# get rid of loading plaque
@@ -686,7 +685,7 @@ def Con_DrawConsole(frac: float): #float
 	cl_screen.SCR_AddDirtyPoint(0, 0)
 	cl_screen.SCR_AddDirtyPoint(vid_so.viddef.width - 1, lines - 1)
 
-	version = ("Yamagi Quake II v%s" % common_h.YQ2VERSION)[:48 - 1]
+	version = (f"{common_h.APPNAME} v{common_h.YQ2VERSION}")[:48 - 1]
 
 	verLen = len(version)
 

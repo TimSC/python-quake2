@@ -25,6 +25,7 @@ import pygame
 import OpenGL.GL as GL
 from ref_gl import gl_rmain
 pass
+from common.header import common as common_h
 from common.header import shared
 
 screen = None
@@ -740,6 +741,7 @@ def GLimp_SetMode( pwidth, pheight, mode, fullscreen ): # int *, int *, int, qbo
 		flags |= pygame.FULLSCREEN
 	try:
 		screen = pygame.display.set_mode((width, height), flags)
+		pygame.display.set_caption(common_h.APPNAME) # Q2PORT: Yamagi names the window in SDL_CreateWindow (glimp_sdl2.c)
 	except pygame.error as err:
 		gl_rmain.ri.Con_Printf( shared.PRINT_ALL, "Error couldn't set the video mode: {}\n".format(err) )
 		screen = None

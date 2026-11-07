@@ -400,7 +400,6 @@ CL_Pause_f
 ==================
 """
 def CL_Pause_f(): # (static)
-	# FIXME c2py: unresolved OGG_Status, vorbis.PAUSE, vorbis.PLAY
 
 	# never pause in multiplayer
 	if (cvar.Cvar_VariableValue("maxclients") > 1) or not clientserver.Com_ServerState():
@@ -480,7 +479,6 @@ Load or download any custom player skins and models
 =================
 """
 def CL_Skins_f(): # (static)
-	# FIXME c2py: unresolved IN_Update
 
 	"""
 	int i;

@@ -77,23 +77,24 @@ pip3 install -r requirements.txt
 
 ## Running
 
-Point `basedir` at the folder that contains `baseq2`:
+Point `-datadir` at the folder that contains `baseq2`:
 
 ```
-python3 main.py +set basedir /path/to/quake2data/Data
+python3 main.py -datadir /path/to/quake2data/Data
 ```
 
-Commands after `+` run at startup, as in the original game. For example, to
+`-datadir` replaces `+set basedir`, which still works but is deprecated (as
+in Yamagi Quake II). Commands after `+` run at startup, as in the original game. For example, to
 start a map at a chosen skill (0 to 3):
 
 ```
-python3 main.py +set basedir /path/to/quake2data/Data +skill 1 +map base1
+python3 main.py -datadir /path/to/quake2data/Data +skill 1 +map base1
 ```
 
 To measure performance on a demo:
 
 ```
-python3 main.py +set basedir /path/to/quake2data/Data +demomap demo1.dm2 +timedemo 1
+python3 main.py -datadir /path/to/quake2data/Data +demomap demo1.dm2 +timedemo 1
 ```
 
 PyOpenGL checks for an OpenGL error (`glGetError`) after every OpenGL call by
@@ -104,7 +105,7 @@ to `1`/`true` leaves it on.
 ### Dedicated server
 
 ```
-python3 main.py +set basedir /path/to/quake2data/Data +set dedicated 1 +map base1
+python3 main.py -datadir /path/to/quake2data/Data +set dedicated 1 +map base1
 ```
 
 Type server commands such as `status`, `serverinfo` or `map base2` into the
@@ -117,7 +118,7 @@ The windowed game ignores the terminal, as the original does. Set
 also be piped in, which is useful for scripted tests:
 
 ```
-Q2STDIN=1 python3 main.py +set basedir /path/to/quake2data/Data +map base1
+Q2STDIN=1 python3 main.py -datadir /path/to/quake2data/Data +map base1
 ```
 
 ## Source layout

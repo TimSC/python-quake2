@@ -116,7 +116,6 @@ CL_RegisterSounds
 ======================
 """
 def CL_RegisterSounds(): #
-	# FIXME c2py: unresolved IN_Update
 
 	"""
 	int i;

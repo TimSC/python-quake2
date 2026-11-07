@@ -72,7 +72,6 @@ CL_DrawInventory
 DISPLAY_ITEMS = 17
 
 def CL_DrawInventory(): #
-	# FIXME c2py: unresolved keyboard_h.K_LAST, SCR_GetHUDScale
 
 	"""
 	int i, j;

@@ -130,7 +130,7 @@ def Qcommon_Buildstring(): #void
 	"""
 
 
-	versionString = "Yamagi Quake II v{}".format(common_h.YQ2VERSION) #va("Yamagi Quake II v%s", YQ2VERSION);
+	versionString = "{} v{}".format(common_h.APPNAME, common_h.YQ2VERSION) #va("Yamagi Quake II v%s", YQ2VERSION);
 	verLen = len(versionString)
 
 	print("\n{}".format(versionString))
@@ -242,7 +242,7 @@ def checkForHelp(argc: int, argv: list)->bool: #int, char ** (returns qboolean)
 
 			if shared_c.Q_stricmp(arg, helpArgs[h]) == 0:
 
-				print("Yamagi Quake II v{}".format(common_h.YQ2VERSION))
+				print("{} v{}".format(common_h.APPNAME, common_h.YQ2VERSION))
 				print("Most interesting commandline arguments:")
 				print("-h or --help: Show this help")
 				print("-cfgdir <path>")
@@ -429,7 +429,7 @@ def Qcommon_Init(): #int argc, char **argv
 
 	#endif
 
-	clientserver.Com_Printf("==== Yamagi Quake II Initialized ====\n\n")
+	clientserver.Com_Printf(f"==== {common_h.APPNAME} Initialized ====\n\n")
 	clientserver.Com_Printf("*************************************\n\n")
 
 	# Call the main loop

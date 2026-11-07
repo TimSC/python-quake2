@@ -40,7 +40,8 @@ from enum import Enum
 
 YQ2VERSION = "8.71pre"
 BASEDIRNAME	= "baseq2"
-VERSION		= 3.21	# Q2PORT: id's version number, until its users (common.c, sv_main.c, console.c) are ported
+APPNAME = "Python Quake II" # Q2PORT: allow the app name to change since we are forked from Yamagi.
+VERSION = 3.21	# Q2PORT: id's version number, until its users (common.c, sv_main.c, console.c) are ported
 
 # Q2PORT: YQ2OSTYPE, YQ2ARCH and BUILD_DATE are set by Yamagi's build system; here they come from Python
 YQ2OSTYPE = platform.system()	#ifndef YQ2OSTYPE #error YQ2OSTYPE should be defined by the build system

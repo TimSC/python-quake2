@@ -729,7 +729,6 @@ def CL_AddViewWeapon(ps: shared.player_state_t, ops: shared.player_state_t): #pl
 
 """
 def AdaptFov(fov, w, h): #float, float, float (returns static inline float)
-	# FIXME c2py: unresolved atanf, tanf
 
 	"""
 	static const float pi = M_PI;
@@ -755,7 +754,6 @@ Sets cl_main.cl.refdef view values
 ===============
 """
 def CL_CalcViewValues(): #
-	# FIXME c2py: unresolved abs, cl_main.cl_kickangles, cl_main.horplus
 
 	"""
 	int i;
@@ -917,7 +915,6 @@ def CL_AddEntities(): #
 
 """
 def CL_GetEntitySoundVelocity(ent, vel): #int, vec3_t
-	# FIXME c2py: unresolved cl_main.cl_numentities
 
 	"""
 	centity_t *old;

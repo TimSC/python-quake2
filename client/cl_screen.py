@@ -677,7 +677,6 @@ SCR_BeginLoadingPlaque
 ================
 """
 def SCR_BeginLoadingPlaque(): #
-	# FIXME c2py: unresolved OGG_Stop
 	global scr_draw_loading
 
 	snd_dma.S_StopAllSounds()
@@ -828,7 +827,6 @@ Clear any parts of the tiled background that were drawn on last frame
 ==============
 """
 def SCR_TileClear(): # (static)
-	# FIXME c2py: unresolved vid_renderer
 
 	"""
 	int i;
@@ -1929,7 +1927,6 @@ from client import cl_view
 # SCR_DrawCrosshair
 # =============================================================================
 def SCR_DrawCrosshair(): #
-	# FIXME c2py: unresolved cl_view.crosshair_color_b, cl_view.crosshair_color_g, cl_view.crosshair_color_r, cl_view.crosshair_scale
 
 	"""
 	float scale;
