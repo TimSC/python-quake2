@@ -95,7 +95,7 @@ The order follows dependencies: each group only depends on groups above it.
 | 12 | Menus | `client/menu/menu.c`, `qmenu.c`, `videomenu.c` | `client/menu.py`, `qmenu.py`, `linux/vid_menu.py` | Moves to `client/menu/` | Every menu opens; settings apply |
 | 13 | Sound | `client/sound/sound.c`, `wave.c`, `ogg.c`, `sdl.c` (structure only) | `client/snd_*.py`, `linux/snd_linux.py` | pygame stays the back end. **OGG done** (`client/sound/ogg.py` replaced the stub; music streams in `pygame.mixer.music`, `.ogg` sample fallback via `S_LoadVorbis` in `snd_dma.py`, test `tests/ogg_music.py`) | Sounds, loops, sexed sounds, cinematic sound, music |
 | 14 | Platform layer | `client/vid/vid.c`, `glimp_sdl2.c`, `client/input/sdl2.c`, `backends/unix/*.c`, `backends/generic/misc.c` | `linux/*.py` | Restructure: Yamagi's `vid`/`glimp`/`backends` around the existing pygame code (pygame stays, no move to raw SDL) | Window, video modes, input, mouse grab, quit |
-| 15 | Renderer: gl1 (OpenGL 1) | `client/refresh/gl1/*.c`, `client/refresh/files/*.c`, `client/refresh/ref_shared.h`, `client/vid/header/ref.h` | `ref_gl/*.py` | Faithful re-port of Yamagi's `gl1/`, replacing `ref_gl/`; the port's `Q2PORT` speed-ups are carried over | Screenshots match; `timedemo`; extensions off |
+| 15 | Renderer: gl1 (OpenGL 1) | `client/refresh/gl1/*.c`, `client/refresh/files/*.c`, `client/refresh/ref_shared.h`, `client/vid/header/ref.h` | `ref_gl/*.py` | Faithful re-port of Yamagi's `gl1/`, replacing `ref_gl/`; Yamagi's approach as written, no `Q2PORT` speed-ups carried over (performance is a later pass) | Screenshots match; `timedemo`; extensions off |
 | 16 | Renderer: gl3 (modern OpenGL) | `client/refresh/gl3/*.c` | none (new) | New: Yamagi's gl3 renderer with GLSL shaders, selected at start up alongside gl1 | Screenshots look right on base maps; `timedemo`; renderer switch at start up |
 
 The current `ref_gl/` keeps the game running until group 15 replaces it.
@@ -114,11 +114,10 @@ gl3 renderer is a separate step (group 16).
 - **Faithful first.** Port Yamagi's structure and logic as written. The
   old `ref_gl/` is the reference for what already works, not the template
   for the new code.
-- **Carry over the `Q2PORT` speed-ups** where Yamagi's C has a slow
-  per-pixel loop: the numpy paletted-texture passes from `gl_image.py`,
-  the glcmds unrolled into a triangle list from `gl_model.py`, and the
-  inlined `BOX_ON_PLANE_SIDE` frustum culling. The `Q2DBG` culling trace
-  comes along too.
+- **No `Q2PORT` speed-ups for now.** Port Yamagi's C as written, including
+  its per-pixel loops. Performance (numpy texture passes, unrolled
+glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
+  pass once the faithful port runs.
 - **`qgl.c`** is replaced by PyOpenGL and pygame, as the old `ref_gl/`
   already does; `gl1_sdl.c` (context, swap, mode changes) uses the same
   pygame code the existing `linux/gl_glx.py` uses, coordinated with group

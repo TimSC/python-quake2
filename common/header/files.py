@@ -442,6 +442,98 @@ typedef struct m32tex_s
 } m32tex_t;
 """
 
+class rgb_t(object):
+
+	def __init__(self):
+		self.r = 0 #unsigned char
+		self.g = 0 #unsigned char
+		self.b = 0 #unsigned char
+
+
+class m8tex_t(object):
+
+	def __init__(self):
+		self.version = 0 #unsigned
+		self.name = None #char [32]
+		self.width = [0] * M8_MIP_LEVELS #unsigned
+		self.height = [0] * M8_MIP_LEVELS #unsigned
+		self.offsets = [0] * M8_MIP_LEVELS #unsigned, 16 mip maps stored
+		self.animname = None #char [32], next frame in animation chain
+		self.palette = [] #rgb_t [256]
+		self.flags = 0 #int
+		self.contents = 0 #int
+		self.value = 0 #int
+
+	def load(self, buff):
+		self.version = struct.unpack("<I", buff[0:4])[0]
+		self.name = buff[4:36].split(b'\x00', 1)[0].decode("ascii", "ignore")
+		self.width = list(struct.unpack("<16I", buff[36:100]))
+		self.height = list(struct.unpack("<16I", buff[100:164]))
+		self.offsets = list(struct.unpack("<16I", buff[164:228]))
+		self.animname = buff[228:260].split(b'\x00', 1)[0].decode("ascii", "ignore")
+		self.palette = []
+		for i in range(256):
+			o = 260 + i * 3
+			rgb = rgb_t()
+			rgb.r, rgb.g, rgb.b = struct.unpack("<BBB", buff[o:o + 3])
+			self.palette.append(rgb)
+		o = 260 + 256 * 3
+		self.flags, self.contents, self.value = struct.unpack("<3i", buff[o:o + 12])
+
+	@classmethod
+	def packed_size(cls):
+		return 4 + 32 + 16 * 4 * 3 + 32 + 256 * 3 + 12
+
+
+class m32tex_t(object):
+
+	def __init__(self):
+		self.version = 0 #int
+		self.name = None #char [128]
+		self.altname = None #char [128], texture substitution
+		self.animname = None #char [128], next frame in animation chain
+		self.damagename = None #char [128], image that should be shown when damaged
+		self.width = [0] * M32_MIP_LEVELS #unsigned
+		self.height = [0] * M32_MIP_LEVELS #unsigned
+		self.offsets = [0] * M32_MIP_LEVELS #unsigned
+		self.flags = 0 #int
+		self.contents = 0 #int
+		self.value = 0 #int
+		self.scale_x = 0.0 #float
+		self.scale_y = 0.0 #float
+		self.mip_scale = 0 #int
+		self.dt_name = None #char [128], detailed texture name
+		self.dt_scale_x = 0.0 #float
+		self.dt_scale_y = 0.0 #float
+		self.dt_u = 0.0 #float
+		self.dt_v = 0.0 #float
+		self.dt_alpha = 0.0 #float
+		self.dt_src_blend_mode = 0 #int
+		self.dt_dst_blend_mode = 0 #int
+
+	def load(self, buff):
+		self.version = struct.unpack("<i", buff[0:4])[0]
+		self.name = buff[4:132].split(b'\x00', 1)[0].decode("ascii", "ignore")
+		self.altname = buff[132:260].split(b'\x00', 1)[0].decode("ascii", "ignore")
+		self.animname = buff[260:388].split(b'\x00', 1)[0].decode("ascii", "ignore")
+		self.damagename = buff[388:516].split(b'\x00', 1)[0].decode("ascii", "ignore")
+		o = 516
+		self.width = list(struct.unpack("<16I", buff[o:o + 64]))
+		self.height = list(struct.unpack("<16I", buff[o + 64:o + 128]))
+		self.offsets = list(struct.unpack("<16I", buff[o + 128:o + 192]))
+		o = 516 + 192
+		self.flags, self.contents, self.value = struct.unpack("<3i", buff[o:o + 12])
+		self.scale_x, self.scale_y = struct.unpack("<2f", buff[o + 12:o + 20])
+		self.mip_scale = struct.unpack("<i", buff[o + 20:o + 24])[0]
+		o = o + 24
+		self.dt_name = buff[o:o + 128].split(b'\x00', 1)[0].decode("ascii", "ignore")
+		self.dt_scale_x, self.dt_scale_y, self.dt_u, self.dt_v, self.dt_alpha = struct.unpack("<5f", buff[o + 128:o + 148])
+		self.dt_src_blend_mode, self.dt_dst_blend_mode = struct.unpack("<2i", buff[o + 148:o + 156])
+
+	@classmethod
+	def packed_size(cls):
+		return 4 + 128 * 4 + 16 * 4 * 3 + 4 * 12 + 128 + 4 * 7
+
 """
 ==============================================================================
 
