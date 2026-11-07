@@ -576,7 +576,7 @@ def R_DrawParticles ():
 		GL.glEnable( GL.GL_BLEND )
 		GL.glDisable( GL.GL_TEXTURE_2D )
 
-		GL.glPointSize( gl_particle_size.value )
+		GL.glPointSize( gl1_particle_size.value )
 
 		GL.glBegin( GL.GL_POINTS )
 		for i in range(r_newrefdef.num_particles):
@@ -808,11 +808,11 @@ def R_Clear ():
 
 	global gldepthmin, gldepthmax, trickframe
 
-	if gl_ztrick.value:
+	if gl1_ztrick.value:
 	
 		#static int trickframe;
 
-		if gl_clear.value:
+		if r_clear.value:
 			GL.glClear (GL.GL_COLOR_BUFFER_BIT)
 
 		trickframe+=1
@@ -830,7 +830,7 @@ def R_Clear ():
 		
 	else:
 	
-		if gl_clear.value:
+		if r_clear.value:
 			GL.glClear (GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 		else:
 			GL.glClear (GL.GL_DEPTH_BUFFER_BIT)
@@ -1056,11 +1056,11 @@ def R_Register():
 
 	global r_norefresh, r_drawentities, r_drawworld, r_speeds, r_fullbright, r_novis, r_nocull, r_lerpmodels, r_lefthand, r_lightlevel, \
 	gl_nosubimage, gl_allow_software, gl_vertex_arrays, \
-	gl_particle_min_size, gl_particle_max_size, gl_particle_size, gl_particle_att_a, gl_particle_att_b, gl_particle_att_c, \
+	gl1_particle_min_size, gl1_particle_max_size, gl1_particle_size, gl1_particle_att_a, gl1_particle_att_b, gl1_particle_att_c, \
 	gl_ext_swapinterval, gl_ext_palettedtexture, gl_ext_multitexture, gl_ext_pointparameters, gl_ext_compiled_vertex_array, \
-	gl_log, gl_bitdepth, gl_drawbuffer, gl_driver, gl_lightmap, gl_shadows, gl_mode, gl_dynamic, gl_monolightmap, gl_modulate, gl_nobind, \
-	gl_round_down, gl_picmip, gl_skymip, gl_showtris, gl_ztrick, gl_finish, gl_clear, gl_cull, gl_polyblend, gl_flashblend, gl_playermip, \
-	gl_saturatelighting, gl_swapinterval, gl_texturemode, gl_texturealphamode, gl_texturesolidmode, gl_lockpvs, \
+	gl_log, gl_bitdepth, gl_drawbuffer, gl_driver, r_lightmap, r_shadows, gl_mode, gl1_dynamic, gl_monolightmap, r_modulate, gl_nobind, \
+	gl1_round_down, gl1_picmip, gl_skymip, gl_showtris, gl1_ztrick, gl_finish, r_clear, gl_cull, gl_polyblend, gl1_flashblend, gl_playermip, \
+	gl1_saturatelighting, r_vsync, gl_texturemode, gl1_texturealphamode, gl1_texturesolidmode, r_lockpvs, \
 	gl_3dlabs_broken, vid_fullscreen, vid_gamma, vid_ref
 
 	r_lefthand = ri.Cvar_Get( "hand", "0", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE )
@@ -1078,38 +1078,38 @@ def R_Register():
 	gl_nosubimage = ri.Cvar_Get( "gl_nosubimage", "0", 0 )
 	gl_allow_software = ri.Cvar_Get( "gl_allow_software", "0", 0 )
 
-	gl_particle_min_size = ri.Cvar_Get( "gl_particle_min_size", "2", shared.CVAR_ARCHIVE )
-	gl_particle_max_size = ri.Cvar_Get( "gl_particle_max_size", "40", shared.CVAR_ARCHIVE )
-	gl_particle_size = ri.Cvar_Get( "gl_particle_size", "40", shared.CVAR_ARCHIVE )
-	gl_particle_att_a = ri.Cvar_Get( "gl_particle_att_a", "0.01", shared.CVAR_ARCHIVE )
-	gl_particle_att_b = ri.Cvar_Get( "gl_particle_att_b", "0.0", shared.CVAR_ARCHIVE )
-	gl_particle_att_c = ri.Cvar_Get( "gl_particle_att_c", "0.01", shared.CVAR_ARCHIVE )
+	gl1_particle_min_size = ri.Cvar_Get( "gl1_particle_min_size", "2", shared.CVAR_ARCHIVE )
+	gl1_particle_max_size = ri.Cvar_Get( "gl1_particle_max_size", "40", shared.CVAR_ARCHIVE )
+	gl1_particle_size = ri.Cvar_Get( "gl1_particle_size", "40", shared.CVAR_ARCHIVE )
+	gl1_particle_att_a = ri.Cvar_Get( "gl1_particle_att_a", "0.01", shared.CVAR_ARCHIVE )
+	gl1_particle_att_b = ri.Cvar_Get( "gl1_particle_att_b", "0.0", shared.CVAR_ARCHIVE )
+	gl1_particle_att_c = ri.Cvar_Get( "gl1_particle_att_c", "0.01", shared.CVAR_ARCHIVE )
 
-	gl_modulate = ri.Cvar_Get ("gl_modulate", "1", shared.CVAR_ARCHIVE )
+	r_modulate = ri.Cvar_Get ("r_modulate", "1", shared.CVAR_ARCHIVE )
 	gl_log = ri.Cvar_Get( "gl_log", "0", 0 )
 	gl_bitdepth = ri.Cvar_Get( "gl_bitdepth", "0", 0 )
 	gl_mode = ri.Cvar_Get( "r_mode", "4", shared.CVAR_ARCHIVE ) # Q2PORT: Yamagi's name (and mode table) for gl_mode, until group 15
-	gl_lightmap = ri.Cvar_Get ("gl_lightmap", "0", 0)
-	gl_shadows = ri.Cvar_Get ("gl_shadows", "0", shared.CVAR_ARCHIVE )
-	gl_dynamic = ri.Cvar_Get ("gl_dynamic", "1", 0)
+	r_lightmap = ri.Cvar_Get ("r_lightmap", "0", 0)
+	r_shadows = ri.Cvar_Get ("r_shadows", "0", shared.CVAR_ARCHIVE )
+	gl1_dynamic = ri.Cvar_Get ("gl1_dynamic", "1", 0)
 	gl_nobind = ri.Cvar_Get ("gl_nobind", "0", 0)
-	gl_round_down = ri.Cvar_Get ("gl_round_down", "1", 0)
-	gl_picmip = ri.Cvar_Get ("gl_picmip", "0", 0)
+	gl1_round_down = ri.Cvar_Get ("gl1_round_down", "1", 0)
+	gl1_picmip = ri.Cvar_Get ("gl1_picmip", "0", 0)
 	gl_skymip = ri.Cvar_Get ("gl_skymip", "0", 0)
 	gl_showtris = ri.Cvar_Get ("gl_showtris", "0", 0)
-	gl_ztrick = ri.Cvar_Get ("gl_ztrick", "0", 0)
+	gl1_ztrick = ri.Cvar_Get ("gl1_ztrick", "0", 0)
 	gl_finish = ri.Cvar_Get ("gl_finish", "0", shared.CVAR_ARCHIVE)
-	gl_clear = ri.Cvar_Get ("gl_clear", "0", 0)
+	r_clear = ri.Cvar_Get ("r_clear", "0", 0)
 	gl_cull = ri.Cvar_Get ("gl_cull", "1", 0)
 	gl_polyblend = ri.Cvar_Get ("gl_polyblend", "1", 0)
-	gl_flashblend = ri.Cvar_Get ("gl_flashblend", "0", 0)
+	gl1_flashblend = ri.Cvar_Get ("gl1_flashblend", "0", 0)
 	gl_playermip = ri.Cvar_Get ("gl_playermip", "0", 0)
 	gl_monolightmap = ri.Cvar_Get( "gl_monolightmap", "0", 0 )
 	gl_driver = ri.Cvar_Get( "gl_driver", "opengl32", shared.CVAR_ARCHIVE )
 	gl_texturemode = ri.Cvar_Get( "gl_texturemode", "GL_LINEAR_MIPMAP_NEAREST", shared.CVAR_ARCHIVE )
-	gl_texturealphamode = ri.Cvar_Get( "gl_texturealphamode", "default", shared.CVAR_ARCHIVE )
-	gl_texturesolidmode = ri.Cvar_Get( "gl_texturesolidmode", "default", shared.CVAR_ARCHIVE )
-	gl_lockpvs = ri.Cvar_Get( "gl_lockpvs", "0", 0 )
+	gl1_texturealphamode = ri.Cvar_Get( "gl1_texturealphamode", "default", shared.CVAR_ARCHIVE )
+	gl1_texturesolidmode = ri.Cvar_Get( "gl1_texturesolidmode", "default", shared.CVAR_ARCHIVE )
+	r_lockpvs = ri.Cvar_Get( "r_lockpvs", "0", 0 )
 
 	gl_vertex_arrays = ri.Cvar_Get( "gl_vertex_arrays", "0", shared.CVAR_ARCHIVE )
 
@@ -1120,9 +1120,9 @@ def R_Register():
 	gl_ext_compiled_vertex_array = ri.Cvar_Get( "gl_ext_compiled_vertex_array", "1", shared.CVAR_ARCHIVE )
 
 	gl_drawbuffer = ri.Cvar_Get( "gl_drawbuffer", "GL_BACK", 0 )
-	gl_swapinterval = ri.Cvar_Get( "gl_swapinterval", "1", shared.CVAR_ARCHIVE )
+	r_vsync = ri.Cvar_Get( "r_vsync", "1", shared.CVAR_ARCHIVE )
 
-	gl_saturatelighting = ri.Cvar_Get( "gl_saturatelighting", "0", 0 )
+	gl1_saturatelighting = ri.Cvar_Get( "gl1_saturatelighting", "0", 0 )
 
 	gl_3dlabs_broken = ri.Cvar_Get( "gl_3dlabs_broken", "1", shared.CVAR_ARCHIVE )
 
@@ -1526,7 +1526,7 @@ R_BeginFrame
 """
 def R_BeginFrame( camera_separation ): #float
 
-	global gl_state, gl_texturemode, gl_texturealphamode, gl_texturesolidmode
+	global gl_state, gl_texturemode, gl1_texturealphamode, gl1_texturesolidmode
 
 	gl_state.camera_separation = camera_separation
 
@@ -1605,16 +1605,16 @@ def R_BeginFrame( camera_separation ): #float
 		gl_texturemode.modified = False
 	
 
-	if gl_texturealphamode.modified:
+	if gl1_texturealphamode.modified:
 	
-		gl1_image.GL_TextureAlphaMode( gl_texturealphamode.string )
-		gl_texturealphamode.modified = False
+		gl1_image.GL_TextureAlphaMode( gl1_texturealphamode.string )
+		gl1_texturealphamode.modified = False
 	
 
-	if gl_texturesolidmode.modified:
+	if gl1_texturesolidmode.modified:
 	
-		gl1_image.GL_TextureSolidMode( gl_texturesolidmode.string )
-		gl_texturesolidmode.modified = False
+		gl1_image.GL_TextureSolidMode( gl1_texturesolidmode.string )
+		gl1_texturesolidmode.modified = False
 
 	
 	#

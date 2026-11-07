@@ -117,7 +117,7 @@ def R_RenderDlights ():
 	#int		i;
 	#dlight_t	*l;
 
-	if not gl1_main.gl_flashblend.value:
+	if not gl1_main.gl1_flashblend.value:
 		return
 
 	r_dlightframecount = gl1_main.r_framecount + 1	# because the count hasn't
@@ -204,7 +204,7 @@ def R_PushDlights ():
 	#int		i;
 	#dlight_t	*l;
 
-	if gl1_main.gl_flashblend.value:
+	if gl1_main.gl1_flashblend.value:
 		return
 
 	r_dlightframecount = gl1_main.r_framecount + 1	# because the count hasn't
@@ -314,7 +314,7 @@ def RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (returns 
 			while maps < files_h.MAXLIGHTMAPS and surf.styles[maps] != 255:
 			
 				for j in range(3):
-					scale[j] = gl1_main.gl_modulate.value*gl1_main.r_newrefdef.lightstyles[surf.styles[maps]].rgb[j]
+					scale[j] = gl1_main.r_modulate.value*gl1_main.r_newrefdef.lightstyles[surf.styles[maps]].rgb[j]
 
 				pointcolor[0] += lightmap[lightmap_p+0] * scale[0] * (1.0/255)
 				pointcolor[1] += lightmap[lightmap_p+1] * scale[1] * (1.0/255)
@@ -379,7 +379,7 @@ def R_LightPoint (p, color): #vec3_t, vec3_t
 		if add > 0:
 			shared_c.VectorMA (color, add, dl.color, color)
 	
-	shared_c.VectorScale (color, gl1_main.gl_modulate.value, color)
+	shared_c.VectorScale (color, gl1_main.r_modulate.value, color)
 
 
 """
@@ -505,7 +505,7 @@ def R_BuildLightMap (surf, dest, stride): #msurface_t *, byte *, int
 	if size > max_size:
 		gl1_main.ri.Sys_Error(shared.ERR_DROP, "Bad s_blocklights size")
 
-	modulate = gl1_main.gl_modulate.value if gl1_main.gl_modulate else 1.0
+	modulate = gl1_main.r_modulate.value if gl1_main.r_modulate else 1.0
 	lightmap_data = surf.samples
 	if lightmap_data is None:
 		for idx in range(size * 3):

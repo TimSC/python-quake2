@@ -815,7 +815,7 @@ def R_DrawAliasModel (e): #entity_t *
 		GL.glDepthRange (gl1_main.gldepthmin, gl1_main.gldepthmax)
 
 #if 1
-	if gl1_main.gl_shadows.value and not (currententity.flags & (shared.RF_TRANSLUCENT | shared.RF_WEAPONMODEL)):
+	if gl1_main.r_shadows.value and not (currententity.flags & (shared.RF_TRANSLUCENT | shared.RF_WEAPONMODEL)):
 
 		GL.glPushMatrix ()
 		gl1_main.R_RotateForEntity (e)

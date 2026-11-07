@@ -335,11 +335,11 @@ def R_BlendLightmaps ():
 	# set the appropriate blending mode unless we're only looking at the
 	# lightmaps.
 	#
-	if not gl1_main.gl_lightmap.value:
+	if not gl1_main.r_lightmap.value:
 
 		GL.glEnable (GL.GL_BLEND)
 
-		if gl1_main.gl_saturatelighting.value:
+		if gl1_main.gl1_saturatelighting.value:
 
 			GL.glBlendFunc( GL.GL_ONE, GL.GL_ONE )
 
@@ -381,7 +381,7 @@ def R_BlendLightmaps ():
 	#
 	# render dynamic lightmaps
 	#
-	if gl1_main.gl_dynamic.value:
+	if gl1_main.gl1_dynamic.value:
 
 		LM_InitBlock()
 
@@ -520,7 +520,7 @@ def R_RenderBrushPoly (fa): #msurface_t *
 	if dynamic or ( fa.dlightframe == gl1_main.r_framecount ):
 
 	#dynamic:
-		if gl1_main.gl_dynamic.value:
+		if gl1_main.gl1_dynamic.value:
 
 			if not ( fa.texinfo.flags & (shared.SURF_SKY|shared.SURF_TRANS33|shared.SURF_TRANS66|shared.SURF_WARP ) ):
 
@@ -709,7 +709,7 @@ def GL_RenderLightmappedPoly( surf ): #msurface_t *
 	if dynamic or ( surf.dlightframe == gl1_main.r_framecount ):
 
 	#dynamic:
-		if gl1_main.gl_dynamic.value:
+		if gl1_main.gl1_dynamic.value:
 
 			if not (surf.texinfo.flags & (shared.SURF_SKY|shared.SURF_TRANS33|shared.SURF_TRANS66|shared.SURF_WARP ) ):
 
@@ -870,7 +870,7 @@ def R_DrawInlineBModel ():
 	currententity = gl1_main.currententity
 
 	# calculate dynamic lighting for bmodel
-	if not gl1_main.gl_flashblend.value:
+	if not gl1_main.gl1_flashblend.value:
 
 		for k in range(gl1_main.r_newrefdef.num_dlights):
 
@@ -1195,7 +1195,7 @@ def R_DrawWorld ():
 		gl1_image.GL_TexEnv( GL.GL_REPLACE )
 		gl1_image.GL_SelectTexture( GL.GL_TEXTURE1)
 
-		if gl1_main.gl_lightmap.value:
+		if gl1_main.r_lightmap.value:
 			gl1_image.GL_TexEnv( GL.GL_REPLACE )
 		else:
 			gl1_image.GL_TexEnv( GL.GL_MODULATE )
@@ -1245,7 +1245,7 @@ def R_MarkLeaves ():
 
 	# development aid to let you run around and see exactly where
 	# the pvs ends
-	if gl1_main.gl_lockpvs.value:
+	if gl1_main.r_lockpvs.value:
 		return
 
 	gl1_main.r_visframecount += 1

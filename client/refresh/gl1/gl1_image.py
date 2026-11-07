@@ -944,18 +944,18 @@ def GL_Upload32 (data, width, height, mipmap): #unsigned *, int, int, qboolean (
 	# round to power of 2 pixels
 	scaled_width = 1
 	while scaled_width < width: scaled_width<<=1
-	if gl1_main.gl_round_down.value and scaled_width > width and mipmap:
+	if gl1_main.gl1_round_down.value and scaled_width > width and mipmap:
 		scaled_width >>= 1
 	scaled_height = 1
 	while scaled_height < height: scaled_height<<=1
-	if gl1_main.gl_round_down.value and scaled_height > height and mipmap:
+	if gl1_main.gl1_round_down.value and scaled_height > height and mipmap:
 		scaled_height >>= 1
 
 	# let people sample down the world textures for speed
 	if mipmap:
 	
-		scaled_width >>= int(gl1_main.gl_picmip.value)
-		scaled_height >>= int(gl1_main.gl_picmip.value)
+		scaled_width >>= int(gl1_main.gl1_picmip.value)
+		scaled_height >>= int(gl1_main.gl1_picmip.value)
 	
 	# don't ever bother with >256 textures
 	if scaled_width > 256:

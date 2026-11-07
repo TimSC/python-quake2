@@ -202,8 +202,8 @@ def GL_SetDefaultState( ):
 	GL.glShadeModel (GL.GL_FLAT)
 
 	gl1_image.GL_TextureMode( gl1_main.gl_texturemode.string )
-	gl1_image.GL_TextureAlphaMode( gl1_main.gl_texturealphamode.string )
-	gl1_image.GL_TextureSolidMode( gl1_main.gl_texturesolidmode.string )
+	gl1_image.GL_TextureAlphaMode( gl1_main.gl1_texturealphamode.string )
+	gl1_image.GL_TextureSolidMode( gl1_main.gl1_texturesolidmode.string )
 	
 	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, gl1_image.gl_filter_min)
 	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, gl1_image.gl_filter_max)
@@ -220,13 +220,13 @@ def GL_SetDefaultState( ):
 		#float attenuations[3];
 		attenuations = [0.0, 0.0, 0.0]
 
-		attenuations[0] = gl1_main.gl_particle_att_a.value
-		attenuations[1] = gl1_main.gl_particle_att_b.value
-		attenuations[2] = gl1_main.gl_particle_att_c.value
+		attenuations[0] = gl1_main.gl1_particle_att_a.value
+		attenuations[1] = gl1_main.gl1_particle_att_b.value
+		attenuations[2] = gl1_main.gl1_particle_att_c.value
 
 		GL.glEnable( GL.GL_POINT_SMOOTH )
-		GL.glPointParameterf( GL.GL_POINT_SIZE_MIN, gl1_main.gl_particle_min_size.value ) # GL_POINT_SIZE_MIN_EXT
-		GL.glPointParameterf( GL.GL_POINT_SIZE_MAX, gl1_main.gl_particle_max_size.value ) # GL_POINT_SIZE_MAX_EXT
+		GL.glPointParameterf( GL.GL_POINT_SIZE_MIN, gl1_main.gl1_particle_min_size.value ) # GL_POINT_SIZE_MIN_EXT
+		GL.glPointParameterf( GL.GL_POINT_SIZE_MAX, gl1_main.gl1_particle_max_size.value ) # GL_POINT_SIZE_MAX_EXT
 		GL.glPointParameterfv( GL.GL_POINT_DISTANCE_ATTENUATION, attenuations ) # GL_DISTANCE_ATTENUATION_EXT
 	"""
 	if ( qglColorTableEXT && gl_ext_palettedtexture->value )
@@ -240,13 +240,13 @@ def GL_SetDefaultState( ):
 }
 """
 def GL_UpdateSwapInterval():
-	gl_swapinterval = getattr(gl1_main, "gl_swapinterval", None)
-	if gl_swapinterval is None:
+	r_vsync = getattr(gl1_main, "r_vsync", None)
+	if r_vsync is None:
 		return
-	if not gl_swapinterval.modified:
+	if not r_vsync.modified:
 		return
 
-	gl_swapinterval.modified = False
+	r_vsync.modified = False
 	if gl1_main.gl_state.stereo_enabled:
 		return
 

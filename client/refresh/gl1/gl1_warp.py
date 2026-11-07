@@ -657,7 +657,7 @@ def R_SetSky (name, rotate, axis): # char *, float, vec3_t
 	
 		# chop down rotating skies for less memory
 		if gl1_main.gl_skymip.value or skyrotate:
-			gl1_main.gl_picmip.value+=1
+			gl1_main.gl1_picmip.value+=1
 
 		if qgl_linux.qglColorTableEXT and gl1_main.gl_ext_palettedtexture.value:
 			pathname = "env/{}{}.pcx".format(skyname, suf[i])
@@ -670,7 +670,7 @@ def R_SetSky (name, rotate, axis): # char *, float, vec3_t
 
 		if gl1_main.gl_skymip.value or skyrotate:
 			# take less memory
-			gl1_main.gl_picmip.value -= 1
+			gl1_main.gl1_picmip.value -= 1
 			sky_min = 1.0/256
 			sky_max = 255.0/256
 		
