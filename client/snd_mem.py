@@ -143,6 +143,14 @@ def S_LoadSound (s): #sfx_t * (returns sfxcache_t *)
 
 	#Com_Printf ("loading %s\n",namebuffer);
 
+	# Q2PORT: the C's S_LoadVorbis (static, sound.c) falls back to a .ogg when the
+	# .wav is missing; here it also builds the cache directly (see snd_dma.S_LoadVorbis)
+	sc = snd_dma.S_LoadVorbis(s, namebuffer)
+	if sc is not None:
+		s.cache = sc
+		return sc
+
+	# can't load ogg file
 	size, data = filesystem.FS_LoadFile (namebuffer)
 
 	if data is None:

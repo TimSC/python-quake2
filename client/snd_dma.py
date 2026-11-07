@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from __future__ import annotations
 
+import io
 import numpy as np
 pass
 pass
@@ -35,6 +36,7 @@ from common import cvar
 from common import filesystem
 from client import cl_main
 from client import cl_parse
+from client.sound import ogg
 from client.header import client as client_h
 """
 // snd_dma.c -- main control for any streaming sound output device
@@ -955,7 +957,55 @@ def S_AddLoopSounds ():
 
 //=============================================================================
 
-/*
+============
+S_LoadVorbis
+============
+
+"""
+def S_LoadVorbis(s, namebuffer): #sfx_t *, char * (returns sfxcache_t *)
+
+	"""
+	const char ogg_ext[] = ".ogg";
+	char filename[MAX_QPATH];
+	const char* ext;
+	int	len;
+	"""
+
+	# Q2PORT: the C decodes the vorbis into a raw wav buffer via OGG_LoadAsWav and
+	# S_LoadSound builds the cache from it; pygame.mixer.Sound decodes the ogg directly,
+	# so the cache is built here.
+
+	ext = namebuffer.rfind(".")
+	if ext < 0:
+		return None
+
+	len = ext
+	if (len < 1):
+		clientserver.Com_DPrintf("S_LoadVorbis: Bad filename {}\n".format(namebuffer))
+		return None
+
+	filename = namebuffer[:len] + ".ogg" #const char ogg_ext[] = ".ogg"
+
+	size, data = filesystem.FS_LoadFile(filename)
+	if data is None:
+		return None
+
+	sc = snd_loc.sfxcache_t()
+	sc.data = pygame.mixer.Sound(file=io.BytesIO(data))
+	# Q2PORT: the C rejects stereo samples (info.channels != 1); pygame already converts
+	# the file to the (stereo) mixer format, so the source channel count is not available
+
+	# The OGG_LoadAsWav info
+	sc.length = int(sc.data.get_length() * dma.speed) #in samples, like paintedtime
+	sc.loopstart = -1
+	sc.speed = dma.speed
+	sc.width = 2
+	sc.stereo = 1
+
+	return sc
+
+
+"""
 ============
 S_RawSamples
 
@@ -1168,6 +1218,10 @@ def S_Update(origin, forward, right, up): #vec3_t, vec3_t, vec3_t, vec3_t
 """
 	# mix some sound
 	S_Update_();
+
+	# Q2PORT: the C's SDL backend calls OGG_Stream() from its S_Update; the music is
+	# streamed inside pygame.mixer.music (see client/sound/ogg.py)
+	ogg.OGG_Stream()
 
 
 def GetSoundtime():

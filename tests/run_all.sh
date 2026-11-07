@@ -42,6 +42,7 @@ run monster_all 240 "mon: finished calls .* errors 0" +set basedir "$Q2DATA" +sk
 run walk_test 90 "walk: passed" -427.6 108.4 -23.9 -50 200 4 +set basedir "$Q2DATA" +map base1
 run fire_test 90 "fire: done" +set basedir "$Q2DATA" +map base1
 run cin_play 60 "cin: finished" +set basedir "$Q2DATA" +map idlog.cin
+run ogg_music 90 "ogg: done" +set basedir "$Q2DATA" +map base1
 run menu_settings_test 120 "ms: after renderer restart" +set basedir "$Q2DATA" +map base1
 run vidrestart_shot 60 "vr: t=12 polys [1-9]" +set basedir "$Q2DATA" +map base1
 run dedicated 60 "dedicated: .* state ss_game, map base1" +set basedir "$Q2DATA" +set dedicated 1 +map base1
