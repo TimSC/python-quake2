@@ -481,7 +481,7 @@ def Mod_LoadTexinfo (l: files_h.lump_t):
 		    out_obj.next = None
 		name = "textures/{}.wal".format(in_obj.texture)
 
-		out_obj.image = gl1_image.GL_FindImage (name, gl1_image.imagetype_t.it_wall)
+		out_obj.image = gl1_image.R_FindImage (name, gl1_image.imagetype_t.it_wall)
 		if out_obj.image is None:
 		
 			gl1_main.ri.Con_Printf (shared.PRINT_ALL, "Couldn't load {}\n".format(name))
@@ -948,7 +948,7 @@ def Mod_LoadAliasModel (mod, buff): #model_t *, void *
 		name = name_bytes.split(b'\x00', 1)[0].decode("ascii", "ignore")
 		if not name:
 			continue
-		mod.skins[i] = gl1_image.GL_FindImage (name, gl1_image.imagetype_t.it_skin)
+		mod.skins[i] = gl1_image.R_FindImage (name, gl1_image.imagetype_t.it_skin)
 
 	stverts = []
 	st_offset = header.ofs_st
@@ -1069,7 +1069,7 @@ def Mod_LoadSpriteModel (mod, buff): # model_t *, void *
 		frame = sprite.frames[i]
 		if not frame.name:
 			continue
-		mod.skins[i] = gl1_image.GL_FindImage (frame.name, gl1_image.imagetype_t.it_sprite)
+		mod.skins[i] = gl1_image.R_FindImage (frame.name, gl1_image.imagetype_t.it_sprite)
 
 	mod.type = model.modtype_t.mod_sprite
 	mod.numframes = sprite.numframes
@@ -1132,7 +1132,7 @@ def R_EndRegistration ():
 			continue
 		if mod.registration_sequence != registration_sequence:
 			Mod_Free(mod)
-	gl1_image.GL_FreeUnusedImages()
+	gl1_image.R_FreeUnusedImages()
 
 # =============================================================================
 #

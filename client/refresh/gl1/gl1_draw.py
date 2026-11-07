@@ -46,8 +46,8 @@ def Draw_InitLocal ():
 	global draw_chars
 
 	# load console characters (don't bilerp characters)
-	draw_chars = gl1_image.GL_FindImage ("pics/conchars.pcx", gl1_image.imagetype_t.it_pic)
-	gl1_image.GL_Bind( draw_chars.texnum )
+	draw_chars = gl1_image.R_FindImage ("pics/conchars.pcx", gl1_image.imagetype_t.it_pic)
+	gl1_image.R_Bind( draw_chars.texnum )
 	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
 	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
 
@@ -79,7 +79,7 @@ def Draw_Char (x, y, num): #int, int, int
 	fcol = col*0.0625
 	size = 0.0625
 
-	gl1_image.GL_Bind (draw_chars.texnum)
+	gl1_image.R_Bind (draw_chars.texnum)
 
 	GL.glBegin (GL.GL_QUADS)
 	GL.glTexCoord2f (fcol, frow)
@@ -126,7 +126,7 @@ def Draw_CharScaled (x, y, num, scale): #int, int, int, float
 
 	scaledSize = 8 * scale
 
-	gl1_image.GL_Bind (draw_chars.texnum)
+	gl1_image.R_Bind (draw_chars.texnum)
 
 	GL.glBegin (GL.GL_QUADS)
 	GL.glTexCoord2f (fcol, frow)
@@ -173,7 +173,7 @@ def Draw_PicScaledCol (x, y, pic, factor, color): #int, int, char *, float, cons
 		GL.glColor4f (color[0], color[1], color[2], 1)
 
 
-	gl1_image.GL_Bind (gl.texnum)
+	gl1_image.R_Bind (gl.texnum)
 	GL.glBegin (GL.GL_QUADS)
 	GL.glTexCoord2f (gl.sl, gl.tl)
 	GL.glVertex2f (x, y)
@@ -204,10 +204,10 @@ def Draw_FindPic (name): #char * (returns image_t	*)
 	if name[0] != '/' and name[0] != '\\':
 	
 		fullname = "pics/{}.pcx".format(name)
-		gl = gl1_image.GL_FindImage (fullname, gl1_image.imagetype_t.it_pic)
+		gl = gl1_image.R_FindImage (fullname, gl1_image.imagetype_t.it_pic)
 	
 	else:
-		gl = gl1_image.GL_FindImage (name[1:], gl1_image.imagetype_t.it_pic)
+		gl = gl1_image.R_FindImage (name[1:], gl1_image.imagetype_t.it_pic)
 
 	return gl
 
@@ -247,7 +247,7 @@ def Draw_StretchPic (x, y, w, h, pic): #int, int, int, int, char *
 	#if ( ( ( gl_config.renderer == GL_RENDERER_MCD ) || ( gl_config.renderer & GL_RENDERER_RENDITION ) ) && !gl->has_alpha)
 	#	qglDisable (GL_ALPHA_TEST);
 
-	gl1_image.GL_Bind (gl.texnum)
+	gl1_image.R_Bind (gl.texnum)
 	GL.glBegin (GL.GL_QUADS)
 	GL.glTexCoord2f (gl.sl, gl.tl)
 	GL.glVertex2f (x, y)
@@ -283,7 +283,7 @@ def Draw_Pic (x, y, pic): #int, int, char *
 	#if ( ( ( gl_config.renderer == GL_RENDERER_MCD ) || ( gl_config.renderer & GL_RENDERER_RENDITION ) ) && !gl->has_alpha)
 	#	qglDisable (GL_ALPHA_TEST);
 
-	gl1_image.GL_Bind (gl.texnum)
+	gl1_image.R_Bind (gl.texnum)
 	GL.glBegin (GL.GL_QUADS)
 	GL.glTexCoord2f (gl.sl, gl.tl)
 	GL.glVertex2f (x, y)
@@ -320,7 +320,7 @@ def Draw_TileClear (x, y, w, h, pic): #int, int, int, int, char *
 	if  ( ( gl1_main.gl_config.renderer == gl1_main.GL_RENDERER_MCD ) or ( gl1_main.gl_config.renderer & gl1_main.GL_RENDERER_RENDITION ) )  and not image.has_alpha:
 		GL.glDisable (GL.GL_ALPHA_TEST)
 
-	gl1_image.GL_Bind (image.texnum)
+	gl1_image.R_Bind (image.texnum)
 	GL.glBegin (GL.GL_QUADS)
 	GL.glTexCoord2f (x/64.0, y/64.0)
 	GL.glVertex2f (x, y)
@@ -428,7 +428,7 @@ def Draw_StretchRaw (x, y, w, h, cols, rows, data): #int, int, int, int, int, in
 	"""
 	image32 = bytearray(256*256*4)
 
-	gl1_image.GL_Bind (0)
+	gl1_image.R_Bind (0)
 
 	if rows<=256:
 	

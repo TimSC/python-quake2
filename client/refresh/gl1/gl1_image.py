@@ -155,7 +155,7 @@ gl_filter_min = GL.GL_LINEAR_MIPMAP_NEAREST #int
 gl_filter_max = GL.GL_LINEAR #int
 
 
-def GL_SetTexturePalette(palette): #unsigned palette[256]
+def R_SetTexturePalette(palette): #unsigned palette[256]
 
 	"""
 	int i;
@@ -184,28 +184,28 @@ def GL_SetTexturePalette(palette): #unsigned palette[256]
 		"""
 
 
-def GL_EnableMultitexture( enable ):
+def R_EnableMultitexture( enable ):
 
 	if not qgl_linux.qglSelectTextureSGIS and not qgl_linux.qglActiveTextureARB:
 		return
 
 	if enable :
 	
-		GL_SelectTexture( GL.GL_TEXTURE1 )
+		R_SelectTexture( GL.GL_TEXTURE1 )
 		GL.glEnable( GL.GL_TEXTURE_2D )
-		GL_TexEnv( GL.GL_REPLACE )
+		R_TexEnv( GL.GL_REPLACE )
 	
 	else:
 	
-		GL_SelectTexture( GL.GL_TEXTURE1 )
+		R_SelectTexture( GL.GL_TEXTURE1 )
 		GL.glDisable( GL.GL_TEXTURE_2D )
-		GL_TexEnv( GL.GL_REPLACE )
+		R_TexEnv( GL.GL_REPLACE )
 	
-	GL_SelectTexture( GL.GL_TEXTURE0 )
-	GL_TexEnv( GL.GL_REPLACE )
+	R_SelectTexture( GL.GL_TEXTURE0 )
+	R_TexEnv( GL.GL_REPLACE )
 
 
-def GL_SelectTexture( texture ): #GLenum
+def R_SelectTexture( texture ): #GLenum
 
 	#int tmu;
 
@@ -235,7 +235,7 @@ def GL_SelectTexture( texture ): #GLenum
 
 lastmodes = [-1, -1] # int[2]
 
-def GL_TexEnv( mode ): #GLenum
+def R_TexEnv( mode ): #GLenum
 	global lastmodes
 
 	if mode != lastmodes[gl1_main.gl_state.currenttmu]:
@@ -243,7 +243,7 @@ def GL_TexEnv( mode ): #GLenum
 		GL.glTexEnvf( GL.GL_TEXTURE_ENV, GL.GL_TEXTURE_ENV_MODE, mode )
 		lastmodes[gl1_main.gl_state.currenttmu] = mode
 	
-def GL_Bind (texnum): #int
+def R_Bind (texnum): #int
 
 	#extern	image_t	*draw_chars;
 
@@ -255,9 +255,9 @@ def GL_Bind (texnum): #int
 	GL.glBindTexture (GL.GL_TEXTURE_2D, texnum)
 
 
-def GL_MBind( target, texnum ): #GLenum, int
+def R_MBind( target, texnum ): #GLenum, int
 
-	GL_SelectTexture( target )
+	R_SelectTexture( target )
 	if target == GL.GL_TEXTURE0:
 		tmu = 0
 	else:
@@ -348,10 +348,10 @@ gltmode_t gl_solid_modes[] = {
 
 /*
 ===============
-GL_TextureMode
+R_TextureMode
 ===============
 """
-def GL_TextureMode( string ): #char *
+def R_TextureMode( string ): #char *
 
 	#int		i;
 	#image_t	*glt;
@@ -377,16 +377,16 @@ def GL_TextureMode( string ): #char *
 	
 		if glt.type != imagetype_t.it_pic and glt.type != imagetype_t.it_sky:
 		
-			GL_Bind (glt.texnum)
+			R_Bind (glt.texnum)
 			GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, gl_filter_min)
 			GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, gl_filter_max)
 
 """
 ===============
-GL_TextureAlphaMode
+R_TextureAlphaMode
 ===============
 """
-def GL_TextureAlphaMode( string ): #char *
+def R_TextureAlphaMode( string ): #char *
 
 	global gl_tex_alpha_format
 
@@ -397,8 +397,8 @@ def GL_TextureAlphaMode( string ): #char *
 
 	gl1_main.ri.Con_Printf(shared.PRINT_ALL, "bad alpha texture mode name\n")
 
-# GL_TextureSolidMode
-def GL_TextureSolidMode( string ): #char *
+# R_TextureSolidMode
+def R_TextureSolidMode( string ): #char *
 
 	global gl_tex_solid_format
 
@@ -409,8 +409,8 @@ def GL_TextureSolidMode( string ): #char *
 
 	gl1_main.ri.Con_Printf(shared.PRINT_ALL, "bad solid texture mode name\n")
 
-# GL_ImageList_f
-def GL_ImageList_f ():
+# R_ImageList_f
+def R_ImageList_f ():
 
 	"""
 	int		i;
@@ -516,8 +516,8 @@ def Scrap_Upload ():
 	global scrap_uploads, scrap_dirty
 
 	scrap_uploads += 1
-	GL_Bind(TEXNUM_SCRAPS)
-	GL_Upload8 (scrap_texels[0], BLOCK_WIDTH, BLOCK_HEIGHT, False, False )
+	R_Bind(TEXNUM_SCRAPS)
+	R_Upload8 (scrap_texels[0], BLOCK_WIDTH, BLOCK_HEIGHT, False, False )
 	scrap_dirty = False
 
 """
@@ -827,13 +827,13 @@ def GL_ResampleTexture (inPic, inwidth, inheight, outwidth, outheight): #unsigne
 
 """
 ================
-GL_LightScaleTexture
+R_LightScaleTexture
 
 Scale up the pixel values in a texture to increase the
 lighting range
 ================
 """
-def GL_LightScaleTexture (inPic, inwidth, inheight, only_gamma ): #unsigned *, int, int, qboolean
+def R_LightScaleTexture (inPic, inwidth, inheight, only_gamma ): #unsigned *, int, int, qboolean
 
 	global gammatable, intensitytable
 
@@ -851,12 +851,12 @@ def GL_LightScaleTexture (inPic, inwidth, inheight, only_gamma ): #unsigned *, i
 
 """
 ================
-GL_MipMap
+R_MipMap
 
 Operates in place, quartering the size of the texture
 ================
 """
-def GL_MipMap (pic, width, height): #byte *, int, int
+def R_MipMap (pic, width, height): #byte *, int, int
 
 	#int		i, j;
 	#byte	*out;
@@ -888,12 +888,12 @@ def GL_MipMap (pic, width, height): #byte *, int, int
 
 """
 ===============
-GL_Upload32
+R_Upload32
 
 Returns has_alpha
 ===============
 */
-void GL_BuildPalettedTexture( unsigned char *paletted_texture, unsigned char *scaled, int scaled_width, int scaled_height )
+void R_BuildPalettedTexture( unsigned char *paletted_texture, unsigned char *scaled, int scaled_width, int scaled_height )
 {
 	int i;
 
@@ -913,7 +913,7 @@ void GL_BuildPalettedTexture( unsigned char *paletted_texture, unsigned char *sc
 	}
 }
 """
-def GL_BuildPalettedTexture (paletted_texture, scaled, scaled_width, scaled_height): #unsigned char *, unsigned char *, int, int
+def R_BuildPalettedTexture (paletted_texture, scaled, scaled_width, scaled_height): #unsigned char *, unsigned char *, int, int
 
 	# Q2PORT: not ported, it is only used with the GL_EXT_paletted_texture extension,
 	# which modern drivers do not offer. The C above is kept for reference.
@@ -924,7 +924,7 @@ def GL_BuildPalettedTexture (paletted_texture, scaled, scaled_width, scaled_heig
 int		upload_width, upload_height;
 qboolean uploaded_paletted;
 """
-def GL_Upload32 (data, width, height, mipmap): #unsigned *, int, int, qboolean (returns qboolean)
+def R_Upload32 (data, width, height, mipmap): #unsigned *, int, int, qboolean (returns qboolean)
 
 	scaledSize = 256*256
 	"""
@@ -972,7 +972,7 @@ def GL_Upload32 (data, width, height, mipmap): #unsigned *, int, int, qboolean (
 	upload_height = scaled_height
 
 	if scaled_width * scaled_height > scaledSize:
-		gl1_main.ri.Sys_Error (shared.ERR_DROP, "GL_Upload32: too big")
+		gl1_main.ri.Sys_Error (shared.ERR_DROP, "R_Upload32: too big")
 
 	# scan the texture for any non-255 alpha
 	c = width*height
@@ -1021,7 +1021,7 @@ def GL_Upload32 (data, width, height, mipmap): #unsigned *, int, int, qboolean (
 				and False: #FIXME Disable for now, reintroduce later in porting
 			
 				uploaded_paletted = True
-				paletted_texture = GL_BuildPalettedTexture( data, scaled_width, scaled_height )
+				paletted_texture = R_BuildPalettedTexture( data, scaled_width, scaled_height )
 				GL.glTexImage2D( GL.GL_TEXTURE_2D,
 							  0,
 							  GL.GL_COLOR_INDEX8_EXT,
@@ -1046,13 +1046,13 @@ def GL_Upload32 (data, width, height, mipmap): #unsigned *, int, int, qboolean (
 	else:
 		scaled = GL_ResampleTexture (data, width, height, scaled_width, scaled_height)
 
-	GL_LightScaleTexture (scaled, scaled_width, scaled_height, not mipmap )
+	R_LightScaleTexture (scaled, scaled_width, scaled_height, not mipmap )
 
 	if qgl_linux.qglColorTableEXT and gl1_main.gl_ext_palettedtexture.value and samples == gl_solid_format \
 		and False: #FIXME Disable for now, reintroduce later in porting
 	
 		uploaded_paletted = True
-		GL_BuildPalettedTexture( paletted_texture, scaled, scaled_width, scaled_height )
+		R_BuildPalettedTexture( paletted_texture, scaled, scaled_width, scaled_height )
 		GL.glTexImage2D( GL.GL_TEXTURE_2D,
 					  0,
 					  GL.GL_COLOR_INDEX8_EXT,
@@ -1075,7 +1075,7 @@ def GL_Upload32 (data, width, height, mipmap): #unsigned *, int, int, qboolean (
 		miplevel = 0
 		while scaled_width > 1 or scaled_height > 1:
 		
-			GL_MipMap (scaled, scaled_width, scaled_height)
+			R_MipMap (scaled, scaled_width, scaled_height)
 			scaled_width >>= 1
 			scaled_height >>= 1
 			if scaled_width < 1:
@@ -1087,7 +1087,7 @@ def GL_Upload32 (data, width, height, mipmap): #unsigned *, int, int, qboolean (
 				and False: #FIXME Disable for now, reintroduce later in porting
 
 				uploaded_paletted = True
-				GL_BuildPalettedTexture( paletted_texture, scaled, scaled_width, scaled_height )
+				R_BuildPalettedTexture( paletted_texture, scaled, scaled_width, scaled_height )
 				GL.glTexImage2D( GL.GL_TEXTURE_2D,
 							  miplevel,
 							  GL.GL_COLOR_INDEX8_EXT,
@@ -1125,7 +1125,7 @@ def GL_Upload32Finish(mipmap):
 
 """
 ===============
-GL_Upload8
+R_Upload8
 
 Returns has_alpha
 ===============
@@ -1147,7 +1147,7 @@ static qboolean IsPowerOf2( int value )
 }
 */
 """
-def GL_Upload8 (data, width, height, mipmap, is_sky ): #byte *, int, int, qboolean, qboolean (returns qboolean)
+def R_Upload8 (data, width, height, mipmap, is_sky ): #byte *, int, int, qboolean, qboolean (returns qboolean)
 
 	sizeTrans = 512*256
 	#trans = []
@@ -1162,7 +1162,7 @@ def GL_Upload8 (data, width, height, mipmap, is_sky ): #byte *, int, int, qboole
 	s = width*height
 
 	if s > sizeTrans:
-		gl1_main.ri.Sys_Error (shared.ERR_DROP, "GL_Upload8: too large")
+		gl1_main.ri.Sys_Error (shared.ERR_DROP, "R_Upload8: too large")
 
 	if ( qgl_linux.qglColorTableEXT and 
 		 gl1_main.gl_ext_palettedtexture.value and 
@@ -1206,17 +1206,17 @@ def GL_Upload8 (data, width, height, mipmap, is_sky ): #byte *, int, int, qboole
 		trans = bytearray(trans.tobytes())
 		assert len(trans) == s*4
 
-		return GL_Upload32 (trans, width, height, mipmap)
+		return R_Upload32 (trans, width, height, mipmap)
 
 
 """
 ================
-GL_LoadPic
+R_LoadPic
 
 This is also used as an entry point for the generated r_notexture
 ================
 """
-def GL_LoadPic (name, pic, width, height, imgType, bits): #char *, byte *, int, int, imagetype_t, int (returns image_t *)
+def R_LoadPic (name, pic, width, height, imgType, bits): #char *, byte *, int, int, imagetype_t, int (returns image_t *)
 
 	global gltextures, numgltextures, TEXNUM_IMAGES, scrap_dirty
 	#image_t		*image;
@@ -1286,14 +1286,14 @@ def GL_LoadPic (name, pic, width, height, imgType, bits): #char *, byte *, int, 
 		#nonscrap:
 		image.scrap = False
 		image.texnum = TEXNUM_IMAGES + i
-		GL_Bind(image.texnum)
+		R_Bind(image.texnum)
 
 		if bits == 8:
 			image.has_alpha, image.upload_width, image.upload_height, image.paletted = \
-				GL_Upload8 (pic, width, height, (image.type != imagetype_t.it_pic and image.type != imagetype_t.it_sky), image.type == imagetype_t.it_sky )
+				R_Upload8 (pic, width, height, (image.type != imagetype_t.it_pic and image.type != imagetype_t.it_sky), image.type == imagetype_t.it_sky )
 		else:
 			image.has_alpha, image.upload_width, image.upload_height, image.paletted = \
-				GL_Upload32 (pic, width, height, (image.type != imagetype_t.it_pic and image.type != imagetype_t.it_sky) )
+				R_Upload32 (pic, width, height, (image.type != imagetype_t.it_pic and image.type != imagetype_t.it_sky) )
 
 		image.sl = 0
 		image.sh = 1
@@ -1318,7 +1318,7 @@ def GL_LoadWal (name): #char * (returns image_t *)
 	length, mt = gl1_main.ri.FS_LoadFile (name);
 	if mt is None:
 	
-		gl1_main.ri.Con_Printf (shared.PRINT_ALL, "GL_FindImage: can't load {}\n".format(name))
+		gl1_main.ri.Con_Printf (shared.PRINT_ALL, "R_FindImage: can't load {}\n".format(name))
 		return gl1_main.r_notexture
 	
 	img_header = files_h.miptex_t()
@@ -1328,7 +1328,7 @@ def GL_LoadWal (name): #char * (returns image_t *)
 	height = img_header.height
 	ofs = img_header.offsets[0] # First mipmap level
 
-	image = GL_LoadPic (name, mt[ofs:], width, height, imagetype_t.it_wall, 8)
+	image = R_LoadPic (name, mt[ofs:], width, height, imagetype_t.it_wall, 8)
 
 	#gl1_main.ri.FS_FreeFile ((void *)mt)
 
@@ -1337,12 +1337,12 @@ def GL_LoadWal (name): #char * (returns image_t *)
 
 """
 ===============
-GL_FindImage
+R_FindImage
 
 Finds or loads the given image
 ===============
 """
-def GL_FindImage (name, imgType): #char *, imagetype_t (returns image_t *)
+def R_FindImage (name, imgType): #char *, imagetype_t (returns image_t *)
 
 	global numgltextures, gltextures
 
@@ -1354,9 +1354,9 @@ def GL_FindImage (name, imgType): #char *, imagetype_t (returns image_t *)
 	"""
 
 	if name is None:
-		return None	##	gl1_main.ri.Sys_Error (ERR_DROP, "GL_FindImage: NULL name");
+		return None	##	gl1_main.ri.Sys_Error (ERR_DROP, "R_FindImage: NULL name");
 	if len(name)<5:
-		return None	##	gl1_main.ri.Sys_Error (ERR_DROP, "GL_FindImage: bad name: %s", name);
+		return None	##	gl1_main.ri.Sys_Error (ERR_DROP, "R_FindImage: bad name: %s", name);
 
 	# look for it
 	for i in range(numgltextures):
@@ -1374,8 +1374,8 @@ def GL_FindImage (name, imgType): #char *, imagetype_t (returns image_t *)
 	
 		pic, pal, width, height = LoadPCX (name)
 		if pic is None:
-			return None ## gl1_main.ri.Sys_Error (ERR_DROP, "GL_FindImage: can't load %s", name);
-		image = GL_LoadPic (name, pic, width, height, imgType, 8)
+			return None ## gl1_main.ri.Sys_Error (ERR_DROP, "R_FindImage: can't load %s", name);
+		image = R_LoadPic (name, pic, width, height, imgType, 8)
 	
 	elif name[-4:] == ".wal":
 	
@@ -1394,16 +1394,16 @@ def GL_FindImage (name, imgType): #char *, imagetype_t (returns image_t *)
 		width, height = pgimg.get_size()
 		# LoadTGA returns top down rows of 32 bit RGBA
 		pgpix = bytearray(pygame.image.tobytes(pgimg, "RGBA"))
-		image = GL_LoadPic (name, pgpix, width, height, imgType, 32)
+		image = R_LoadPic (name, pgpix, width, height, imgType, 32)
 
 		# this is the original quake 2 approach:
 		#LoadTGA (name, &pic, &width, &height);
 		#if (!pic)
-		#	return None ## gl1_main.ri.Sys_Error (ERR_DROP, "GL_FindImage: can't load %s", name);
-		#image = GL_LoadPic (name, pic, width, height, type, 32);
+		#	return None ## gl1_main.ri.Sys_Error (ERR_DROP, "R_FindImage: can't load %s", name);
+		#image = R_LoadPic (name, pic, width, height, type, 32);
 	
 	else:
-		return None	##	gl1_main.ri.Sys_Error (ERR_DROP, "GL_FindImage: bad extension on: %s", name)
+		return None	##	gl1_main.ri.Sys_Error (ERR_DROP, "R_FindImage: bad extension on: %s", name)
 
 	return image
 
@@ -1415,19 +1415,19 @@ R_RegisterSkin
 """
 def R_RegisterSkin (name): #char * (returns struct image_s *)
 
-	return GL_FindImage (name, imagetype_t.it_skin)
+	return R_FindImage (name, imagetype_t.it_skin)
 
 
 
 """
 ================
-GL_FreeUnusedImages
+R_FreeUnusedImages
 
 Any image that was not touched on this registration sequence
 will be freed.
 ================
 """
-def GL_FreeUnusedImages():
+def R_FreeUnusedImages():
 
 	#int		i;
 	#image_t	*image;
@@ -1481,10 +1481,10 @@ def Draw_GetPalette ():
 
 """
 ===============
-GL_InitImages
+R_InitImages
 ===============
 """
-def GL_InitImages ():
+def R_InitImages ():
 	
 	global gammatable, intensitytable
 	"""
@@ -1546,10 +1546,10 @@ def GL_InitImages ():
 	
 """
 ===============
-GL_ShutdownImages
+R_ShutdownImages
 ===============
 """
-def GL_ShutdownImages ():
+def R_ShutdownImages ():
 
 	#int		i;
 	#image_t	*image;

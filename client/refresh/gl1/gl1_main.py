@@ -300,9 +300,9 @@ def R_DrawSpriteModel (e): #entity_t *
 
 	GL.glColor4f( 1, 1, 1, alpha )
 
-	gl1_image.GL_Bind(currentmodel.skins[e.frame].texnum)
+	gl1_image.R_Bind(currentmodel.skins[e.frame].texnum)
 
-	gl1_image.GL_TexEnv( GL.GL_MODULATE )
+	gl1_image.R_TexEnv( GL.GL_MODULATE )
 
 	if alpha == 1.0:
 		GL.glEnable (GL.GL_ALPHA_TEST)
@@ -334,7 +334,7 @@ def R_DrawSpriteModel (e): #entity_t *
 	GL.glEnd ()
 
 	GL.glDisable (GL.GL_ALPHA_TEST)
-	gl1_image.GL_TexEnv( GL.GL_REPLACE )
+	gl1_image.R_TexEnv( GL.GL_REPLACE )
 
 	if alpha != 1.0:
 		GL.glDisable( GL.GL_BLEND )
@@ -476,10 +476,10 @@ def GL_DrawParticles( num_particles, particles, colortable ): #int, const partic
 	up = np.zeros((3,), dtype=np.float32)
 	right = np.zeros((3,), dtype=np.float32)
 
-	gl1_image.GL_Bind(r_particletexture.texnum)
+	gl1_image.R_Bind(r_particletexture.texnum)
 	GL.glDepthMask( GL.GL_FALSE )		# no z buffering
 	GL.glEnable( GL.GL_BLEND )
-	gl1_image.GL_TexEnv( GL.GL_MODULATE )
+	gl1_image.R_TexEnv( GL.GL_MODULATE )
 	GL.glBegin( GL.GL_TRIANGLES )
 
 	shared_c.VectorScale (vup, 1.5, up)
@@ -519,7 +519,7 @@ def GL_DrawParticles( num_particles, particles, colortable ): #int, const partic
 	GL.glDisable( GL.GL_BLEND )
 	GL.glColor4f( 1,1,1,1 )
 	GL.glDepthMask( 1 )		# back to normal Z buffering
-	gl1_image.GL_TexEnv( GL.GL_REPLACE )
+	gl1_image.R_TexEnv( GL.GL_REPLACE )
 
 """
 ===============
@@ -1091,7 +1091,7 @@ def R_Register():
 	vid_gamma = ri.Cvar_Get( "vid_gamma", "1.0", shared.CVAR_ARCHIVE )
 	vid_ref = ri.Cvar_Get( "vid_ref", "soft", shared.CVAR_ARCHIVE )
 
-	ri.Cmd_AddCommand( "imagelist", gl1_image.GL_ImageList_f )
+	ri.Cmd_AddCommand( "imagelist", gl1_image.R_ImageList_f )
 	ri.Cmd_AddCommand( "screenshot", gl1_misc.GL_ScreenShot_f )
 	ri.Cmd_AddCommand( "modellist", gl1_model.Mod_Modellist_f )
 	ri.Cmd_AddCommand( "gl_strings", gl1_misc.GL_Strings_f )
@@ -1436,7 +1436,7 @@ def R_Init( hinstance, hWnd ): #void *, void *
 	# commented out until H3D pays us the money they owe us
 	## GL_DrawStereoPattern()
 
-	gl1_image.GL_InitImages ()
+	gl1_image.R_InitImages ()
 	gl1_model.Mod_Init ()
 	gl1_misc.R_InitParticleTexture ()
 	gl1_draw.Draw_InitLocal ()
@@ -1468,7 +1468,7 @@ def R_Shutdown ():
 
 	gl1_model.Mod_FreeAll ()
 
-	gl1_image.GL_ShutdownImages ()
+	gl1_image.R_ShutdownImages ()
 	#
 	# shut down OS specific OpenGL stuff like contexts, etc.
 	#
@@ -1562,19 +1562,19 @@ def R_BeginFrame( camera_separation ): #float
 	#
 	if gl_texturemode.modified:
 	
-		gl1_image.GL_TextureMode( gl_texturemode.string )
+		gl1_image.R_TextureMode( gl_texturemode.string )
 		gl_texturemode.modified = False
 	
 
 	if gl1_texturealphamode.modified:
 	
-		gl1_image.GL_TextureAlphaMode( gl1_texturealphamode.string )
+		gl1_image.R_TextureAlphaMode( gl1_texturealphamode.string )
 		gl1_texturealphamode.modified = False
 	
 
 	if gl1_texturesolidmode.modified:
 	
-		gl1_image.GL_TextureSolidMode( gl1_texturesolidmode.string )
+		gl1_image.R_TextureSolidMode( gl1_texturesolidmode.string )
 		gl1_texturesolidmode.modified = False
 
 	
@@ -1622,7 +1622,7 @@ def R_SetPalette (palette): #const unsigned char *
 			c = gl1_image.d_8to24table[i]
 			r_rawpalette[i] = struct.unpack("<L", struct.pack("<BBBB", c[0], c[1], c[2], 0xff))[0]
 	
-	gl1_image.GL_SetTexturePalette( r_rawpalette )
+	gl1_image.R_SetTexturePalette( r_rawpalette )
 
 	GL.glClearColor (0,0,0,0)
 	GL.glClear (GL.GL_COLOR_BUFFER_BIT)

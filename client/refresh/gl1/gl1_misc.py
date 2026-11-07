@@ -66,7 +66,7 @@ def R_InitParticleTexture ():
 			data[(y*8+x)*4+2] = 255
 			data[(y*8+x)*4+3] = dottexture[x][y]*255
 		
-	gl1_main.r_particletexture = gl1_image.GL_LoadPic ("***particle***", data, 8, 8, gl1_image.imagetype_t.it_sprite, 32)
+	gl1_main.r_particletexture = gl1_image.R_LoadPic ("***particle***", data, 8, 8, gl1_image.imagetype_t.it_sprite, 32)
 
 	#
 	# also use this for bad textures, but without alpha
@@ -81,7 +81,7 @@ def R_InitParticleTexture ():
 			data[(y*8+x)*4+2] = 0 #dottexture[x&3][y&3]*255;
 			data[(y*8+x)*4+3] = 255
 		
-	gl1_main.r_notexture = gl1_image.GL_LoadPic ("***r_notexture***", data, 8, 8, gl1_image.imagetype_t.it_wall, 32)
+	gl1_main.r_notexture = gl1_image.R_LoadPic ("***r_notexture***", data, 8, 8, gl1_image.imagetype_t.it_wall, 32)
 
 """
 
@@ -201,9 +201,9 @@ def GL_SetDefaultState( ):
 	GL.glPolygonMode (GL.GL_FRONT_AND_BACK, GL.GL_FILL)
 	GL.glShadeModel (GL.GL_FLAT)
 
-	gl1_image.GL_TextureMode( gl1_main.gl_texturemode.string )
-	gl1_image.GL_TextureAlphaMode( gl1_main.gl1_texturealphamode.string )
-	gl1_image.GL_TextureSolidMode( gl1_main.gl1_texturesolidmode.string )
+	gl1_image.R_TextureMode( gl1_main.gl_texturemode.string )
+	gl1_image.R_TextureAlphaMode( gl1_main.gl1_texturealphamode.string )
+	gl1_image.R_TextureSolidMode( gl1_main.gl1_texturesolidmode.string )
 	
 	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, gl1_image.gl_filter_min)
 	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, gl1_image.gl_filter_max)
@@ -213,7 +213,7 @@ def GL_SetDefaultState( ):
 
 	GL.glBlendFunc (GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
 
-	gl1_image.GL_TexEnv( GL.GL_REPLACE )
+	gl1_image.R_TexEnv( GL.GL_REPLACE )
 
 	if qgl_linux.qglPointParameterfEXT:
 
@@ -233,7 +233,7 @@ def GL_SetDefaultState( ):
 	{
 		qglEnable( GL_SHARED_TEXTURE_PALETTE_EXT );
 
-		GL_SetTexturePalette( d_8to24table );
+		R_SetTexturePalette( d_8to24table );
 	}
 
 	GL_UpdateSwapInterval();

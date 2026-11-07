@@ -588,7 +588,7 @@ def R_DrawSkyBox ():
 
 #if 0
 #qglEnable (GL_BLEND);
-#GL_TexEnv( GL_MODULATE );
+#R_TexEnv( GL_MODULATE );
 #qglColor4f (1,1,1,0.5);
 #qglDisable (GL_DEPTH_TEST);
 #endif
@@ -616,7 +616,7 @@ def R_DrawSkyBox ():
 		if skymins[0][i] >= skymaxs[0][i] or skymins[1][i] >= skymaxs[1][i]:
 			continue
 
-		gl1_image.GL_Bind (sky_images[skytexorder[i]].texnum)
+		gl1_image.R_Bind (sky_images[skytexorder[i]].texnum)
 
 		GL.glBegin (GL.GL_QUADS)
 		MakeSkyVec (skymins[0,i], skymins[1,i], i)
@@ -664,7 +664,7 @@ def R_SetSky (name, rotate, axis): # char *, float, vec3_t
 		else:
 			pathname  = "env/{}{}.tga".format(skyname, suf[i])
 
-		sky_images[i] = gl1_image.GL_FindImage (pathname, gl1_image.imagetype_t.it_sky)
+		sky_images[i] = gl1_image.R_FindImage (pathname, gl1_image.imagetype_t.it_sky)
 		if sky_images[i] is None:
 			sky_images[i] = gl1_main.r_notexture
 

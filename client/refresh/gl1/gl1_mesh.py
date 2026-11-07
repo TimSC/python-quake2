@@ -747,13 +747,13 @@ def R_DrawAliasModel (e): #entity_t *
 	if skin is None:
 		skin = gl1_main.r_notexture	# fallback...
 	# FIXME r_notexture is None until R_InitParticleTexture is ported, so draw untextured
-	gl1_image.GL_Bind(skin.texnum if skin is not None else 0)
+	gl1_image.R_Bind(skin.texnum if skin is not None else 0)
 
 	# draw it
 
 	GL.glShadeModel (GL.GL_SMOOTH)
 
-	gl1_image.GL_TexEnv( GL.GL_MODULATE )
+	gl1_image.R_TexEnv( GL.GL_MODULATE )
 	if currententity.flags & shared.RF_TRANSLUCENT:
 
 		GL.glEnable (GL.GL_BLEND)
@@ -778,7 +778,7 @@ def R_DrawAliasModel (e): #entity_t *
 		currententity.backlerp = 0
 	GL_DrawAliasFrameLerp (paliashdr, currententity.backlerp)
 
-	gl1_image.GL_TexEnv( GL.GL_REPLACE )
+	gl1_image.R_TexEnv( GL.GL_REPLACE )
 	GL.glShadeModel (GL.GL_FLAT)
 
 	GL.glPopMatrix ()

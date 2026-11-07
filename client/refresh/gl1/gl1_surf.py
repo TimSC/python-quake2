@@ -372,7 +372,7 @@ def R_BlendLightmaps ():
 
 			if gl1_main.currentmodel is gl1_main.r_worldmodel:
 				c_visible_lightmaps += 1
-			gl1_image.GL_Bind( gl1_main.gl_state.lightmap_textures + i)
+			gl1_image.R_Bind( gl1_main.gl_state.lightmap_textures + i)
 
 			for surf in gl_lms.lightmap_surfaces[i]:
 
@@ -386,7 +386,7 @@ def R_BlendLightmaps ():
 
 		LM_InitBlock()
 
-		gl1_image.GL_Bind( gl1_main.gl_state.lightmap_textures+0 )
+		gl1_image.R_Bind( gl1_main.gl_state.lightmap_textures+0 )
 
 		if gl1_main.currentmodel is gl1_main.r_worldmodel:
 			c_visible_lightmaps += 1
@@ -477,24 +477,24 @@ def R_RenderBrushPoly (fa): #msurface_t *
 
 	if fa.flags & model.SURF_DRAWTURB:
 
-		gl1_image.GL_Bind( image.texnum )
+		gl1_image.R_Bind( image.texnum )
 
 		# warp texture, no lightmaps
-		gl1_image.GL_TexEnv( GL.GL_MODULATE )
+		gl1_image.R_TexEnv( GL.GL_MODULATE )
 		GL.glColor4f( gl1_main.gl_state.inverse_intensity,
 			        gl1_main.gl_state.inverse_intensity,
 					gl1_main.gl_state.inverse_intensity,
 					1.0 )
 		gl1_warp.EmitWaterPolys (fa)
-		gl1_image.GL_TexEnv( GL.GL_REPLACE )
+		gl1_image.R_TexEnv( GL.GL_REPLACE )
 
 		return
 
 	else:
 
-		gl1_image.GL_Bind( image.texnum )
+		gl1_image.R_Bind( image.texnum )
 
-		gl1_image.GL_TexEnv( GL.GL_REPLACE )
+		gl1_image.R_TexEnv( GL.GL_REPLACE )
 
 #======
 #PGM
@@ -543,7 +543,7 @@ def R_RenderBrushPoly (fa): #msurface_t *
 			gl1_light.R_BuildLightMap( fa, temp, smax*4 )
 			gl1_light.R_SetCacheState( fa )
 
-			gl1_image.GL_Bind( gl1_main.gl_state.lightmap_textures + fa.lightmaptexturenum )
+			gl1_image.R_Bind( gl1_main.gl_state.lightmap_textures + fa.lightmaptexturenum )
 
 			GL.glTexSubImage2D( GL.GL_TEXTURE_2D, 0,
 							  fa.light_s, fa.light_t,
@@ -582,7 +582,7 @@ def R_DrawAlphaSurfaces ():
 	GL.glLoadMatrixf (gl1_main.r_world_matrix)
 
 	GL.glEnable (GL.GL_BLEND)
-	gl1_image.GL_TexEnv( GL.GL_MODULATE )
+	gl1_image.R_TexEnv( GL.GL_MODULATE )
 
 	# the textures are prescaled up for a better lighting range,
 	# so scale it back down
@@ -591,7 +591,7 @@ def R_DrawAlphaSurfaces ():
 	# the C chain is built by prepending, so walk the list backwards to unwind it
 	for s in reversed(r_alpha_surfaces):
 
-		gl1_image.GL_Bind(s.texinfo.image.texnum)
+		gl1_image.R_Bind(s.texinfo.image.texnum)
 		gl1_main.c_brush_polys += 1
 		if s.texinfo.flags & shared.SURF_TRANS33:
 			GL.glColor4f (intens,intens,intens,0.33)
@@ -606,7 +606,7 @@ def R_DrawAlphaSurfaces ():
 		else:
 			DrawGLPoly (s.polys[0])
 
-	gl1_image.GL_TexEnv( GL.GL_REPLACE )
+	gl1_image.R_TexEnv( GL.GL_REPLACE )
 	GL.glColor4f (1,1,1,1)
 	GL.glDisable (GL.GL_BLEND)
 
@@ -629,7 +629,7 @@ def DrawTextureChains ():
 
 	c_visible_textures = 0
 
-#	GL_TexEnv( GL_REPLACE );
+#	R_TexEnv( GL_REPLACE );
 
 	if not qgl_linux.qglSelectTextureSGIS and not qgl_linux.qglActiveTextureARB:
 
@@ -661,7 +661,7 @@ def DrawTextureChains ():
 				if not ( s.flags & model.SURF_DRAWTURB ):
 					R_RenderBrushPoly (s)
 
-		gl1_image.GL_EnableMultitexture( False )
+		gl1_image.R_EnableMultitexture( False )
 		for image in gl1_image.gltextures[:gl1_image.numgltextures]:
 
 			if not image.registration_sequence:
@@ -676,9 +676,9 @@ def DrawTextureChains ():
 
 			image.texturechain = []
 
-#		GL_EnableMultitexture( true );
+#		R_EnableMultitexture( true );
 
-	gl1_image.GL_TexEnv( GL.GL_REPLACE )
+	gl1_image.R_TexEnv( GL.GL_REPLACE )
 
 
 def GL_RenderLightmappedPoly( surf ): #msurface_t *
@@ -732,7 +732,7 @@ def GL_RenderLightmappedPoly( surf ): #msurface_t *
 			gl1_light.R_BuildLightMap( surf, temp, smax*4 )
 			gl1_light.R_SetCacheState( surf )
 
-			gl1_image.GL_MBind( GL.GL_TEXTURE1, gl1_main.gl_state.lightmap_textures + surf.lightmaptexturenum )
+			gl1_image.R_MBind( GL.GL_TEXTURE1, gl1_main.gl_state.lightmap_textures + surf.lightmaptexturenum )
 
 			lmtex = surf.lightmaptexturenum
 
@@ -751,7 +751,7 @@ def GL_RenderLightmappedPoly( surf ): #msurface_t *
 
 			gl1_light.R_BuildLightMap( surf, temp, smax*4 )
 
-			gl1_image.GL_MBind( GL.GL_TEXTURE1, gl1_main.gl_state.lightmap_textures + 0 )
+			gl1_image.R_MBind( GL.GL_TEXTURE1, gl1_main.gl_state.lightmap_textures + 0 )
 
 			lmtex = 0
 
@@ -763,8 +763,8 @@ def GL_RenderLightmappedPoly( surf ): #msurface_t *
 
 		gl1_main.c_brush_polys += 1
 
-		gl1_image.GL_MBind( GL.GL_TEXTURE0, image.texnum )
-		gl1_image.GL_MBind( GL.GL_TEXTURE1, gl1_main.gl_state.lightmap_textures + lmtex )
+		gl1_image.R_MBind( GL.GL_TEXTURE0, image.texnum )
+		gl1_image.R_MBind( GL.GL_TEXTURE1, gl1_main.gl_state.lightmap_textures + lmtex )
 
 #==========
 #PGM
@@ -807,8 +807,8 @@ def GL_RenderLightmappedPoly( surf ): #msurface_t *
 
 		gl1_main.c_brush_polys += 1
 
-		gl1_image.GL_MBind( GL.GL_TEXTURE0, image.texnum )
-		gl1_image.GL_MBind( GL.GL_TEXTURE1, gl1_main.gl_state.lightmap_textures + lmtex )
+		gl1_image.R_MBind( GL.GL_TEXTURE0, image.texnum )
+		gl1_image.R_MBind( GL.GL_TEXTURE1, gl1_main.gl_state.lightmap_textures + lmtex )
 
 #==========
 #PGM
@@ -882,7 +882,7 @@ def R_DrawInlineBModel ():
 
 		GL.glEnable (GL.GL_BLEND)
 		GL.glColor4f (1,1,1,0.25)
-		gl1_image.GL_TexEnv( GL.GL_MODULATE )
+		gl1_image.R_TexEnv( GL.GL_MODULATE )
 
 	#
 	# draw texture
@@ -910,9 +910,9 @@ def R_DrawInlineBModel ():
 
 			else:
 
-				gl1_image.GL_EnableMultitexture( False )
+				gl1_image.R_EnableMultitexture( False )
 				R_RenderBrushPoly( psurf )
-				gl1_image.GL_EnableMultitexture( True )
+				gl1_image.R_EnableMultitexture( True )
 
 	if not (currententity.flags & shared.RF_TRANSLUCENT):
 
@@ -923,7 +923,7 @@ def R_DrawInlineBModel ():
 
 		GL.glDisable (GL.GL_BLEND)
 		GL.glColor4f (1,1,1,1)
-		gl1_image.GL_TexEnv( GL.GL_REPLACE )
+		gl1_image.R_TexEnv( GL.GL_REPLACE )
 
 
 """
@@ -990,14 +990,14 @@ def R_DrawBrushModel (e): #entity_t *
 	e.angles[0] = -e.angles[0]	# stupid quake bug
 	e.angles[2] = -e.angles[2]	# stupid quake bug
 
-	gl1_image.GL_EnableMultitexture( True )
-	gl1_image.GL_SelectTexture( GL.GL_TEXTURE0)
-	gl1_image.GL_TexEnv( GL.GL_REPLACE )
-	gl1_image.GL_SelectTexture( GL.GL_TEXTURE1)
-	gl1_image.GL_TexEnv( GL.GL_MODULATE )
+	gl1_image.R_EnableMultitexture( True )
+	gl1_image.R_SelectTexture( GL.GL_TEXTURE0)
+	gl1_image.R_TexEnv( GL.GL_REPLACE )
+	gl1_image.R_SelectTexture( GL.GL_TEXTURE1)
+	gl1_image.R_TexEnv( GL.GL_MODULATE )
 
 	R_DrawInlineBModel ()
-	gl1_image.GL_EnableMultitexture( False )
+	gl1_image.R_EnableMultitexture( False )
 
 	GL.glPopMatrix ()
 
@@ -1190,20 +1190,20 @@ def R_DrawWorld ():
 
 	if qgl_linux.qglMTexCoord2fSGIS:
 
-		gl1_image.GL_EnableMultitexture( True )
+		gl1_image.R_EnableMultitexture( True )
 
-		gl1_image.GL_SelectTexture( GL.GL_TEXTURE0)
-		gl1_image.GL_TexEnv( GL.GL_REPLACE )
-		gl1_image.GL_SelectTexture( GL.GL_TEXTURE1)
+		gl1_image.R_SelectTexture( GL.GL_TEXTURE0)
+		gl1_image.R_TexEnv( GL.GL_REPLACE )
+		gl1_image.R_SelectTexture( GL.GL_TEXTURE1)
 
 		if gl1_main.r_lightmap.value:
-			gl1_image.GL_TexEnv( GL.GL_REPLACE )
+			gl1_image.R_TexEnv( GL.GL_REPLACE )
 		else:
-			gl1_image.GL_TexEnv( GL.GL_MODULATE )
+			gl1_image.R_TexEnv( GL.GL_MODULATE )
 
 		R_RecursiveWorldNode (gl1_main.r_worldmodel.nodes[0])
 
-		gl1_image.GL_EnableMultitexture( False )
+		gl1_image.R_EnableMultitexture( False )
 
 	else:
 
@@ -1340,7 +1340,7 @@ def LM_UploadBlock( dynamic ): #qboolean
 
 		texture = gl_lms.current_lightmap_texture
 
-	gl1_image.GL_Bind( gl1_main.gl_state.lightmap_textures + texture )
+	gl1_image.R_Bind( gl1_main.gl_state.lightmap_textures + texture )
 	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
 	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
 
@@ -1544,8 +1544,8 @@ def GL_BeginBuildingLightmaps (m): #model_t *
 
 	gl1_main.r_framecount = 1		# no dlightcache
 
-	gl1_image.GL_EnableMultitexture( True )
-	gl1_image.GL_SelectTexture( GL.GL_TEXTURE1)
+	gl1_image.R_EnableMultitexture( True )
+	gl1_image.R_SelectTexture( GL.GL_TEXTURE1)
 
 	#
 	# setup the base lightstyles so the lightmaps won't have to be regenerated
@@ -1612,7 +1612,7 @@ def GL_BeginBuildingLightmaps (m): #model_t *
 	# initialize the dynamic lightmap texture
 	#
 	dummy = bytes(4*128*128)
-	gl1_image.GL_Bind( gl1_main.gl_state.lightmap_textures + 0 )
+	gl1_image.R_Bind( gl1_main.gl_state.lightmap_textures + 0 )
 	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
 	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
 	GL.glTexImage2D( GL.GL_TEXTURE_2D,
@@ -1632,5 +1632,5 @@ GL_EndBuildingLightmaps
 def GL_EndBuildingLightmaps ():
 
 	LM_UploadBlock( False )
-	gl1_image.GL_EnableMultitexture( False )
+	gl1_image.R_EnableMultitexture( False )
 
