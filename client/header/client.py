@@ -23,7 +23,7 @@ import numpy as np
 from enum import Enum
 pass
 pass
-from ref_gl import gl_model_h, gl_image
+from client.refresh.gl1 import gl1_image as gl_image
 from client import snd_loc, ref
 from common.header import common as common_h
 from common.header import shared

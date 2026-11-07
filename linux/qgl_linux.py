@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import time
-from ref_gl import gl_rmain
+from client.refresh.gl1 import gl1_main as gl_rmain
 from client.vid import glimp_sdl2
 
 """
