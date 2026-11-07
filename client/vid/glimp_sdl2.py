@@ -26,7 +26,7 @@ from common import clientserver
 from common.header import common as common_h
 from common.header import shared
 from client.vid import vid
-from ref_gl import gl_rmain
+from client.refresh.gl1 import gl1_main as gl_rmain
 """
 #include "../../common/header/common.h"
 #include "header/ref.h"

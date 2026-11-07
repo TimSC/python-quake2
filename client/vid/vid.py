@@ -262,7 +262,7 @@ def VID_LoadRenderer(): #void (returns qboolean)
 
 	# mkay, let's load the requested renderer.
 	# Q2PORT: the renderer is a python module, imported directly in place of Sys_LoadLibrary
-	from ref_gl import gl_rmain
+	from client.refresh.gl1 import gl1_main as gl_rmain
 
 	# fill in the struct exported to the renderer.
 	# FIXME: Do we really need all these?

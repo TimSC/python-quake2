@@ -8,7 +8,7 @@ from backends.unix import system
 from client.vid import glimp_sdl2
 from client import cl_main
 pass
-from ref_gl import gl_rmain
+from client.refresh.gl1 import gl1_main as gl_rmain
 from common import cmdparser
 from client import cl_main
 t0 = [None]; st = {"restart": False, "shot": False}

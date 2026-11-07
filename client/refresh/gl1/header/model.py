@@ -33,6 +33,22 @@ from common.header import shared
 
 VERTEXSIZE = 7
 
+# surface flags
+SURF_PLANEBACK = 2
+SURF_DRAWSKY = 4
+SURF_DRAWTURB = 0x10
+SURF_DRAWBACKGROUND = 0x40
+SURF_UNDERWATER = 0x80
+
+class mtexinfo_t(object):
+
+	def __init__(self):
+		self.vecs = np.zeros((2, 4), dtype=np.float32) # float [2][4]
+		self.flags = 0 #int
+		self.numframes = None # int
+		self.next = None # struct mtexinfo_s *, animation chain
+		self.image = None # image_t *
+
 class modtype_t(Enum):
 
 	mod_bad = 0
@@ -73,6 +89,29 @@ class msurface_t(object):
 		self.styles = [0] * files_h.MAXLIGHTMAPS #byte
 		self.cached_light = [0.0] * files_h.MAXLIGHTMAPS #float, values currently used in lightmap
 		self.samples = None #byte *, [numstyles*surfsize]
+
+class mvertex_t(object):
+
+	def __init__(self):
+		self.position = np.zeros((3,), dtype=np.float32) # vec3_t
+
+class medge_t(object):
+
+	def __init__(self):
+		self.v = [0, 0] # unsigned short [2]
+		self.cachededgeoffset = 0 # unsigned int
+
+class mmodel_t(object):
+
+	def __init__(self):
+		self.mins = np.zeros((3,), dtype=np.float32) # vec3_t
+		self.maxs = np.zeros((3,), dtype=np.float32) # vec3_t
+		self.origin = np.zeros((3,), dtype=np.float32) # vec3_t, for sounds or lights
+		self.radius = 0.0 # float
+		self.headnode = 0 # int
+		self.visleafs = 0 # int, not including the solid leaf 0
+		self.firstface = 0 # int
+		self.numfaces = 0 # int
 
 class mnode_t(object):
 
