@@ -144,16 +144,28 @@ glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
   the old `ref_gl/` is deleted. All deterministic tests and the movement
   harness pass, and the real-time tests pass in isolation (they are
   timing-flaky when the whole suite runs back-to-back, which is pre-existing).
-- **Remaining (faithful reconciliation):** the `gl1/*.py` bodies are the id
-  version moved into the new package; they need reconciling to Yamagi's C
-  file by file: cvar renames and the behaviour they carry (`gl_*` ->
-  `gl1_*`/`r_*`, `r_nocull` -> inverted `r_cull`, `gl_playermip` folded into
-  `gl1_picmip`, new `gl1_minlight`/`gl1_multitexture`/`gl1_overbrightbits`/
-  `gl1_stencilshadow`/`gl1_tilerendering`/`gl1_pointparameters`/`r_*` cvars
-  and their logic), the new structural files (`gl1_lightmap`, `gl1_buffer`,
-  `gl1_scrap`, `gl1_sdl`), and Yamagi's per-function fixes. This step needs
-  a display to verify the GL output (the port cannot be eyeballed headless).
-  `qgl.c` stays unported (PyOpenGL/pygame stand in, as the old `ref_gl/` did).
+- **Faithful reconciliation (in progress):** the `gl1/*.py` bodies are the id
+  version moved into the new package; they are being reconciled to Yamagi's C
+  file by file. Verification runs against the live X display (RTX 3090, GL 4.6)
+  via `glReadPixels` screenshots diffed pixel-for-pixel against a reference frame
+  of the current renderer (no Xvfb needed).
+  - **Done (each verified pixel-identical to the reference):** cvar renames to
+    Yamagi names (`gl_*` -> `gl1_*`/`r_*`, `gl_swapinterval` -> `r_vsync`);
+    `gl_cull` -> `r_cull`; dropped `r_nocull` and the duplicate `R_CullBox`
+    (now `files/surf.R_CullBox`); image texture functions renamed `GL_*` -> `R_*`
+    (`R_Bind`, `R_MBind`, `R_SelectTexture`, `R_TexEnv`, `R_EnableMultitexture`,
+    `R_TextureMode`, `R_TextureSolidMode`, `R_LoadPic`, `R_Upload32/8`, ...).
+    The old port already carried most of Yamagi's image module (with
+    `currenttmu`/`currenttextures` state), so these were pure renames.
+  - **Remaining:** the structural splits, which are larger reworks (not renames):
+    the model loader dedup (Yamagi's `files/models.c` uses a *functional* API
+    filling separate `planes/leafs/nodes` arrays and `ref_shared` structs, vs the
+    id *object-oriented* `gl1_model.py` `model_t` attributes - the glue must be
+    reworked); the new `gl1_lightmap`, `gl1_buffer`, `gl1_scrap`, `gl1_sdl`
+    files; and the coupled cvar removals (`gl_playermip`, `gl_skymip`, `gl_nobind`,
+    `gl_monolightmap`) plus new-feature cvars (`gl1_minlight`, `gl1_multitexture`,
+    `gl1_overbrightbits`, `gl1_stencilshadow`, `gl1_tilerendering`, ...).
+    `qgl.c` stays unported (PyOpenGL/pygame stand in, as the old `ref_gl/` did).
 
 ## Group 0: tooling and conventions
 
