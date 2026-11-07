@@ -133,6 +133,28 @@ glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
   the tests: screenshots match the old renderer, `timedemo` runs, and it
   works with the extensions off.
 
+### Status (cutover done, faithful reconciliation in progress)
+
+- **Done:** `client/refresh/files/` (models, pcx, pvs, surf, wal) is a
+  faithful port of Yamagi's shared loaders. `client/vid/header/ref.py`
+  (new `ref.h`, `API_VERSION` 8), `client/refresh/ref_shared.py`
+  (`ref_shared.h`) and `client/refresh/gl1/header/model.py` (`model.h`) are
+  in place. The `client/refresh/gl1/` package is live: `client/vid/vid.py`,
+  `client/vid/glimp_sdl2.py` and `linux/qgl_linux.py` now import `gl1_main`;
+  the old `ref_gl/` is deleted. All deterministic tests and the movement
+  harness pass, and the real-time tests pass in isolation (they are
+  timing-flaky when the whole suite runs back-to-back, which is pre-existing).
+- **Remaining (faithful reconciliation):** the `gl1/*.py` bodies are the id
+  version moved into the new package; they need reconciling to Yamagi's C
+  file by file: cvar renames and the behaviour they carry (`gl_*` ->
+  `gl1_*`/`r_*`, `r_nocull` -> inverted `r_cull`, `gl_playermip` folded into
+  `gl1_picmip`, new `gl1_minlight`/`gl1_multitexture`/`gl1_overbrightbits`/
+  `gl1_stencilshadow`/`gl1_tilerendering`/`gl1_pointparameters`/`r_*` cvars
+  and their logic), the new structural files (`gl1_lightmap`, `gl1_buffer`,
+  `gl1_scrap`, `gl1_sdl`), and Yamagi's per-function fixes. This step needs
+  a display to verify the GL output (the port cannot be eyeballed headless).
+  `qgl.c` stays unported (PyOpenGL/pygame stand in, as the old `ref_gl/` did).
+
 ## Group 0: tooling and conventions
 
 - **Function map:** for every function in the port, the id file it came from
