@@ -20,6 +20,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import io
+import math
+import struct
 import numpy as np
 pass
 pass
@@ -29,6 +31,7 @@ from client import snd_mix, snd_loc, snd_mem, cl_main
 pass
 import pygame
 from common.header import shared
+from common.header import common as common_h
 from common.shared import shared as shared_c
 from common import clientserver
 from common import cmdparser
@@ -85,11 +88,15 @@ for i in range(MAX_SFX):
 	known_sfx.append(snd_loc.sfx_t())
 
 num_sfx = None #int			
+sound_max = 0 #static int
 """
 #define		MAX_PLAYSOUNDS	128
 playsound_t	s_playsounds[MAX_PLAYSOUNDS];
 playsound_t	s_freeplays;
 """
+MAX_PLAYSOUNDS = 128 #int Q2PORT: the C's #define
+s_playsounds = None #playsound_t[MAX_PLAYSOUNDS]
+s_freeplays = None #playsound_t *
 s_pendingplays = [] #playsound_t (linked list)
 s_beginofs = 0 #int
 
@@ -100,6 +107,16 @@ s_khz = None #cvar_t		*
 s_show = None #cvar_t		*
 s_mixahead = None #cvar_t		*
 s_primary = None #cvar_t		*
+s_ambient = None #cvar_t		*
+s_underwater = None #cvar_t		*
+s_underwater_gain_hf = None #cvar_t		*
+s_doppler = None #cvar_t		*
+s_ps_sorting = None #cvar_t		*
+s_reverb_preset = None #cvar_t		*
+s_occlusion_strength = None #cvar_t		*
+s_feedback_kind = None #cvar_t		*
+s_bsp_soundpos = None #cvar_t		*
+cl_paused = None #cvar_t		*
 
 s_rawend = 0 #int
 s_rawsamples = [] #portable_samplepair_t	[MAX_RAW_SAMPLES];
@@ -114,34 +131,73 @@ for i in range(snd_loc.MAX_RAW_SAMPLES):
 
 def S_SoundInfo_f():
 
-	global sound_started
-	pass
-	"""
-	if (!sound_started)
-	{
-		Com_Printf ("sound system not started\n");
-		return;
-	}
-	
-	Com_Printf("%5d stereo\n", dma.channels - 1);
-	Com_Printf("%5d samples\n", dma.samples);
-	Com_Printf("%5d samplepos\n", dma.samplepos);
-	Com_Printf("%5d samplebits\n", dma.samplebits);
-	Com_Printf("%5d submission_chunk\n", dma.submission_chunk);
-	Com_Printf("%5d speed\n", dma.speed);
-	Com_Printf("0x%x dma buffer\n", dma.buffer);
+	#int		i;
+	#sfx_t	*sfx;
+	#sfxcache_t *sc;
+	#int		size, total;
 
-/*
+	global sound_started, num_sfx, known_sfx, sound_max
+
+	if not sound_started:
+		clientserver.Com_Printf ("sound system not started\n")
+		return
+
+	total = 0
+
+	# the C's known_sfx[MAX_SFX] array; the port's list is the same, indexed 0..num_sfx-1
+	for i in range(num_sfx):
+	
+		sfx = known_sfx[i]
+
+		if not sfx.registration_sequence:
+			continue
+
+		sc = sfx.cache
+		if sc is not None:
+		
+			size = len(sc.data.get_raw()) # (size_t)sc->end - (size_t)sc->start
+			total += size
+			if sc.loopstart >= 0:
+				clientserver.Com_Printf ("L")
+			else:
+				clientserver.Com_Printf (" ")
+			clientserver.Com_Printf("  {}\n".format(sfx.name))
+		
+		else:
+		
+			if sfx.name[0] == '*':
+				clientserver.Com_Printf("  placeholder : {}\n".format(sfx.name))
+			else:
+				clientserver.Com_Printf("  not loaded  : {}\n".format(sfx.name))
+
+	clientserver.Com_Printf ("\n")
+	clientserver.Com_Printf ("%i known, %i in memory, %i max\n".format(num_sfx, total, sound_max))
+
+	clientserver.Com_Printf ("\n")
+	clientserver.Com_Printf ("%5d stereo\n", dma.channels - 1)
+	clientserver.Com_Printf ("%5d samples\n", dma.samples)
+	clientserver.Com_Printf ("%5d samplepos\n", dma.samplepos)
+	clientserver.Com_Printf ("%5d samplebits\n", dma.samplebits)
+	clientserver.Com_Printf ("%5d submission_chunk\n", dma.submission_chunk)
+	clientserver.Com_Printf ("%5d speed\n", dma.speed)
+	clientserver.Com_Printf ("0x%x dma buffer\n", dma.buffer if dma.buffer is not None else 0)
+
+
+
+"""
 ================
 S_Init
 ================
 """
 def S_Init ():
 
-	global s_volume, s_testsound, s_loadas8bit, s_khz, s_show, s_mixahead, s_primary
-	global sound_started, num_sfx, soundtime, paintedtime, channels
+	global s_volume, s_testsound, s_loadas8bit, s_khz, s_show, s_mixahead
+	global sound_started, num_sfx, soundtime, paintedtime
+	global cl_paused, s_ambient, s_underwater, s_underwater_gain_hf, s_doppler
+	global s_ps_sorting, s_reverb_preset, s_occlusion_strength, s_feedback_kind
 
 	#cvar_t	*cv;
+	global s_numchannels, s_active
 
 	clientserver.Com_Printf("\n------- sound initialization -------\n")
 
@@ -150,13 +206,24 @@ def S_Init ():
 		clientserver.Com_Printf ("not initializing.\n")
 	else:
 	
-		s_volume = cvar.Cvar_Get ("s_volume", "0.7", shared.CVAR_ARCHIVE)
-		s_khz = cvar.Cvar_Get ("s_khz", "11", shared.CVAR_ARCHIVE)
-		s_loadas8bit = cvar.Cvar_Get ("s_loadas8bit", "1", shared.CVAR_ARCHIVE)
-		s_mixahead = cvar.Cvar_Get ("s_mixahead", "0.2", shared.CVAR_ARCHIVE)
-		s_show = cvar.Cvar_Get ("s_show", "0", 0)
+		s_volume = cvar.Cvar_Get ("s_volume", "0.5", shared.CVAR_ARCHIVE)
 		s_testsound = cvar.Cvar_Get ("s_testsound", "0", 0)
-		s_primary = cvar.Cvar_Get ("s_primary", "0", shared.CVAR_ARCHIVE)	# win32 specific
+		s_loadas8bit = cvar.Cvar_Get ("s_loadas8bit", "0", shared.CVAR_ARCHIVE)
+		s_khz = cvar.Cvar_Get ("s_khz", "22", shared.CVAR_ARCHIVE)
+		s_show = cvar.Cvar_Get ("s_show", "0", 0)
+		s_ambient = cvar.Cvar_Get ("s_ambient", "1", shared.CVAR_ARCHIVE)
+		s_underwater = cvar.Cvar_Get ("s_underwater", "1", shared.CVAR_ARCHIVE)
+		s_underwater_gain_hf = cvar.Cvar_Get ("s_underwater_gain_hf", "1", shared.CVAR_ARCHIVE)
+		s_doppler = cvar.Cvar_Get ("s_doppler", "1", shared.CVAR_ARCHIVE)
+		s_ps_sorting = cvar.Cvar_Get ("s_ps_sorting", "0", shared.CVAR_ARCHIVE)
+		# Q2PORT: the C's OpenAL-only cvars, registered so saved configs load
+		# unchanged; the pygame backend has no reverb/occlusion/haptic support
+		s_reverb_preset = cvar.Cvar_Get ("s_reverb_preset", "1", shared.CVAR_ARCHIVE)
+		s_occlusion_strength = cvar.Cvar_Get ("s_occlusion_strength", "1", shared.CVAR_ARCHIVE)
+		s_feedback_kind = cvar.Cvar_Get ("s_feedback_kind", "0", shared.CVAR_ARCHIVE)
+		s_mixahead = cvar.Cvar_Get ("s_mixahead", "0.10", 0)
+
+		ogg.OGG_Init()
 
 		cmdparser.Cmd_AddCommand("play", S_Play)
 		cmdparser.Cmd_AddCommand("stopsound", S_StopAllSounds)
@@ -166,8 +233,28 @@ def S_Init ():
 		if not snd_linux.SNDDMA_Init():
 			return
 
+		pygame.mixer.set_num_channels(snd_loc.MAX_CHANNELS)
+
+		# Q2PORT: the C's SDL_BackendInit picks the device channel count; the port
+		# keeps the pygame mixer channel count
+		s_numchannels = min(snd_loc.MAX_CHANNELS, pygame.mixer.get_num_channels())
+		s_active = True
+
+		# Q2PORT: the C's s_playsounds[MAX_PLAYSOUNDS] array and free list
+		global s_playsounds
+		s_playsounds = [snd_loc.playsound_t() for _ in range(MAX_PLAYSOUNDS)]
+		s_freeplays = list(s_playsounds)
+
+		for ch_idx in range(s_numchannels):
+			channels[ch_idx].chan = pygame.mixer.Channel(ch_idx)
+		
 		snd_mix.S_InitScaletable ()
 
+		# make sure the music isn't playing before the sound system is up
+		ogg.OGG_Stop()
+
+		S_StopAllSounds ()
+	
 		sound_started = 1
 		num_sfx = 0
 
@@ -176,159 +263,210 @@ def S_Init ():
 
 		clientserver.Com_Printf ("sound sampling rate: {}\n".format(dma.speed))
 
-		pygame.mixer.set_num_channels(snd_loc.MAX_CHANNELS)
+		# if not s_khz->value:
+		#	Com_DPrintf ("Sound system running at %i hz\n", dma.speed);
+		# else:
+		#	Com_DPrintf ("Sound system running at %i hz, but set to %i hz\n", dma.speed, s_khz->value);
 
-		maxChan = min(snd_loc.MAX_CHANNELS, pygame.mixer.get_num_channels())
-		for ch_idx in range(maxChan):
-			channels[ch_idx].chan = pygame.mixer.Channel(ch_idx)
-		
-		S_StopAllSounds ()
-	
 	clientserver.Com_Printf("------------------------------------\n")
 
 
+
 """
-// =======================================================================
-// Shutdown sound engine
-// =======================================================================
+=================
+S_Shutdown
+=================
 """
 def S_Shutdown():
 
 	#int		i;
 	#sfx_t	*sfx;
-	global sound_started, known_sfx, num_sfx
+	global sound_started, known_sfx, num_sfx, s_numchannels
 
 	if not sound_started:
-		return;
+		return
 
-	snd_linux.SNDDMA_Shutdown()
+	S_StopAllSounds()
+	ogg.OGG_Shutdown()
+	s_numchannels = 0
+	"""
+	// reset the sound buffer
+	if (dma.name)
+	{
+		memset(dma.name, 0, sizeof(dma.name));
+		memset(dma.buffer, 0, dma.dmaarea);
+	}
+	"""
+	snd_linux.SNDDMA_Shutdown() # Q2PORT: the C's SNDDMA_Shutdown is id's; the port keeps the legacy hook
 
 	sound_started = 0
 
-	cmdparser.Cmd_RemoveCommand("play")
-	cmdparser.Cmd_RemoveCommand("stopsound")
 	cmdparser.Cmd_RemoveCommand("soundlist")
 	cmdparser.Cmd_RemoveCommand("soundinfo")
+	cmdparser.Cmd_RemoveCommand("play")
+	cmdparser.Cmd_RemoveCommand("stopsound")
 
 	# free all sounds
-	total = 0
 	for i in range(num_sfx):
 	
 		sfx=known_sfx[i]
+		if not sfx.name:
+			continue
 		sfx.clear()
 
 	num_sfx = 0
+
+"""
+=================
+S_Activate
+
+Activate or deactivate sound backend
+=================
+"""
+def S_Activate (active): #qboolean
+
+	global s_active
+
+	s_active = active
+
+	if active == False:
+		S_StopAllSounds()
+
+
 
 """
 // =======================================================================
 // Load a sound
 // =======================================================================
 
-/*
 ==================
-S_FindName
+S_GetSfxByName
 
+Returns the sfx with the specified name, NULL if none exists
 ==================
 """
-def S_FindName (name, create): #char *, qboolean (returns sfx_t *)
+def S_GetSfxByName (name): #char * (returns sfx_t *)
 
-	global num_sfx, known_sfx
-	#int		i;
-	#sfx_t	*sfx;
+	"""
+	int i;
+	"""
 
-	if name is None:
-		clientserver.Com_Error (shared.ERR_FATAL, "S_FindName: NULL\n")
-	if len(name) == 0:
-		clientserver.Com_Error (shared.ERR_FATAL, "S_FindName: empty name\n")
-
-	if len(name) >= shared.MAX_QPATH:
-		clientserver.Com_Error (shared.ERR_FATAL, "Sound name too long: {}".format(name))
-
-	# see if already loaded
 	for i in range(num_sfx):
-		if known_sfx[i].name == name:
+		if known_sfx[i].name is not None and known_sfx[i].name == name:
 			return known_sfx[i]
-		
-	if not create:
-		return None
 
-	# find a free sfx
-	i = 0
-	while i < num_sfx:
-		if known_sfx[i].name is None:
-			##registration_sequence < s_registration_sequence)
-			break;
-		i+=1
+	return None
 
-	if i == num_sfx:
-	
-		if num_sfx == MAX_SFX:
-			clientserver.Com_Error (shared.ERR_FATAL, "S_FindName: out of sfx_t")
-		num_sfx+=1
-	
-	sfx = known_sfx[i]
-	sfx.name = name
-	sfx.registration_sequence = s_registration_sequence
-	sfx.cache = None
-	sfx.truename = None
-	
-	return sfx;
-
-"""
-
-"""
 """
 ==================
-S_AliasName
+S_NextFreeSfx
 
+Finds the next free sfx slot
 ==================
 """
-def S_AliasName (aliasname, truename): #char *, char * (returns sfx_t *)
+def S_NextFreeSfx (): #void (returns sfx_t *)
 
 	global num_sfx
 
-	#sfx_t	*sfx;
-	#char	*s;
-	#int		i;
+	"""
+	sfx_t	*sfx;
+	"""
 
-	s = truename # s = Z_Malloc (MAX_QPATH); strcpy (s, truename);
+	# look for an existing free slot
+	for i in range(num_sfx):
+		if not known_sfx[i].name:
+			return known_sfx[i]
 
-	# find a free sfx
-	i = 0
-	while i < num_sfx:
-		if known_sfx[i].name is None: # !known_sfx[i].name[0]
-			break
-		i += 1
+	# allocate a new one
+	if num_sfx >= MAX_SFX:
+		return None
 
-	if i == num_sfx:
-	
-		if num_sfx == MAX_SFX:
-			clientserver.Com_Error (shared.ERR_FATAL, "S_FindName: out of sfx_t")
-		num_sfx+=1
-	
-	sfx = known_sfx[i]
-	sfx.clear() # memset (sfx, 0, sizeof(*sfx));
-	sfx.name = aliasname
-	sfx.registration_sequence = s_registration_sequence
-	sfx.truename = s
-
+	sfx = known_sfx[num_sfx]
+	num_sfx += 1 # the C returns &known_sfx[num_sfx++]
 	return sfx
 
 """
+==================
+S_FindOrCreateSfx
 
-
-/*
-=====================
-S_BeginRegistration
-
-=====================
+Finds the sfx with the specified name, creating it if necessary
+==================
 """
+def S_FindOrCreateSfx (name): #char * (returns sfx_t *)
+
+	global num_sfx
+	#sfx_t	*sfx;
+
+	if not name:
+		clientserver.Com_Printf ("S_FindOrCreateSfx: blank name\n")
+		return None
+
+	sfx = S_GetSfxByName(name)
+
+	if sfx is not None:
+		return sfx
+
+	if len(name) >= shared.MAX_QPATH:
+		clientserver.Com_Printf ("S_FindOrCreateSfx: name is too long: {}\n".format(name))
+		return None
+
+	sfx = S_NextFreeSfx()
+
+	if sfx is None:
+		clientserver.Com_Printf ("S_FindOrCreateSfx: out of sfx for: {}\n".format(name))
+		return None
+
+	sfx.truename = None
+	sfx.name = name
+	sfx.registration_sequence = s_registration_sequence
+	sfx.is_silenced_muzzle_flash = False
+
+	return sfx
+
+
+
+"""
+=================
+S_AliasName
+
+Registers an alias name for a sound
+=================
+"""
+def S_AliasName (aliasname, truename): #char *, char * (returns sfx_t *)
+
+	#sfx_t	*sfx;
+
+	if len(aliasname) >= shared.MAX_QPATH:
+		clientserver.Com_Printf ("S_AliasName: name is too long: {}\n".format(aliasname))
+		return None
+
+	sfx = S_NextFreeSfx()
+
+	if sfx is None:
+		clientserver.Com_Printf ("S_AliasName: out of sfx for: {}\n".format(aliasname))
+		return None
+
+	sfx.cache = None
+	sfx.name = aliasname
+	sfx.registration_sequence = s_registration_sequence
+	sfx.truename = truename # Q2PORT: the C does strdup(truename); the port shares the string
+
+	return sfx
+
+
 def S_BeginRegistration ():
 
 	global s_registration_sequence, s_registering
 
 	s_registration_sequence+=1
 	s_registering = True
+
+"""
+==================
+S_RegisterSound
+
+==================
+"""
 
 """
 ==================
@@ -344,13 +482,69 @@ def S_RegisterSound (name): #char * (returns sfx_t *)
 	if not sound_started:
 		return None
 
-	sfx = S_FindName (name, True)
+	sfx = S_FindOrCreateSfx(name)
+
+	if sfx is None:
+		return None
+
 	sfx.registration_sequence = s_registration_sequence
 
 	if not s_registering:
 		snd_mem.S_LoadSound (sfx)
 
 	return sfx
+
+"""
+ * Extracts the model name from a player configstring
+ """
+def GetModelName (cs): #char * (returns char *)
+
+	#char *end;
+
+	if not cs:
+		return ''
+
+	p = cs.find('\\')
+
+	if p == -1:
+		return ''
+
+	p += 1
+
+	model = cs[p:] # Q2PORT: the C copies into the caller's buffer, truncating at the size
+
+	end = model.find('/')
+
+	if end != -1:
+		model = model[:end]
+
+	return model
+
+"""
+ * Checks that the sfx list has free space
+ """
+def S_HasFreeSpace(): #void (returns qboolean)
+
+	#int		i, used;
+
+	used = 0
+
+	# check used slots
+	for i in range(num_sfx):
+	
+		sfx = known_sfx[i]
+		if sfx.name is None:
+			continue
+		if sfx.registration_sequence == s_registration_sequence:
+			used += 1
+
+	global sound_max
+	if sound_max < used:
+		sound_max = used
+
+	# should same size of free slots as currently used
+	return (num_sfx + used) < MAX_SFX
+
 
 
 """
@@ -367,20 +561,23 @@ def S_EndRegistration ():
 	#sfx_t	*sfx;
 	#int		size;
 
-	# free any sounds not from this registration sequence
-	for i in range(num_sfx):
+	if not S_HasFreeSpace():
 	
-		sfx = known_sfx[i]
-		if sfx.name is None: # !sfx->name[0]
-			continue
-		if sfx.registration_sequence != s_registration_sequence:
-			# don't need this sound
-			sfx.clear() # Z_Free (sfx->cache); memset (sfx, 0, sizeof(*sfx));
+		# free any sounds not from this registration sequence
+		for i in range(num_sfx):
 		
-		else:
-			# make sure it is paged in
-			pass # Com_PageInMemory is not needed in python
-		
+			sfx = known_sfx[i]
+			if sfx.name is None: # !sfx->name[0]
+				continue
+			if sfx.registration_sequence != s_registration_sequence:
+				# don't need this sound
+				sfx.clear() # Z_Free (sfx->cache); memset (sfx, 0, sizeof(*sfx));
+				# Z_Free (sfx->truename)
+				
+			else:
+				# make sure it is paged in
+				pass # Com_PageInMemory is not needed in python
+	
 	# load everything in
 	for i in range(num_sfx):
 	
@@ -390,12 +587,9 @@ def S_EndRegistration ():
 		snd_mem.S_LoadSound (sfx)
 	
 	s_registering = False
-	"""
 
 
-//=============================================================================
-
-/*
+"""
 =================
 S_PickChannel
 =================
@@ -410,51 +604,77 @@ def S_PickChannel(entnum, entchannel): #int, int (returns channel_t *)
 	"""
 	global channels
 
-	if entchannel<0:
+	if entchannel < 0:
 		clientserver.Com_Error (shared.ERR_DROP, "S_PickChannel: entchannel<0")
 
 	# Check for replacement sound, or find the best one to replace
 	first_to_die = -1
-	life_left = None
+	life_left = 2147483647 # 0x7fffffff
 
-	for ch_idx in range(snd_loc.MAX_CHANNELS):
+	plnum = cl_main.cl.playernum + 1
+
+	for ch_idx in range(s_numchannels):
 	
 		ch = channels[ch_idx]
-		if ch.chan is None: continue
-	
-		if (entchannel != 0		# channel 0 never overrides
-			and ch.entnum == entnum
-			and ch.entchannel == entchannel):
-		
+
+		# channel 0 never overrides
+		if (entchannel != 0) and \
+			(ch.entnum == entnum) and \
+			(ch.entchannel == entchannel):
+			
 			# always override sound from same entity
 			first_to_die = ch_idx
 			break
-			
+		
 		# don't let monster sounds override player sounds
-		if ch.entnum == cl_main.cl.playernum+1 and entnum != cl_main.cl.playernum+1 and ch.sfx:
+		if (ch.entnum == plnum) and (entnum != plnum) and ch.sfx:
 			continue
 
-		if life_left is None or ch.end - paintedtime < life_left:
-		
+		if ch.end - paintedtime < life_left:
+			
 			life_left = ch.end - paintedtime
 			first_to_die = ch_idx
-   
+		
 	if first_to_die == -1:
 		return None
 
 	ch = channels[first_to_die]
+
 	ch.clear()
+	ch.chan.stop() # Q2PORT: the C's SDL memset leaves the channel dead; a pygame channel keeps playing until stopped
 	ch.loop_sfx = None # Q2PORT: whatever the pygame channel plays next replaces the loop
 
 	return ch
 
 """
 =================
-S_SpatializeOrigin
-
-Used for spatializing channels and autosounds
+S_AllocPlaysound
 =================
 """
+def S_AllocPlaysound (): #void (returns playsound_t *)
+
+	global s_freeplays
+
+	if not s_freeplays:
+		# no free playsounds, this results in stuttering and cracking
+		return None
+
+	# unlink from freelist
+	return s_freeplays.pop()
+
+"""
+=================
+S_FreePlaysound
+=================
+"""
+def S_FreePlaysound (ps): #playsound_t *
+
+	global s_freeplays
+
+	# add to free list
+	s_freeplays.append(ps)
+
+
 def S_SpatializeOrigin (origin, master_vol, dist_mult): #vec3_t, float, float (returns int *left_vol, int *right_vol)
 	
 	"""
@@ -514,70 +734,98 @@ def S_Spatialize(ch): #channel_t *
 	origin = np.zeros((3,), dtype=np.float32)
 
 	# anything coming from the view entity will always be full volume
-	if ch.entnum == cl_main.cl.playernum+1:
+	if (ch.entnum == -1) or (ch.entnum == cl_main.cl.playernum+1):
 	
 		ch.leftvol = ch.master_vol
 		ch.rightvol = ch.master_vol
 		return
 	
 
-	if ch.fixed_origin:	
+	if ch.fixed_origin:									
 		shared.VectorCopy(ch.origin, origin)
 
 	else:
-		origin = cl_parse.CL_GetEntitySoundOrigin (ch.entnum)
+		origin = GetEntitySoundOrigin (ch.entnum)
 
 	ch.leftvol, ch.rightvol = S_SpatializeOrigin (origin, ch.master_vol, ch.dist_mult)
 
 
 """
-=================
-S_AllocPlaysound
-=================
-*/
-playsound_t *S_AllocPlaysound (void)
-{
-	playsound_t	*ps;
+====================
+GetBSPEntitySoundOrigin
 
-	ps = s_freeplays.next;
-	if (ps == &s_freeplays)
-		return NULL;		// no free playsounds
+BSP model entities (doors, elevators...) use origin as an
+offset added to mins/maxs
+====================
+"""
+def GetBSPEntitySoundOrigin (ent, listener_org, org): #int, vec3_t, vec3_t (returns qboolean)
 
-	// unlink from freelist
-	ps->prev->next = ps->next;
-	ps->next->prev = ps->prev;
-	
-	return ps;
-}
-"""
-"""
-/*
-=================
-S_FreePlaysound
-=================
-*/
-void S_FreePlaysound (playsound_t *ps)
-{
-	// unlink from channel
-	ps->prev->next = ps->next;
-	ps->next->prev = ps->prev;
+	global s_bsp_soundpos
+	#centity_t	*old;
+	#cmodel_t	*cm;
+	#vec3_t		amin, amax;
+	#int			mi;
 
-	// add to free list
-	ps->next = s_freeplays.next;
-	s_freeplays.next->prev = ps;
-	ps->prev = &s_freeplays;
-	s_freeplays.next = ps;
-}
+	if (ent < 0) or (ent >= cl_main.cl_numentities):
+		return False
+
+	old = cl_main.cl_entities[ent]
+
+	mi = old.current.modelindex
+	cm = cl_main.cl.model_clip[mi] if (mi > 0 and mi < shared.MAX_MODELS) else None
+
+	if cm is None:
+		return False
+
+	if s_bsp_soundpos is None:
+		s_bsp_soundpos = cvar.Cvar_Get("s_bsp_soundpos", "1", shared.CVAR_ARCHIVE)
+		if s_bsp_soundpos is None:
+			return False
+
+	if not s_bsp_soundpos.value:
+		return False
+
+	if listener_org is None or s_bsp_soundpos.value < 2.0:
+		shared.VectorAdd(cm.mins, cm.maxs, org)
+		shared_c.VectorScale(org, 0.5, org)
+		shared.VectorAdd(org, old.lerp_origin, org)
+	else:
+		amin = np.zeros((3,), dtype=np.float32)
+		amax = np.zeros((3,), dtype=np.float32)
+		shared.VectorCopy(cm.mins, amin)
+		shared.VectorAdd(amin, old.lerp_origin, amin)
+		shared.VectorCopy(cm.maxs, amax)
+		shared.VectorAdd(amax, old.lerp_origin, amax)
+		shared_c.ClosestPointOnBounds(listener_org, amin, amax, org)
+
+	return True
+
 """
+====================
+GetEntitySoundOrigin
+
+Returns the origin of the specified entity
+====================
 """
-/*
-===============
+def GetEntitySoundOrigin (ent): #int (returns vec3_t)
+
+	org = np.zeros((3,), dtype=np.float32)
+
+	if not GetBSPEntitySoundOrigin(ent, listener_origin, org):
+		if (ent >= 0) and (ent < cl_main.cl_numentities):
+			shared.VectorCopy(cl_main.cl_entities[ent].lerp_origin, org)
+		# else: org stays vec3_origin
+
+	return org
+
+"""
+=================
 S_IssuePlaysound
 
 Take the next playsound and begin it on the channel
 This is never called directly by S_Play*, but only
 by the update loop.
-===============
+=================
 """
 def S_IssuePlaysound (ps): #playsound_t *
 
@@ -586,128 +834,182 @@ def S_IssuePlaysound (ps): #playsound_t *
 	sfxcache_t	*sc;
 	"""
 
+	if not ps:
+		return
+
 	if s_show.value:
 		clientserver.Com_Printf ("Issue {}\n".format(ps.begin))
+
+	if s_ps_sorting.value == 3 and ps.sfx.is_silenced_muzzle_flash:
+		S_FreePlaysound(ps)
+		return
+
 	# pick a channel to play on
 	ch = S_PickChannel(ps.entnum, ps.entchannel)
 	if ch is None:
-	
-		#S_FreePlaysound (ps)
-		return;
+		S_FreePlaysound(ps)
+		return
+
+	sc = snd_mem.S_LoadSound (ps.sfx)
+	if sc is None:
+		clientserver.Com_Printf ("S_IssuePlaysound: couldn't load {}\n".format(ps.sfx.name))
+		S_FreePlaysound(ps)
+		return
 
 	# spatialize
 	if ps.attenuation == shared.ATTN_STATIC:
 		ch.dist_mult = ps.attenuation * 0.001
 	else:
 		ch.dist_mult = ps.attenuation * 0.0005
-	ch.master_vol = ps.volume
+
 	ch.entnum = ps.entnum
 	ch.entchannel = ps.entchannel
 	ch.sfx = ps.sfx
-	ps.origin = ch.origin
+	shared.VectorCopy(ps.origin, ch.origin)
 	ch.fixed_origin = ps.fixed_origin
 
+	ch.master_vol = int(ps.volume)
+
 	S_Spatialize(ch)
-	
-	ch.pos = 0;
-	sc = snd_mem.S_LoadSound (ch.sfx)
+
+	ch.pos = paintedtime # Q2PORT: the C mixer advances ch->pos as it paints; pygame plays it, so the lifecycle pass uses the start time
 	ch.end = paintedtime + sc.length
+
+	# free the playsound
+	S_FreePlaysound(ps)
 
 	# Q2PORT: the C mixer scales by ch->leftvol and s_volume (snd_vol, snd_scaletable) as it paints
 	ch.chan.set_volume(ch.leftvol/255 * s_volume.value, ch.rightvol/255 * s_volume.value)
 	ch.chan.play(sc.data)
 
+
+
 """
+=====================
+S_RegisterSexedSound
+
+=====================
 """
-def S_RegisterSexedSound (ent, base): #entity_state_t *, char * (returns struct sfx_s *)
+def S_RegisterSexedSound (entnum, base): #int, char * (returns struct sfx_s *)
 
 	"""
-	int				n;
-	char			*p;
-	struct sfx_s	*sfx;
-	FILE			*f;
-	char			model[MAX_QPATH];
-	char			sexedFilename[MAX_QPATH];
-	char			maleFilename[MAX_QPATH];
+	sfx_t		*sfx;
+	char		model[MAX_QPATH];
+	char		sexedFilename[MAX_QPATH];
+	char		*cs;
 	"""
 
 	# determine what model the client is using
-	model = ""
-	n = shared.CS_PLAYERSKINS + ent.number - 1
-	if cl_main.cl.configstrings[n]:
-	
-		p = cl_main.cl.configstrings[n].find('\\')
-		if p != -1:
-		
-			p += 1
-			model = cl_main.cl.configstrings[n][p:]
-			p = model.find('/')
-			if p != -1:
-				model = model[:p]
-			
+	if entnum > 0 and entnum <= cl_main.CL_MaxClients():
+		cs = cl_main.cl.configstrings[shared.CS_PLAYERSKINS + entnum - 1]
+	else:
+		cs = None
+
+	model = GetModelName(cs)
+
 	# if we can't figure it out, they're male
 	if not model:
 		model = "male"
 
 	# see if we already know of the model specific sound
 	sexedFilename = "#players/{}/{}".format(model, base[1:])
-	sfx = S_FindName (sexedFilename, False)
+
+	sfx = S_GetSfxByName(sexedFilename)
 
 	if sfx is None:
-	
-		# no, so see if it exists
-		length, f = filesystem.FS_FOpenFile (sexedFilename[1:])
-		if f is not None:
 		
+		# no, so see if it exists
+		if common_h.FS_FileExists(sexedFilename[1:]):
+			
 			# yes, close the file and register it
-			filesystem.FS_FCloseFile (f)
 			sfx = S_RegisterSound (sexedFilename)
 		
 		else:
-		
+			
 			# no, revert to the male sound in the pak0.pak
-			maleFilename = "player/{}/{}".format("male", base[1:])
+			maleFilename = "player/male/{}".format(base[1:])
+
 			sfx = S_AliasName (sexedFilename, maleFilename)
-		
+	
 	return sfx
 
+
+
 """
+====================
+SDL_DriftBeginofs
 
+Calculates when a sound must be started. The C has this in the SDL backend;
+Q2PORT: it is inline here because the pygame backend is inline here too
+====================
+"""
+def SDL_DriftBeginofs(timeofs): #float (returns int)
 
+	global s_beginofs
+
+	start = int(cl_main.cl.frame.servertime * 0.001 * dma.speed + s_beginofs)
+
+	if start < paintedtime:
+	
+		start = paintedtime
+		s_beginofs = int(start - (cl_main.cl.frame.servertime * 0.001 * dma.speed))
+	
+	elif start > paintedtime + 0.3 * dma.speed:
+	
+		start = int(paintedtime + 0.1 * dma.speed)
+		s_beginofs = int(start - (cl_main.cl.frame.servertime * 0.001 * dma.speed))
+	
+	else:
+	
+		s_beginofs -= 10
+
+	if timeofs == 0.0:
+		return paintedtime
+	return start + timeofs * dma.speed
+
+"""
 // =======================================================================
 // Start a sound effect
 // =======================================================================
 
-/*
 ====================
 S_StartSound
 
-Validates the parms and ques the sound up
-if pos is NULL, the sound will be dynamically sourced from the entity
+Validates the parms and queues the sound up
+If pos is NULL, the sound will be dynamically sourced from the entity
 Entchannel 0 will never override a playing sound
 ====================
 """
 def S_StartSound(origin, entnum, entchannel, sfx, fvol, attenuation, timeofs): #vec3_t, int, int, sfx_t *, float, float, float
 
-	global s_beginofs, sound_started
-	#common.Com_Printf("S_StartSound {}\n".format(sfx.name))
+	global sound_started
+	#common.Com_Printf("S_StartSound {}".format(sfx.name))
 
 	"""
 	sfxcache_t	*sc;
-	int			vol;
 	playsound_t	*ps, *sort;
-	int			start;
 	"""
 
 	if not sound_started:
 		return
 
+	# A hack to prevent temporary entities generating sounds when the sound
+	# backend is not active and the game is not paused
+	if s_active == False:
+	    return
+
 	if sfx is None:
 		return
 
+	# -1 means localized (menu sounds, etc.)
+	if (entnum < -1) or (entnum >= cl_main.cl_numentities):
+		return
+
 	if sfx.name[0] == '*':
-		ent = cl_main.CL_AllocEntity(entnum) # Q2PORT: until sound.c (group 13), which passes entnum
-		sfx = S_RegisterSexedSound(ent.current if ent else shared.entity_state_t(), sfx.name)
+		sfx = S_RegisterSexedSound(entnum, sfx.name)
+
+		if sfx is None:
+			return
 
 	# make sure the sound is loaded
 	sc = snd_mem.S_LoadSound (sfx)
@@ -715,77 +1017,103 @@ def S_StartSound(origin, entnum, entchannel, sfx, fvol, attenuation, timeofs): #
 	if sc is None:
 		return		# couldn't load the sound's data
 
-	vol = fvol*255
-
 	# make the playsound_t
-	ps = snd_loc.playsound_t ()
+	ps = S_AllocPlaysound()
+
 	if ps is None:
 		return
 
 	if origin is not None:
-		ps.origin = origin
+		if not GetBSPEntitySoundOrigin(entnum, listener_origin, ps.origin):
+			shared.VectorCopy(origin, ps.origin)
+
 		ps.fixed_origin = True
 	else:
-		ps.origin = None
 		ps.fixed_origin = False
+
+	"""
+	if (sfx->name[0] && s_feedback_kind->value == 1)
+	{
+		vec3_t orientation, direction;
+		vec_t distance_direction;
+		int dir_x, dir_y, dir_z;
+		int effect_volume = -1;
+		...
+		Haptic_Feedback(
+			sfx->name, effect_volume,
+			effect_duration,
+			sfx->cache->begin, sfx->cache->attack, sfx->cache->fade,
+			dir_x, dir_y, dir_z, distance_direction);
+	}
+	else if (sfx->name[0] && s_feedback_kind->value == 0)
+	{
+		vec3_t direction = {0};
+		unsigned int effect_duration = 0;
+		unsigned short int effect_volume = 0;
+		...
+		Controller_Rumble(sfx->name, direction, !ps->fixed_origin,
+			effect_duration, effect_volume);
+	}
+	"""
+	# Q2PORT: controller rumble/haptics use SDL controllers (Controller_Rumble /
+	# Haptic_Feedback in the C's keyboard.c), which pygame has no equivalent for
 
 	ps.entnum = entnum
 	ps.entchannel = entchannel
 	ps.attenuation = attenuation
-	ps.volume = vol
 	ps.sfx = sfx
 
-	# drift s_beginofs
-	start = int(cl_main.cl.frame.servertime * 0.001 * dma.speed + s_beginofs)
-	if start < paintedtime:
+	# the C's SDL backend
+	ps.begin = SDL_DriftBeginofs(timeofs)
+	ps.volume = fvol * 255
 
-		start = paintedtime
-		s_beginofs = int(start - (cl_main.cl.frame.servertime * 0.001 * dma.speed))
+	game = cvar.Cvar_Get("game", "", shared.CVAR_LATCH | shared.CVAR_SERVERINFO)
 
-	elif start > paintedtime + 0.3 * dma.speed:
+	is_mission_pack = \
+		game.string == "" or \
+		game.string == "rogue" or \
+		game.string == "xatrix"
 
-		start = int(paintedtime + 0.1 * dma.speed)
-		s_beginofs = int(start - (cl_main.cl.frame.servertime * 0.001 * dma.speed))
-
+	if (s_ps_sorting.value == 1 and is_mission_pack) or \
+			s_ps_sorting.value == 2 or \
+			s_ps_sorting.value == 3:
+		# Q2PORT: the C's s_pendingplays is a linked list, sorted by begin
+		idx = 0
+		while idx < len(s_pendingplays) and s_pendingplays[idx].begin <= ps.begin:
+			idx += 1
+		s_pendingplays.insert(idx, ps)
+	elif not is_mission_pack and s_ps_sorting.value == 1:
+		idx = 0
+		while idx < len(s_pendingplays) and s_pendingplays[idx].begin < ps.begin:
+			idx += 1
+		s_pendingplays.insert(idx, ps)
 	else:
+		# No sorting. Just append at the end.
+		s_pendingplays.append(ps)
 
-		s_beginofs-=10
-
-	if timeofs == 0.0:
-		ps.begin = paintedtime
-	else:
-		ps.begin = int(start + timeofs * dma.speed)
-
-	# sort into the pending sound list
-	s_pendingplays.append(ps)
-	s_pendingplays.sort(key = lambda x: x.begin)
 
 """
-==================
+=================
 S_StartLocalSound
-==================
+=================
 """
-
 def S_StartLocalSound (sound): #char *
 
 	#sfx_t	*sfx;
 
 	if not sound_started:
 		return
-	
+
 	sfx = S_RegisterSound (sound)
+
 	if sfx is None:
 	
 		clientserver.Com_Printf ("S_StartLocalSound: can't cache {}\n".format(sound))
 		return
 	
-	S_StartSound (None, cl_main.cl.playernum+1, 0, sfx, 1, 1, 0.0)
+	S_StartSound (None, -1, 0, sfx, 1, 1, 0)
 
-"""
-==================
-S_ClearBuffer
-==================
-"""
+
 def S_ClearBuffer ():
 
 	global s_rawend
@@ -814,22 +1142,26 @@ def S_ClearBuffer ():
 S_StopAllSounds
 ==================
 """
+
+"""
+==================
+S_StopAllSounds
+==================
+"""
 def S_StopAllSounds():
 	
 	#int		i;
 
-	global sound_started, s_pendingplays
+	global sound_started, s_pendingplays, s_freeplays, channels
 
 	if not sound_started:
-		return;
+		return
 	"""
 	# clear all the playsounds
 	memset(s_playsounds, 0, sizeof(s_playsounds));
 	s_freeplays.next = s_freeplays.prev = &s_freeplays;
 	s_pendingplays.next = s_pendingplays.prev = &s_pendingplays;
-	"""
-	s_pendingplays = []
-	"""
+
 	for (i=0 ; i<MAX_PLAYSOUNDS ; i++)
 	{
 		s_playsounds[i].prev = &s_freeplays;
@@ -838,19 +1170,53 @@ def S_StopAllSounds():
 		s_playsounds[i].next->prev = &s_playsounds[i];
 	}
 	"""
+	# Q2PORT: the C's free list rebuild is just "all MAX_PLAYSOUNDS are free"
+	s_freeplays = list(s_playsounds)
+	s_pendingplays = []
 
 	# clear all the channels
 	"""
-	for ch_idx in range(snd_loc.MAX_CHANNELS):
+	memset(channels, 0, sizeof(channels));
+	"""
+	for ch in channels:
 	
-		ch = channels[ch_idx]
-		if ch.chan is None: continue
-		ch.chan.stop()
-	"""	
-
-	#memset(channels, 0, sizeof(channels));
+		if ch.chan is not None:
+			ch.chan.stop() # Q2PORT: the C's SDL memset leaves the channels dead; pygame channels keep playing until stopped
+		ch.clear()
+		ch.loop_sfx = None # Q2PORT: the loop bookkeeping is not in the C's channel_t
 
 	S_ClearBuffer ()
+
+
+
+"""
+==================
+S_BuildSoundList
+==================
+"""
+def S_BuildSoundList(): #void (returns int *)
+
+	"""
+	int		i;
+	"""
+	ambient = s_ambient.value
+	#const int plnum = cl.playernum + 1
+	sounds = [0] * shared.MAX_EDICTS
+
+	for i in range(cl_main.cl.frame.num_entities):
+		if i > client_h.MAX_CL_ENTNUM:
+			break
+		num = (cl_main.cl.frame.parse_entities + i) & (client_h.MAX_PARSE_ENTITIES - 1)
+		ent = cl_main.cl_parse_entities[num]
+
+		if (ambient == 2) and not ent.modelindex:
+			sounds[i] = 0
+		elif (ambient == 3) and (ent.number != cl_main.cl.playernum + 1):
+			sounds[i] = 0
+		else:
+			sounds[i] = ent.sound
+
+	return sounds # Q2PORT: the C fills the caller's array
 
 """
 ==================
@@ -860,7 +1226,6 @@ Entities with a ->sound field will generated looped sounds
 that are automatically started, stopped, and merged together
 as the entities are sent to the client
 ==================
-*/
 """
 def S_AddLoopSounds ():
 
@@ -873,24 +1238,24 @@ def S_AddLoopSounds ():
 	sfxcache_t	*sc;
 	int			num;
 	entity_state_t	*ent;
+	vec3_t		org;
 	"""
-	sounds = [0] * shared.MAX_EDICTS
-
-	if cl_main.cl_paused.value:
-		return
+	org = np.zeros((3,), dtype=np.float32)
 
 	if cl_main.cls.state != client_h.connstate_t.ca_active:
+		return
+
+	if cl_main.cl_paused.value and cl_main.cl_audiopaused.value:
 		return
 
 	if not cl_main.cl.sound_prepped:
 		return
 
-	for i in range(cl_main.cl.frame.num_entities):
-	
-		num = (cl_main.cl.frame.parse_entities + i)&(client_h.MAX_PARSE_ENTITIES-1)
-		ent = cl_main.cl_parse_entities[num]
-		sounds[i] = ent.sound
-	
+	if not s_ambient.value:
+		return
+
+	sounds = S_BuildSoundList()
+
 	for i in range(cl_main.cl.frame.num_entities):
 	
 		if not sounds[i]:
@@ -906,8 +1271,11 @@ def S_AddLoopSounds ():
 		num = (cl_main.cl.frame.parse_entities + i)&(client_h.MAX_PARSE_ENTITIES-1)
 		ent = cl_main.cl_parse_entities[num]
 
+		if not GetBSPEntitySoundOrigin(ent.number, listener_origin, org):
+			shared.VectorCopy(ent.origin, org)
+
 		# find the total contribution of all sounds of this type
-		left_total, right_total = S_SpatializeOrigin (ent.origin, 255.0, SOUND_LOOPATTENUATE)
+		left_total, right_total = S_SpatializeOrigin (org, 255.0, SOUND_LOOPATTENUATE)
 		for j in range(i+1, cl_main.cl.frame.num_entities):
 		
 			if sounds[j] != sounds[i]:
@@ -917,7 +1285,10 @@ def S_AddLoopSounds ():
 			num = (cl_main.cl.frame.parse_entities + j)&(client_h.MAX_PARSE_ENTITIES-1)
 			ent = cl_main.cl_parse_entities[num]
 
-			left, right = S_SpatializeOrigin (ent.origin, 255.0, SOUND_LOOPATTENUATE)
+			if not GetBSPEntitySoundOrigin(ent.number, listener_origin, org):
+				shared.VectorCopy(ent.origin, org)
+
+			left, right = S_SpatializeOrigin (org, 255.0, SOUND_LOOPATTENUATE)
 			left_total += left
 			right_total += right
 		
@@ -944,8 +1315,16 @@ def S_AddLoopSounds ():
 		ch.rightvol = right_total
 		ch.autosound = True	# remove next frame
 		ch.sfx = sfx
-		ch.pos = paintedtime % sc.length
-		ch.end = paintedtime + sc.length - ch.pos
+
+		# Sometimes, the sc->length argument can become 0, and in that case
+		# the modulo operation below would fail. The workaround checks for
+		# this situation and sets the pos and end parameters to 0.
+		if sc.length == 0:
+			ch.pos = 0
+			ch.end = 0
+		else:
+			ch.pos = paintedtime % sc.length
+			ch.end = paintedtime + sc.length - ch.pos
 
 		# Q2PORT: the C mixer would now paint the loop; start it on pygame if it is not already playing
 		if ch.loop_sfx is not sfx:
@@ -953,14 +1332,190 @@ def S_AddLoopSounds ():
 			ch.loop_sfx = sfx
 		ch.chan.set_volume(ch.leftvol/255 * s_volume.value, ch.rightvol/255 * s_volume.value)
 	
+
+S_MAX_LEN_TO_TEST_FOR_SILENCE_S = 2
+S_MIN_LEN_TO_TREAT_AS_SILENCE_MS = 3
+S_MIN_ABS_AMP_8_TO_TREAT_AS_SILENCE = 1
+S_MIN_ABS_AMP_16_TO_TREAT_AS_SILENCE = 2
+
 """
+====================
+S_IsShortSilence
 
-//=============================================================================
+Returns true if the sound is short enough to be treated as silence
+====================
+"""
+def S_IsShortSilence (info, raw_data): #wavinfo_t *, byte * (returns qboolean)
 
-============
+	# Test only mono-audio data.
+	if info.channels != 1:
+		return False
+
+	# Treat it as silence if sample count too small.
+	if ((info.samples * 1000) / info.rate) <= S_MIN_LEN_TO_TREAT_AS_SILENCE_MS:
+		return True
+
+	# Test only several second's of audio data.
+	if info.samples > (info.rate * S_MAX_LEN_TO_TEST_FOR_SILENCE_S):
+		return False
+
+	if info.width == 1:
+	
+		# Unsigned 8-bit audio data.
+		samples = np.frombuffer(raw_data, dtype=np.uint8)
+		amp = np.abs(samples.astype(np.int32) - 0x80)
+		return bool(np.all(amp <= S_MIN_ABS_AMP_8_TO_TREAT_AS_SILENCE))
+	
+	if info.width == 2:
+	
+		# Signed 16-bit audio data.
+		samples = np.frombuffer(raw_data, dtype=np.uint16)
+		# the C's LittleShort
+		amp = np.abs(np.frombuffer(samples.tobytes(), dtype=np.int16).astype(np.int32))
+		return bool(np.all(amp <= S_MIN_ABS_AMP_16_TO_TREAT_AS_SILENCE))
+	
+	# Unsupported bit depth.
+	return False
+
+"""
+====================
+S_IsSilencedMuzzleFlash
+
+Returns true if the sound is a silenced muzzle flash
+====================
+"""
+def S_IsSilencedMuzzleFlash (info, raw_data, name): #wavinfo_t *, byte *, char * (returns qboolean)
+
+	# Skip the prefix.
+	base_sound_string_length = 6 #strlen("sound/")
+	base_name = name[base_sound_string_length:]
+
+	# Match to well-known muzzle flash sound names.
+	is_name_matched = base_name in (
+		"weapons/bfg__f1y.wav",
+		"weapons/blastf1a.wav",
+		"weapons/disint2.wav",
+		"weapons/grenlf1a.wav",
+		"weapons/grenlr1b.wav",
+		"weapons/hyprbf1a.wav",
+		"weapons/machgf1b.wav",
+		"weapons/machgf2b.wav",
+		"weapons/machgf3b.wav",
+		"weapons/machgf4b.wav",
+		"weapons/machgf5b.wav",
+		"weapons/nail1.wav",
+		"weapons/plasshot.wav",
+		"weapons/railgf1a.wav",
+		"weapons/rippfire.wav",
+		"weapons/rocklf1a.wav",
+		"weapons/rocklr1b.wav",
+		"weapons/shotg2.wav",
+		"weapons/shotgf1b.wav",
+		"weapons/shotgr1b.wav",
+		"weapons/sshotf1b.wav")
+
+	if not is_name_matched:
+		return False
+
+	# Now check for silence.
+	if not S_IsShortSilence(info, raw_data):
+		return False
+
+	return True
+
+"""
+====================
+S_GetVolume
+
+Returns the average volume of the sound
+====================
+"""
+def S_GetVolume (data, sound_length, width): #byte *, int, int (returns double)
+
+	if width == 2:
+		sound_data = np.frombuffer(data, dtype=np.uint16)
+		sound_data = np.frombuffer(sound_data.tobytes(), dtype=np.int16).astype(np.float64) # the C's LittleShort
+		vol = float(np.sum(sound_data * sound_data))
+	elif width == 1:
+		sound_data = np.frombuffer(data, dtype=np.uint8).astype(np.float64)
+		# normalize to 16bit sound
+		sound_data = sound_data << 8
+		vol = float(np.sum(sound_data * sound_data))
+	else:
+		vol = 0.0
+
+	if sound_length != 0:
+		vol /= sound_length
+		vol = math.sqrt(vol)
+
+	return vol
+
+"""
+====================
+S_GetStatistics
+
+Returns the begin, end, attack and fade lengths of the sound
+====================
+"""
+def S_GetStatistics (data, sound_length, width, channels, sound_volume): #byte *, int, int, int, double (returns int *begin_length, int *end_length, int *attack_length, int *fade_length)
+
+	begin_length, end_length, attack_length, fade_length = 0, 0, 0, 0
+
+	# attack length
+	sound_max = 0
+	# calculate max value
+	if width == 2:
+		sound_data = np.frombuffer(data, dtype=np.uint16)
+		sound_data = np.frombuffer(sound_data.tobytes(), dtype=np.int16).astype(np.int32) # the C's LittleShort
+	elif width == 1:
+		sound_data = np.frombuffer(data, dtype=np.uint8).astype(np.int32)
+		sound_data = sound_data << 8 # normalize to 16bit sound
+	else:
+		return 0, 0, 0, 0
+
+	sound_max = int(np.max(np.abs(sound_data))) if sound_length else 0
+
+	# use something in middle
+	sound_max = (sound_max + int(sound_volume)) / 2
+
+	# calculate attack/fade length
+	sound_treshold = sound_max / 2
+
+	abs_data = np.abs(sound_data)
+
+	# delay calculate
+	i = 0
+	while i < sound_length and abs_data[i] < sound_treshold:
+		i += 1
+	begin_length = i // channels
+	delay_data = i
+
+	# attack calculate
+	while i < sound_length and abs_data[i] < sound_max:
+		i += 1
+	attack_length = (i - delay_data) // channels
+	fade_data = i
+
+	# end calculate
+	i = sound_length
+	while i > fade_data and abs_data[i-1] < sound_treshold:
+		i -= 1
+	end_length = (sound_length - i) // channels
+	sound_end = i
+
+	# fade calculate
+	while i > fade_data and abs_data[i-1] < sound_max:
+		i -= 1
+	fade_length = (sound_end - i) // channels
+
+	return begin_length, end_length, attack_length, fade_length
+
+"""
+====================
 S_LoadVorbis
-============
 
+Load a vorbis file into a sfxcache_t
+====================
 """
 def S_LoadVorbis(s, namebuffer): #sfx_t *, char * (returns sfxcache_t *)
 
@@ -1012,7 +1567,7 @@ S_RawSamples
 Cinematic streaming and voice over network
 ============
 """
-def S_RawSamples (samples: int, rate: int, width: int, channels: int, data): # byte *
+def S_RawSamples (samples: int, rate: int, width: int, channels: int, data, volume): # byte *, float
 
 	global sound_started, s_rawend, s_rawsamples, paintedtime
 
@@ -1069,56 +1624,50 @@ def S_RawSamples (samples: int, rate: int, width: int, channels: int, data): # b
 			
 	elif channels == 1 and width == 2:
 	
-		pass
-		"""
-		for (i=0 ; ; i++)
-		{
-			src = i*scale;
-			if (src >= samples)
-				break;
-			dst = s_rawend&(snd_loc.MAX_RAW_SAMPLES-1);
-			s_rawend++;
-			s_rawsamples[dst].left =
-				LittleShort(((short *)data)[src]) << 8;
-			s_rawsamples[dst].right =
-				LittleShort(((short *)data)[src]) << 8;
-		}
-		"""
+		i = 0
+		while True:
+			
+			src = int(i*scale)
+			if src >= samples:
+				break
+			dst = s_rawend&(snd_loc.MAX_RAW_SAMPLES-1)
+			s_rawend+=1
+			s_rawsamples[dst].left = \
+				int(shared_c.LittleSShort(data[src*2:src*2+2]) << 8 * volume)
+			s_rawsamples[dst].right = \
+				int(shared_c.LittleSShort(data[src*2:src*2+2]) << 8 * volume)
+			i += 1
 	
 	elif channels == 2 and width == 1:
 	
-		pass
-		"""
-		for (i=0 ; ; i++)
-		{
-			src = i*scale;
-			if (src >= samples)
-				break;
-			dst = s_rawend&(MAX_RAW_SAMPLES-1);
-			s_rawend++;
-			s_rawsamples[dst].left =
-				((char *)data)[src*2] << 16;
-			s_rawsamples[dst].right =
-				((char *)data)[src*2+1] << 16;
-		}
-		"""
+		i = 0
+		while True:
+			
+			src = int(i*scale)
+			if src >= samples:
+				break
+			dst = s_rawend&(snd_loc.MAX_RAW_SAMPLES-1)
+			s_rawend+=1
+			s_rawsamples[dst].left = \
+				int(struct.unpack("<b", data[src*2:src*2+1])[0] << 16 * volume)
+			s_rawsamples[dst].right = \
+				int(struct.unpack("<b", data[src*2+1:src*2+2])[0] << 16 * volume)
+			i += 1
 	
 	elif channels == 1 and width == 1:
 		
-		pass
-		"""
-		for (i=0 ; ; i++)
-		{
-			src = i*scale;
-			if (src >= samples)
-				break;
-			dst = s_rawend&(MAX_RAW_SAMPLES-1);
-			s_rawend++;
-			s_rawsamples[dst].left =
-				(((byte *)data)[src]-128) << 16;
-			s_rawsamples[dst].right = (((byte *)data)[src]-128) << 16;
-		}
-		"""
+		i = 0
+		while True:
+			
+			src = int(i*scale)
+			if src >= samples:
+				break
+			dst = s_rawend&(snd_loc.MAX_RAW_SAMPLES-1)
+			s_rawend+=1
+			s_rawsamples[dst].left = \
+				int((data[src]-128) << 16 * volume)
+			s_rawsamples[dst].right = int((data[src]-128) << 16 * volume)
+			i += 1
 
 """
 //=============================================================================
@@ -1144,6 +1693,8 @@ def S_Update(origin, forward, right, up): #vec3_t, vec3_t, vec3_t, vec3_t
 	if not sound_started:
 		return
 
+	if s_active == False:
+		return
 
 	# if the laoding plaque is up, clear everything
 	# out to make sure we aren't looping a dirty
@@ -1266,7 +1817,7 @@ def S_Update_():
 	int				samps;
 	"""
 
-	global sound_started, paintedtime, soundtime
+	global sound_started, paintedtime, soundtime, s_pendingplays
 
 	if not sound_started:
 		return
@@ -1294,6 +1845,18 @@ def S_Update_():
 	#endtime = (endtime + dma.submission_chunk-1) \
 	#	& ~(dma.submission_chunk-1)
 	#samps = dma.samples >> (dma.channels-1)
+
+	# start any pending playsounds (Q2PORT: the C's SDL backend does this in its paint loop)
+	while s_pendingplays:
+	
+		ps = s_pendingplays[0]
+		if ps.begin <= paintedtime:
+			s_pendingplays.pop(0)
+			S_IssuePlaysound(ps)
+			continue
+		if ps.begin < endtime:
+			endtime = ps.begin # stop here
+		break
 	#if endtime - soundtime > samps:
 	#	endtime = soundtime + samps
 	

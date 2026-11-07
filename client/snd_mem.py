@@ -111,14 +111,16 @@ S_LoadSound
 def S_LoadSound (s): #sfx_t * (returns sfxcache_t *)
 
 	"""
-    char	namebuffer[MAX_QPATH];
-	byte	*data;
-	wavinfo_t	info;
-	int		len;
-	float	stepscale;
-	sfxcache_t	*sc;
-	int		size;
-	char	*name;
+	char namebuffer[MAX_QPATH];
+	byte *data = NULL;
+	wavinfo_t info;
+	sfxcache_t *sc;
+	double sound_volume = 0;
+	int begin_length = 0;
+	int end_length = 0;
+	int attack_length = 0;
+	int fade_length = 0;
+	char *name;
 	"""
 
 	if s.name[0] == '*':
@@ -126,11 +128,11 @@ def S_LoadSound (s): #sfx_t * (returns sfxcache_t *)
 
 	# see if still in memory
 	sc = s.cache
+
 	if sc is not None:
 		return sc
 
-	##common.Com_Printf ("S_LoadSound: {}\n".format(stackbuf))
-	# load it in
+	# load it
 	if s.truename is not None:
 		name = s.truename
 	else:
@@ -140,8 +142,6 @@ def S_LoadSound (s): #sfx_t * (returns sfxcache_t *)
 		namebuffer = name[1:]
 	else:
 		namebuffer = "sound/{}".format(name)
-
-	#Com_Printf ("loading %s\n",namebuffer);
 
 	# Q2PORT: the C's S_LoadVorbis (static, sound.c) falls back to a .ogg when the
 	# .wav is missing; here it also builds the cache directly (see snd_dma.S_LoadVorbis)
@@ -155,15 +155,27 @@ def S_LoadSound (s): #sfx_t * (returns sfxcache_t *)
 
 	if data is None:
 	
+		s.cache = None
 		clientserver.Com_DPrintf ("Couldn't load {}\n".format(namebuffer))
 		return None
-	
+
 	info = GetWavinfo (s.name, data, size)
-	if info.channels != 1:
+
+	if info.channels < 1 or info.channels > 2:
 	
-		clientserver.Com_Printf ("{} is a stereo sample\n".format(s.name))
+		clientserver.Com_Printf ("{} has an invalid number of channels\n".format(s.name))
+		filesystem.FS_FreeFile(data)
 		return None
-	
+
+	if snd_dma.S_IsSilencedMuzzleFlash(info, data, namebuffer):
+		s.is_silenced_muzzle_flash = True
+
+	sound_volume = snd_dma.S_GetVolume(data[info.dataofs:info.dataofs + info.samples * info.width], info.samples, info.width)
+
+	begin_length, end_length, attack_length, fade_length = snd_dma.S_GetStatistics(
+		data[info.dataofs:info.dataofs + info.samples * info.width], info.samples,
+		info.width, info.channels, sound_volume)
+
 	stepscale = info.rate / snd_dma.dma.speed
 
 	sc = snd_loc.sfxcache_t()
@@ -172,37 +184,27 @@ def S_LoadSound (s): #sfx_t * (returns sfxcache_t *)
 	# mixer format (stereo), which played everything at double speed.
 	sc.data = pygame.mixer.Sound(file=io.BytesIO(data))
 
-	"""
-	len = info.samples / stepscale;
+	filesystem.FS_FreeFile(data)
 
-	len = len * info.width * info.channels;
-	"""
-	s.cache = sc
-	"""
-	sc = s->cache = Z_Malloc (len + sizeof(sfxcache_t));
-	if (!sc)
-	{
-		FS_FreeFile (data);
-		return NULL;
-	}
-	"""
 	sc.length = int(sc.data.get_length() * snd_dma.dma.speed) # in samples, like paintedtime
 	sc.loopstart = info.loopstart
 	sc.speed = info.rate
 	sc.width = info.width
 	sc.stereo = info.channels
+	sc.begin = begin_length
+	sc.end = end_length
+	sc.attack = attack_length
+	sc.fade = fade_length
+	sc.volume = int(sound_volume)
 
 	# pygame resamples the data, so only the loopstart scaling from ResampleSfx is applied
 	if sc.loopstart != -1:
 		sc.loopstart = int(sc.loopstart / stepscale)
 	sc.speed = snd_dma.dma.speed
-	"""
-	ResampleSfx (s, sc->speed, sc->width, data + info.dataofs);
 
-	FS_FreeFile (data);
-	"""
-	return sc;
+	s.cache = sc
 
+	return sc
 
 """
 

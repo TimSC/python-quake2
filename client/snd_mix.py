@@ -51,7 +51,22 @@ def S_PaintChannels(endtime): #int
 	"""
 
 	#print (snd_dma.paintedtime, endtime, snd_dma.s_pendingplays)
-	
+
+	# the C's SDL_BackendPaintChannel checks each channel as it paints:
+	# a finished sound clears ch->sfx. Q2PORT: a per-frame pass over the channels
+	# does the same (the C's per-sample fade in/out is not applied, see snd_dma).
+	# loop channels are left alone: S_AddLoopSounds / S_Update manage their lifetime
+	for i in range(snd_dma.s_numchannels):
+		ch = snd_dma.channels[i]
+		if ch.chan is None or ch.loop_sfx is not None:
+			continue
+		if ch.sfx is not None:
+			sc = ch.sfx.cache
+			if sc is not None and (snd_dma.paintedtime - ch.pos) >= sc.length:
+				ch.clear()
+				ch.chan.stop() # Q2PORT: the C's SDL leaves the painted channel dead; a pygame channel keeps playing until stopped
+				ch.loop_sfx = None # Q2PORT: the loop bookkeeping is not in the C's channel_t
+
 	snd_vol = snd_dma.s_volume.value*256
 
 	##Com_Printf ("%i to %i\n", snd_dma.paintedtime, endtime);

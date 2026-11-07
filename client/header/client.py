@@ -402,6 +402,7 @@ extern	cdlight_t	cl_dlights[MAX_DLIGHTS];
 // it can be un-deltad from the original 
 """
 MAX_PARSE_ENTITIES = 1024
+MAX_CL_ENTNUM = 32767 #SHRT_MAX
 """
 extern	entity_state_t	cl_parse_entities[MAX_PARSE_ENTITIES];
 

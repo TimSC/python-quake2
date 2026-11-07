@@ -383,9 +383,8 @@ def SCR_ReadNextFrame(): # (returns static byte *)
 		pass # Q2PORT: the samples stay little-endian bytes, which is what S_RawSamples takes
 
 
-	# Q2PORT: id's S_RawSamples has no volume, Cvar_VariableValue("s_volume") (group 13)
 	snd_dma.S_RawSamples(count, cin.s_rate, cin.s_width, cin.s_channels,
-			samples)
+			samples, cvar.Cvar_VariableValue("s_volume"))
 
 	in_data = compressed # in.data = compressed;
 	in_count = size # in.count = size;

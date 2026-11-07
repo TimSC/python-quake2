@@ -44,6 +44,9 @@ from client.header import keyboard as keyboard_h
 from client import cl_keyboard
 from client import cl_input
 from client import cl_main
+from client.sound import ogg
+from client.sound.header import vorbis
+from client import snd_dma
 
 joy_current_lbls = client_h.gamepad_labels_t.LBL_SDL #gamepad_labels_t
 
@@ -681,18 +684,27 @@ def IN_Update(): #void
 			if windowed_pauseonfocuslost.value != 1:
 				cvar.Cvar_SetValue("paused", 1)
 
-			# the C toggles the ogg music here (ogg_pausewithgame), Q2PORT: music is group 13
+			if cvar.Cvar_VariableValue("ogg_pausewithgame") == 1 and \
+				ogg.OGG_Status() == vorbis.PLAY and \
+				cl_main.cl.attractloop is False:
+				cmdparser.Cbuf_AddText("ogg toggle\n")
 
-			# S_Activate(false), Q2PORT: the port's sound has no focus activate
+			if s_muteonfocusloss.value == 1:
+				snd_dma.S_Activate(False)
 
 		elif event.type == pygame.WINDOWFOCUSGAINED:
 
 			if windowed_pauseonfocuslost.value == 2:
 				cvar.Cvar_SetValue("paused", 0)
 
-			# the C toggles the ogg music here (ogg_pausewithgame), Q2PORT: music is group 13
+			if cvar.Cvar_VariableValue("ogg_pausewithgame") == 1 and \
+				ogg.OGG_Status() == vorbis.PAUSE and \
+				cl_main.cl.attractloop is False and \
+				cl_main.cl_paused.value == 0:
+				cmdparser.Cbuf_AddText("ogg toggle\n")
 
-			# S_Activate(true), Q2PORT: the port's sound has no focus activate
+			if s_muteonfocusloss.value == 1:
+				snd_dma.S_Activate(True)
 
 		elif event.type == pygame.WINDOWMOVED:
 			# make sure GLimp_GetRefreshRate() will query from SDL again - the window might

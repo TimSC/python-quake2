@@ -1791,8 +1791,8 @@ def FS_BuildGameSpecificSearchPath(dir: str): #const char *
 	# the player wants to switch to another mod. In that case the
 	# list of music tracks needs to be loaded again (=> tracks
 	# are possibly from the new mod dir)
-	#OGG_InitTrackList();
-	# Q2PORT: OGG music comes with the sound group (13)
+	from client.sound import ogg # Q2PORT: lazy import, common/ and client/ would cycle at import time
+	ogg.OGG_InitTrackList()
 
 	# ...and the current list of maps in the "start network server" menu is
 	# cleared so that it will be re-initialized when the menu is accessed
@@ -1953,8 +1953,8 @@ def FS_InitFilesystem(): #void
 	else:
 
 		# no mod, but we still need to get the list of OGG tracks for background music
-		#OGG_InitTrackList();
-		pass	# Q2PORT: OGG music comes with the sound group (13)
+		from client.sound import ogg # Q2PORT: lazy import, common/ and client/ would cycle at import time
+		ogg.OGG_InitTrackList()
 
 	#endif
 

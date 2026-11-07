@@ -824,27 +824,6 @@ bfg_lightramp = [300, 400, 600, 300, 150, 75] #static int [6]
 
 
 """
-===============
-CL_GetEntitySoundOrigin
-
-Called to get the sound spatialization origin
-===============
-"""
-def CL_GetEntitySoundOrigin (ent: int): # vec3_t
-
-	org = np.zeros((3,), dtype=np.float32)
-	#centity_t	*old;
-
-	# Q2PORT: Yamagi's bounds check (sound.c, group 13): entities the client hasn't allocated are at the origin
-	lerp_origin = cl_main.cl_entities[ent].lerp_origin if ((ent >= 0) and (ent < cl_main.cl_numentities)) else \
-		shared_c.vec3_origin
-	shared.VectorCopy (lerp_origin, org)
-
-	# FIXME: bmodel issues...
-
-	return org
-
-"""
 =====================================================================
 
   SERVER CONNECTING MESSAGES
