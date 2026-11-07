@@ -30,7 +30,8 @@ import numpy as np
 from OpenGL.GL import glGetString
 from enum import Enum
 from client import ref
-from linux import gl_glx, qgl_linux
+from linux import qgl_linux
+from client.vid import glimp_sdl2
 pass
 pass
 from ref_gl import gl_draw, gl_image, gl_rmisc, gl_model, gl_model_h, gl_warp, gl_rsurf, gl_mesh, gl_light
@@ -995,7 +996,7 @@ def GL_DrawStereoPattern(): # static void
 		GL_DrawColoredStereoLinePair( 0, 1, 0, 14)
 		GL.glEnd()
 		
-		gl_glx.GLimp_EndFrame()
+		glimp_sdl2.GLimp_EndFrame()
 	
 
 """
@@ -1157,7 +1158,7 @@ def R_SetMode (): # (returns qboolean)
 	vid_fullscreen.modified = False
 	gl_mode.modified = False
 
-	err, vid.width, vid.height = gl_glx.GLimp_SetMode( vid.width, vid.height, gl_mode.value, fullscreen )
+	err, vid.width, vid.height = glimp_sdl2.GLimp_SetMode( vid.width, vid.height, gl_mode.value, fullscreen )
 	if err == rserr_t.rserr_ok:
 	
 		gl_state.prev_mode = gl_mode.value
@@ -1168,7 +1169,7 @@ def R_SetMode (): # (returns qboolean)
 			ri.Cvar_SetValue( "vid_fullscreen", 0)
 			vid_fullscreen.modified = False
 			ri.Con_Printf( shared.PRINT_ALL, "ref_gl::R_SetMode() - fullscreen unavailable in this mode\n" )
-			err, vid.width, vid.height = gl_glx.GLimp_SetMode( vid.width, vid.height, gl_mode.value, False )
+			err, vid.width, vid.height = glimp_sdl2.GLimp_SetMode( vid.width, vid.height, gl_mode.value, False )
 			if err == rserr_t.rserr_ok:
 				return True
 		
@@ -1179,7 +1180,7 @@ def R_SetMode (): # (returns qboolean)
 			ri.Con_Printf( shared.PRINT_ALL, "ref_gl::R_SetMode() - invalid mode\n" )
 		
 		# try setting it back to something safe
-		err, vid.width, vid.height = gl_glx.GLimp_SetMode( vid.width, vid.height, gl_state.prev_mode, False )
+		err, vid.width, vid.height = glimp_sdl2.GLimp_SetMode( vid.width, vid.height, gl_state.prev_mode, False )
 		if err != rserr_t.rserr_ok:
 		
 			ri.Con_Printf( shared.PRINT_ALL, "ref_gl::R_SetMode() - could not revert to safe mode\n" )
@@ -1224,7 +1225,7 @@ def R_Init( hinstance, hWnd ): #void *, void *
 	}
 	"""
 	# initialize OS-specific parts of OpenGL
-	if not gl_glx.GLimp_Init( hinstance, hWnd ) :
+	if not glimp_sdl2.GLimp_Init( hinstance, hWnd ) :
 	
 		qgl_linux.QGL_Shutdown()
 		return -1
@@ -1509,7 +1510,7 @@ def R_Shutdown ():
 	#
 	# shut down OS specific OpenGL stuff like contexts, etc.
 	#
-	gl_glx.GLimp_Shutdown();
+	glimp_sdl2.GLimp_Shutdown();
 	"""
 	/*
 	** shutdown our QGL subsystem
@@ -1564,7 +1565,7 @@ def R_BeginFrame( camera_separation ): #float
 			os.environ["SSTV2_GAMMA"] = "{:f}".format(g) # putenv( envbuffer );
 			os.environ["SST_GAMMA"] = "{:f}".format(g)
 		
-	gl_glx.GLimp_BeginFrame( camera_separation )
+	glimp_sdl2.GLimp_BeginFrame( camera_separation )
 
 	#
 	# go into 2D mode
@@ -1795,9 +1796,9 @@ def GetRefAPI ( rimp ): #refimport_t (returns refexport_t)
 	re.CinematicSetPalette = R_SetPalette
 
 	re.BeginFrame = R_BeginFrame
-	re.EndFrame = gl_glx.GLimp_EndFrame
+	re.EndFrame = glimp_sdl2.GLimp_EndFrame
 
-	re.AppActivate = gl_glx.GLimp_AppActivate
+	re.AppActivate = glimp_sdl2.GLimp_AppActivate
 	
 	shared_c.Swap_Init ()
 

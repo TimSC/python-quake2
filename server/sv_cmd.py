@@ -28,7 +28,7 @@ a network / internal communication datagram.
 from __future__ import annotations
 
 import struct
-from linux import net_udp
+from backends.unix import network
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -78,13 +78,13 @@ def SV_SetMaster_f ():
 		if slot == server_h.MAX_MASTERS:
 			break
 
-		if not net_udp.NET_StringToAdr (cmdparser.Cmd_Argv(i), sv_main.master_adr[i]):
+		if not network.NET_StringToAdr (cmdparser.Cmd_Argv(i), sv_main.master_adr[i]):
 			clientserver.Com_Printf ("Bad address: %s\n", cmdparser.Cmd_Argv(i))
 			continue
 		if sv_main.master_adr[slot].port == 0:
 			sv_main.master_adr[slot].port = shared_c.BigShort (common_h.PORT_MASTER)
 
-		clientserver.Com_Printf ("Master server at %s\n", net_udp.NET_AdrToString (sv_main.master_adr[slot]))
+		clientserver.Com_Printf ("Master server at %s\n", network.NET_AdrToString (sv_main.master_adr[slot]))
 
 		clientserver.Com_Printf ("Sending a ping.\n")
 
@@ -436,7 +436,7 @@ def SV_Status_f ():
 
 		clientserver.Com_Printf ("%7i ", sv_init.svs.realtime - cl.lastmessage)
 
-		s = net_udp.NET_AdrToString (cl.netchan.remote_address)
+		s = network.NET_AdrToString (cl.netchan.remote_address)
 		clientserver.Com_Printf ("%s", s)
 		l = 22 - len(s)
 		for j in range(l):
@@ -658,7 +658,7 @@ def SV_KillServer_f ():
 	if not sv_init.svs.initialized:
 		return
 	sv_main.SV_Shutdown ("Server was killed.\n", False)
-	net_udp.NET_Config ( False )	# close network sockets
+	network.NET_Config ( False )	# close network sockets
 
 """
 /*

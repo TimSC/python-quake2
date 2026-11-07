@@ -22,7 +22,8 @@ from __future__ import annotations
 import os
 import OpenGL.GL as GL
 from ref_gl import gl_image, gl_rmain
-from linux import qgl_linux, q_shlinux
+from backends.unix import system
+from linux import qgl_linux
 pass
 from common.header import shared
 """
@@ -121,7 +122,7 @@ def GL_ScreenShot_f ():
 
 	# create the scrnshots directory if it doesn't exist
 	checkname = "{}/scrnshot".format(gl_rmain.ri.FS_Gamedir())
-	q_shlinux.Sys_Mkdir (checkname)
+	system.Sys_Mkdir (checkname)
 
 	# 
 	# find a file name to save it to 

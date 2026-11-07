@@ -50,7 +50,9 @@ from client.header import client as client_h
 vidref_val = shared.VIDREF_GL # int
 
 from client import cl_main, cl_view, cl_cin, snd_dma
-from linux import cd_linux, sys_linux, vid_so
+from backends.unix import system
+from linux import cd_linux
+from client.vid import vid
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -802,7 +804,7 @@ def S_RegisterSexedModel (ent, base):
 		model = "male"
 
 	base_name = base[1:] if base and len(base) > 1 else (base or "")
-	re_interface = getattr(cl_main.vid_so, 're', None)
+	re_interface = vid.re if vid.ref_active else None
 	if not re_interface:
 		return None
 

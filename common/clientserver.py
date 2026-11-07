@@ -25,7 +25,7 @@ Client / Server interactions
 """
 from __future__ import annotations
 
-from linux import sys_linux
+from backends.unix import system
 pass
 from client import cl_main
 from common.header import shared
@@ -153,7 +153,7 @@ def Com_VPrintf(print_level: int, fmt: str, argptr: tuple): #int, const char *, 
 		msg = msg[:i] + msg[i:msgLen].translate(UNPRINTABLE)
 
 		# also echo to debugging console
-		sys_linux.Sys_ConsoleOutput(msg)
+		system.Sys_ConsoleOutput(msg)
 
 		# logfile
 		if logfile_active is not None and logfile_active.value:
@@ -250,7 +250,7 @@ def Com_Error(code: int, fmt: str, *args): #int, const char *, ...
 
 	if com_error_recursive:
 
-		sys_linux.Sys_Error("recursive error after: {}".format(com_error_msg)) #Sys_Error("recursive error after: %s", msg); Q2PORT: Sys_Error takes one string until group 14
+		system.Sys_Error("recursive error after: {}".format(com_error_msg)) #Sys_Error("recursive error after: %s", msg); Q2PORT: Sys_Error takes one string until group 14
 
 
 	com_error_recursive = True
@@ -291,7 +291,7 @@ def Com_Error(code: int, fmt: str, *args): #int, const char *, ...
 		logfile = None
 
 
-	sys_linux.Sys_Error(msg) #Sys_Error("%s", msg);
+	system.Sys_Error(msg) #Sys_Error("%s", msg);
 	com_error_recursive = False
 
 	
@@ -304,7 +304,7 @@ def Com_Quit(): #void
 
 	Com_Printf("\n----------- shutting down ----------\n")
 	sv_main.SV_Shutdown("Server quit\n", False)
-	sys_linux.Sys_Quit()
+	system.Sys_Quit()
 
 """
 ==================

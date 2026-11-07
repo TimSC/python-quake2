@@ -34,7 +34,9 @@ from client.sound.header import vorbis
 import os
 import struct
 from client import snd_dma, cl_view, cl_input, cl_cin, cl_parse
-from linux import q_shlinux, vid_so, net_udp, cd_linux, sys_linux
+from backends.unix import system, network
+from linux import cd_linux
+from client.vid import vid
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -375,7 +377,7 @@ def CL_Setenv_f(): # (static)
 
 		if os.putenv(buffer):
 
-			clientserver.Com_Printf("%s: putenv is failed: %s\n", "CL_Setenv_f", os.strerror(net_udp.errno))
+			clientserver.Com_Printf("%s: putenv is failed: %s\n", "CL_Setenv_f", os.strerror(network.errno))
 
 
 	elif argc == 2:
@@ -510,7 +512,7 @@ when they overflow
 def CL_DumpPackets ():
 
 	while True:
-		rx, netchan.net_from = net_udp.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, netchan.net_from, netchan.net_message)
+		rx, netchan.net_from = network.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, netchan.net_from, netchan.net_message)
 		if not rx:
 			break
 	
@@ -649,7 +651,7 @@ def CL_InitLocal(): # (static)
 	global cl_add_blend, cl_add_entities, cl_add_lights, cl_add_particles, cl_audiopaused, cl_footsteps, cl_gun, cl_kickangles, cl_laseralpha, cl_lightlevel, cl_limitsparksounds, cl_loadpaused, cl_nodownload_list, cl_noskins, cl_paused, cl_predict, cl_r1q2_lightstyle, cl_showclamp, cl_showfps, cl_showmiss, cl_shownet, cl_showspeed, cl_timeout, cl_unpaused_scvis, cl_vwep, fov, gender, gender_auto, gl1_stereo, gl1_stereo_convergence, gl1_stereo_separation, hand, horplus, name, rate, rcon_address, rcon_client_password, skin, windowed_mouse
 
 	cls.state = client_h.connstate_t.ca_disconnected
-	cls.realtime = q_shlinux.Sys_Milliseconds()
+	cls.realtime = system.Sys_Milliseconds()
 	cl_input.CL_InitInput()
 	# register our variables
 	cl_cin.cin_force43 = cvar.Cvar_Get("cin_force43", "1", shared.CVAR_ARCHIVE)
@@ -918,7 +920,7 @@ def CL_Frame(packetdelta: int, renderdelta: int, timedelta: int, packetframe: bo
 	# if in the debugger last frame, don't timeout.
 	if timedelta > 5000000:
 
-		cls.netchan.last_received = q_shlinux.Sys_Milliseconds()
+		cls.netchan.last_received = system.Sys_Milliseconds()
 
 
 	# Reset power shield / power screen sound counter.
@@ -974,7 +976,7 @@ def CL_Frame(packetdelta: int, renderdelta: int, timedelta: int, packetframe: bo
 
 	if renderframe:
 
-		vid_so.VID_CheckChanges() # Q2PORT: id's VID_CheckChanges until vid.c (group 14)
+		vid.VID_CheckChanges()
 		cl_prediction.CL_PredictMovement()
 
 		if not cl.refresh_prepped and (cls.state == client_h.connstate_t.ca_active):
@@ -985,14 +987,14 @@ def CL_Frame(packetdelta: int, renderdelta: int, timedelta: int, packetframe: bo
 		# update the screen
 		if frame.host_speeds.value:
 
-			frame.time_before_ref = q_shlinux.Sys_Milliseconds()
+			frame.time_before_ref = system.Sys_Milliseconds()
 
 
 		cl_screen.SCR_UpdateScreen()
 
 		if frame.host_speeds.value:
 
-			frame.time_after_ref = q_shlinux.Sys_Milliseconds()
+			frame.time_after_ref = system.Sys_Milliseconds()
 
 
 		# update audio
@@ -1013,7 +1015,7 @@ def CL_Frame(packetdelta: int, renderdelta: int, timedelta: int, packetframe: bo
 
 				if not lasttimecalled:
 
-					lasttimecalled = q_shlinux.Sys_Milliseconds()
+					lasttimecalled = system.Sys_Milliseconds()
 
 					if frame.log_stats_file:
 
@@ -1023,7 +1025,7 @@ def CL_Frame(packetdelta: int, renderdelta: int, timedelta: int, packetframe: bo
 
 				else:
 
-					now = q_shlinux.Sys_Milliseconds()
+					now = system.Sys_Milliseconds()
 
 					if frame.log_stats_file:
 
@@ -1047,7 +1049,7 @@ def CL_Init(): #void
 
 	cl_screen.SCR_Init()
 
-	vid_so.VID_Init() # Q2PORT: id's VID_Init until vid.c (group 14)
+	vid.VID_Init()
 
 	sdl2.IN_Init()
 
@@ -1098,8 +1100,8 @@ def CL_Shutdown(): #void
 	ogg.OGG_Stop()
 
 	snd_dma.S_Shutdown()
-	vid_so.IN_Shutdown()
-	vid_so.VID_Shutdown()
+	sdl2.IN_Shutdown()
+	vid.VID_Shutdown()
 
 	CL_ClearEntities()
 

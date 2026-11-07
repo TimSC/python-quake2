@@ -30,23 +30,39 @@ import math
 
 import pygame
 
-from linux import sys_linux, vid_so
+import os
+
+from backends.unix import system
 from common.header import shared
 from common import clientserver
 from common import cmdparser
 from common import cvar
-
-# Q2PORT: input/sdl2.c is ported in group 14. Until then the client's calls
-# into it use the port's pygame input in linux/.
+from client.vid import vid
 
 from client.header import client as client_h
 from client.header import keyboard as keyboard_h
 from client import cl_keyboard
+from client import cl_input
+from client import cl_main
 
 joy_current_lbls = client_h.gamepad_labels_t.LBL_SDL #gamepad_labels_t
 
 # Using japanese style for confirm & cancel buttons on gamepad
 japanese_confirm = False #qboolean
+
+MOUSE_MAX = 3000 #3000
+MOUSE_MIN = 40 #40
+
+mouse_x, mouse_y = 0.0, 0.0 #static float, the mouse motion since the last frame, in pixels
+old_mouse_x, old_mouse_y = 0.0, 0.0 #static float, for m_filter
+mlooking = False #static qboolean
+
+# Q2PORT: id's in_mouse cvar and the Q2PORT_NOMOUSE environment variable (the
+# tests set it) leave the mouse alone: no grab, no motion
+in_mouse = None #cvar_t *
+mouse_avail = False #qboolean
+
+sys_frame_time = 0 #unsigned
 
 # Console Variables
 freelook = None #cvar_t *
@@ -146,15 +162,18 @@ def IN_Init(): #void
 		joy_labels, joy_confirm, joy_layout, joy_left_expo, joy_left_snapaxis, joy_left_deadzone, joy_right_expo, joy_right_snapaxis, \
 		joy_right_deadzone, joy_trigger, joy_flick_threshold, joy_flick_smoothed, gyro_mode, gyro_space, gyro_local_roll, gyro_yawsensitivity, \
 		gyro_pitchsensitivity, gyro_tightening, gyro_smoothing, gyro_smoothing_window, gyro_acceleration, gyro_accel_multiplier, gyro_accel_lower_thresh, gyro_accel_upper_thresh, \
-		gyro_calibration_a, gyro_calibration_x, gyro_calibration_y, gyro_calibration_z, windowed_pauseonfocuslost, windowed_mouse, s_muteonfocusloss
+		gyro_calibration_a, gyro_calibration_x, gyro_calibration_y, gyro_calibration_z, windowed_pauseonfocuslost, windowed_mouse, s_muteonfocusloss, in_mouse, mouse_avail
 
 	clientserver.Com_Printf("------- input initialization -------\n")
 
-	# Q2PORT: the mouse, joystick and gyro state of sdl2.c aren't ported yet (group 14)
-	#mouse_x = mouse_y = 0;
+	mouse_x = mouse_y = 0.0
+	# Q2PORT: the joystick and gyro state of sdl2.c aren't ported (group 14)
 	#joystick_left_x = joystick_left_y = joystick_right_x = joystick_right_y = 0;
 	#joy_active_layout = LAYOUT_NONE;
 	#gyro_active = gyro_enabled = false;
+
+	in_mouse = cvar.Cvar_Get("in_mouse", "1", shared.CVAR_ARCHIVE) # Q2PORT: id's cvar, it and Q2PORT_NOMOUSE gate the mouse grab
+	mouse_avail = bool(in_mouse.value) and not os.environ.get("Q2PORT_NOMOUSE")
 
 	exponential_speedup = cvar.Cvar_Get("exponential_speedup", "0", shared.CVAR_ARCHIVE)
 	freelook = cvar.Cvar_Get("freelook", "1", shared.CVAR_ARCHIVE)
@@ -212,10 +231,8 @@ def IN_Init(): #void
 	windowed_mouse = cvar.Cvar_Get("windowed_mouse", "1", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
 	s_muteonfocusloss = cvar.Cvar_Get("s_muteonfocusloss", "1", shared.CVAR_ARCHIVE)
 
-	# Q2PORT: +mlook is still the port's pygame input's (linux/gl_glx.py RW_IN_Init)
-	#Cmd_AddCommand("+mlook", IN_MLookDown);
-	#Cmd_AddCommand("-mlook", IN_MLookUp);
-
+	cmdparser.Cmd_AddCommand("+mlook", IN_MLookDown)
+	cmdparser.Cmd_AddCommand("-mlook", IN_MLookUp)
 	cmdparser.Cmd_AddCommand("+joyaltselector", IN_JoyAltSelectorDown)
 	cmdparser.Cmd_AddCommand("-joyaltselector", IN_JoyAltSelectorUp)
 	#Cmd_AddCommand("+gyroaction", IN_GyroActionDown);
@@ -224,7 +241,6 @@ def IN_Init(): #void
 	#SDL_StartTextInput(); Q2PORT: pygame starts text input with the window
 
 	#IN_Controller_Init(false);
-	vid_so.IN_Init() # Q2PORT: the port's pygame mouse input in linux/ (group 14)
 
 	clientserver.Com_Printf("------------------------------------\n\n")
 
@@ -558,13 +574,270 @@ def IN_TranslateScancodeToQ2Key(sc: int)->int: #SDL_Scancode (returns static int
 
 	return 0
 
+"""
+ * Updates the input queue state. Called every
+ * frame by the client and does nearly all the
+ * input magic.
+ */
+"""
 def IN_Update(): #void
 
-	# Q2PORT: the port's pygame input in linux/ does IN_Update's work: grab
-	# or free the mouse (IN_Frame), pump the window events, and the mouse buttons
-	vid_so.IN_Frame()
-	sys_linux.Sys_SendKeyEvents()
-	vid_so.IN_Commands()
+	global sys_frame_time, mouse_x, mouse_y
+
+	# Q2PORT: the C's SDL event pump is the port's pygame event queue (linux/gl_glx.py's
+	# HandleEvents did the same); mouse buttons, keys and text go straight to the client
+
+	#qboolean want_grab;
+	#SDL_Event event;
+	#unsigned int key;
+
+	#static qboolean left_trigger = false;
+	#static qboolean right_trigger = false;
+	#static qboolean left_stick[4] = {false, false, false, false};   // left, right, up, down virtual keys
+
+	static_consoleKeyCode = 0 #static int consoleKeyCode
+
+	# get and process an event
+	for event in pygame.event.get(): # while (SDL_PollEvent(&event))
+
+		if event.type == pygame.MOUSEWHEEL: # SDL_MOUSEWHEEL
+			cl_keyboard.Key_Event(keyboard_h.K_MWHEELUP if event.wheel > 0 else keyboard_h.K_MWHEELDOWN, True, True)
+			cl_keyboard.Key_Event(keyboard_h.K_MWHEELUP if event.wheel > 0 else keyboard_h.K_MWHEELDOWN, False, True)
+
+		elif event.type == pygame.MOUSEBUTTONDOWN or event.type == pygame.MOUSEBUTTONUP:
+			key = 0
+			if event.button == 1: # SDL_BUTTON_LEFT
+				key = keyboard_h.K_MOUSE1
+			elif event.button == 2: # SDL_BUTTON_MIDDLE
+				key = keyboard_h.K_MOUSE3
+			elif event.button == 3: # SDL_BUTTON_RIGHT
+				key = keyboard_h.K_MOUSE2
+			elif event.button == 4: # SDL_BUTTON_X1
+				key = keyboard_h.K_MOUSE4
+			elif event.button == 5: # SDL_BUTTON_X2
+				key = keyboard_h.K_MOUSE5
+			else:
+				continue # return;
+
+			cl_keyboard.Key_Event(key, event.type == pygame.MOUSEBUTTONDOWN, True)
+
+		elif event.type == pygame.MOUSEMOTION:
+			if cl_main.cls.key_dest == client_h.keydest_t.key_game and not cl_main.cl_paused.value:
+				mouse_x += event.rel[0]
+				mouse_y += event.rel[1]
+
+		elif event.type == pygame.TEXTINPUT: # SDL_TEXTINPUT
+			if event.text:
+				c = ord(event.text[0])
+				# also make sure we don't get the char that corresponds to the
+				# "console key" (like "^" or "`") as text input
+				if c >= ord(' ') and c <= ord('~') and c != static_consoleKeyCode:
+					cl_keyboard.Char_Event(c)
+
+		elif event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
+			down = event.type == pygame.KEYDOWN
+			sc = event.scancode # SDL_Scancode sc = event.key.keysym.scancode;
+			if sc >= pygame.KSCAN_1 and sc <= pygame.KSCAN_0:
+				# workaround for AZERTY-keyboards, which don't have 1, 2, ..., 9, 0 in first row:
+				# always map those physical keys (scancodes) to those keycodes anyway
+				# see also https://bugzilla.libsdl.org/show_bug.cgi?id=3188
+				key = ord('0') # implicitly handles SDL_SCANCODE_0
+				if sc <= pygame.KSCAN_9:
+					key = ord('1') + (sc - pygame.KSCAN_1)
+
+				cl_keyboard.Key_Event(key, down, False)
+			else:
+				kc = event.key # SDL_Keycode kc = event.key.keysym.sym;
+				if sc == pygame.KSCAN_GRAVE and kc != ord('\'') and kc != ord('"'):
+					# special case/hack: open the console with the "console key"
+					# (beneath Esc, left of 1, above Tab)
+					# but not if the keycode for this is a quote (like on Brazilian
+					# keyboards) - otherwise you couldn't type them in the console
+					if (event.mod & (pygame.KMOD_CAPS|pygame.KMOD_SHIFT|pygame.KMOD_ALT|pygame.KMOD_CTRL|pygame.KMOD_GUI)) == 0:
+						# also, only do this if no modifiers like shift or AltGr or whatever are pressed
+						# so kc will most likely be the ascii char generated by this and can be ignored
+						# in case SDL_TEXTINPUT above (so we don't get ^ or whatever as text in console)
+						# (can't just check for mod == 0 because numlock is a KMOD too)
+						cl_keyboard.Key_Event(keyboard_h.K_CONSOLE, down, True)
+						static_consoleKeyCode = kc
+				elif kc >= pygame.K_SPACE and kc < pygame.K_DELETE:
+					cl_keyboard.Key_Event(kc, down, False)
+				else:
+					key = IN_TranslateSDLtoQ2Key(kc)
+					if key == 0:
+						# fallback to scancodes if we don't know the keycode
+						key = IN_TranslateScancodeToQ2Key(sc)
+					if key != 0:
+						cl_keyboard.Key_Event(key, down, True)
+					else:
+						clientserver.Com_DPrintf("Pressed unknown key with SDL_Keycode {}, SDL_Scancode {}.\n".format(kc, sc))
+
+		# Q2PORT: the C's single SDL_WINDOWEVENT (with an event.window_event subcode) is
+		# several pygame event types, each carrying the subcode as the type itself
+		elif event.type == pygame.WINDOWFOCUSLOST:
+
+			cl_keyboard.Key_MarkAllUp()
+
+			if windowed_pauseonfocuslost.value != 1:
+				cvar.Cvar_SetValue("paused", 1)
+
+			# the C toggles the ogg music here (ogg_pausewithgame), Q2PORT: music is group 13
+
+			# S_Activate(false), Q2PORT: the port's sound has no focus activate
+
+		elif event.type == pygame.WINDOWFOCUSGAINED:
+
+			if windowed_pauseonfocuslost.value == 2:
+				cvar.Cvar_SetValue("paused", 0)
+
+			# the C toggles the ogg music here (ogg_pausewithgame), Q2PORT: music is group 13
+
+			# S_Activate(true), Q2PORT: the port's sound has no focus activate
+
+		elif event.type == pygame.WINDOWMOVED:
+			# make sure GLimp_GetRefreshRate() will query from SDL again - the window might
+			# be on another display now!
+			vid.glimp_sdl2.glimp_refreshRate = -1.0
+
+		elif event.type == pygame.WINDOWSHOWN:
+
+			if cl_main.cl_unpaused_scvis.value > 0:
+				cvar.Cvar_SetValue("paused", 0)
+
+			# the C toggles the ogg music here (ogg_pausewithgame), Q2PORT: music is group 13
+
+		# the C's SDL_CONTROLLERBUTTON/AXIS/SENSOR/DEVICE/JOY events aren't ported (group 14)
+
+		elif event.type == pygame.QUIT: # SDL_QUIT
+			clientserver.Com_Quit()
+
+	# grab and ungrab the mouse if the console or the menu is opened
+	if in_grab.value == 3:
+		want_grab = windowed_mouse.value
+	else:
+		want_grab = vid.vid_fullscreen.value or in_grab.value == 1 or \
+			(in_grab.value == 2 and windowed_mouse.value)
+
+	# calling GLimp_GrabInput() each frame is a bit ugly but simple and should work.
+	# The called SDL functions return after a cheap check, if there's nothing to do.
+	if mouse_avail: # Q2PORT: id's mouse_avail
+		vid.glimp_sdl2.GLimp_GrabInput(want_grab)
+
+	# we need to save the frame time so other subsystems
+	# know the exact time of the last input events.
+	sys_frame_time = system.Sys_Milliseconds()
+
+	# the C's hot-plug countdown, joystick preset and gyro checks need the
+	# unported controller and gyro state (group 14)
+
+"""
+ * Move handling
+ */
+"""
+def IN_Move(cmd): #usercmd_t *
+
+	global mouse_x, mouse_y, old_mouse_x, old_mouse_y
+
+	# Q2PORT: the C's IN_GamepadMove and gyro block need the unported controller
+	# and gyro state (group 14)
+	if not mouse_avail: # Q2PORT: id's mouse_avail
+		return
+
+	if m_filter.value:
+
+		if mouse_x > 1 or mouse_x < -1:
+
+			mouse_x = (mouse_x + old_mouse_x) * 0.5
+
+		if mouse_y > 1 or mouse_y < -1:
+
+			mouse_y = (mouse_y + old_mouse_y) * 0.5
+
+		old_mouse_x = mouse_x
+		old_mouse_y = mouse_y
+
+	if mouse_x or mouse_y:
+
+		if not exponential_speedup.value:
+
+			mouse_x *= sensitivity.value
+			mouse_y *= sensitivity.value
+		else:
+
+			if mouse_x > MOUSE_MIN or mouse_y > MOUSE_MIN or \
+				mouse_x < -MOUSE_MIN or mouse_y < -MOUSE_MIN:
+
+				mouse_x = (mouse_x * mouse_x * mouse_x) / 4
+				mouse_y = (mouse_y * mouse_y * mouse_y) / 4
+
+				if mouse_x > MOUSE_MAX:
+
+					mouse_x = MOUSE_MAX
+				elif mouse_x < -MOUSE_MAX:
+
+					mouse_x = -MOUSE_MAX
+
+				if mouse_y > MOUSE_MAX:
+
+					mouse_y = MOUSE_MAX
+				elif mouse_y < -MOUSE_MAX:
+
+					mouse_y = -MOUSE_MAX
+
+		# add mouse X/Y movement to cmd
+		if (cl_input.in_strafe.state & 1) or (lookstrafe.value and mlooking):
+
+			cmd.sidemove += m_side.value * mouse_x
+		else:
+
+			cl_main.cl.viewangles[shared.YAW] -= m_yaw.value * mouse_x
+
+		if (mlooking or freelook.value) and not (cl_input.in_strafe.state & 1):
+
+			cl_main.cl.viewangles[shared.PITCH] += m_pitch.value * mouse_y
+		else:
+
+			cmd.forwardmove -= m_forward.value * mouse_y
+
+		mouse_x = mouse_y = 0
+
+"""
+ * Look down
+ */
+"""
+def IN_MLookDown(): #void
+
+	global mlooking
+
+	mlooking = True
+
+"""
+ * Look up
+ */
+"""
+def IN_MLookUp(): #void
+
+	global mlooking
+
+	mlooking = False
+	cl_input.IN_CenterView()
+
+"""
+ * Shuts the backend down
+ */
+"""
+def IN_Shutdown(): #void
+
+	cmdparser.Cmd_RemoveCommand("+mlook")
+	cmdparser.Cmd_RemoveCommand("-mlook")
+
+	cmdparser.Cmd_RemoveCommand("+joyaltselector")
+	cmdparser.Cmd_RemoveCommand("-joyaltselector")
+	# the C also removes "+gyroaction" and "-gyroaction", Q2PORT: not registered
+
+	clientserver.Com_Printf("Shutting down input.\n")
+
+	# IN_Controller_Shutdown(false), Q2PORT: no gamepads (group 14)
 
 def IN_GetClipboardText(n: int)->str: #char *, size_t
 

@@ -2,7 +2,7 @@
 import os, sys, time
 sys.argv = ["main.py"] + sys.argv[1:]
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from linux import sys_linux
+from backends.unix import system
 from client import cl_main
 pass
 from game import g_main, g_weapon, g_utils
@@ -89,4 +89,4 @@ def CL_Frame(*args):
 	for b in st["bolts"].values():
 		if b["alive"] and b["num"] in nums: b["recv"] += 1
 cl_main.CL_Frame = CL_Frame
-sys_linux.main()
+system.main()

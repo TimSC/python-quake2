@@ -22,7 +22,8 @@ from __future__ import annotations
 import numpy as np
 pass
 pass
-from linux import snd_linux, q_shlinux
+from backends.unix import system
+from linux import snd_linux
 from client import snd_mix, snd_loc, snd_mem, cl_main
 pass
 import pygame
@@ -1201,7 +1202,7 @@ def GetSoundtime():
 
 	soundtime = buffers*fullsamples + samplepos/dma.channels;
 	"""
-	soundtime = q_shlinux.Sys_Milliseconds() * dma.speed // 1000
+	soundtime = system.Sys_Milliseconds() * dma.speed // 1000
 
 
 def S_Update_():

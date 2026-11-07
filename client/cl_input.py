@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import copy
 
-from linux import vid_so, sys_linux, q_shlinux
+from client.input import sdl2
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -143,7 +143,7 @@ def KeyDown(b: client_h.kbutton_t): #kbutton_t * (static)
 
 	if not b.downtime:
 
-		b.downtime = sys_linux.sys_frame_time - 100
+		b.downtime = sdl2.sys_frame_time - 100
 
 
 	b.state |= 1 + 2 # down + impulse down
@@ -274,8 +274,8 @@ def CL_KeyState(key): #kbutton_t * (returns static float)
 	if key.state:
 
 		# still down
-		msec += sys_linux.sys_frame_time - key.downtime
-		key.downtime = sys_linux.sys_frame_time
+		msec += sdl2.sys_frame_time - key.downtime
+		key.downtime = sdl2.sys_frame_time
 
 
 	val = msec / frame_msec
@@ -336,7 +336,7 @@ def CL_AdjustAngles(): # (static)
 	if center_progress < 1.0 and cl_centertime.value > 0:
 
 		#float cur_progress = (float)(sys_frame_time - center_start) / cl_centertime->value;
-		cur_progress = (sys_linux.sys_frame_time - center_start) / cl_centertime.value
+		cur_progress = (sdl2.sys_frame_time - center_start) / cl_centertime.value
 		if cur_progress >= 1.0:
 
 			cur_progress = 1.0
@@ -407,7 +407,7 @@ def IN_CenterView(): #
 		# start centering the view
 		center_target = cl_main.cl.viewangles[shared.PITCH] - shared.SHORT2ANGLE(cl_main.cl.frame.playerstate.pmove.delta_angles[shared.PITCH])
 		center_progress = 0.0
-		center_start = sys_linux.sys_frame_time
+		center_start = sdl2.sys_frame_time
 
 """
  * Centers the view
@@ -469,7 +469,7 @@ def CL_RefreshCmd(): #
 	# CMD to fill
 	cmd = cl_main.cl.cmds[cl_main.cls.netchan.outgoing_sequence & (client_h.CMD_BACKUP - 1)]
 	# Calculate delta
-	frame_msec = sys_linux.sys_frame_time - old_sys_frame_time
+	frame_msec = sdl2.sys_frame_time - old_sys_frame_time
 	# Check bounds
 	if frame_msec < 1:
 
@@ -482,7 +482,7 @@ def CL_RefreshCmd(): #
 
 	# Add movement
 	CL_BaseMove(cmd)
-	vid_so.IN_Move(cmd)
+	sdl2.IN_Move(cmd)
 	# Clamp angels for prediction
 	CL_ClampPitch()
 	cmd.angles[0] = ((shared.ANGLE2SHORT(cl_main.cl.viewangles[0]) + 0x8000) & 0xffff) - 0x8000 # short
@@ -497,7 +497,7 @@ def CL_RefreshCmd(): #
 
 	cmd.msec = ms
 	# Update frame time for the next call
-	old_sys_frame_time = sys_linux.sys_frame_time
+	old_sys_frame_time = sdl2.sys_frame_time
 	# Important events are send immediately
 	if ((in_attack.state & 2)) or (in_use.state & 2):
 
@@ -514,7 +514,7 @@ def CL_RefreshMove(): #
 	# CMD to fill
 	cmd = cl_main.cl.cmds[cl_main.cls.netchan.outgoing_sequence & (client_h.CMD_BACKUP - 1)]
 	# Calculate delta
-	frame_msec = sys_linux.sys_frame_time - old_sys_frame_time
+	frame_msec = sdl2.sys_frame_time - old_sys_frame_time
 	# Check bounds
 	if frame_msec < 1:
 
@@ -527,8 +527,8 @@ def CL_RefreshMove(): #
 
 	# Add movement
 	CL_BaseMove(cmd)
-	vid_so.IN_Move(cmd)
-	old_sys_frame_time = sys_linux.sys_frame_time
+	sdl2.IN_Move(cmd)
+	old_sys_frame_time = sdl2.sys_frame_time
 
 def CL_FinalizeCmd(): # (static)
 	global in_impulse

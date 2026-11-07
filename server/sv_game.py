@@ -26,7 +26,7 @@ Interface between the server and the game module.
 from __future__ import annotations
 
 pass
-from linux import sys_linux
+from backends.unix import system
 pass
 from common.header import common as common_h
 from common.header import shared
@@ -366,7 +366,7 @@ def SV_ShutdownGameProgs ():
 	if ge is None:
 		return
 	ge.Shutdown ()
-	sys_linux.Sys_UnloadGame ()
+	system.Sys_UnloadGame ()
 	ge = None
 
 def GI_TagMalloc(size: int, tag: int): #int, int (returns static void *)
@@ -476,7 +476,7 @@ def SV_InitGameProgs ():
 	gimport.SetAreaPortalState = collision.CM_SetAreaPortalState
 	gimport.AreasConnected = collision.CM_AreasConnected
 
-	ge = sys_linux.Sys_GetGameAPI (gimport)
+	ge = system.Sys_GetGameAPI (gimport)
 
 	#if (!ge)
 	#	Com_Error (qcommon.ERR_DROP, "failed to load game DLL")

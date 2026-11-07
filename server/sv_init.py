@@ -28,7 +28,7 @@ from __future__ import annotations
 import copy
 import struct
 from client import cl_main
-from linux import net_udp
+from backends.unix import network
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -519,22 +519,22 @@ def SV_InitGame(): #void
 
 		if gamemode == server_h.GAMEMODE_SP:
 
-			net_udp.NET_Config(True)
+			network.NET_Config(True)
 
 		else:
 
-			net_udp.NET_Config((sv_main.maxclients.value > 1))
+			network.NET_Config((sv_main.maxclients.value > 1))
 
 
 	else:
 
-		net_udp.NET_Config((sv_main.maxclients.value > 1))
+		network.NET_Config((sv_main.maxclients.value > 1))
 
 
 	# heartbeats will always be sent to the id master
 	svs.last_heartbeat = -99999 # send immediately
 	idmaster = "192.246.40.37:%i" % common_h.PORT_MASTER
-	adr = net_udp.NET_StringToAdr(idmaster)
+	adr = network.NET_StringToAdr(idmaster)
 	if adr is not None:
 		sv_main.master_adr[0] = adr
 

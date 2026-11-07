@@ -2,7 +2,7 @@
 import os, sys, collections
 sys.argv = ["main.py"] + sys.argv[1:]
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from linux import sys_linux
+from backends.unix import system
 from client import cl_main, cl_parse
 from common import movemsg
 from server import sv_entities, sv_send
@@ -38,4 +38,4 @@ for name in ("SV_WriteFrameToClient", "SV_BuildClientFrame", "SV_SendClientDatag
 	def w(*a, _o=o, _n=name):
 		calls[_n] += 1; return _o(*a)
 	setattr(mod, name, w)
-sys_linux.main()
+system.main()

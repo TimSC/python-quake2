@@ -25,8 +25,8 @@ This file implements the generic part of the menu
 """
 from __future__ import annotations
 
-from linux import q_shlinux
-from linux import vid_so
+from backends.unix import system
+from client.vid import vid
 from common.header import shared
 from common.shared import shared as shared_c
 from common import clientserver
@@ -60,8 +60,8 @@ static qboolean SpinControl_DoSlide(menulist_s *s, int dir);
 extern viddef_t viddef;
 """
 
-def VID_WIDTH(): return vid_so.viddef.width #define VID_WIDTH viddef.width
-def VID_HEIGHT(): return vid_so.viddef.height #define VID_HEIGHT viddef.height
+def VID_WIDTH(): return vid.viddef.width #define VID_WIDTH viddef.width
+def VID_HEIGHT(): return vid.viddef.height #define VID_HEIGHT viddef.height
 
 menu_in_sound = "misc/menu1.wav" #const char *
 menu_move_sound = "misc/menu2.wav" #const char *
@@ -233,7 +233,7 @@ def Field_Draw(f: qmenu_h.menufield_s): #menufield_s * (static)
 
 	if Menu_ItemAtCursor(f.generic.parent) is f:
 
-		if int(q_shlinux.Sys_Milliseconds() / 250) & 1:
+		if int(system.Sys_Milliseconds() / 250) & 1:
 
 			"""
 			int offset;
@@ -509,14 +509,14 @@ def Menu_Draw(menu: qmenu_h.menuframework_s): #menuframework_s *
 
 			vid.Draw_CharScaled(menu.x + (item.x / scale - 24 + item.cursor_offset) * scale,
 					(menu.y + item.y) * scale,
-					12 + (int(q_shlinux.Sys_Milliseconds() / 250) & 1), scale)
+					12 + (int(system.Sys_Milliseconds() / 250) & 1), scale)
 
 		else:
 
 			# FIXME:: menu->x + (item->x / scale + 24 + item->cursor_offset) * scale
 			vid.Draw_CharScaled(menu.x + (item.cursor_offset) * scale,
 					(menu.y + item.y) * scale,
-					12 + (int(q_shlinux.Sys_Milliseconds() / 250) & 1), scale)
+					12 + (int(system.Sys_Milliseconds() / 250) & 1), scale)
 
 
 
@@ -565,7 +565,7 @@ def Menu_DrawCharacter(cx: int, cy: int, num: int): #int, int, int
 
 	scale = cl_screen.SCR_GetMenuScale()
 
-	vid.Draw_CharScaled(cx + (int(vid_so.viddef.width - 320 * scale) >> 1), cy + (int(vid_so.viddef.height - 240 * scale) >> 1), num, scale)
+	vid.Draw_CharScaled(cx + (int(vid.viddef.width - 320 * scale) >> 1), cy + (int(vid.viddef.height - 240 * scale) >> 1), num, scale)
 
 def Menu_DrawString(x: int, y: int, string: str): #int, int, const char *
 

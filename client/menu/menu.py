@@ -31,7 +31,6 @@ Quake III Team Arena.
 from __future__ import annotations
 
 from client.sound import ogg
-from linux import q_shlinux
 
 import copy
 import functools
@@ -46,9 +45,9 @@ from common import cmdparser
 from common import cvar
 from common import filesystem
 from common import frame
-from linux import sys_linux
-from linux import net_udp
-from linux import vid_so
+from backends.unix import system
+from backends.unix import network
+from client.vid import vid
 from client import cl_main
 from client import cl_console
 from client import cl_input
@@ -61,7 +60,6 @@ from client.header import client as client_h
 from client.header import keyboard as keyboard_h
 from client.input import sdl2
 from client.input.header import gyro as gyro_h
-from client.sound import ogg
 from client.sound.header import vorbis
 from server import sv_main
 from client import ref
@@ -164,7 +162,7 @@ def M_Banner(name): #const char * (static)
 
 	scale = cl_screen.SCR_GetMenuScale()
 	w, h = vid.Draw_GetPicSize(name)
-	vid.Draw_PicScaled(vid_so.viddef.width / 2 - (w * scale) / 2, vid_so.viddef.height / 2 - (110 * scale), name, scale)
+	vid.Draw_PicScaled(vid.viddef.width / 2 - (w * scale) / 2, vid.viddef.height / 2 - (110 * scale), name, scale)
 
 def M_ForceMenuOff(): #
 	global m_menudepth
@@ -447,7 +445,7 @@ def M_DrawPic(x, y, pic): #int, int, char *
 	"""
 	scale = cl_screen.SCR_GetMenuScale()
 
-	vid.Draw_PicScaled((x + ((vid_so.viddef.width - 320) >> 1)) * scale, (y + ((vid_so.viddef.height - 240) >> 1)) * scale, pic, scale)
+	vid.Draw_PicScaled((x + ((vid.viddef.width - 320) >> 1)) * scale, (y + ((vid.viddef.height - 240) >> 1)) * scale, pic, scale)
 
 """
  * Draws an animating cursor with the point at
@@ -593,8 +591,8 @@ def InitMainMenu(): # (static)
 		i += 1
 
 
-	x = int((vid_so.viddef.width / scale - widest + 70) / 2) # C int
-	y = int((vid_so.viddef.height / (2 * scale) - 110)) # C int
+	x = int((vid.viddef.width / scale - widest + 70) / 2) # C int
+	y = int((vid.viddef.height / (2 * scale) - 110)) # C int
 	s_main.clear() # memset(&s_main, 0, sizeof( menuframework_s ))
 	s_main.cursor = tmp
 	w, h = vid.Draw_GetPicSize("m_main_plaque")
@@ -714,7 +712,7 @@ def Multiplayer_MenuInit(): # (static)
 	"""
 	scale = cl_screen.SCR_GetMenuScale()
 
-	s_multiplayer_menu.x = int(int(vid_so.viddef.width * 0.50) - 64 * scale) # int x
+	s_multiplayer_menu.x = int(int(vid.viddef.width * 0.50) - 64 * scale) # int x
 	s_multiplayer_menu.nitems = 0
 	s_multiplayer_menu.banner = "m_banner_multiplayer"
 	s_join_network_server_action.generic.type = qmenu_h.MTYPE_ACTION
@@ -859,7 +857,7 @@ def KeyCursorDrawFunc(menu): #menuframework_s * (static)
 
 	else:
 
-		c = int(12 + (int(q_shlinux.Sys_Milliseconds() / 250) & 1)) # C int
+		c = int(12 + (int(system.Sys_Milliseconds() / 250) & 1)) # C int
 
 
 	scale = cl_screen.SCR_GetMenuScale()
@@ -918,7 +916,7 @@ def Keys_MenuInit(): # (static)
 	int i;
 	"""
 
-	s_keys_menu.x = int(vid_so.viddef.width * 0.50)
+	s_keys_menu.x = int(vid.viddef.width * 0.50)
 	s_keys_menu.nitems = 0
 	s_keys_menu.cursordraw = KeyCursorDrawFunc
 	for i in range(len(bindnames)):
@@ -1040,7 +1038,7 @@ def MultiplayerKeys_MenuInit(): # (static)
 	int i;
 	"""
 
-	s_multiplayer_keys_menu.x = int(vid_so.viddef.width * 0.50)
+	s_multiplayer_keys_menu.x = int(vid.viddef.width * 0.50)
 	s_multiplayer_keys_menu.nitems = 0
 	s_multiplayer_keys_menu.cursordraw = KeyCursorDrawFunc
 	for i in range(len(multiplayer_key_bindnames)):
@@ -1185,7 +1183,7 @@ def ControllerButtons_MenuInit(): # (static)
 	int i;
 	"""
 
-	s_controller_buttons_menu.x = int(vid_so.viddef.width * 0.50)
+	s_controller_buttons_menu.x = int(vid.viddef.width * 0.50)
 	s_controller_buttons_menu.nitems = 0
 	s_controller_buttons_menu.cursordraw = KeyCursorDrawFunc
 	for i in range(len(controller_bindnames)):
@@ -1306,7 +1304,7 @@ def ControllerAltButtons_MenuInit(): # (static)
 	int i;
 	"""
 
-	s_controller_alt_buttons_menu.x = int(vid_so.viddef.width * 0.50)
+	s_controller_alt_buttons_menu.x = int(vid.viddef.width * 0.50)
 	s_controller_alt_buttons_menu.nitems = 0
 	s_controller_alt_buttons_menu.cursordraw = KeyCursorDrawFunc
 	for i in range(len(controller_alt_bindnames)):
@@ -1398,7 +1396,7 @@ def Stick_MenuInit(): # (static)
 	y = 0
 	scale = cl_screen.SCR_GetMenuScale()
 
-	s_sticks_config_menu.x = int(vid_so.viddef.width * 0.50)
+	s_sticks_config_menu.x = int(vid.viddef.width * 0.50)
 	s_sticks_config_menu.nitems = 0
 	s_stk_layout_box.generic.type = qmenu_h.MTYPE_SPINCONTROL
 	s_stk_layout_box.generic.x = 0
@@ -1580,7 +1578,7 @@ def Gyro_MenuInit(): # (static)
 	y = 0
 	scale = cl_screen.SCR_GetMenuScale()
 
-	s_gyro_menu.x = int(vid_so.viddef.width * 0.50)
+	s_gyro_menu.x = int(vid.viddef.width * 0.50)
 	s_gyro_menu.nitems = 0
 	s_gyro_mode_box.generic.type = qmenu_h.MTYPE_SPINCONTROL
 	s_gyro_mode_box.generic.x = 0
@@ -1799,7 +1797,7 @@ def Joy_MenuInit(): # (static)
 	y = 0
 
 	#extern qboolean show_haptic;
-	s_joy_menu.x = int(vid_so.viddef.width * 0.50)
+	s_joy_menu.x = int(vid.viddef.width * 0.50)
 	s_joy_menu.nitems = 0
 	if sdl2.IN_MatchJoyPreset():
 
@@ -2144,8 +2142,8 @@ def Options_MenuInit(): # (static)
 
 	#extern qboolean show_gamepad;
 	# configure controls menu and menu items
-	s_options_menu.x = int(vid_so.viddef.width / 2) # int x
-	s_options_menu.y = int(vid_so.viddef.height / (2 * scale) - 58) # int y
+	s_options_menu.x = int(vid.viddef.width / 2) # int x
+	s_options_menu.y = int(vid.viddef.height / (2 * scale) - 58) # int y
 	s_options_menu.banner = "m_banner_options"
 	s_options_menu.nitems = 0
 	s_options_sfxvolume_slider.generic.type = qmenu_h.MTYPE_SLIDER
@@ -2300,8 +2298,8 @@ def M_Credits_Draw(m: qmenu_h.menuframework_s): #menuframework_s * (static)
 
 	# draw the credits
 	i = 0
-	y = int(vid_so.viddef.height / scale - ((cl_main.cls.realtime - credits_start_time) / 40.0))
-	while credits[i] is not None and y < vid_so.viddef.height / scale: # for (i = 0, y = ...; credits[i] && ...; y += 10, i++)
+	y = int(vid.viddef.height / scale - ((cl_main.cls.realtime - credits_start_time) / 40.0))
+	while credits[i] is not None and y < vid.viddef.height / scale: # for (i = 0, y = ...; credits[i] && ...; y += 10, i++)
 
 		"""
 		int j, stringoffset = 0;
@@ -2333,7 +2331,7 @@ def M_Credits_Draw(m: qmenu_h.menuframework_s): #menuframework_s * (static)
 			int x;
 			"""
 
-			x = int((vid_so.viddef.width / scale- len(credits[i]) * 8 - stringoffset *
+			x = int((vid.viddef.width / scale- len(credits[i]) * 8 - stringoffset *
 				 8) / 2 + (j + stringoffset) * 8) # int x
 
 			if bold:
@@ -2617,7 +2615,7 @@ def ModsApplyActionFunc(unused): #void * (static)
 
 		# equivalent to "killserver" cmd, but avoids cvar latching below
 		sv_main.SV_Shutdown("Server is changing games.\n", False)
-		net_udp.NET_Config(False)
+		network.NET_Config(False)
 
 
 	# called via command buffer so that any running server has time to shutdown
@@ -2648,7 +2646,7 @@ def Mods_MenuInit(): # (static)
 
 	Mods_NamesInit()
 
-	s_mods_menu.x = int(vid_so.viddef.width * 0.50) # int x
+	s_mods_menu.x = int(vid.viddef.width * 0.50) # int x
 	s_mods_menu.nitems = 0
 
 	s_mods_list.generic.type = qmenu_h.MTYPE_SPINCONTROL
@@ -2750,7 +2748,7 @@ def ModsFunc(unused): #void * (static)
 def Game_MenuInit(): # (static)
 
 	Mods_NamesInit()
-	s_game_menu.x = int(vid_so.viddef.width * 0.50)
+	s_game_menu.x = int(vid.viddef.width * 0.50)
 	s_game_menu.nitems = 0
 	s_game_menu.banner = "m_banner_game"
 	s_easy_game_action.generic.type = qmenu_h.MTYPE_ACTION
@@ -2895,7 +2893,7 @@ def ExecDeleteSaveFunc(m, menu_key): #menuframework_s *, int (returns static qbo
 			name = "%s/save/save%d/" % (filesystem.FS_Gamedir(), item.localdata[0],) # Com_sprintf
 
 
-		q_shlinux.Sys_RemoveDir(name)
+		system.Sys_RemoveDir(name)
 		return True
 
 
@@ -3027,8 +3025,8 @@ def LoadGame_MenuInit(): # (static)
 	"""
 	scale = cl_screen.SCR_GetMenuScale()
 
-	s_loadgame_menu.x = int(vid_so.viddef.width / 2 - (120 * scale)) # int x
-	s_loadgame_menu.y = int(vid_so.viddef.height / (2 * scale) - 58) # int y
+	s_loadgame_menu.x = int(vid.viddef.width / 2 - (120 * scale)) # int x
+	s_loadgame_menu.y = int(vid.viddef.height / (2 * scale) - 58) # int y
 	s_loadgame_menu.banner = "m_banner_load_game"
 	s_loadgame_menu.nitems = 0
 	Create_Savestrings()
@@ -3169,8 +3167,8 @@ def SaveGame_MenuInit(): # (static)
 	"""
 	scale = cl_screen.SCR_GetMenuScale()
 
-	s_savegame_menu.x = int(vid_so.viddef.width / 2 - (120 * scale)) # int x
-	s_savegame_menu.y = int(vid_so.viddef.height / (2 * scale) - 58) # int y
+	s_savegame_menu.x = int(vid.viddef.width / 2 - (120 * scale)) # int x
+	s_savegame_menu.y = int(vid.viddef.height / (2 * scale) - 58) # int y
 	s_savegame_menu.banner = "m_banner_save_game"
 	s_savegame_menu.nitems = 0
 	Create_Savestrings()
@@ -3302,7 +3300,7 @@ def M_AddToServerList(adr, info: str): #netadr_t, char *
 
 	info = info.lstrip(' ') # while (*info == ' ') info++;
 
-	s = net_udp.NET_AdrToString(adr)
+	s = network.NET_AdrToString(adr)
 
 	# ignore if duplicated
 	for i in range(m_num_servers):
@@ -3340,7 +3338,7 @@ def JoinServerFunc(self): #void * (static)
 		return
 
 
-	buffer = "connect %s\n" % (net_udp.NET_AdrToString(local_server_netadr[index]),) # Com_sprintf
+	buffer = "connect %s\n" % (network.NET_AdrToString(local_server_netadr[index]),) # Com_sprintf
 	cmdparser.Cbuf_AddText(buffer)
 	M_ForceMenuOff()
 
@@ -3382,7 +3380,7 @@ def JoinServer_MenuInit(): # (static)
 	"""
 	scale = cl_screen.SCR_GetMenuScale()
 
-	s_joinserver_menu.x = int(int(vid_so.viddef.width * 0.50) - 120 * scale) # int x
+	s_joinserver_menu.x = int(int(vid.viddef.width * 0.50) - 120 * scale) # int x
 	s_joinserver_menu.nitems = 0
 	s_joinserver_menu.banner = "m_banner_join_server"
 	s_joinserver_address_book_action.generic.type = qmenu_h.MTYPE_ACTION
@@ -3726,7 +3724,7 @@ def StartServer_MenuInit(): # (static)
 
 
 	# initialize the menu stuff
-	s_startserver_menu.x = int(vid_so.viddef.width * 0.50)
+	s_startserver_menu.x = int(vid.viddef.width * 0.50)
 	s_startserver_menu.banner = "m_banner_start_server"
 	s_startserver_menu.nitems = 0
 
@@ -4102,7 +4100,7 @@ def DMOptions_MenuInit(): # (static)
 	dmflags = int(cvar.Cvar_VariableValue("dmflags")) # int dmflags
 	y = 0
 
-	s_dmoptions_menu.x = int(vid_so.viddef.width * 0.50)
+	s_dmoptions_menu.x = int(vid.viddef.width * 0.50)
 	s_dmoptions_menu.nitems = 0
 	s_falls_box.generic.type = qmenu_h.MTYPE_SPINCONTROL
 	s_falls_box.generic.x = 0
@@ -4367,7 +4365,7 @@ def DownloadOptions_MenuInit(): # (static)
 	y = 0
 	scale = cl_screen.SCR_GetMenuScale()
 
-	s_downloadoptions_menu.x = int(vid_so.viddef.width * 0.50)
+	s_downloadoptions_menu.x = int(vid.viddef.width * 0.50)
 	s_downloadoptions_menu.nitems = 0
 	s_download_title.generic.type = qmenu_h.MTYPE_SEPARATOR
 	s_download_title.generic.name = "Download Options"
@@ -4444,8 +4442,8 @@ def AddressBook_MenuInit(): # (static)
 	"""
 	scale = cl_screen.SCR_GetMenuScale()
 
-	s_addressbook_menu.x = int(vid_so.viddef.width / 2 - (142 * scale)) # int x
-	s_addressbook_menu.y = int(vid_so.viddef.height / (2 * scale) - 58) # int y
+	s_addressbook_menu.x = int(vid.viddef.width / 2 - (142 * scale)) # int x
+	s_addressbook_menu.y = int(vid.viddef.height / (2 * scale) - 58) # int y
 	s_addressbook_menu.banner = "m_banner_addressbook"
 	s_addressbook_menu.nitems = 0
 	for i in range(client_h.NUM_ADDRESSBOOK_ENTRIES):
@@ -4987,8 +4985,8 @@ def PlayerConfig_MenuInit()->bool: # (returns static qboolean)
 		cvar.Cvar_SetValue("hand", 0)
 
 
-	s_player_config_menu.x = int(vid_so.viddef.width / 2 - 95 * scale) # int x
-	s_player_config_menu.y = int(vid_so.viddef.height / (2 * scale) - 97) # int y
+	s_player_config_menu.x = int(vid.viddef.width / 2 - 95 * scale) # int x
+	s_player_config_menu.y = int(vid.viddef.height / (2 * scale) - 97) # int y
 	s_player_config_menu.nitems = 0
 
 	s_player_name_field.generic.type = qmenu_h.MTYPE_FIELD
@@ -5000,8 +4998,8 @@ def PlayerConfig_MenuInit()->bool: # (returns static qboolean)
 
 	s_player_icon_bitmap.generic.type = qmenu_h.MTYPE_BITMAP
 	s_player_icon_bitmap.generic.flags = qmenu_h.QMF_INACTIVE
-	s_player_icon_bitmap.generic.x = int(((vid_so.viddef.width / scale - 95) / 2) - 87) # int x
-	s_player_icon_bitmap.generic.y = int(((vid_so.viddef.height / (2 * scale))) - 72) # int y
+	s_player_icon_bitmap.generic.x = int(((vid.viddef.width / scale - 95) / 2) - 87) # int x
+	s_player_icon_bitmap.generic.y = int(((vid.viddef.height / (2 * scale))) - 72) # int y
 	s_player_icon_bitmap.generic.name = player_icon_path
 	s_player_icon_bitmap.generic.callback = None
 	s_player_icon_bitmap.focuspic = None # 0
@@ -5143,8 +5141,8 @@ def PlayerConfig_ModelDraw(): # (static)
 
 	refdef = ref.refdef_t() # memset(&refdef, 0, sizeof(refdef));
 
-	refdef.x = int(vid_so.viddef.width / 2)
-	refdef.y = int(vid_so.viddef.height / 2 - 72 * scale)
+	refdef.x = int(vid.viddef.width / 2)
+	refdef.y = int(vid.viddef.height / 2 - 72 * scale)
 	refdef.width = int(144 * scale)
 	refdef.height = int(168 * scale)
 	refdef.fov_x = 40
@@ -5160,7 +5158,7 @@ def PlayerConfig_ModelDraw(): # (static)
 		imgname) # Com_sprintf
 	entities[0].skin = vid.R_RegisterSkin(scratch)
 
-	curTime = q_shlinux.Sys_Milliseconds()
+	curTime = system.Sys_Milliseconds()
 
 	# multiplayer weapons loaded
 	if cl_view.num_cl_weaponmodels:
@@ -5209,8 +5207,8 @@ def PlayerConfig_ModelDraw(): # (static)
 	refdef.lightstyles = None
 	refdef.rdflags = shared.RDF_NOWORLDMODEL
 
-	M_DrawTextBox(int(int(refdef.x) * (320.0 / vid_so.viddef.width) - 8),
-	  int((vid_so.viddef.height / 2) * (240.0 / vid_so.viddef.height) - 77),
+	M_DrawTextBox(int(int(refdef.x) * (320.0 / vid.viddef.width) - 8),
+	  int((vid.viddef.height / 2) * (240.0 / vid.viddef.height) - 77),
 	  int(refdef.width / (8 * scale)), int(refdef.height / (8 * scale)))
 	refdef.height += int(4 * scale)
 
@@ -5301,7 +5299,7 @@ def M_Quit_Draw(m): #menuframework_s * (static)
 	scale = cl_screen.SCR_GetMenuScale()
 
 	w, h = vid.Draw_GetPicSize("quit")
-	vid.Draw_PicScaled((vid_so.viddef.width - w * scale) / 2, (vid_so.viddef.height - h * scale) / 2, "quit", scale)
+	vid.Draw_PicScaled((vid.viddef.width - w * scale) / 2, (vid.viddef.height - h * scale) / 2, "quit", scale)
 
 def M_Menu_Quit_f(): # (static)
 
@@ -5383,7 +5381,7 @@ def M_Draw(): #
 	# dim everything behind it down
 	if cl_main.cl.cinematictime > 0:
 
-		vid.Draw_Fill(0, 0, vid_so.viddef.width, vid_so.viddef.height, 0)
+		vid.Draw_Fill(0, 0, vid.viddef.width, vid.viddef.height, 0)
 
 	else:
 

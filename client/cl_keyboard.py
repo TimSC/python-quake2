@@ -35,7 +35,8 @@ from client.input import sdl2
 from common import frame
 
 pass
-from linux import sys_linux, q_shlinux
+from backends.unix import system
+from backends.generic import misc
 from common.header import shared
 from common.shared import shared as shared_c
 from common import clientserver
@@ -1121,11 +1122,11 @@ def Key_WriteConsoleHistory(): #void
 
 	if frame.is_portable:
 
-		path = "%sconsole_history.txt" % sys_linux.Sys_GetBinaryDir()
+		path = "%sconsole_history.txt" % misc.Sys_GetBinaryDir()
 
 	else:
 
-		path = "%sconsole_history.txt" % sys_linux.Sys_GetHomeDir()
+		path = "%sconsole_history.txt" % system.Sys_GetHomeDir()
 
 
 	try:
@@ -1176,11 +1177,11 @@ def Key_ReadConsoleHistory(): #void
 
 	if frame.is_portable:
 
-		path = "%sconsole_history.txt" % sys_linux.Sys_GetBinaryDir()
+		path = "%sconsole_history.txt" % misc.Sys_GetBinaryDir()
 
 	else:
 
-		path = "%sconsole_history.txt" % sys_linux.Sys_GetHomeDir()
+		path = "%sconsole_history.txt" % system.Sys_GetHomeDir()
 
 
 	try:
@@ -1377,7 +1378,7 @@ def Key_Event(key: int, down: bool, special: bool): #int, qboolean, qboolean
 	"""
 	global anykeydown
 
-	time = q_shlinux.Sys_Milliseconds()
+	time = system.Sys_Milliseconds()
 
 	# evil hack for the joystick key altselector, which turns K_BTN_x into K_BTN_x_ALT
 	if keyboard_h.joy_altselector_pressed and key >= keyboard_h.K_JOY_FIRST_BTN and key < keyboard_h.K_JOY_FIRST_BTN_ALT:

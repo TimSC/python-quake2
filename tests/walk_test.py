@@ -6,7 +6,7 @@ sx, sy, sz, yaw, fwd, secs = [float(v) for v in sys.argv[1:7]]
 sys.argv = ["main.py"] + sys.argv[7:]
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
-from linux import sys_linux
+from backends.unix import system
 from client import cl_main
 pass
 from game import g_main
@@ -50,4 +50,4 @@ def ClientThink(ent, ucmd):
 			sys.stdout.flush(); os._exit(0)
 p_client.ClientThink = ClientThink
 
-sys_linux.main()
+system.main()

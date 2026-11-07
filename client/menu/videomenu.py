@@ -29,7 +29,7 @@ from __future__ import annotations
 import math
 from enum import Enum
 
-from linux import vid_so
+from client.vid import vid
 from common.header import shared
 from common.shared import shared as shared_c
 from common import cmdparser
@@ -371,7 +371,7 @@ def ApplyChanges(unused): #void * (static)
 
 
 	# Restarts automatically
-	if vid_so.vid_fullscreen.value != s_fs_box.curvalue:
+	if vid.vid_fullscreen.value != s_fs_box.curvalue:
 
 		cvar.Cvar_SetValue("vid_fullscreen", s_fs_box.curvalue)
 		restart = True
@@ -603,7 +603,7 @@ def VID_MenuInit(): #void
 		gl_msaa_samples = cvar.Cvar_Get("r_msaa_samples", "0", shared.CVAR_ARCHIVE)
 
 
-	s_opengl_menu.x = int(vid_so.viddef.width * 0.50) # int x
+	s_opengl_menu.x = int(vid.viddef.width * 0.50) # int x
 	s_opengl_menu.nitems = 0
 	s_opengl_menu.banner = "m_banner_video"
 
@@ -811,7 +811,7 @@ def VID_MenuInit(): #void
 	s_fs_box.generic.x = 0
 	y += 10; s_fs_box.generic.y = y
 	s_fs_box.itemnames = fullscreen_names
-	s_fs_box.curvalue = int(vid_so.vid_fullscreen.value)
+	s_fs_box.curvalue = int(vid.vid_fullscreen.value)
 
 	s_vsync_list.generic.type = qmenu_h.MTYPE_SPINCONTROL
 	s_vsync_list.generic.name = "vertical sync"

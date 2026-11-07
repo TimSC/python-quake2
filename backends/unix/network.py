@@ -26,7 +26,7 @@ import select
 from errno import EWOULDBLOCK, ECONNREFUSED
 pass
 pass
-from linux import sys_linux
+from backends.unix import system
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -570,7 +570,7 @@ def NET_Sleep(msec: int):
 		return # we're not a server, just run full speed
 
 	fdset = [] # FD_ZERO(&fdset);
-	if sys_linux.stdin_active:
+	if system.stdin_active:
 		fdset.append(sys.stdin) # stdin is processed too
 	fdset.append(ip_sockets[common_h.netsrc_t.NS_SERVER.value]) # network socket
 	timeout = msec / 1000.0 # timeout.tv_sec = msec/1000; timeout.tv_usec = (msec%1000)*1000;

@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -23,16 +23,14 @@ import os
 import sys
 import select
 import time
-import pygame
-pass
+import fnmatch
+from backends.generic import misc
 from client import cl_main
-from linux import q_shlinux, vid_so
 from game import g_main
 from common import cvar
 from common import frame, filesystem, clientserver
 from common.header import common as common_h
 from common.header import shared
-from client import cl_main
 """
 #include <unistd.h>
 #include <signal.h>
@@ -40,88 +38,36 @@ from client import cl_main
 #include <limits.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
 #include <sys/stat.h>
 #include <string.h>
 #include <ctype.h>
 #include <sys/wait.h>
 #include <sys/mman.h>
 #include <errno.h>
-#include <mntent.h>
 
-#include <dlfcn.h>
-
-#include "../qcommon/qcommon.h"
-
-#include "../linux/rw_linux.h"
+#include "../../common/header/common.h"
 """
 nostdout = None # cvar_t *;
 
-sys_frame_time = 0 #unsigned
-"""
-uid_t saved_euid;
-"""
 stdin_active = True #qboolean
-"""
 
-// =======================================================================
-// General routines
-// =======================================================================
-"""
-def Sys_ConsoleOutput (string): #char *
+game_library = None #static void *, the game is a python module so nothing is opened with dlopen
 
-	if nostdout and nostdout.value:
-		return
+cfgdir = common_h.CFGDIRNAME #char [MAX_OSPATH]
+user_cfgdir = False #static qboolean
 
-	print (string, end="")
+# Q2PORT: the port's own config dir (~/.yq2py), so its configs and save games don't replace
+# those of a Yamagi Quake II install in ~/.yq2. -cfgdir still works as in Yamagi.
+PORT_CFGDIRNAME_SHORT = "yq2py"
 
-"""
-void Sys_Printf (char *fmt, ...)
-{
-	va_list		argptr;
-	char		text[1024];
-	unsigned char		*p;
+_homedir = "" #static char dir[MAX_OSPATH], in Sys_GetHomeDir
 
-	va_start (argptr,fmt);
-	vsprintf (text,fmt,argptr);
-	va_end (argptr);
+def setCustomCfgDir(dir: str): #const char *
 
-	if (strlen(text) > sizeof(text))
-		Sys_Error("memory overwrite in Sys_Printf");
+	global cfgdir, user_cfgdir
 
-    if (nostdout && nostdout->value)
-        return;
-
-	for (p = (unsigned char *)text; *p; p++) {
-		*p &= 0x7f;
-		if ((*p > 128 || *p < 32) && *p != 10 && *p != 13 && *p != 9)
-			printf("[%02x]", *p);
-		else
-			putc(*p, stdout);
-	}
-}
-"""
-def Sys_Quit ():
-
-	cl_main.CL_Shutdown ()
-	frame.Qcommon_Shutdown ()
-	#fcntl (0, F_SETFL, fcntl (0, F_GETFL, 0) & ~FNDELAY);
-	sys.stdout.flush() # Q2PORT: _exit does not flush python's buffered stdout
-	os._exit(0)
-
-
-def Sys_Init():
-
-	#if id386
-	#	Sys_SetFPCW();
-	#endif
-	pass
-
+	cfgdir = dir[:shared.MAX_OSPATH - 1]
+	user_cfgdir = True
 
 def Sys_Error (error):
 
@@ -145,6 +91,7 @@ def Sys_Error (error):
 	exit (1)
 
 """
+
 void Sys_Warn (char *warning, ...)
 { 
     va_list     argptr;
@@ -153,7 +100,7 @@ void Sys_Warn (char *warning, ...)
     va_start (argptr,warning);
     vsprintf (string,warning,argptr);
     va_end (argptr);
-	fprintf(stderr, "Warning: %s", string);
+	fprintf(stderr, "Warning: %s", warning);
 } 
 
 /*
@@ -179,6 +126,21 @@ void floating_point_exception_handler(int whatever)
 	signal(SIGFPE, floating_point_exception_handler);
 }
 """
+
+def Sys_Quit ():
+
+	cl_main.CL_Shutdown ()
+	frame.Qcommon_Shutdown ()
+	#fcntl (0, F_SETFL, fcntl (0, F_GETFL, 0) & ~FNDELAY);
+	sys.stdout.flush() # Q2PORT: _exit does not flush python's buffered stdout
+	os._exit(0)
+
+def Sys_Init():
+
+	#if id386
+	#	Sys_SetFPCW();
+	#endif
+	pass
 
 def Sys_ConsoleInput(): # (returns char *)
 
@@ -218,7 +180,180 @@ def Sys_ConsoleInput(): # (returns char *)
 
 /*****************************************************************************/
 """
-game_library = None #static void *, the game is a python module so nothing is opened with dlopen
+
+def Sys_ConsoleOutput (string): #char *
+
+	if nostdout and nostdout.value:
+		return
+
+	print (string, end="")
+
+
+Sys_Microseconds_first = None #static struct timespec first
+
+def Sys_Microseconds(): #void (returns long long)
+
+	# Q2PORT: Yamagi's backends/unix/system.c, until group 14; the C's
+	# monotonic clock_gettime is time.monotonic_ns
+	global Sys_Microseconds_first
+
+	now = time.monotonic_ns()
+
+	if Sys_Microseconds_first is None:
+
+		# set back first by 1ms so neither this function nor Sys_Milliseconds()
+		# (which calls this) will ever return 0
+		Sys_Microseconds_first = now - 1000000
+
+
+	return (now - Sys_Microseconds_first) // 1000
+
+def Sys_Milliseconds (): #(returns int)
+
+	# Q2PORT: Yamagi's backends/unix/system.c, until group 14. It's on the
+	# same clock as Sys_Microseconds, which the main loop's curtime comes from
+	return int(Sys_Microseconds() // 1000)
+	"""
+	struct timeval tp;
+	struct timezone tzp;
+	static int		secbase;
+
+	gettimeofday(&tp, &tzp);
+	
+	if (!secbase)
+	{
+		secbase = tp.tv_sec;
+		return tp.tv_usec/1000;
+	}
+
+	curtime = (tp.tv_sec - secbase)*1000 + tp.tv_usec/1000;
+	
+	return curtime;
+
+void Sys_Mkdir (char *path)
+{
+    mkdir (path, 0777);
+}
+
+char *strlwr (char *s)
+{
+	while (*s) {
+		*s = tolower(*s);
+		s++;
+	}
+}
+
+//============================================
+"""
+def Sys_Nanosleep(nanosec: int): #int
+
+	# Q2PORT: Yamagi's backends/unix/system.c, until group 14
+	time.sleep(nanosec / 1000000000.0)
+
+def Sys_CpuPause(): #void
+
+	# Q2PORT: Yamagi's backends/unix/system.c, until group 14; the C runs a
+	# PAUSE instruction, which Python has no use for
+	pass
+
+findbase = None #static	char[MAX_OSPATH];
+findpath = None #static	char	[MAX_OSPATH];
+findpattern = None #static	char	[MAX_OSPATH];
+fdir = None #static DIR	*
+fdirCursor = None
+
+def CompareAttributes(path, name, musthave, canthave ): #char *, char *, unsigned, unsigned (returns static qboolean)
+
+	#struct stat st;
+	#char fn[MAX_OSPATH];
+
+	# . and .. never match
+	if name == "." or name == "..":
+		return False
+
+	return True
+
+	#if (stat(fn, &st) == -1)
+	#	return False # shouldn't happen
+
+	#if ( ( st.st_mode & S_IFDIR ) && ( canthave & SFF_SUBDIR ) )
+	#	return False
+
+	#if ( ( musthave & SFF_SUBDIR ) && !( st.st_mode & S_IFDIR ) )
+	#	return False
+
+	#return True
+
+def Sys_FindFirst (path, musthave, canhave): #char *, unsigned, unsigned (returns char *)
+
+	global fdir, findbase, findpath, findpattern, fdirCursor
+
+	#struct dirent *d;
+	#char *p;
+
+	if fdir is not None:
+		Sys_Error ("Sys_BeginFind without close")
+
+	## COM_FilePath (path, findbase);
+	findbase = path
+
+	p = path.rfind('/')
+	if p != -1:
+		findpattern = path[p+1:]
+		findbase = path[:p]
+	else:
+		findpattern = "*"
+
+	if findpattern == "*.*":
+		findpattern = "*"
+	
+	try:
+		fdir = os.listdir(findbase) # fdir = opendir(findbase), entries are names without the directory
+	except OSError:
+		fdir = None
+		return None
+
+	fdirCursor = 0
+
+	while fdirCursor < len(fdir): # while ((d = readdir(fdir)) != NULL)
+		d_name = fdir[fdirCursor]
+		fdirCursor += 1
+
+		if not findpattern or fnmatch.fnmatchcase(d_name, findpattern): # glob_match(findpattern, d->d_name)
+			if CompareAttributes(findbase, d_name, musthave, canhave):
+				findpath = "{}/{}".format(findbase, d_name)
+				return findpath
+
+	return None
+
+def Sys_FindNext (musthave, canhave):
+
+	global fdir, findbase, findpath, findpattern, fdirCursor
+	#struct dirent *d;
+
+	if fdir is None:
+		return None
+
+	while fdirCursor < len(fdir):
+		d_name = fdir[fdirCursor]
+		fdirCursor += 1
+
+		if not findpattern or fnmatch.fnmatchcase(d_name, findpattern): # glob_match(findpattern, d->d_name)
+			if CompareAttributes(findbase, d_name, musthave, canhave):
+				findpath = "{}/{}".format(findbase, d_name)
+				return findpath
+	
+	return None
+
+def Sys_FindClose ():
+
+	global fdir
+
+	fdir = None
+
+"""
+//============================================
+"""
 
 """
 =================
@@ -295,42 +430,6 @@ def Sys_GetGameAPI (parms): # void * (returns void *)
 """
 /*****************************************************************************/
 """
-def Sys_AppActivate ():
-
-	pass
-
-def Sys_SendKeyEvents ():
-
-	global sys_frame_time
-
-	#ifndef DEDICATED_ONLY
-	if vid_so.KBD_Update_fp is not None:
-		vid_so.KBD_Update_fp()
-	#endif
-
-	# grab frame time 
-	sys_frame_time = q_shlinux.Sys_Milliseconds()
-
-"""
-/*****************************************************************************/
-"""
-
-# ---- Q2PORT: from Yamagi's backends/unix/system.c and backends/generic/misc.c, until the
-# platform layer (group 14) moves them there
-
-cfgdir = common_h.CFGDIRNAME #char [MAX_OSPATH]
-user_cfgdir = False #static qboolean
-
-# Q2PORT: the port's own config dir (~/.yq2py), so its configs and save games don't replace
-# those of a Yamagi Quake II install in ~/.yq2. -cfgdir still works as in Yamagi.
-PORT_CFGDIRNAME_SHORT = "yq2py"
-
-def setCustomCfgDir(dir: str): #const char *
-
-	global cfgdir, user_cfgdir
-
-	cfgdir = dir[:shared.MAX_OSPATH - 1]
-	user_cfgdir = True
 
 def Sys_Mkdir(path: str): #const char *
 
@@ -348,8 +447,6 @@ def Sys_IsDir(path: str)->bool: #const char * (returns qboolean)
 def Sys_IsFile(path: str)->bool: #const char * (returns qboolean)
 
 	return os.path.isfile(path)
-
-_homedir = "" #static char dir[MAX_OSPATH], in Sys_GetHomeDir
 
 def Sys_GetHomeDir()->str: #(returns char *)
 
@@ -374,6 +471,50 @@ def Sys_GetHomeDir()->str: #(returns char *)
 
 	Sys_Mkdir(_homedir)
 	return _homedir
+
+def Sys_Rename(from_: str, to: str)->int: #const char *, const char * (returns int)
+
+	# Q2PORT: Yamagi's backends/unix/system.c, until group 14
+	try:
+
+		os.rename(from_, to)
+		return 0
+
+	except OSError:
+
+		return -1
+
+def Sys_RemoveDir(path: str): #const char *
+
+	# Q2PORT: Yamagi's backends/unix/system.c, until group 14
+	"""
+	char filepath[MAX_OSPATH];
+	struct dirent *file;
+	DIR *directory;
+	"""
+
+	if os.path.isdir(path): # Sys_IsDir(path)
+
+		try:
+
+			names = os.listdir(path) # directory = opendir(path);
+
+		except OSError:
+
+			return
+
+		for name in names: # while ((file = readdir(directory)) != NULL)
+
+			filepath = "{}/{}".format(path, name) # snprintf(filepath, MAX_OSPATH, "%s/%s", path, file->d_name);
+			try:
+				os.remove(filepath) # Sys_Remove(filepath);
+			except OSError:
+				pass
+
+		try:
+			os.rmdir(path) # Sys_Remove(path);
+		except OSError:
+			pass
 
 def Sys_Realpath(inpath: str): #const char *, char *, size_t (returns qboolean)
 	# Q2PORT: returns the result and the path: ok, out = Sys_Realpath(inpath)
@@ -402,7 +543,16 @@ def Sys_GetClipboardData(): #(returns char *)
 
 	return None
 
-
+"""
+int Sys_GetWorkDir(char *path, size_t len)
+{
+	return snprintf(path, len, "%s/", Sys_GetCwd());
+}
+int Sys_SetWorkDir(const char *path)
+{
+	return chdir(path);
+}
+"""
 def main (): #int argc, char **argv
 
 	global nostdout
@@ -485,9 +635,7 @@ def main (): #int argc, char **argv
 	# returns first, so main can set nostdout (until group 14)
 	frame.Qcommon_Mainloop()
 
-"""
-
-void Sys_CopyProtect(void)
+"""void Sys_CopyProtect(void)
 {
 	FILE *mnt;
 	struct mntent *ent;

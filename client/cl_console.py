@@ -33,7 +33,7 @@ import time
 from client.vid import vid
 
 import os
-from linux import vid_so
+from client.vid import vid
 from client import cl_main
 from common.header import common as common_h
 from common import clientserver
@@ -71,7 +71,7 @@ def DrawString (x: int, y: int, s: str): #int, int, char *
 	i = 0 # index into s
 	while i < len(s) and s[i] != '\0': # while (*s)
 	
-		vid_so.re.DrawChar (x, y, ord(s[i]))
+		vid.re.DrawChar (x, y, ord(s[i]))
 		x+=8
 		i+=1 # s++
 	
@@ -81,7 +81,7 @@ def DrawAltString (x: int, y: int, s: str): #int, int, char *
 	i = 0 # index into s
 	while i < len(s) and s[i] != '\0': # while (*s)
 	
-		vid_so.re.DrawChar (x, y, ord(s[i]) ^ 0x80)
+		vid.re.DrawChar (x, y, ord(s[i]) ^ 0x80)
 		x+=8
 		i+=1 # s++
 	
@@ -284,7 +284,7 @@ def Con_CheckResize(): #void
 	# bigger then MAXCMDLINE.
 	# MAXCMDLINE - 2 because 1 for the prompt and 1 for
 	# the terminating \0.
-	width = (int(vid_so.viddef.width / scale) // 8) - 2
+	width = (int(vid.viddef.width / scale) // 8) - 2
 	width = keyboard_h.MAXCMDLINE - 2 if width > keyboard_h.MAXCMDLINE - 2 else width
 
 	if width == con.linewidth:
@@ -625,9 +625,9 @@ def Con_DrawNotify(): #void
 
 		s = cl_keyboard.chat_buffer
 
-		if cl_keyboard.chat_bufferlen > (vid_so.viddef.width >> 3) - (skip + 1):
+		if cl_keyboard.chat_bufferlen > (vid.viddef.width >> 3) - (skip + 1):
 
-			s = s[cl_keyboard.chat_bufferlen - ((vid_so.viddef.width >> 3) - (skip + 1)):]
+			s = s[cl_keyboard.chat_bufferlen - ((vid.viddef.width >> 3) - (skip + 1)):]
 
 
 		x = 0
@@ -645,7 +645,7 @@ def Con_DrawNotify(): #void
 	if v:
 
 		cl_screen.SCR_AddDirtyPoint(0, 0)
-		cl_screen.SCR_AddDirtyPoint(vid_so.viddef.width - 1, v)
+		cl_screen.SCR_AddDirtyPoint(vid.viddef.width - 1, v)
 
 def Con_DrawConsole(frac: float): #float
 
@@ -667,23 +667,23 @@ def Con_DrawConsole(frac: float): #float
 	"""
 
 	scale = cl_screen.SCR_GetConsoleScale()
-	lines = int(vid_so.viddef.height * frac)
+	lines = int(vid.viddef.height * frac)
 
 	if lines <= 0:
 
 		return
 
 
-	if lines > vid_so.viddef.height:
+	if lines > vid.viddef.height:
 
-		lines = vid_so.viddef.height
+		lines = vid.viddef.height
 
 
 	# draw the background
-	vid.Draw_StretchPic(0, -vid_so.viddef.height + lines, vid_so.viddef.width,
-			vid_so.viddef.height, "conback")
+	vid.Draw_StretchPic(0, -vid.viddef.height + lines, vid.viddef.width,
+			vid.viddef.height, "conback")
 	cl_screen.SCR_AddDirtyPoint(0, 0)
-	cl_screen.SCR_AddDirtyPoint(vid_so.viddef.width - 1, lines - 1)
+	cl_screen.SCR_AddDirtyPoint(vid.viddef.width - 1, lines - 1)
 
 	version = (f"{common_h.APPNAME} v{common_h.YQ2VERSION}")[:48 - 1]
 
@@ -691,7 +691,7 @@ def Con_DrawConsole(frac: float): #float
 
 	for x in range(verLen):
 
-		vid.Draw_CharScaled(vid_so.viddef.width - ((verLen*8+5) * scale) + x * 8 * scale, lines - 35 * scale, 128 + ord(version[x]), scale)
+		vid.Draw_CharScaled(vid.viddef.width - ((verLen*8+5) * scale) + x * 8 * scale, lines - 35 * scale, 128 + ord(version[x]), scale)
 
 
 	today = time.localtime() # t = time(NULL); today = localtime(&t);
@@ -701,7 +701,7 @@ def Con_DrawConsole(frac: float): #float
 
 	for x in range(21):
 
-		vid.Draw_CharScaled(vid_so.viddef.width - (173 * scale) + x * 8 * scale, lines - 25 * scale, 128 + (ord(tmpbuf[x]) if x < len(tmpbuf) else 0), scale)
+		vid.Draw_CharScaled(vid.viddef.width - (173 * scale) + x * 8 * scale, lines - 25 * scale, 128 + (ord(tmpbuf[x]) if x < len(tmpbuf) else 0), scale)
 
 
 	# draw the text

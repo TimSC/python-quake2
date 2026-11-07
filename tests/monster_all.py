@@ -3,7 +3,7 @@ import os, sys, time, traceback
 sys.argv = ["main.py"] + sys.argv[1:]
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
-from linux import sys_linux
+from backends.unix import system
 from client import cl_main
 from game import g_main, g_utils, g_spawn, g_ai
 from game.header import local
@@ -151,4 +151,4 @@ def _exit(code):
 	print("mon: coverage: %d functions never called: %s" % (len(missing), " ".join(missing)))
 	sys.stdout.flush(); _o_exit(code)
 os._exit = _exit
-sys_linux.main()
+system.main()

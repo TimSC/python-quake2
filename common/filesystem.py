@@ -30,7 +30,8 @@ import os
 import struct
 import zipfile
 from enum import Enum
-from linux import q_shlinux, sys_linux
+from backends.unix import system
+from backends.generic import misc
 from common.header import common as common_h
 from common.header import files as files_h
 from common.header import shared
@@ -251,7 +252,7 @@ def FS_CreatePath(path: str): #const char *
 
 		if (cur - old) > 1:
 
-			sys_linux.Sys_Mkdir(dir_path[:cur]) #*cur = '\0'; Sys_Mkdir(dir_path); *cur = '/';
+			system.Sys_Mkdir(dir_path[:cur]) #*cur = '\0'; Sys_Mkdir(dir_path); *cur = '/';
 
 
 		old = cur
@@ -1079,7 +1080,7 @@ def FS_ListFiles(findname: str, musthave: int, canthave: int)->shared.strlist_t:
 	lst = shared.strlist_t()
 	shared_c.StrList_Init(lst, 0)
 
-	s = q_shlinux.Sys_FindFirst(findname, musthave, canthave)
+	s = system.Sys_FindFirst(findname, musthave, canthave)
 
 	while s is not None:
 
@@ -1088,10 +1089,10 @@ def FS_ListFiles(findname: str, musthave: int, canthave: int)->shared.strlist_t:
 			shared_c.StrList_Append(lst, s)
 
 
-		s = q_shlinux.Sys_FindNext(musthave, canthave)
+		s = system.Sys_FindNext(musthave, canthave)
 
 
-	q_shlinux.Sys_FindClose()
+	system.Sys_FindClose()
 
 	return lst
 
@@ -1678,12 +1679,12 @@ def FS_BuildGenericSearchPath(): #void
 	fs_baseSearchPaths = len(fs_searchPaths)
 
 	# We need to create the game directory.
-	sys_linux.Sys_Mkdir(fs_gamedir)
+	system.Sys_Mkdir(fs_gamedir)
 
 	# We need to create the screenshot directory since the
 	# render dll doesn't link the filesystem stuff.
 	path = "{}/scrnshot".format(fs_gamedir)
-	sys_linux.Sys_Mkdir(path)
+	system.Sys_Mkdir(path)
 
 # filesystem.c is used by the client and the server,
 # it includes common.h only. Not the client not the
@@ -1775,12 +1776,12 @@ def FS_BuildGameSpecificSearchPath(dir: str): #const char *
 
 
 	# Create the game directory.
-	sys_linux.Sys_Mkdir(fs_gamedir)
+	system.Sys_Mkdir(fs_gamedir)
 
 	# We need to create the screenshot directory since the
 	# render dll doesn't link the filesystem stuff.
 	path = "{}/scrnshot".format(fs_gamedir)
-	sys_linux.Sys_Mkdir(path)
+	system.Sys_Mkdir(path)
 
 	# the gamedir has changed, so read in the corresponding configs
 	frame.Qcommon_ExecConfigs(False)
@@ -1833,7 +1834,7 @@ def FS_AddDirToRawPath(rawdir: str, create: bool, required: bool): #const char *
 	"""
 
 	# Get the realpath.
-	ok, dir = sys_linux.Sys_Realpath(rawdir)
+	ok, dir = system.Sys_Realpath(rawdir)
 	if not ok:
 
 		if required:
@@ -1873,7 +1874,7 @@ def FS_BuildRawPath(): #void
 	# Add homedir, MUST be the last dir! Required,
 	# otherwise the config cannot be written.
 	if not frame.is_portable:
-		homedir = sys_linux.Sys_GetHomeDir()
+		homedir = system.Sys_GetHomeDir()
 
 		if homedir is not None:
 			FS_AddDirToRawPath(homedir, True, True)
@@ -1882,7 +1883,7 @@ def FS_BuildRawPath(): #void
 
 	# Add binary dir. Required, because the renderer
 	# libraries are loaded from it.
-	binarydir = sys_linux.Sys_GetBinaryDir()
+	binarydir = misc.Sys_GetBinaryDir()
 
 	if binarydir != "":
 

@@ -25,7 +25,7 @@ This file implements the game media download from the server
 """
 from __future__ import annotations
 
-from linux import q_shlinux
+from backends.unix import system
 
 from client import cl_view, cl_parse
 from common.header import common as common_h
@@ -655,7 +655,7 @@ def CL_ParseDownload(): #void
 		# rename the temp file to its final name
 		oldn = CL_DownloadFileName(cl_main.cls.downloadtempname)
 		newn = CL_DownloadFileName(cl_main.cls.downloadname)
-		r = q_shlinux.Sys_Rename(oldn, newn)
+		r = system.Sys_Rename(oldn, newn)
 
 		if r:
 

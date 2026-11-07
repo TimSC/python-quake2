@@ -26,7 +26,7 @@ Connectionless server commands.
 from __future__ import annotations
 
 import random
-from linux import net_udp, q_shlinux
+from backends.unix import network, system
 from common.header import common as common_h
 from common.shared import shared as shared_c
 from common.shared import rand
@@ -55,7 +55,7 @@ SVC_Ack
 """
 def SVC_Ack ():
 
-	clientserver.Com_Printf ("Ping acknowledge from {}\n".format(net_udp.NET_AdrToString(netchan.net_from)))
+	clientserver.Com_Printf ("Ping acknowledge from {}\n".format(network.NET_AdrToString(netchan.net_from)))
 """
 ================
 SVC_Info
@@ -116,7 +116,7 @@ def SVC_GetChallenge ():
 
 	# see if we already have a challenge for this ip
 	for k in range(server_h.MAX_CHALLENGES):
-		if net_udp.NET_CompareBaseAdr (netchan.net_from, sv_init.svs.challenges[k].adr):
+		if network.NET_CompareBaseAdr (netchan.net_from, sv_init.svs.challenges[k].adr):
 			i = k
 			break
 		if sv_init.svs.challenges[k].time < oldestTime:
@@ -177,24 +177,24 @@ def SVC_DirectConnect ():
 	userinfo = cmdparser.Cmd_Argv(4)
 
 	# force the IP key/value pair so the game can filter based on ip
-	userinfo = shared_c.Info_SetValueForKey (userinfo, "ip", net_udp.NET_AdrToString(netchan.net_from))
+	userinfo = shared_c.Info_SetValueForKey (userinfo, "ip", network.NET_AdrToString(netchan.net_from))
 
 	# attractloop servers are ONLY for local clients
 	if sv_init.sv.attractloop:
 	
-		if not net_udp.NET_IsLocalAddress (adr):
+		if not network.NET_IsLocalAddress (adr):
 		
 			clientserver.Com_Printf ("Remote connect in attract loop.  Ignored.\n")
 			netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, adr, "print\nConnection refused.\n")
 			return
 
 	# see if the challenge is valid
-	if not net_udp.NET_IsLocalAddress (adr):
+	if not network.NET_IsLocalAddress (adr):
 		
 		pass
 		found = False
 		for i in range(server_h.MAX_CHALLENGES):
-			if net_udp.NET_CompareBaseAdr (netchan.net_from, sv_init.svs.challenges[i].adr):
+			if network.NET_CompareBaseAdr (netchan.net_from, sv_init.svs.challenges[i].adr):
 				found = True
 				if challenge == sv_init.svs.challenges[i].challenge:
 					break		# good
@@ -211,16 +211,16 @@ def SVC_DirectConnect ():
 	
 		if cl.state.value < server_h.client_state_t.cs_connected.value:
 			continue
-		if net_udp.NET_CompareBaseAdr (adr, cl.netchan.remote_address) \
+		if network.NET_CompareBaseAdr (adr, cl.netchan.remote_address) \
 			and ( cl.netchan.qport == qport \
 			or adr.port == cl.netchan.remote_address.port ):
 		
-			if not net_udp.NET_IsLocalAddress (adr):
+			if not network.NET_IsLocalAddress (adr):
 			
-				clientserver.Com_DPrintf ("{}:reconnect rejected : too soon\n".format(net_udp.NET_AdrToString (adr)))
+				clientserver.Com_DPrintf ("{}:reconnect rejected : too soon\n".format(network.NET_AdrToString (adr)))
 				return
 			
-			clientserver.Com_Printf ("{}:reconnect\n".format(net_udp.NET_AdrToString (adr)))
+			clientserver.Com_Printf ("{}:reconnect\n".format(network.NET_AdrToString (adr)))
 			newcl = cl
 			sv_main.SVC_DirectConnect_NewClient(newcl, adr, qport, userinfo, challenge)
 			return
@@ -257,13 +257,13 @@ def Rcon_Validate (): #int
 	if ri.value < 3:
 		return True
 	if ri.value == 3:
-		adr = net_udp.NET_AdrToString(netchan.net_from)
+		adr = network.NET_AdrToString(netchan.net_from)
 		if ri.string[0] == '*' and ri.string[1:].lower() == adr.lower():
 			return True
 		if ri.string[0] == '*':
 			return False
 
-	return ri.string.lower() == net_udp.NET_AdrToString(netchan.net_from).lower()
+	return ri.string.lower() == network.NET_AdrToString(netchan.net_from).lower()
 def SVC_RemoteCommand ():
 
 	#char		remaining[1024];
@@ -271,9 +271,9 @@ def SVC_RemoteCommand ():
 	i = Rcon_Validate ()
 
 	if i == 0:
-		clientserver.Com_Printf ("Bad rcon from {}:\n{}\n".format(net_udp.NET_AdrToString (netchan.net_from), netchan.net_message.data[4:].decode('ascii')))
+		clientserver.Com_Printf ("Bad rcon from {}:\n{}\n".format(network.NET_AdrToString (netchan.net_from), netchan.net_message.data[4:].decode('ascii')))
 	else:
-		clientserver.Com_Printf ("Rcon from {}:\n{}\n".format(net_udp.NET_AdrToString (netchan.net_from), netchan.net_message.data[4:].decode('ascii')))
+		clientserver.Com_Printf ("Rcon from {}:\n{}\n".format(network.NET_AdrToString (netchan.net_from), netchan.net_message.data[4:].decode('ascii')))
 
 	clientserver.Com_BeginRedirect (server_h.redirect_t.RD_PACKET.value, sv_send.sv_outputbuf, server_h.SV_OUTPUTBUF_LENGTH, sv_send.SV_FlushRedirect)
 
@@ -311,7 +311,7 @@ def SV_ConnectionlessPacket ():
 	cmdparser.Cmd_TokenizeString (s, False)
 
 	c = cmdparser.Cmd_Argv(0)
-	clientserver.Com_DPrintf ("Packet {} : {}\n".format(net_udp.NET_AdrToString(netchan.net_from), c))
+	clientserver.Com_DPrintf ("Packet {} : {}\n".format(network.NET_AdrToString(netchan.net_from), c))
 
 	if c == "ping":
 		SVC_Ping ()
@@ -329,4 +329,4 @@ def SV_ConnectionlessPacket ():
 		SVC_RemoteCommand ()
 	else:
 		clientserver.Com_Printf ("bad connectionless packet from {}:\n{}\n".format(
-			net_udp.NET_AdrToString (netchan.net_from), s))
+			network.NET_AdrToString (netchan.net_from), s))

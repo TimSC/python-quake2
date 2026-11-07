@@ -37,7 +37,9 @@ import math
 import functools
 import numpy as np
 from client import cl_main, ref
-from linux import q_shlinux, vid_so, cd_linux, sys_linux
+from backends.unix import system
+from linux import cd_linux
+from client.vid import vid
 from common.header import shared
 from common.shared import shared as shared_c
 from common import clientserver
@@ -309,7 +311,7 @@ def CL_PrepRefresh(): #void
 
 
 	cl_screen.SCR_AddDirtyPoint(0, 0)
-	cl_screen.SCR_AddDirtyPoint(vid_so.viddef.width - 1, vid_so.viddef.height - 1)
+	cl_screen.SCR_AddDirtyPoint(vid.viddef.width - 1, vid.viddef.height - 1)
 
 	# let the refresher load the map
 	mapname = cl_main.cl.configstrings[shared.CS_MODELS + 1][5:][:shared.MAX_QPATH - 1] # skip "maps/"
@@ -561,7 +563,7 @@ def V_RenderView(stereo_separation: float): #float
 
 		if not cl_main.cl.timedemo_start:
 
-			cl_main.cl.timedemo_start = q_shlinux.Sys_Milliseconds()
+			cl_main.cl.timedemo_start = system.Sys_Milliseconds()
 
 
 		cl_main.cl.timedemo_frames += 1

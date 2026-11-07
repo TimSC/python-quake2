@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import os
 import time
-from linux import q_shlinux, sys_linux
+from backends.unix import system
 from common.header import shared
 from common import clientserver
 from common import cmdparser
@@ -63,17 +63,17 @@ def SV_WipeSavegame (savename): #char *
 		os.remove(name)
 
 	name = "{}/save/{}/*.sav".format(filesystem.FS_Gamedir(), savename)
-	s = q_shlinux.Sys_FindFirst(name, 0, 0)
+	s = system.Sys_FindFirst(name, 0, 0)
 	while s:
 		os.remove(s)
-		s = q_shlinux.Sys_FindNext(0, 0)
-	q_shlinux.Sys_FindClose()
+		s = system.Sys_FindNext(0, 0)
+	system.Sys_FindClose()
 	name = "{}/save/{}/*.sv2".format(filesystem.FS_Gamedir(), savename)
-	s = q_shlinux.Sys_FindFirst(name, 0, 0)
+	s = system.Sys_FindFirst(name, 0, 0)
 	while s:
 		os.remove(s)
-		s = q_shlinux.Sys_FindNext(0, 0)
-	q_shlinux.Sys_FindClose()
+		s = system.Sys_FindNext(0, 0)
+	system.Sys_FindClose()
 
 
 """
@@ -135,7 +135,7 @@ def SV_CopySaveGame (src, dst): #char *, char *
 
 	# Sys_FindFirst returns the full path
 	name = "{}/save/{}/*.sav".format(filesystem.FS_Gamedir(), src)
-	found = q_shlinux.Sys_FindFirst(name, 0, 0)
+	found = system.Sys_FindFirst(name, 0, 0)
 	while found:
 		name2 = found.replace("/save/{}/".format(src), "/save/{}/".format(dst), 1)
 		CopyFile (found, name2)
@@ -143,8 +143,8 @@ def SV_CopySaveGame (src, dst): #char *, char *
 		# change sav to sv2
 		CopyFile (found[:-3] + "sv2", name2[:-3] + "sv2")
 
-		found = q_shlinux.Sys_FindNext(0, 0)
-	q_shlinux.Sys_FindClose()
+		found = system.Sys_FindNext(0, 0)
+	system.Sys_FindClose()
 """
 /*
 ==============
@@ -198,7 +198,7 @@ def SV_WriteLevelFile(): #void
 	# Q2PORT: Yamagi changes the working directory to save/current and passes the
 	# game a relative name; the port passes the full path and leaves the working directory
 	name = "{}/save/current".format(filesystem.FS_Gamedir())
-	sys_linux.Sys_Mkdir(name)
+	system.Sys_Mkdir(name)
 
 	name = "{}/save/current/{}.sav".format(filesystem.FS_Gamedir(), sv_init.sv.name)
 	sv_game.ge.WriteLevel(name)
@@ -351,7 +351,7 @@ def SV_WriteServerFile(autosave: bool): #qboolean
 	# write game state
 	# Q2PORT: the full path, not a change of working directory (see SV_WriteLevelFile)
 	name = "{}/save/current".format(filesystem.FS_Gamedir())
-	sys_linux.Sys_Mkdir(name)
+	system.Sys_Mkdir(name)
 
 	sv_game.ge.WriteGame("{}/game.ssv".format(name), autosave)
 

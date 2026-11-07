@@ -28,7 +28,7 @@ from __future__ import annotations
 import struct
 import json
 import numpy as np
-from linux import sys_linux
+from backends.unix import system
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -865,7 +865,7 @@ For proxy protecting
 */
 """
 def COM_BlockSequenceCheckByte (base, length, sequence, challenge): #byte *, int, int, int (returns byte)
-	sys_linux.Sys_Error ("COM_BlockSequenceCheckByte called\n")
+	system.Sys_Error ("COM_BlockSequenceCheckByte called\n")
 	return 0
 
 

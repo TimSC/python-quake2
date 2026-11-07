@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import struct
 import time
-from linux import net_udp, q_shlinux
+from backends.unix import network, system
 from common.header import common as common_h
 from common.header import shared
 from common import clientserver
@@ -90,7 +90,7 @@ def Netchan_OutOfBand (net_socket: int, adr: common_h.netadr_t, data: bytes)->No
 	send += data
 
 	# send the datagram
-	net_udp.NET_SendPacket (net_socket, send, adr)
+	network.NET_SendPacket (net_socket, send, adr)
 
 
 """
@@ -196,7 +196,7 @@ def Netchan_Transmit (chan: common_h.netchan_t, data: bytes | bytearray)->None: 
 	
 		chan.fatal_error = True
 		clientserver.Com_Printf ("{}:Outgoing message overflow\n".format(
-			net_udp.NET_AdrToString (chan.remote_address)))
+			network.NET_AdrToString (chan.remote_address)))
 		return
 	
 	send_reliable = Netchan_NeedReliable (chan)
@@ -238,7 +238,7 @@ def Netchan_Transmit (chan: common_h.netchan_t, data: bytes | bytearray)->None: 
 		clientserver.Com_Printf ("Netchan_Transmit: dumped unreliable\n")
 
 	# send the datagram
-	net_udp.NET_SendPacket (chan.sock, send.data, chan.remote_address)
+	network.NET_SendPacket (chan.sock, send.data, chan.remote_address)
 
 	if showpackets.value != 0:
 	
@@ -311,7 +311,7 @@ def Netchan_Process (chan: common_h.netchan_t, msg: common_h.sizebuf_t)->bool: #
 	
 		if showdrop.value:
 			clientserver.Com_Printf ("{}:Out of order packet {:d} at {:d}\n".format(
-				net_udp.NET_AdrToString (chan.remote_address)
+				network.NET_AdrToString (chan.remote_address)
 				,  sequence
 				, chan.incoming_sequence))
 		return False
@@ -325,7 +325,7 @@ def Netchan_Process (chan: common_h.netchan_t, msg: common_h.sizebuf_t)->bool: #
 	
 		if showdrop.value:
 			clientserver.Com_Printf ("{}:Dropped {:d} packets at {:d}\n".format(
-			net_udp.NET_AdrToString (chan.remote_address)
+			network.NET_AdrToString (chan.remote_address)
 			, chan.dropped
 			, sequence))
 	

@@ -26,7 +26,7 @@ Server main function and correspondig stuff
 from __future__ import annotations
 
 import struct
-from linux import net_udp, q_shlinux
+from backends.unix import network, system
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -276,7 +276,7 @@ def SV_ReadPackets(): #void
 
 	while True:
 
-		rx, netchan.net_from = net_udp.NET_GetPacket(common_h.netsrc_t.NS_SERVER, netchan.net_from, netchan.net_message)
+		rx, netchan.net_from = network.NET_GetPacket(common_h.netsrc_t.NS_SERVER, netchan.net_from, netchan.net_message)
 		if not rx:
 			break
 
@@ -306,7 +306,7 @@ def SV_ReadPackets(): #void
 				continue
 
 
-			if not net_udp.NET_CompareBaseAdr(netchan.net_from, cl.netchan.remote_address):
+			if not network.NET_CompareBaseAdr(netchan.net_from, cl.netchan.remote_address):
 
 				i += 1
 				continue
@@ -413,7 +413,7 @@ def SV_RunGameFrame(): #void
 	#ifndef DEDICATED_ONLY
 	if frame.host_speeds.value:
 
-		frame.time_before_game = q_shlinux.Sys_Milliseconds()
+		frame.time_before_game = system.Sys_Milliseconds()
 
 	#endif
 
@@ -444,7 +444,7 @@ def SV_RunGameFrame(): #void
 	#ifndef DEDICATED_ONLY
 	if frame.host_speeds.value:
 
-		frame.time_after_game = q_shlinux.Sys_Milliseconds()
+		frame.time_after_game = system.Sys_Milliseconds()
 
 	#endif
 
@@ -514,7 +514,7 @@ def SV_Frame(usec: int): #int
 			sv_init.svs.realtime = sv_init.sv.time - 100
 
 
-		net_udp.NET_Sleep(sv_init.sv.time - sv_init.svs.realtime)
+		network.NET_Sleep(sv_init.sv.time - sv_init.svs.realtime)
 		return
 
 
@@ -588,7 +588,7 @@ def Master_Heartbeat(): #void
 		if master_adr[i].port:
 
 			clientserver.Com_Printf("Sending heartbeat to %s\n",
-					net_udp.NET_AdrToString(master_adr[i]))
+					network.NET_AdrToString(master_adr[i]))
 			netchan.Netchan_OutOfBandPrint(common_h.netsrc_t.NS_SERVER, master_adr[i],
 					"heartbeat\n%s", string)
 
@@ -619,7 +619,7 @@ def Master_Shutdown(): #void
 			if i > 0:
 
 				clientserver.Com_Printf("Sending heartbeat to %s\n",
-						net_udp.NET_AdrToString(master_adr[i]))
+						network.NET_AdrToString(master_adr[i]))
 
 
 			netchan.Netchan_OutOfBandPrint(common_h.netsrc_t.NS_SERVER, master_adr[i], "shutdown")

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from linux import sys_linux
+from backends.unix import system
 
 if __name__=="__main__":
-	sys_linux.main()
+	system.main()
 

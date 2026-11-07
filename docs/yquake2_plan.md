@@ -25,15 +25,21 @@ and tracks the work group by group.
 - `src/game/`: the single player and deathmatch game.
 - `src/client/`: the client, menus and sound.
 - `src/client/refresh/gl1/` and `src/client/refresh/files/`: the OpenGL 1 renderer and its shared loaders.
-- The SDL 2 platform code, with pygame (which is built on SDL 2) standing in for SDL:
-  - `src/client/vid/glimp_sdl2.c`, `src/client/input/sdl2.c`;
-  - `src/backends/unix/` and `src/backends/generic/`.
+- `src/client/refresh/gl3/`: the modern OpenGL 3 renderer (group 16).
+- The SDL 2 platform code, with pygame (which is built on SDL 2) standing in for SDL.
+  Pygame stays the back end; there is no move to raw SDL. The port already
+  runs on pygame today (`linux/gl_glx.py`, `linux/in_linux.py`), so the work
+  is wrapping Yamagi's C structure around the existing pygame code, not
+  rewriting the platform from scratch:
+  - `src/client/vid/vid.c`, `src/client/vid/glimp_sdl2.c`;
+  - `src/client/input/sdl2.c` (mostly done in groups 10 and 12);
+  - `src/backends/unix/` and `src/backends/generic/` (mostly `sys_linux` today).
 
 **Not ported, at least for now:**
 
 | Yamagi code | Why |
 |---|---|
-| `client/refresh/soft/`, `client/refresh/gl3/`, Vulkan | Other renderers. GL3 is a candidate for a later "modern OpenGL" step. |
+| `client/refresh/soft/`, Vulkan | Other renderers. |
 | `glimp_sdl3.c`, `input/sdl3.c` | pygame uses SDL 2. |
 | `backends/windows/` | Linux only, as before. |
 | `client/sound/openal.c`, `qal.c` | OpenAL back end. pygame does the playback. |
@@ -88,10 +94,45 @@ The order follows dependencies: each group only depends on groups above it.
 | 11 | Client effects | `cl_effects.c`, `cl_lights.c`, `cl_particles.c`, `cl_tempentities.c` | `cl_fx.py`, `cl_newfx.py`, `cl_tent.py` | Split differently | Screenshots of effects |
 | 12 | Menus | `client/menu/menu.c`, `qmenu.c`, `videomenu.c` | `client/menu.py`, `qmenu.py`, `linux/vid_menu.py` | Moves to `client/menu/` | Every menu opens; settings apply |
 | 13 | Sound | `client/sound/sound.c`, `wave.c`, `ogg.c`, `sdl.c` (structure only) | `client/snd_*.py`, `linux/snd_linux.py` | pygame stays the back end. OGG music (pygame plays OGG) would replace CD audio | Sounds, loops, sexed sounds, cinematic sound, music |
-| 14 | Platform layer | `client/vid/vid.c`, `glimp_sdl2.c`, `client/input/sdl2.c`, `backends/unix/*.c`, `backends/generic/misc.c` | `linux/*.py` | Rewrite: X11/GLX → SDL (pygame) | Window, video modes, input, mouse grab, quit |
-| 15 | Renderer | `client/refresh/gl1/*.c`, `client/refresh/files/*.c`, `client/refresh/ref_shared.h`, `client/vid/header/ref.h` | `ref_gl/*.py` | Rewrite: most id function names are gone, and the renderer interface changed | Screenshots match; `timedemo`; extensions off |
+| 14 | Platform layer | `client/vid/vid.c`, `glimp_sdl2.c`, `client/input/sdl2.c`, `backends/unix/*.c`, `backends/generic/misc.c` | `linux/*.py` | Restructure: Yamagi's `vid`/`glimp`/`backends` around the existing pygame code (pygame stays, no move to raw SDL) | Window, video modes, input, mouse grab, quit |
+| 15 | Renderer: gl1 (OpenGL 1) | `client/refresh/gl1/*.c`, `client/refresh/files/*.c`, `client/refresh/ref_shared.h`, `client/vid/header/ref.h` | `ref_gl/*.py` | Faithful re-port of Yamagi's `gl1/`, replacing `ref_gl/`; the port's `Q2PORT` speed-ups are carried over | Screenshots match; `timedemo`; extensions off |
+| 16 | Renderer: gl3 (modern OpenGL) | `client/refresh/gl3/*.c` | none (new) | New: Yamagi's gl3 renderer with GLSL shaders, selected at start up alongside gl1 | Screenshots look right on base maps; `timedemo`; renderer switch at start up |
 
 The current `ref_gl/` keeps the game running until group 15 replaces it.
+
+## Group 15: the gl1 renderer re-port
+
+`ref_gl/` is replaced, not patched: each of Yamagi's `gl1/gl1_*.c` and
+`refresh/files/*.c` files becomes a module under `client/refresh/gl1/` and
+`client/refresh/files/` (with `gl1/header/` for `local.h`, `model.h` and
+`qgl.h`), ported function by function from Yamagi's C in its order. This
+picks up Yamagi's fixes to the OpenGL 1 renderer (e.g. the `gl1_stereo`
+fixes, `gl1_overbrightbits` value checks, `gl1_multitexture`,
+`gl1_particle_square`) that the old `ref_gl/` doesn't have. The modern
+gl3 renderer is a separate step (group 16).
+
+- **Faithful first.** Port Yamagi's structure and logic as written. The
+  old `ref_gl/` is the reference for what already works, not the template
+  for the new code.
+- **Carry over the `Q2PORT` speed-ups** where Yamagi's C has a slow
+  per-pixel loop: the numpy paletted-texture passes from `gl_image.py`,
+  the glcmds unrolled into a triangle list from `gl_model.py`, and the
+  inlined `BOX_ON_PLANE_SIDE` frustum culling. The `Q2DBG` culling trace
+  comes along too.
+- **`qgl.c`** is replaced by PyOpenGL and pygame, as the old `ref_gl/`
+  already does; `gl1_sdl.c` (context, swap, mode changes) uses the same
+  pygame code the existing `linux/gl_glx.py` uses, coordinated with group
+  14.
+- **Interface:** the port's client calls the renderer through the
+  `refexport`-style `re.` attributes. The current `ref_gl/` already
+  exposes the few extra exports the ported client uses (`DrawCharScaled`,
+  `RDraw_PicScaled`, ...); the new modules must keep those signatures so
+  groups 10–14 keep working across the cutover. `refresh/files/` provides
+  the shared model/texture loaders (`models.c`, `pcx.c`, `pvs.c`,
+  `surf.c`, `wal.c`); PCX keeps the Pillow decode (`Q2PORT`).
+- **Cutover:** the old `ref_gl/` is deleted once the new renderer passes
+  the tests: screenshots match the old renderer, `timedemo` runs, and it
+  works with the extensions off.
 
 ## Group 0: tooling and conventions
 
@@ -126,6 +167,9 @@ The current `ref_gl/` keeps the game running until group 15 replaces it.
   with id's original clients and servers.
 - **Renderer interface:** Yamagi's `refexport_t` differs from id's. Groups 10
   and 14 have to keep working with the old `ref_gl/` until group 15.
+- **gl3 (group 16):** PyOpenGL's GL 3 support and the GLSL shader pipeline
+  have never been tried in the port; group 16 is a new renderer, so its
+  failures can't break the gl1 one.
 - **SDL 2 vs 3:** Yamagi's default is now SDL 3. The port follows the SDL 2
   files, which Yamagi still supports.
 - **Tests depend on game data:** the tests need the Quake II data in
@@ -287,7 +331,7 @@ The current `ref_gl/` keeps the game running until group 15 replaces it.
   table in `vid_so` is now Yamagi's, until groups 14 and 15. Yamagi's cvar
   rename turns an old `gl_mode 3` (640x480 in id's table) into `r_mode 3`,
   which is 640x400 in Yamagi's table, the same as in Yamagi. The renderer
-  menu offers only gl1 (`VID_HasRenderer`). New helpers: `IN_Init`'s cvars,
+  menu offers only gl1 (`VID_HasRenderer`); gl3 is added in group 16. New helpers: `IN_Init`'s cvars,
   `IN_NumpadIsOn`, the joystick presets and `In_FlushQueue` (`sdl2.py`),
   `gyro.h`, `Sys_RemoveDir`, `Q_strisnum`, `Q_strrchrs`, `Q_clamp`,
   `COM_StripExtension2`. More translator fixes: `(int)` and `(float)`
@@ -314,5 +358,6 @@ The current `ref_gl/` keeps the game running until group 15 replaces it.
 - [x] 11. Client effects
 - [x] 12. Menus
 - [ ] 13. Sound
-- [ ] 14. Platform layer
-- [ ] 15. Renderer
+- [x] 14. Platform layer
+- [ ] 15. Renderer: gl1 (OpenGL 1)
+- [ ] 16. Renderer: gl3 (modern OpenGL)

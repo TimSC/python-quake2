@@ -4,14 +4,15 @@ sys.argv = ["main.py"] + sys.argv[1:]
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import OpenGL.GL as GL
 from PIL import Image
-from linux import sys_linux, gl_glx
+from backends.unix import system
+from client.vid import glimp_sdl2
 from client import cl_main
 pass
 from ref_gl import gl_rmain
 from common import cmdparser
 from client import cl_main
 t0 = [None]; st = {"restart": False, "shot": False}
-oe = gl_glx.GLimp_EndFrame
+oe = glimp_sdl2.GLimp_EndFrame
 def EF():
 	if cl_main.cls.state.name == "ca_active":
 		if t0[0] is None: t0[0] = time.time()
@@ -29,5 +30,5 @@ def EF():
 			print("vr: t=%d polys %d viewcluster %s old %s key_dest %s con.current %.0f vid %dx%d refdef %dx%d" % (t, gl_rmain.c_brush_polys, gl_rmain.r_viewcluster, gl_rmain.r_oldviewcluster, cl_main.cls.key_dest.name, cl_screen.scr_con_current, gl_rmain.vid.width, gl_rmain.vid.height, cl_main.cl.refdef.width, cl_main.cl.refdef.height))
 			if int(t) == 12: sys.stdout.flush(); os._exit(0)
 	return oe()
-gl_glx.GLimp_EndFrame = EF
-sys_linux.main()
+glimp_sdl2.GLimp_EndFrame = EF
+system.main()

@@ -177,7 +177,7 @@ class refdef_t(object):
 		return out
 
 
-API_VERSION = 3
+API_VERSION = 30 # Q2PORT: Yamagi's API number (id used 3); the renderer reports it via ref.API_VERSION
 
 #
 # these are the functions exported by the refresh module

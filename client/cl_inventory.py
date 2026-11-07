@@ -30,7 +30,7 @@ from client.header import keyboard as keyboard_h
 from client.vid import vid
 
 from client import cl_main
-from linux import vid_so
+from client.vid import vid
 from common.header import shared
 from common.shared import shared as shared_c
 from common import movemsg
@@ -118,8 +118,8 @@ def CL_DrawInventory(): #
 		top = 0
 
 
-	x = int((vid_so.viddef.width - scale*256) / 2) # C int
-	y = int((vid_so.viddef.height - scale*240) / 2) # C int
+	x = int((vid.viddef.width - scale*256) / 2) # C int
+	y = int((vid.viddef.height - scale*240) / 2) # C int
 	# repaint everything next frame
 	cl_screen.SCR_DirtyScreen()
 	vid.Draw_PicScaled(x, y + scale*8, "inventory", scale)

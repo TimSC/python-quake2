@@ -29,7 +29,7 @@ import math
 import sys
 import random
 pass
-from linux import sys_linux, q_shlinux, net_udp
+from backends.unix import system, network
 pass
 from client import cl_main
 import pygame
@@ -169,7 +169,7 @@ def Qcommon_Mainloop(): # (static)
 	long long newtime;
 	long long oldtime = Sys_Microseconds();
 	"""
-	oldtime = q_shlinux.Sys_Microseconds()
+	oldtime = system.Sys_Microseconds()
 
 	# The mainloop. The legend.
 	while 1:
@@ -180,7 +180,7 @@ def Qcommon_Mainloop(): # (static)
 			# Throttle the game a little bit.
 			if busywait.value:
 
-				spintime = q_shlinux.Sys_Microseconds()
+				spintime = system.Sys_Microseconds()
 
 				while 1:
 
@@ -189,9 +189,9 @@ def Qcommon_Mainloop(): # (static)
 					# enough to reduce power consumption and head
 					# dispersion a lot, it's 95°C against 67°C on
 					# a Kaby Lake laptop.
-					q_shlinux.Sys_CpuPause()
+					system.Sys_CpuPause()
 
-					if q_shlinux.Sys_Microseconds() - spintime >= 5:
+					if system.Sys_Microseconds() - spintime >= 5:
 
 						break
 
@@ -199,14 +199,14 @@ def Qcommon_Mainloop(): # (static)
 
 			else:
 
-				q_shlinux.Sys_Nanosleep(5000)
+				system.Sys_Nanosleep(5000)
 
 
 		#else
 		#Sys_Nanosleep(850000);
 		#endif
 
-		newtime = q_shlinux.Sys_Microseconds()
+		newtime = system.Sys_Microseconds()
 
 		# Save global time for network- and input code.
 		curtime = int(newtime // 1000)
@@ -396,8 +396,8 @@ def Qcommon_Init(): #int argc, char **argv
 
 
 	# Start late subsystem.
-	sys_linux.Sys_Init()
-	net_udp.NET_Init()
+	system.Sys_Init()
+	network.NET_Init()
 	netchan.Netchan_Init()
 	sv_main.SV_Init()
 	#ifndef DEDICATED_ONLY
@@ -434,7 +434,7 @@ def Qcommon_Init(): #int argc, char **argv
 
 	# Call the main loop
 	#Qcommon_Mainloop();
-	# Q2PORT: sys_linux.main calls Qcommon_Mainloop after this returns, until the platform layer (group 14) is ported
+	# Q2PORT: system.main calls Qcommon_Mainloop after this returns, until the platform layer (group 14) is ported
 
 
 # Q2PORT: the client's Qcommon_Frame (#ifndef DEDICATED_ONLY); the dedicated
@@ -678,7 +678,7 @@ def Qcommon_Frame(usec: int): #int (static)
 
 		# Dedicated server terminal console.
 		while True: # do { ... } while (s);
-			s = sys_linux.Sys_ConsoleInput()
+			s = system.Sys_ConsoleInput()
 
 			if s:
 				cmdparser.Cbuf_AddText("{}\n".format(s))
@@ -691,7 +691,7 @@ def Qcommon_Frame(usec: int): #int (static)
 
 		if host_speeds.value:
 
-			time_before = q_shlinux.Sys_Milliseconds()
+			time_before = system.Sys_Milliseconds()
 
 
 
@@ -704,7 +704,7 @@ def Qcommon_Frame(usec: int): #int (static)
 
 		if host_speeds.value:
 
-			time_between = q_shlinux.Sys_Milliseconds()
+			time_between = system.Sys_Milliseconds()
 
 
 
@@ -721,7 +721,7 @@ def Qcommon_Frame(usec: int): #int (static)
 			int all, sv, gm, cl, rf;
 			"""
 
-			time_after = q_shlinux.Sys_Milliseconds()
+			time_after = system.Sys_Milliseconds()
 			all_ = time_after - time_before
 			sv = time_between - time_before
 			cl = time_after - time_between

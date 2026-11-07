@@ -27,7 +27,8 @@ bitmap decoder. .cin files are just a bunch of .pcx images.
 from __future__ import annotations
 
 from client import snd_dma
-from linux import q_shlinux, vid_so
+from backends.unix import system
+from client.vid import vid
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -510,22 +511,22 @@ def SCR_DrawCinematic(): # (returns qboolean)
 	if cin_force43.value and cin.height and cin.width:
 
 		# Try to left original aspect ratio
-		w = int(vid_so.viddef.height * cin.width / cin.height) # C int
-		if w > vid_so.viddef.width:
+		w = int(vid.viddef.height * cin.width / cin.height) # C int
+		if w > vid.viddef.width:
 
-			w = vid_so.viddef.width
+			w = vid.viddef.width
 
 
 		w &= ~3
 		h = int(w * cin.height / cin.width) # C int
-		x = int((vid_so.viddef.width - w) / 2) # C int
-		y = int((vid_so.viddef.height - h) / 2) # C int
+		x = int((vid.viddef.width - w) / 2) # C int
+		y = int((vid.viddef.height - h) / 2) # C int
 
 	else:
 
 		x = y = 0
-		w = vid_so.viddef.width
-		h = vid_so.viddef.height
+		w = vid.viddef.width
+		h = vid.viddef.height
 
 
 	if not vid.vid_renderer:
@@ -549,12 +550,12 @@ def SCR_DrawCinematic(): # (returns qboolean)
 
 	if x > 0:
 
-		vid.Draw_Fill(0, 0, x, vid_so.viddef.height, color)
+		vid.Draw_Fill(0, 0, x, vid.viddef.height, color)
 
 
-	if x + w < vid_so.viddef.width:
+	if x + w < vid.viddef.width:
 
-		vid.Draw_Fill(x + w, 0, vid_so.viddef.width - (x + w), vid_so.viddef.height, color)
+		vid.Draw_Fill(x + w, 0, vid.viddef.width - (x + w), vid.viddef.height, color)
 
 
 	if y > 0:
@@ -562,9 +563,9 @@ def SCR_DrawCinematic(): # (returns qboolean)
 		vid.Draw_Fill(x, 0, w, y, color)
 
 
-	if y + h < vid_so.viddef.height:
+	if y + h < vid.viddef.height:
 
-		vid.Draw_Fill(x, y + h, w, vid_so.viddef.height - (y + h), color)
+		vid.Draw_Fill(x, y + h, w, vid.viddef.height - (y + h), color)
 
 
 	vid.Draw_StretchRaw(x, y, w, h, cin.width, cin.height, cin.pic, cin.color_bits)
@@ -729,6 +730,6 @@ def SCR_PlayCinematic(arg: str): #char *
 
 	cl_main.cl.cinematicframe = 0
 	cin.pic = SCR_ReadNextFrame()
-	cl_main.cl.cinematictime = q_shlinux.Sys_Milliseconds()
+	cl_main.cl.cinematictime = system.Sys_Milliseconds()
 
 

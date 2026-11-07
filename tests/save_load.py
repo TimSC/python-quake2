@@ -4,7 +4,7 @@
 import os, sys, time
 sys.argv = ["main.py"] + sys.argv[1:]
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from linux import sys_linux
+from backends.unix import system
 from client import cl_main
 from common import cmdparser
 from server import sv_init
@@ -71,4 +71,4 @@ def CL_Frame(*args):
 		print("save_load: timed out in phase %d" % st["phase"])
 		sys.stdout.flush(); os._exit(1)
 cl_main.CL_Frame = CL_Frame
-sys_linux.main()
+system.main()

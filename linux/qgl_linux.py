@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import time
 from ref_gl import gl_rmain
-from linux import gl_glx
+from client.vid import glimp_sdl2
 
 """
 /*
@@ -4150,7 +4150,7 @@ def GLimp_EnableLogging( enable ): #qboolean
 
 	if enable:
 	
-		if not gl_glx.glw_state.log_fp:
+		if not glimp_sdl2.glw_state.log_fp:
 		
 			#struct tm *newtime;
 			#time_t aclock;
@@ -4159,9 +4159,9 @@ def GLimp_EnableLogging( enable ): #qboolean
 			newtime = time.asctime( time.localtime() ) # time( &aclock ); newtime = localtime( &aclock );
 
 			buffer = "{}/gl.log".format(gl_rmain.ri.FS_Gamedir())
-			gl_glx.glw_state.log_fp = open( buffer, "wt" )
+			glimp_sdl2.glw_state.log_fp = open( buffer, "wt" )
 
-			gl_glx.glw_state.log_fp.write( "{}\n".format(newtime) )
+			glimp_sdl2.glw_state.log_fp.write( "{}\n".format(newtime) )
 		
 		# FIXME the C swaps every qgl* function pointer for a logging version here.
 		# The port calls OpenGL.GL directly, so only the per frame markers are logged.
@@ -4174,4 +4174,4 @@ def GLimp_EnableLogging( enable ): #qboolean
 
 def GLimp_LogNewFrame( ):
 
-	gl_glx.glw_state.log_fp.write( "*** R_BeginFrame ***\n" )
+	glimp_sdl2.glw_state.log_fp.write( "*** R_BeginFrame ***\n" )

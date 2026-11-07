@@ -325,3 +325,6 @@ Code not yet moved still follows id's layout (historical rules):
   and testing (`python3 main.py +set basedir /path/to/quake2data/Data`).
   It is proprietary. Never copy it into the repository or port anything
   from it.
+- To drive a test program from the command line, set `Q2STDIN=1` so console
+  commands can be passed in via stdin (one command per line), e.g.
+  `Q2STDIN=1 python3 main.py +set basedir /… < commands.txt`.

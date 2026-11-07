@@ -33,7 +33,7 @@ import random
 import numpy as np
 from enum import Enum
 from client import snd_dma, ref, cl_main, cl_view
-from linux import vid_so
+from client.vid import vid
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c

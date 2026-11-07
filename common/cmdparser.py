@@ -33,7 +33,7 @@ from __future__ import annotations
 #include "header/common.h"
 """
 
-from linux import q_shlinux
+from backends.unix import system
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -78,7 +78,7 @@ bind g "impulse 5 ; +attack ; wait ; -attack ; impulse 2"
 def Cmd_Wait_f ():
 	
 	global cmd_wait
-	cmd_wait = q_shlinux.Sys_Milliseconds()
+	cmd_wait = system.Sys_Milliseconds()
 
 """
 =============================================================================
@@ -206,7 +206,7 @@ def Cbuf_Execute ():
 
 		# make sure that "wait" in scripts waits for ~16.66ms (1 frame at 60fps)
 		# regardless of framerate
-		if q_shlinux.Sys_Milliseconds() - cmd_wait <= 16:
+		if system.Sys_Milliseconds() - cmd_wait <= 16:
 
 			return
 

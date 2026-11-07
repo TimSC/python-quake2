@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import struct
 import numpy as np
-from linux import q_shlinux
+from backends.unix import system
 pass
 from common.header import common as common_h
 from common.header import shared

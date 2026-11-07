@@ -29,7 +29,8 @@ from client import cl_keyboard
 
 import struct
 from client import snd_dma, cl_cin, cl_parse
-from linux import q_shlinux, vid_so, net_udp, sys_linux
+from backends.unix import system, network
+from client.vid import vid
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -130,7 +131,7 @@ def CL_SendConnectPacket ():
 	#netadr_t	adr;
 	#int		port;
 
-	adr = net_udp.NET_StringToAdr (cl_main.cls.servername)
+	adr = network.NET_StringToAdr (cl_main.cls.servername)
 	if adr is None:
 	
 		clientserver.Com_Printf ("Bad server address\n")
@@ -176,7 +177,7 @@ def CL_CheckForResend ():
 	if cl_main.cls.realtime - cl_main.cls.connect_time < 3000:
 		return
 
-	adr = net_udp.NET_StringToAdr(cl_main.cls.servername)
+	adr = network.NET_StringToAdr(cl_main.cls.servername)
 	if adr is None:
 		clientserver.Com_Printf("Bad server address\n")
 		cl_main.cls.state = client_h.connstate_t.ca_disconnected
@@ -219,7 +220,7 @@ def CL_Connect_f(): #
 		sv_main.SV_Shutdown("Server quit\n", False)
 
 
-	net_udp.NET_Config(True)
+	network.NET_Config(True)
 	# allow remote
 	CL_Disconnect()
 	cl_main.cls.state = client_h.connstate_t.ca_connecting
@@ -250,7 +251,7 @@ def CL_Rcon_f ():
 	
 	message = bytearray(b"\xff\xff\xff\xff") # message[0..3] = (char)255; message[4] = 0;
 
-	net_udp.NET_Config (True)		# allow remote
+	network.NET_Config (True)		# allow remote
 
 	message += b"rcon "
 
@@ -274,14 +275,14 @@ def CL_Rcon_f ():
 
 			return
 		
-		to = net_udp.NET_StringToAdr (cl_main.rcon_address.string)
+		to = network.NET_StringToAdr (cl_main.rcon_address.string)
 		if to is None: # C ignores the failure and sends to an empty address
 			to = common_h.netadr_t()
 		if to.port == 0:
 			to.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
 	
 	message += b"\0"
-	net_udp.NET_SendPacket (common_h.netsrc_t.NS_CLIENT, bytes(message), to) # strlen(message)+1
+	network.NET_SendPacket (common_h.netsrc_t.NS_CLIENT, bytes(message), to) # strlen(message)+1
 
 
 """
@@ -310,7 +311,7 @@ def CL_Disconnect(): #void
 		int time;
 		"""
 
-		time = q_shlinux.Sys_Milliseconds() - cl_main.cl.timedemo_start
+		time = system.Sys_Milliseconds() - cl_main.cl.timedemo_start
 
 		if time > 0:
 
@@ -396,9 +397,9 @@ def CL_Packet_f ():
 		clientserver.Com_Printf ("packet <destination> <contents>\n")
 		return
 	
-	net_udp.NET_Config (True)		# allow remote
+	network.NET_Config (True)		# allow remote
 
-	adr = net_udp.NET_StringToAdr (cmdparser.Cmd_Argv(1))
+	adr = network.NET_StringToAdr (cmdparser.Cmd_Argv(1))
 	if adr is None:
 	
 		clientserver.Com_Printf ("Bad address\n")
@@ -425,7 +426,7 @@ def CL_Packet_f ():
 	
 	# *out = 0;
 
-	net_udp.NET_SendPacket (common_h.netsrc_t.NS_CLIENT, bytes(send), adr) # out-send, excludes the terminator
+	network.NET_SendPacket (common_h.netsrc_t.NS_CLIENT, bytes(send), adr) # out-send, excludes the terminator
 
 
 """
@@ -507,7 +508,7 @@ def CL_PingServers_f ():
 	"""
 	adr = common_h.netadr_t() # memset(&adr, 0, sizeof(adr));
 
-	net_udp.NET_Config (True) # allow remote but do we even need lokal pings?
+	network.NET_Config (True) # allow remote but do we even need lokal pings?
 
 	# send a broadcast packet
 	clientserver.Com_Printf ("pinging broadcast...\n")
@@ -541,7 +542,7 @@ def CL_PingServers_f ():
 			continue
 
 		clientserver.Com_Printf ("pinging {}...\n".format(adrstring))
-		adr = net_udp.NET_StringToAdr (adrstring)
+		adr = network.NET_StringToAdr (adrstring)
 		if adr is None:
 		
 			clientserver.Com_Printf ("Bad address: {}\n".format(adrstring))
@@ -576,7 +577,7 @@ def CL_ConnectionlessPacket ():
 
 	c = cmdparser.Cmd_Argv(0)
 
-	clientserver.Com_Printf ("{}: {}\n".format(net_udp.NET_AdrToString (netchan.net_from), c))
+	clientserver.Com_Printf ("{}: {}\n".format(network.NET_AdrToString (netchan.net_from), c))
 
 	# server connection
 	if c == "client_connect":
@@ -653,7 +654,7 @@ def CL_ConnectionlessPacket ():
 	# remote command from gui front end
 	if c == "cmd":
 	
-		if not net_udp.NET_IsLocalAddress(netchan.net_from):
+		if not network.NET_IsLocalAddress(netchan.net_from):
 		
 			clientserver.Com_Printf ("Command packet from remote host.  Ignored.\n")
 			return
@@ -700,7 +701,7 @@ CL_ReadPackets
 """
 def CL_ReadPackets ():
 
-	rx, netchan.net_from = net_udp.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, netchan.net_from, netchan.net_message)
+	rx, netchan.net_from = network.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, netchan.net_from, netchan.net_message)
 
 	while rx:
 		try:
@@ -720,17 +721,17 @@ def CL_ReadPackets ():
 
 			if netchan.net_message.cursize < 8:
 			
-				clientserver.Com_Printf ("{}: Runt packet\n".format(net_udp.NET_AdrToString(netchan.net_from)))
+				clientserver.Com_Printf ("{}: Runt packet\n".format(network.NET_AdrToString(netchan.net_from)))
 				continue
 			
 
 			#
 			# packet from server
 			#
-			if not net_udp.NET_CompareAdr (netchan.net_from, cl_main.cls.netchan.remote_address):
+			if not network.NET_CompareAdr (netchan.net_from, cl_main.cls.netchan.remote_address):
 			
 				clientserver.Com_DPrintf ("{}:sequenced packet without connection\n".format(
-					net_udp.NET_AdrToString(netchan.net_from)))
+					network.NET_AdrToString(netchan.net_from)))
 				continue
 			
 			if not netchan.Netchan_Process(cl_main.cls.netchan, netchan.net_message):
@@ -738,7 +739,7 @@ def CL_ReadPackets ():
 			cl_parse.CL_ParseServerMessage ()
 
 		finally:
-			rx, netchan.net_from = net_udp.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, netchan.net_from, netchan.net_message)
+			rx, netchan.net_from = network.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, netchan.net_from, netchan.net_message)
 
 	#
 	# check timeout

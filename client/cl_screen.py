@@ -29,7 +29,7 @@ from __future__ import annotations
 import numpy as np
 from common import pmove
 from common.shared import shared as shared_c
-from linux import q_shlinux
+from backends.unix import system
 
 import math
 
@@ -41,7 +41,9 @@ from client.vid import vid
 
 import copy
 from client import cl_main, cl_cin, snd_dma, cl_view
-from linux import q_shlinux, vid_so, cd_linux
+from backends.unix import system
+from linux import cd_linux
+from client.vid import vid
 from common.header import shared
 from common import clientserver
 from common import cmdparser
@@ -316,7 +318,7 @@ def SCR_DrawCenterString(): #void (static)
 
 	if scr_center_lines <= 4:
 
-		y = int((vid_so.viddef.height * 0.35) / scale)
+		y = int((vid.viddef.height * 0.35) / scale)
 
 	else:
 
@@ -337,7 +339,7 @@ def SCR_DrawCenterString(): #void (static)
 			l += 1
 
 
-		x = int(((vid_so.viddef.width / scale) - (l * char_unscaled_width)) / 2)
+		x = int(((vid.viddef.width / scale) - (l * char_unscaled_width)) / 2)
 		SCR_AddDirtyPoint(x, y)
 
 		for j in range(l):
@@ -408,10 +410,10 @@ def SCR_CalcVrect(): # (static)
 
 
 	size = scr_viewsize.value
-	scr_vrect.width = vid_so.viddef.width * size / 100
-	scr_vrect.height = vid_so.viddef.height * size / 100
-	scr_vrect.x = (vid_so.viddef.width - scr_vrect.width) / 2
-	scr_vrect.y = (vid_so.viddef.height - scr_vrect.height) / 2
+	scr_vrect.width = vid.viddef.width * size / 100
+	scr_vrect.height = vid.viddef.height * size / 100
+	scr_vrect.x = (vid.viddef.width - scr_vrect.width) / 2
+	scr_vrect.y = (vid.viddef.height - scr_vrect.height) / 2
 
 
 """
@@ -562,7 +564,7 @@ def SCR_DrawPause(): # (static)
 
 
 	w, h = vid.Draw_GetPicSize("pause")
-	vid.Draw_PicScaled((vid_so.viddef.width - w * scale) / 2, vid_so.viddef.height / 2 + 8 * scale, "pause", scale)
+	vid.Draw_PicScaled((vid.viddef.width - w * scale) / 2, vid.viddef.height / 2 + 8 * scale, "pause", scale)
 
 """
 ==============
@@ -583,7 +585,7 @@ def SCR_DrawLoading(): # (static)
 
 
 	w, h = vid.Draw_GetPicSize("loading")
-	vid.Draw_PicScaled((vid_so.viddef.width - w * scale) / 2, (vid_so.viddef.height - h * scale) / 2, "loading", scale)
+	vid.Draw_PicScaled((vid.viddef.width - w * scale) / 2, (vid.viddef.height - h * scale) / 2, "loading", scale)
 
 
 # ================================================================================
@@ -652,7 +654,7 @@ def SCR_DrawConsole(): # (static)
 
 		# connected, but can't render
 		cl_console.Con_DrawConsole(0.5)
-		vid.Draw_Fill(0, vid_so.viddef.height / 2, vid_so.viddef.width, vid_so.viddef.height / 2, 0)
+		vid.Draw_Fill(0, vid.viddef.height / 2, vid.viddef.width, vid.viddef.height / 2, 0)
 		return
 
 
@@ -727,7 +729,7 @@ def SCR_BeginLoadingPlaque(): #
 	SCR_UpdateScreen()
 	scr_draw_loading = False
 	cl_cin.SCR_StopCinematic()
-	cl_main.cls.disable_screen = q_shlinux.Sys_Milliseconds()
+	cl_main.cls.disable_screen = system.Sys_Milliseconds()
 	cl_main.cls.disable_servercount = cl_main.cl.servercount
 	#cl_main.cls.disable_servercount = cl_main.cl.servercount;
 
@@ -764,7 +766,7 @@ def SCR_TimeRefresh_f(): # (static)
 		return
 
 
-	start = q_shlinux.Sys_Milliseconds()
+	start = system.Sys_Milliseconds()
 	if cmdparser.Cmd_Argc() == 2:
 
 		# run without page flipping
@@ -791,7 +793,7 @@ def SCR_TimeRefresh_f(): # (static)
 			vid.R_EndFrame()
 
 
-	stop = q_shlinux.Sys_Milliseconds()
+	stop = system.Sys_Milliseconds()
 	time = (stop - start) / 1000.0
 	clientserver.Com_Printf("%f seconds (%f fps)\n", time, 128 / time)
 
@@ -816,7 +818,7 @@ def SCR_AddDirtyPoint (x, y):
 def SCR_DirtyScreen ():
 
 	SCR_AddDirtyPoint (0, 0)
-	SCR_AddDirtyPoint (vid_so.viddef.width-1, vid_so.viddef.height-1)
+	SCR_AddDirtyPoint (vid.viddef.width-1, vid.viddef.height-1)
 
 
 """
@@ -864,11 +866,11 @@ def SCR_TileClear(): # (static)
 		# Top
 		vid.Draw_TileClear(scr_vrect.x, 0, scr_vrect.width, scr_vrect.y, "backtile")
 		# Bottom
-		vid.Draw_TileClear(scr_vrect.x, scr_vrect.y + scr_vrect.height, scr_vrect.width, vid_so.viddef.height, "backtile")
+		vid.Draw_TileClear(scr_vrect.x, scr_vrect.y + scr_vrect.height, scr_vrect.width, vid.viddef.height, "backtile")
 		# Left
-		vid.Draw_TileClear(0, 0, scr_vrect.x, vid_so.viddef.height, "backtile")
+		vid.Draw_TileClear(0, 0, scr_vrect.x, vid.viddef.height, "backtile")
 		# Right
-		vid.Draw_TileClear(scr_vrect.x + scr_vrect.width, 0, vid_so.viddef.width, vid_so.viddef.height, "backtile")
+		vid.Draw_TileClear(scr_vrect.x + scr_vrect.width, 0, vid.viddef.width, vid.viddef.height, "backtile")
 
 	else:
 
@@ -904,7 +906,7 @@ def SCR_TileClear(): # (static)
 		scr_dirty.y1 = 9999
 		scr_dirty.y2 = -9999
 		# don't bother with anything convered by the console
-		top = (scr_con_current * vid_so.viddef.height)
+		top = (scr_con_current * vid.viddef.height)
 		if top >= clear.y1:
 
 			clear.y1 = top
@@ -1144,7 +1146,7 @@ def SCR_ExecuteLayoutString(s: str): #char * (static)
 	"""
 
 	cl = cl_main.cl
-	viddef = vid_so.viddef
+	viddef = vid.viddef
 	atoi = shared_c.atoi # (int)strtol(token, (char **)NULL, 10)
 
 	scale = SCR_GetHUDScale()
@@ -1587,7 +1589,7 @@ def SCR_DrawSpeed(): #void (static)
 
 	if cl_main.cl_showspeed.value == 1: # Draw speed and xy speed at top right
 
-		xPos = vid_so.viddef.width - str_len
+		xPos = vid.viddef.width - str_len
 
 		if cl_main.cl_showfps.value == 1 or cl_main.cl_showfps.value == 2: # If showfps is enabled, draw it underneath
 
@@ -1600,7 +1602,7 @@ def SCR_DrawSpeed(): #void (static)
 
 		cl_console.DrawStringScaled(xPos, yPos, spd_str, scale)
 		SCR_AddDirtyPoint(xPos, yPos)
-		SCR_AddDirtyPoint(vid_so.viddef.width, yPos)
+		SCR_AddDirtyPoint(vid.viddef.width, yPos)
 
 	elif cl_main.cl_showspeed.value > 1: # Draw only xy speed under the crosshair
 
@@ -1641,7 +1643,7 @@ def SCR_Framecounter(): #void (static)
 		return
 
 
-	newtime = q_shlinux.Sys_Microseconds()
+	newtime = system.Sys_Microseconds()
 	frametimes[SCR_Framecounter_frame] = int(newtime - SCR_Framecounter_oldtime)
 
 	SCR_Framecounter_oldtime = newtime
@@ -1670,9 +1672,9 @@ def SCR_Framecounter(): #void (static)
 
 
 		str_ = ("%3.2ffps" % ((1000.0 * 1000.0) / (avg // num)))[:10 - 1]
-		cl_console.DrawStringScaled(vid_so.viddef.width - scale * (len(str_) * CHAR_SIZE + 2), 0, str_, scale)
-		SCR_AddDirtyPoint(vid_so.viddef.width - scale * (len(str_) * CHAR_SIZE + 2), 0)
-		SCR_AddDirtyPoint(vid_so.viddef.width, 0)
+		cl_console.DrawStringScaled(vid.viddef.width - scale * (len(str_) * CHAR_SIZE + 2), 0, str_, scale)
+		SCR_AddDirtyPoint(vid.viddef.width - scale * (len(str_) * CHAR_SIZE + 2), 0)
+		SCR_AddDirtyPoint(vid.viddef.width, 0)
 
 	elif cl_main.cl_showfps.value >= 2:
 
@@ -1709,17 +1711,17 @@ def SCR_Framecounter(): #void (static)
 
 		str_ = ("Min: %7.2ffps, Max: %7.2ffps, Avg: %7.2ffps" %
 		         ((1000.0 * 1000.0) / min_, (1000.0 * 1000.0) / max_, (1000.0 * 1000.0) / (avg // num)))[:64 - 1]
-		cl_console.DrawStringScaled(vid_so.viddef.width - scale * (len(str_) * CHAR_SIZE + 2), 0, str_, scale)
-		SCR_AddDirtyPoint(vid_so.viddef.width - scale * (len(str_) * CHAR_SIZE + 2), 0)
-		SCR_AddDirtyPoint(vid_so.viddef.width, 0)
+		cl_console.DrawStringScaled(vid.viddef.width - scale * (len(str_) * CHAR_SIZE + 2), 0, str_, scale)
+		SCR_AddDirtyPoint(vid.viddef.width - scale * (len(str_) * CHAR_SIZE + 2), 0)
+		SCR_AddDirtyPoint(vid.viddef.width, 0)
 
 		if cl_main.cl_showfps.value > 2:
 
 			str_ = ("Max: %5.2fms, Min: %5.2fms, Avg: %5.2fms" %
 			         (0.001 * min_, 0.001 * max_, 0.001 * (avg / num)))[:64 - 1]
-			cl_console.DrawStringScaled(vid_so.viddef.width - scale * (len(str_) * CHAR_SIZE + 2), scale * 10, str_, scale)
-			SCR_AddDirtyPoint(vid_so.viddef.width - scale * (len(str_) * CHAR_SIZE + 2), scale * 10)
-			SCR_AddDirtyPoint(vid_so.viddef.width, scale + 10)
+			cl_console.DrawStringScaled(vid.viddef.width - scale * (len(str_) * CHAR_SIZE + 2), scale * 10, str_, scale)
+			SCR_AddDirtyPoint(vid.viddef.width - scale * (len(str_) * CHAR_SIZE + 2), scale * 10)
+			SCR_AddDirtyPoint(vid.viddef.width, scale + 10)
 
 
 """
@@ -1746,7 +1748,7 @@ def SCR_UpdateScreen(): #
 	# up, or vid mode changing) do nothing at all
 	if cl_main.cls.disable_screen:
 
-		if q_shlinux.Sys_Milliseconds() - cl_main.cls.disable_screen > 120000:
+		if system.Sys_Milliseconds() - cl_main.cls.disable_screen > 120000:
 
 			cl_main.cls.disable_screen = 0
 			clientserver.Com_Printf("Loading plaque timed out.\n")
@@ -1793,7 +1795,7 @@ def SCR_UpdateScreen(): #
 
 
 			w, h = vid.Draw_GetPicSize("loading")
-			vid.Draw_PicScaled((vid_so.viddef.width - w * scale) / 2, (vid_so.viddef.height - h * scale) / 2, "loading", scale)
+			vid.Draw_PicScaled((vid.viddef.width - w * scale) / 2, (vid.viddef.height - h * scale) / 2, "loading", scale)
 
 		elif cl_main.cl.cinematictime > 0:
 
@@ -1878,13 +1880,13 @@ def SCR_ClampScale(scale): #float (returns static float)
 	float f;
 	"""
 
-	f = vid_so.viddef.width / 320.0
+	f = vid.viddef.width / 320.0
 	if scale > f:
 
 		scale = f
 
 
-	f = vid_so.viddef.height / 240.0
+	f = vid.viddef.height / 240.0
 	if scale > f:
 
 		scale = f
@@ -1903,8 +1905,8 @@ def SCR_GetDefaultScale(): # (returns static float)
 	int i = viddef.width / 640;
 	int j = viddef.height / 240;
 	"""
-	i = int(vid_so.viddef.width / 640) # C int
-	j = int(vid_so.viddef.height / 240) # C int
+	i = int(vid.viddef.width / 640) # C int
+	j = int(vid.viddef.height / 240) # C int
 
 	if i > j:
 
@@ -1918,7 +1920,7 @@ def SCR_GetDefaultScale(): # (returns static float)
 
 	return i
 
-from linux import vid_so
+from client.vid import vid
 from client import cl_view
 
 	# C implementation is still unported.

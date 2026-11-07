@@ -2,7 +2,7 @@
 import os, sys, time
 sys.argv = ["main.py"] + sys.argv[1:]
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from linux import sys_linux
+from backends.unix import system
 from client import cl_cin
 st = {"n": 0, "t": 0.0, "t0": time.time(), "none": 0}
 o = cl_cin.Huff1Decompress
@@ -15,4 +15,4 @@ o2 = cl_cin.SCR_FinishCinematic
 def F():
 	print("cin: finished after %d frames in %.1f s" % (st["n"], time.time() - st["t0"])); return o2()
 cl_cin.SCR_FinishCinematic = F
-sys_linux.main()
+system.main()
