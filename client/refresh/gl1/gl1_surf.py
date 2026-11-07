@@ -32,6 +32,7 @@ pass
 pass
 from client import ref
 from common.header import files as files_h
+from client.refresh.files import surf as files_surf
 from common.header import shared
 from common.shared import shared as shared_c
 
@@ -961,7 +962,7 @@ def R_DrawBrushModel (e): #entity_t *
 		shared.VectorAdd (e.origin, currentmodel.mins, mins)
 		shared.VectorAdd (e.origin, currentmodel.maxs, maxs)
 
-	if gl1_main.R_CullBox (mins, maxs):
+	if files_surf.R_CullBox (mins, maxs, gl1_main.frustum):
 		return
 
 	GL.glColor3f (1,1,1)
@@ -1037,7 +1038,7 @@ def R_RecursiveWorldNode (node): #mnode_t *
 
 	dbg_nodes_visited += 1 # Q2PORT DEBUG
 
-	if gl1_main.R_CullBox (node.minmaxs[0:3], node.minmaxs[3:6]):
+	if files_surf.R_CullBox (node.minmaxs[0:3], node.minmaxs[3:6], gl1_main.frustum):
 		dbg_nodes_culled += 1 # Q2PORT DEBUG
 		return
 

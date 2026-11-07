@@ -231,44 +231,6 @@ def R_SetFrustum():
         frustum[i].type = files_h.PLANE_ANYZ
         frustum[i].dist = shared.DotProduct(r_origin, frustum[i].normal)
         frustum[i].signbits = SignbitsForPlane(frustum[i])
-"""
-=================
-R_CullBox
-
-Returns true if the box is completely outside the frustom
-=================
-"""
-def R_CullBox (mins, maxs): #vec3_t, vec3_t (returns qboolean)
-
-	#int		i;
-
-	if r_nocull.value:
-		return False
-
-	#Q2PORT: BOX_ON_PLANE_SIDE inlined as in the C macro; the frustum
-	#planes are always PLANE_ANYZ, so only the most positive corner of
-	#the box needs testing against each plane
-	for p in frustum:
-
-		n = p.normal
-		sb = p.signbits
-		if sb & 1:
-			dist = n[0]*mins[0]
-		else:
-			dist = n[0]*maxs[0]
-		if sb & 2:
-			dist += n[1]*mins[1]
-		else:
-			dist += n[1]*maxs[1]
-		if sb & 4:
-			dist += n[2]*mins[2]
-		else:
-			dist += n[2]*maxs[2]
-
-		if p.dist >= dist: # side == 2, box fully on the negative side
-			return True
-	return False
-
 
 def R_RotateForEntity (e): #entity_t *
 
@@ -787,7 +749,7 @@ def R_SetupGL ():
 	#
 	# set drawing parms
 	#
-	if gl_cull.value:
+	if r_cull.value:
 		GL.glEnable(GL.GL_CULL_FACE)
 	else:
 		GL.glDisable(GL.GL_CULL_FACE)
@@ -1054,12 +1016,12 @@ def R_RenderFrame (fd): #refdef_t *
 
 def R_Register():
 
-	global r_norefresh, r_drawentities, r_drawworld, r_speeds, r_fullbright, r_novis, r_nocull, r_lerpmodels, r_lefthand, r_lightlevel, \
+	global r_norefresh, r_drawentities, r_drawworld, r_speeds, r_fullbright, r_novis, r_lerpmodels, r_lefthand, r_lightlevel, \
 	gl_nosubimage, gl_allow_software, gl_vertex_arrays, \
 	gl1_particle_min_size, gl1_particle_max_size, gl1_particle_size, gl1_particle_att_a, gl1_particle_att_b, gl1_particle_att_c, \
 	gl_ext_swapinterval, gl_ext_palettedtexture, gl_ext_multitexture, gl_ext_pointparameters, gl_ext_compiled_vertex_array, \
 	gl_log, gl_bitdepth, gl_drawbuffer, gl_driver, r_lightmap, r_shadows, gl_mode, gl1_dynamic, gl_monolightmap, r_modulate, gl_nobind, \
-	gl1_round_down, gl1_picmip, gl_skymip, gl_showtris, gl1_ztrick, gl_finish, r_clear, gl_cull, gl_polyblend, gl1_flashblend, gl_playermip, \
+	gl1_round_down, gl1_picmip, gl_skymip, gl_showtris, gl1_ztrick, gl_finish, r_clear, r_cull, gl_polyblend, gl1_flashblend, gl_playermip, \
 	gl1_saturatelighting, r_vsync, gl_texturemode, gl1_texturealphamode, gl1_texturesolidmode, r_lockpvs, \
 	gl_3dlabs_broken, vid_fullscreen, vid_gamma, vid_ref
 
@@ -1069,7 +1031,6 @@ def R_Register():
 	r_drawentities = ri.Cvar_Get ("r_drawentities", "1", 0)
 	r_drawworld = ri.Cvar_Get ("r_drawworld", "1", 0)
 	r_novis = ri.Cvar_Get ("r_novis", "0", 0)
-	r_nocull = ri.Cvar_Get ("r_nocull", "0", 0)
 	r_lerpmodels = ri.Cvar_Get ("r_lerpmodels", "1", 0)
 	r_speeds = ri.Cvar_Get ("r_speeds", "0", 0)
 
@@ -1100,7 +1061,7 @@ def R_Register():
 	gl1_ztrick = ri.Cvar_Get ("gl1_ztrick", "0", 0)
 	gl_finish = ri.Cvar_Get ("gl_finish", "0", shared.CVAR_ARCHIVE)
 	r_clear = ri.Cvar_Get ("r_clear", "0", 0)
-	gl_cull = ri.Cvar_Get ("gl_cull", "1", 0)
+	r_cull = ri.Cvar_Get ("r_cull", "1", 0)
 	gl_polyblend = ri.Cvar_Get ("gl_polyblend", "1", 0)
 	gl1_flashblend = ri.Cvar_Get ("gl1_flashblend", "0", 0)
 	gl_playermip = ri.Cvar_Get ("gl_playermip", "0", 0)
