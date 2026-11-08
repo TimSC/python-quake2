@@ -87,7 +87,7 @@ known_sfx = [] #sfx_t [MAX_SFX];
 for i in range(MAX_SFX):
 	known_sfx.append(snd_loc.sfx_t())
 
-num_sfx = None #int			
+num_sfx = 0 #int			
 sound_max = 0 #static int
 """
 #define		MAX_PLAYSOUNDS	128

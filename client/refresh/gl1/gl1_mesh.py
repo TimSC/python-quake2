@@ -586,7 +586,7 @@ def R_DrawAliasModel (e): #entity_t *
 
 	if e.flags & shared.RF_WEAPONMODEL:
 
-		if gl1_main.r_lefthand.value == 2:
+		if gl1_main.gl_lefthand.value == 2:
 			return
 
 	paliashdr = currentmodel.extradata
@@ -715,7 +715,7 @@ def R_DrawAliasModel (e): #entity_t *
 	if currententity.flags & shared.RF_DEPTHHACK: # hack the depth range to prevent view model from poking into walls
 		GL.glDepthRange (gl1_main.gldepthmin, gl1_main.gldepthmin + 0.3*(gl1_main.gldepthmax-gl1_main.gldepthmin))
 
-	if ( currententity.flags & shared.RF_WEAPONMODEL ) and ( gl1_main.r_lefthand.value == 1.0 ):
+	if ( currententity.flags & shared.RF_WEAPONMODEL ) and ( gl1_main.gl_lefthand.value == 1.0 ):
 
 		GL.glMatrixMode( GL.GL_PROJECTION )
 		GL.glPushMatrix()
@@ -800,7 +800,7 @@ def R_DrawAliasModel (e): #entity_t *
 #endif
 	"""
 
-	if ( currententity.flags & shared.RF_WEAPONMODEL ) and ( gl1_main.r_lefthand.value == 1.0 ):
+	if ( currententity.flags & shared.RF_WEAPONMODEL ) and ( gl1_main.gl_lefthand.value == 1.0 ):
 
 		GL.glMatrixMode( GL.GL_PROJECTION )
 		GL.glPopMatrix()

@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import numpy as np
 import OpenGL.GL as GL
-from client.refresh.gl1 import gl1_warp, gl1_image, gl1_main, gl1_model, gl1_light, gl1_lightmap
+from client.refresh.gl1 import gl1_warp, gl1_image, gl1_main, gl1_model, gl1_light, gl1_lightmap, gl1_buffer
 from client.refresh.gl1.header import model
 from linux import qgl_linux
 pass
@@ -762,44 +762,25 @@ def GL_RenderLightmappedPoly( surf ): #msurface_t *
 
 		gl1_main.c_brush_polys += 1
 
-		gl1_image.R_MBind( GL.GL_TEXTURE0, image.texnum )
-		gl1_image.R_MBind( GL.GL_TEXTURE1, gl1_main.gl_state.lightmap_textures + lmtex )
+		# Q2PORT: buffer path, Yamagi gl1_buffer
+		gl1_buffer.R_UpdateGLBuffer (gl1_buffer.buf_mtex, image.texnum, lmtex, 0, 1.0)
 
-#==========
-#PGM
 		if surf.texinfo.flags & shared.SURF_FLOWING:
-
-			#float scroll;
 
 			scroll = -64 * ( (gl1_main.r_newrefdef.time / 40.0) - int(gl1_main.r_newrefdef.time / 40.0) )
 			if scroll == 0.0:
 				scroll = -64.0
 
-			for p in surf.polys:
-
-				GL.glBegin (GL.GL_POLYGON)
-				for v in p.verts[:nv].tolist():
-
-					GL.glMultiTexCoord2f( GL.GL_TEXTURE0, (v[3]+scroll), v[4])
-					GL.glMultiTexCoord2f( GL.GL_TEXTURE1, v[5], v[6])
-					GL.glVertex3f (v[0], v[1], v[2])
-
-				GL.glEnd ()
-
 		else:
+			scroll = 0.0
 
-			for p in surf.polys:
+		for p in surf.polys:
 
-				GL.glBegin (GL.GL_POLYGON)
-				for v in p.verts[:nv].tolist():
+			gl1_buffer.R_SetBufferIndices (GL.GL_TRIANGLE_FAN, p.numverts)
+			for v in p.verts[:p.numverts].tolist():
 
-					GL.glMultiTexCoord2f( GL.GL_TEXTURE0, v[3], v[4])
-					GL.glMultiTexCoord2f( GL.GL_TEXTURE1, v[5], v[6])
-					GL.glVertex3f (v[0], v[1], v[2])
-
-				GL.glEnd ()
-
-#PGM
+				gl1_buffer.GLBUFFER_VERTEX (v[0], v[1], v[2])
+				gl1_buffer.GLBUFFER_MULTITEX (v[3]+scroll, v[4], v[5], v[6])
 #==========
 
 	else:
@@ -1201,6 +1182,8 @@ def R_DrawWorld ():
 			gl1_image.R_TexEnv( GL.GL_MODULATE )
 
 		R_RecursiveWorldNode (gl1_main.r_worldmodel.nodes[0])
+
+		gl1_buffer.R_ApplyGLBuffer()
 
 		gl1_image.R_EnableMultitexture( False )
 

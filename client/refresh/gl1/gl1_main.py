@@ -710,6 +710,37 @@ def MYgluPerspective( fovy, aspect, zNear, zFar ): # GLdouble, GLdouble, GLdoubl
    GL.glFrustum( xmin, xmax, ymin, ymax, zNear, zFar )
 
 
+def R_SetPerspective( fovy ): # GLdouble
+
+	"""
+	// gluPerspective style parameters
+	"""
+	zNear = shared.Q_max( gl_znear.value, 0.1 ) #GLdouble
+	zFar = 8192.0 if r_farsee.value else 4096.0 #GLdouble
+	aspectratio = float(r_newrefdef.width / r_newrefdef.height) #GLdouble
+
+	# GLdouble xmin, xmax, ymin, ymax;
+
+	# traditional gluPerspective calculations - https://youtu.be/YqSNGcF5nvM?t=644
+	ymax = zNear * math.tan( fovy * math.pi / 360.0 )
+	xmax = ymax * aspectratio
+
+	if (r_newrefdef.rdflags & shared.RDF_UNDERWATER) and gl1_waterwarp.value:
+		warp = math.sin( r_newrefdef.time * 1.5 ) * 0.03 * gl1_waterwarp.value #GLdouble
+		ymax *= 1.0 - warp
+		xmax *= 1.0 + warp
+
+	ymin = -ymax
+	xmin = -xmax
+
+	if gl_state.camera_separation:
+		separation = - gl1_stereo_convergence.value * (2 * gl_state.camera_separation) / zNear #GLdouble
+		xmin += separation
+		xmax += separation
+
+	GL.glFrustum( xmin, xmax, ymin, ymax, zNear, zFar )
+
+
 
 """
 =============
@@ -740,11 +771,10 @@ def R_SetupGL ():
 	#
 	# set up projection matrix
 	#
-	screenaspect = float(r_newrefdef.width/r_newrefdef.height)
-#	yfov = 2*atan((float)r_newrefdef.height/r_newrefdef.width)*180/M_PI;
+	# yfov = 2*atan((float)r_newrefdef.height/r_newrefdef.width)*180/M_PI;
 	GL.glMatrixMode(GL.GL_PROJECTION)
 	GL.glLoadIdentity ()
-	MYgluPerspective (r_newrefdef.fov_y, screenaspect,  4,  4096)
+	R_SetPerspective (r_newrefdef.fov_y)
 
 	GL.glCullFace(GL.GL_FRONT)
 
@@ -1033,7 +1063,7 @@ def R_RenderFrame (fd): #refdef_t *
 
 def R_Register():
 
-	global r_norefresh, r_drawentities, r_drawworld, r_speeds, r_fullbright, r_novis, r_lerpmodels, r_lefthand, r_lightlevel, \
+	global r_norefresh, r_drawentities, r_drawworld, r_speeds, r_fullbright, r_novis, r_lerpmodels, gl_lefthand, r_lightlevel, \
 	gl_nosubimage, gl_allow_software, gl_vertex_arrays, \
 	gl1_particle_min_size, gl1_particle_max_size, gl1_particle_size, gl1_particle_att_a, gl1_particle_att_b, gl1_particle_att_c, \
 	gl_ext_swapinterval, gl_ext_palettedtexture, gl_ext_multitexture, gl_ext_pointparameters, gl_ext_compiled_vertex_array, \
@@ -1047,7 +1077,7 @@ def R_Register():
 	r_anisotropic, r_customheight, r_customwidth, r_farsee, r_fixsurfsky, r_gunfov, \
 	r_lerp_list, r_nolerp_list, r_palettedtextures, r_retexturing, r_scale8bittextures, r_validation, r_videos_unfiltered
 
-	r_lefthand = ri.Cvar_Get( "hand", "0", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE )
+	gl_lefthand = ri.Cvar_Get( "hand", "0", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE )
 	r_norefresh = ri.Cvar_Get ("r_norefresh", "0", 0)
 	r_fullbright = ri.Cvar_Get ("r_fullbright", "0", 0)
 	r_drawentities = ri.Cvar_Get ("r_drawentities", "1", 0)
