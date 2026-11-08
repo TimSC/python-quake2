@@ -974,6 +974,9 @@ def R_Upload32 (data, width, height, mipmap): #unsigned *, int, int, qboolean (r
 	if scaled_width * scaled_height > scaledSize:
 		gl1_main.ri.Sys_Error (shared.ERR_DROP, "R_Upload32: too big")
 
+	# Q2PORT: the C scales the 32-bit pixels by intensity (and gamma) here before the alpha scan
+	R_LightScaleTexture (data, width, height, not mipmap )
+
 	# scan the texture for any non-255 alpha
 	c = width*height
 	scan = 3

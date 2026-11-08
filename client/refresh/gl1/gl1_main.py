@@ -99,11 +99,27 @@ class glconfig_t(object):
 
 	def __init__(self):
 
-		self.renderer = None #int
 		self.renderer_string = None #const char *
 		self.vendor_string = None #const char *
 		self.version_string = None #const char *
 		self.extensions_string = None #const char *
+
+		self.num_extensions = 0 #int
+		self.major_version = 0 #int
+		self.minor_version = 0 #int
+
+		# ----
+
+		self.anisotropic = False #qboolean
+		self.npottextures = False #qboolean
+		self.palettedtexture = False #qboolean
+		self.pointparameters = False #qboolean
+		self.multitexture = False #qboolean
+		self.tilerendering = False #qboolean, see "Tile-Based Rendering optimizations" in gl1_main.c
+
+		# ----
+
+		self.max_anisotropy = 0.0 #float
 
 		self.allow_cds = True #qboolean
 
@@ -1251,6 +1267,12 @@ def R_Init( hinstance, hWnd ): #void *, void *
 	ri.Con_Printf (shared.PRINT_ALL, "GL_VERSION: {}\n".format(gl_config.version_string) )
 	gl_config.extensions = set(glGetString (GL.GL_EXTENSIONS).decode('utf-8').split(" "))
 	ri.Con_Printf (shared.PRINT_ALL, "GL_EXTENSIONS: {}\n".format(gl_config.extensions) )
+
+	# PyOpenGL provides the fixed-function multitexture / point / npot paths unconditionally
+	gl_config.npottextures = "GL_ARB_texture_non_power_of_two" in gl_config.extensions
+	gl_config.multitexture = bool(gl1_multitexture.value)
+	gl_config.tilerendering = bool(gl1_tilerendering.value)
+	gl_config.pointparameters = bool(gl_ext_pointparameters.value)
 
 	renderer_buffer = gl_config.renderer_string.decode("ascii", "ignore").lower() # strcpy and strlwr
 	vendor_buffer = gl_config.vendor_string.decode("ascii", "ignore").lower()

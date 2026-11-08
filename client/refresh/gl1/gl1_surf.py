@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import numpy as np
 import OpenGL.GL as GL
-from client.refresh.gl1 import gl1_warp, gl1_image, gl1_main, gl1_model, gl1_light
+from client.refresh.gl1 import gl1_warp, gl1_image, gl1_main, gl1_model, gl1_light, gl1_lightmap
 from client.refresh.gl1.header import model
 from linux import qgl_linux
 pass
@@ -61,8 +61,7 @@ class gllightmapstate_t(object):
 
 	def __init__(self):
 
-		self.internal_format = None #int
-		self.current_lightmap_texture = 1 #int
+		self.current_lightmap_texture = 0 #int
 
 		self.lightmap_surfaces = [[] for _ in range(MAX_LIGHTMAPS)] #msurface_t *[MAX_LIGHTMAPS], each chain is a list
 
@@ -70,7 +69,7 @@ class gllightmapstate_t(object):
 
 		# the lightmap texture data needs to be kept in
 		# main memory so texsubimage can update properly
-		self.lightmap_buffer = bytearray(4*BLOCK_WIDTH*BLOCK_HEIGHT) #byte [4*BLOCK_WIDTH*BLOCK_HEIGHT]
+		self.lightmap_buffer = [None] * MAX_LIGHTMAPS #byte *[MAX_LIGHTMAPS]
 
 gl_lms = gllightmapstate_t() #static gllightmapstate_t
 
@@ -384,7 +383,7 @@ def R_BlendLightmaps ():
 	#
 	if gl1_main.gl1_dynamic.value:
 
-		LM_InitBlock()
+		gl1_lightmap.LM_InitBlock()
 
 		gl1_image.R_Bind( gl1_main.gl_state.lightmap_textures+0 )
 
@@ -402,19 +401,19 @@ def R_BlendLightmaps ():
 			smax = (surf.extents[0]>>4)+1
 			tmax = (surf.extents[1]>>4)+1
 
-			ok, surf.dlight_s, surf.dlight_t = LM_AllocBlock( smax, tmax )
+			ok, surf.dlight_s, surf.dlight_t = gl1_lightmap.LM_AllocBlock( smax, tmax )
 			if ok:
 
 				base = ( surf.dlight_t * BLOCK_WIDTH + surf.dlight_s ) * LIGHTMAP_BYTES
 
-				gl1_light.R_BuildLightMap (surf, memoryview(gl_lms.lightmap_buffer)[base:], BLOCK_WIDTH*LIGHTMAP_BYTES)
+				gl1_light.R_BuildLightMap (surf, memoryview(gl_lms.lightmap_buffer[0])[base:], BLOCK_WIDTH*LIGHTMAP_BYTES)
 
 			else:
 
 				#msurface_t *drawsurf;
 
 				# upload what we have so far
-				LM_UploadBlock( True )
+				gl1_lightmap.LM_UploadBlock( True )
 
 				# draw all surfaces that use this lightmap
 				for drawsurf in dynamic_surfaces[newdrawsurf:surf_i]:
@@ -427,23 +426,23 @@ def R_BlendLightmaps ():
 				newdrawsurf = surf_i
 
 				# clear the block
-				LM_InitBlock()
+				gl1_lightmap.LM_InitBlock()
 
 				# try uploading the block now
-				ok, surf.dlight_s, surf.dlight_t = LM_AllocBlock( smax, tmax )
+				ok, surf.dlight_s, surf.dlight_t = gl1_lightmap.LM_AllocBlock( smax, tmax )
 				if not ok:
 
 					gl1_main.ri.Sys_Error( shared.ERR_FATAL, "Consecutive calls to LM_AllocBlock({},{}) failed (dynamic)\n".format(smax, tmax) )
 
 				base = ( surf.dlight_t * BLOCK_WIDTH + surf.dlight_s ) * LIGHTMAP_BYTES
 
-				gl1_light.R_BuildLightMap (surf, memoryview(gl_lms.lightmap_buffer)[base:], BLOCK_WIDTH*LIGHTMAP_BYTES)
+				gl1_light.R_BuildLightMap (surf, memoryview(gl_lms.lightmap_buffer[0])[base:], BLOCK_WIDTH*LIGHTMAP_BYTES)
 
 		#
 		# draw remainder of dynamic lightmaps that haven't been uploaded yet
 		#
 		if dynamic_surfaces[newdrawsurf:]:
-			LM_UploadBlock( True )
+			gl1_lightmap.LM_UploadBlock( True )
 
 		for surf in dynamic_surfaces[newdrawsurf:]:
 
@@ -1312,325 +1311,4 @@ def R_MarkLeaves ():
 #endif
 	"""
 
-
-"""
-=============================================================================
-
-  LIGHTMAP ALLOCATION
-
-=============================================================================
-"""
-
-def LM_InitBlock():
-
-	gl_lms.allocated = [0] * BLOCK_WIDTH # memset( gl_lms.allocated, 0, sizeof( gl_lms.allocated ) );
-
-
-def LM_UploadBlock( dynamic ): #qboolean
-
-	#int texture;
-	#int height = 0;
-	height = 0
-
-	if dynamic:
-
-		texture = 0
-
-	else:
-
-		texture = gl_lms.current_lightmap_texture
-
-	gl1_image.R_Bind( gl1_main.gl_state.lightmap_textures + texture )
-	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
-	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
-
-	if dynamic:
-
-		#int i;
-
-		for i in range(BLOCK_WIDTH):
-
-			if gl_lms.allocated[i] > height:
-				height = gl_lms.allocated[i]
-
-		GL.glTexSubImage2D( GL.GL_TEXTURE_2D,
-						  0,
-						  0, 0,
-						  BLOCK_WIDTH, height,
-						  GL_LIGHTMAP_FORMAT,
-						  GL.GL_UNSIGNED_BYTE,
-						  bytes(gl_lms.lightmap_buffer) )
-
-	else:
-
-		GL.glTexImage2D( GL.GL_TEXTURE_2D,
-					   0,
-					   gl_lms.internal_format,
-					   BLOCK_WIDTH, BLOCK_HEIGHT,
-					   0,
-					   GL_LIGHTMAP_FORMAT,
-					   GL.GL_UNSIGNED_BYTE,
-					   bytes(gl_lms.lightmap_buffer) )
-		gl_lms.current_lightmap_texture += 1
-		if gl_lms.current_lightmap_texture == MAX_LIGHTMAPS:
-			gl1_main.ri.Sys_Error( shared.ERR_DROP, "LM_UploadBlock() - MAX_LIGHTMAPS exceeded\n" )
-
-
-# returns a texture number and the position inside it
-def LM_AllocBlock (w, h): #int, int (returns qboolean, int x, int y)
-
-	#int		i, j;
-	#int		best, best2;
-	x = y = 0
-
-	best = BLOCK_HEIGHT
-
-	for i in range(BLOCK_WIDTH-w):
-
-		best2 = 0
-
-		for j in range(w):
-
-			if gl_lms.allocated[i+j] >= best:
-				break
-			if gl_lms.allocated[i+j] > best2:
-				best2 = gl_lms.allocated[i+j]
-
-		else: # j == w
-			# this is a valid spot
-			x = i
-			y = best = best2
-
-	if best + h > BLOCK_HEIGHT:
-		return False, x, y
-
-	for i in range(w):
-		gl_lms.allocated[x + i] = best + h
-
-	return True, x, y
-
-"""
-================
-GL_BuildPolygonFromSurface
-================
-"""
-def GL_BuildPolygonFromSurface(fa): #msurface_t *
-
-	"""
-	int			i, lindex, lnumverts;
-	medge_t		*pedges, *r_pedge;
-	int			vertpage;
-	float		*vec;
-	float		s, t;
-	glpoly_t	*poly;
-	vec3_t		total;
-	"""
-	currentmodel = gl1_main.currentmodel
-	total = np.zeros((3,), dtype=np.float32)
-
-	# reconstruct the polygon
-	pedges = currentmodel.edges
-	lnumverts = fa.numedges
-	vertpage = 0
-
-	shared.VectorClear (total)
-	#
-	# draw texture
-	#
-	poly = model.glpoly_t() # Hunk_Alloc (sizeof(glpoly_t) + (lnumverts-4) * VERTEXSIZE*sizeof(float));
-	poly.verts = np.zeros((lnumverts, model.VERTEXSIZE), dtype=np.float32)
-	poly.flags = fa.flags
-	fa.polys.insert(0, poly) # poly->next = fa->polys; fa->polys = poly;
-	poly.numverts = lnumverts
-
-	# FIXME r_notexture is None until R_InitParticleTexture is ported, so guard the image size
-	image_width = fa.texinfo.image.width if fa.texinfo.image is not None else 1
-	image_height = fa.texinfo.image.height if fa.texinfo.image is not None else 1
-
-	for i in range(lnumverts):
-
-		lindex = int(currentmodel.surfedges[fa.firstedge + i])
-
-		if lindex > 0:
-
-			r_pedge = pedges[lindex]
-			vec = currentmodel.vertexes[r_pedge.v[0]].position
-
-		else:
-
-			r_pedge = pedges[-lindex]
-			vec = currentmodel.vertexes[r_pedge.v[1]].position
-
-		s = shared.DotProduct (vec, fa.texinfo.vecs[0]) + fa.texinfo.vecs[0][3]
-		s /= image_width
-
-		t = shared.DotProduct (vec, fa.texinfo.vecs[1]) + fa.texinfo.vecs[1][3]
-		t /= image_height
-
-		shared.VectorAdd (total, vec, total)
-		poly.verts[i][:3] = vec # VectorCopy (vec, poly->verts[i]);
-		poly.verts[i][3] = s
-		poly.verts[i][4] = t
-
-		#
-		# lightmap texture coordinates
-		#
-		s = shared.DotProduct (vec, fa.texinfo.vecs[0]) + fa.texinfo.vecs[0][3]
-		s -= fa.texturemins[0]
-		s += fa.light_s*16
-		s += 8
-		s /= BLOCK_WIDTH*16 #fa->texinfo->texture->width;
-
-		t = shared.DotProduct (vec, fa.texinfo.vecs[1]) + fa.texinfo.vecs[1][3]
-		t -= fa.texturemins[1]
-		t += fa.light_t*16
-		t += 8
-		t /= BLOCK_HEIGHT*16 #fa->texinfo->texture->height;
-
-		poly.verts[i][5] = s
-		poly.verts[i][6] = t
-
-	poly.numverts = lnumverts
-
-"""
-========================
-GL_CreateSurfaceLightmap
-========================
-"""
-def GL_CreateSurfaceLightmap (surf): #msurface_t *
-
-	#int		smax, tmax;
-	#byte	*base;
-
-	if surf.flags & (model.SURF_DRAWSKY|model.SURF_DRAWTURB):
-		return
-
-	smax = (surf.extents[0]>>4)+1
-	tmax = (surf.extents[1]>>4)+1
-
-	ok, surf.light_s, surf.light_t = LM_AllocBlock( smax, tmax )
-	if not ok:
-
-		LM_UploadBlock( False )
-		LM_InitBlock()
-		ok, surf.light_s, surf.light_t = LM_AllocBlock( smax, tmax )
-		if not ok:
-
-			gl1_main.ri.Sys_Error( shared.ERR_FATAL, "Consecutive calls to LM_AllocBlock({},{}) failed\n".format(smax, tmax) )
-
-	surf.lightmaptexturenum = gl_lms.current_lightmap_texture
-
-	base = (surf.light_t * BLOCK_WIDTH + surf.light_s) * LIGHTMAP_BYTES
-
-	gl1_light.R_SetCacheState( surf )
-	gl1_light.R_BuildLightMap (surf, memoryview(gl_lms.lightmap_buffer)[base:], BLOCK_WIDTH*LIGHTMAP_BYTES)
-
-
-"""
-==================
-GL_BeginBuildingLightmaps
-
-==================
-"""
-def GL_BeginBuildingLightmaps (m): #model_t *
-
-	"""
-	static lightstyle_t	lightstyles[MAX_LIGHTSTYLES];
-	int				i;
-	unsigned		dummy[128*128];
-	"""
-
-	gl_lms.allocated = [0] * BLOCK_WIDTH # memset( gl_lms.allocated, 0, sizeof(gl_lms.allocated) );
-
-	gl1_main.r_framecount = 1		# no dlightcache
-
-	gl1_image.R_EnableMultitexture( True )
-	gl1_image.R_SelectTexture( GL.GL_TEXTURE1)
-
-	#
-	# setup the base lightstyles so the lightmaps won't have to be regenerated
-	# the first time they're seen
-	#
-	lightstyles = []
-	for i in range(shared.MAX_LIGHTSTYLES):
-
-		ls = ref.lightstyle_t()
-		ls.rgb[0] = 1
-		ls.rgb[1] = 1
-		ls.rgb[2] = 1
-		ls.white = 3
-		lightstyles.append(ls)
-
-	gl1_main.r_newrefdef.lightstyles = lightstyles
-
-	if not gl1_main.gl_state.lightmap_textures:
-
-		gl1_main.gl_state.lightmap_textures	= gl1_image.TEXNUM_LIGHTMAPS
-#		gl_state.lightmap_textures	= gl_state.texture_extension_number;
-#		gl_state.texture_extension_number = gl_state.lightmap_textures + MAX_LIGHTMAPS;
-
-	gl_lms.current_lightmap_texture = 1
-
-	#
-	# if mono lightmaps are enabled and we want to use alpha
-	# blending (a,1-a) then we're likely running on a 3DLabs
-	# Permedia2.  In a perfect world we'd use a GL_ALPHA lightmap
-	# in order to conserve space and maximize bandwidth, however
-	# this isn't a perfect world.
-	#
-	# So we have to use alpha lightmaps, but stored in GL_RGBA format,
-	# which means we only get 1/16th the color resolution we should when
-	# using alpha lightmaps.  If we find another board that supports
-	# only alpha lightmaps but that can at least support the GL_ALPHA
-	# format then we should change this code to use real alpha maps.
-	#
-	mode = gl1_main.gl_monolightmap.string[0].upper()
-	if mode == 'A':
-
-		gl_lms.internal_format = gl1_image.gl_tex_alpha_format
-
-	#
-	# try to do hacked colored lighting with a blended texture
-	#
-	elif mode == 'C':
-
-		gl_lms.internal_format = gl1_image.gl_tex_alpha_format
-
-	elif mode == 'I':
-
-		gl_lms.internal_format = GL.GL_INTENSITY8
-
-	elif mode == 'L':
-
-		gl_lms.internal_format = GL.GL_LUMINANCE8
-
-	else:
-
-		gl_lms.internal_format = gl1_image.gl_tex_solid_format
-
-	#
-	# initialize the dynamic lightmap texture
-	#
-	dummy = bytes(4*128*128)
-	gl1_image.R_Bind( gl1_main.gl_state.lightmap_textures + 0 )
-	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
-	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
-	GL.glTexImage2D( GL.GL_TEXTURE_2D,
-				   0,
-				   gl_lms.internal_format,
-				   BLOCK_WIDTH, BLOCK_HEIGHT,
-				   0,
-				   GL_LIGHTMAP_FORMAT,
-				   GL.GL_UNSIGNED_BYTE,
-				   dummy )
-
-"""
-=======================
-GL_EndBuildingLightmaps
-=======================
-"""
-def GL_EndBuildingLightmaps ():
-
-	LM_UploadBlock( False )
-	gl1_image.R_EnableMultitexture( False )
 

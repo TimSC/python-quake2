@@ -22,7 +22,7 @@ from __future__ import annotations
 import math
 import struct
 import numpy as np
-from client.refresh.gl1 import gl1_main, gl1_image, gl1_surf, gl1_warp
+from client.refresh.gl1 import gl1_main, gl1_image, gl1_surf, gl1_warp, gl1_lightmap
 from client.refresh.gl1.header import model
 from client.refresh.files import models as files_models
 from client.refresh.files import pvs as files_pvs
@@ -306,6 +306,7 @@ Mod_LoadFaces
 """
 def Mod_LoadFaces(l: files_h.lump_t):
 
+
 	face_size = 20
 	if l.filelen % face_size:
 		gl1_main.ri.Sys_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size in {}".format(loadmodel.name))
@@ -317,7 +318,8 @@ def Mod_LoadFaces(l: files_h.lump_t):
 	currentmodel = loadmodel
 	gl1_main.currentmodel = loadmodel # GL_BuildPolygonFromSurface reads the renderer global
 
-	gl1_surf.GL_BeginBuildingLightmaps (loadmodel)
+
+	gl1_lightmap.LM_BeginBuildingLightmaps (loadmodel)
 
 	for face_num in range(count):
 
@@ -370,14 +372,15 @@ def Mod_LoadFaces(l: files_h.lump_t):
 
 		# create lightmaps and polygons
 		if not (surf.texinfo.flags & (shared.SURF_SKY|shared.SURF_TRANS33|shared.SURF_TRANS66|shared.SURF_WARP)):
-			gl1_surf.GL_CreateSurfaceLightmap (surf)
+			gl1_lightmap.LM_CreateSurfaceLightmap (surf)
 
 		if not (surf.texinfo.flags & shared.SURF_WARP):
-			gl1_surf.GL_BuildPolygonFromSurface (surf)
+			gl1_lightmap.LM_BuildPolygonFromSurface (loadmodel, surf)
 
 		loadmodel.surfaces.append(surf)
 
-	gl1_surf.GL_EndBuildingLightmaps ()
+
+	gl1_lightmap.LM_EndBuildingLightmaps ()
 
 
 """
@@ -446,6 +449,7 @@ Mod_LoadBrushModel
 =================
 """
 def Mod_LoadBrushModel (mod, buff): #model_t *, void *
+
 
 	global loadmodel, mod_base
 	"""
