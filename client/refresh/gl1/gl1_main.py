@@ -1024,7 +1024,12 @@ def R_Register():
 	gl_log, gl_bitdepth, gl_drawbuffer, gl_driver, r_lightmap, r_shadows, gl_mode, gl1_dynamic, gl_monolightmap, r_modulate, gl_nobind, \
 	gl1_round_down, gl1_picmip, gl_skymip, gl_showtris, gl1_ztrick, gl_finish, r_clear, r_cull, gl_polyblend, gl1_flashblend, gl_playermip, \
 	gl1_saturatelighting, r_vsync, gl_texturemode, gl1_texturealphamode, gl1_texturesolidmode, r_lockpvs, \
-	gl_3dlabs_broken, vid_fullscreen, vid_gamma, vid_ref
+	gl_3dlabs_broken, vid_fullscreen, vid_gamma, vid_ref, \
+	gl1_intensity, gl1_minlight, gl1_multitexture, gl1_overbrightbits, gl1_particle_square, \
+	gl1_pointparameters, gl1_stencilshadow, gl1_stereo, gl1_stereo_anaglyph_colors, gl1_stereo_convergence, \
+	gl1_stereo_separation, gl1_tilerendering, gl1_waterwarp, gl_showbbox, gl_zfix, gl_znear, \
+	r_anisotropic, r_customheight, r_customwidth, r_farsee, r_fixsurfsky, r_gunfov, \
+	r_lerp_list, r_nolerp_list, r_palettedtextures, r_retexturing, r_scale8bittextures, r_validation, r_videos_unfiltered
 
 	r_lefthand = ri.Cvar_Get( "hand", "0", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE )
 	r_norefresh = ri.Cvar_Get ("r_norefresh", "0", 0)
@@ -1091,6 +1096,36 @@ def R_Register():
 	vid_fullscreen = ri.Cvar_Get( "vid_fullscreen", "0", shared.CVAR_ARCHIVE )
 	vid_gamma = ri.Cvar_Get( "vid_gamma", "1.0", shared.CVAR_ARCHIVE )
 	vid_ref = ri.Cvar_Get( "vid_ref", "soft", shared.CVAR_ARCHIVE )
+
+	gl1_intensity = ri.Cvar_Get( "gl1_intensity", "2", shared.CVAR_ARCHIVE )
+	gl1_minlight = ri.Cvar_Get( "gl1_minlight", "0", shared.CVAR_ARCHIVE )
+	gl1_multitexture = ri.Cvar_Get( "gl1_multitexture", "1", shared.CVAR_ARCHIVE )
+	gl1_overbrightbits = ri.Cvar_Get( "gl1_overbrightbits", "0", shared.CVAR_ARCHIVE )
+	gl1_particle_square = ri.Cvar_Get( "gl1_particle_square", "0", shared.CVAR_ARCHIVE )
+	gl1_pointparameters = ri.Cvar_Get( "gl1_pointparameters", "1", shared.CVAR_ARCHIVE )
+	gl1_stencilshadow = ri.Cvar_Get( "gl1_stencilshadow", "0", shared.CVAR_ARCHIVE )
+	gl1_stereo = ri.Cvar_Get( "gl1_stereo", "0", shared.CVAR_ARCHIVE )
+	gl1_stereo_anaglyph_colors = ri.Cvar_Get( "gl1_stereo_anaglyph_colors", "rc", shared.CVAR_ARCHIVE )
+	gl1_stereo_convergence = ri.Cvar_Get( "gl1_stereo_convergence", "1", shared.CVAR_ARCHIVE )
+	gl1_stereo_separation = ri.Cvar_Get( "gl1_stereo_separation", "-0.4", shared.CVAR_ARCHIVE )
+	gl1_tilerendering = ri.Cvar_Get( "gl1_tilerendering", "0", shared.CVAR_ARCHIVE )
+	gl1_waterwarp = ri.Cvar_Get( "gl1_waterwarp", "1.0", shared.CVAR_ARCHIVE )
+	gl_showbbox = ri.Cvar_Get( "gl_showbbox", "0", 0 )
+	gl_zfix = ri.Cvar_Get( "gl_zfix", "0", 0 )
+	gl_znear = ri.Cvar_Get( "gl_znear", "4", shared.CVAR_ARCHIVE )
+	r_anisotropic = ri.Cvar_Get( "r_anisotropic", "0", shared.CVAR_ARCHIVE )
+	r_customheight = ri.Cvar_Get( "r_customheight", "768", shared.CVAR_ARCHIVE )
+	r_customwidth = ri.Cvar_Get( "r_customwidth", "1024", shared.CVAR_ARCHIVE )
+	r_farsee = ri.Cvar_Get( "r_farsee", "0", shared.CVAR_LATCH | shared.CVAR_ARCHIVE )
+	r_fixsurfsky = ri.Cvar_Get( "r_fixsurfsky", "0", shared.CVAR_ARCHIVE )
+	r_gunfov = ri.Cvar_Get( "r_gunfov", "80", shared.CVAR_ARCHIVE )
+	r_lerp_list = ri.Cvar_Get( "r_lerp_list", "", shared.CVAR_ARCHIVE )
+	r_nolerp_list = ri.Cvar_Get( "r_nolerp_list", "pics/conchars.pcx pics/ch1.pcx pics/ch2.pcx pics/ch3.pcx", shared.CVAR_ARCHIVE )
+	r_palettedtextures = ri.Cvar_Get( "r_palettedtextures", "0", shared.CVAR_ARCHIVE )
+	r_retexturing = ri.Cvar_Get( "r_retexturing", "1", shared.CVAR_ARCHIVE )
+	r_scale8bittextures = ri.Cvar_Get( "r_scale8bittextures", "0", shared.CVAR_ARCHIVE )
+	r_validation = ri.Cvar_Get( "r_validation", "0", shared.CVAR_ARCHIVE )
+	r_videos_unfiltered = ri.Cvar_Get( "r_videos_unfiltered", "0", shared.CVAR_ARCHIVE )
 
 	ri.Cmd_AddCommand( "imagelist", gl1_image.R_ImageList_f )
 	ri.Cmd_AddCommand( "screenshot", gl1_misc.GL_ScreenShot_f )
