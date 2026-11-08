@@ -36,6 +36,7 @@ pass
 pass
 from client.refresh.gl1 import gl1_draw, gl1_image, gl1_misc, gl1_model, gl1_warp, gl1_surf, gl1_mesh, gl1_light
 from client.refresh.gl1.header import model
+from client.refresh.files import models as files_models
 from common.header import files as files_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -634,7 +635,7 @@ def R_SetupFrame ():
 	
 		r_oldviewcluster = r_viewcluster
 		r_oldviewcluster2 = r_viewcluster2
-		leaf = gl1_model.Mod_PointInLeaf (r_origin, r_worldmodel)
+		leaf = files_models.Mod_PointInLeaf (r_origin, r_worldmodel.nodes[0])
 		r_viewcluster = r_viewcluster2 = leaf.cluster
 
 		# check above and below so crossing solid water doesn't draw wrong
@@ -644,7 +645,7 @@ def R_SetupFrame ():
 
 			shared.VectorCopy (r_origin, temp)
 			temp[2] -= 16
-			leaf = gl1_model.Mod_PointInLeaf (temp, r_worldmodel)
+			leaf = files_models.Mod_PointInLeaf (temp, r_worldmodel.nodes[0])
 			if ( not (leaf.contents & shared.CONTENTS_SOLID) and
 				(leaf.cluster != r_viewcluster2) ):
 				r_viewcluster2 = leaf.cluster
@@ -655,7 +656,7 @@ def R_SetupFrame ():
 
 			shared.VectorCopy (r_origin, temp)
 			temp[2] += 16
-			leaf = gl1_model.Mod_PointInLeaf (temp, r_worldmodel)
+			leaf = files_models.Mod_PointInLeaf (temp, r_worldmodel.nodes[0])
 			if ( not (leaf.contents & shared.CONTENTS_SOLID) and
 				(leaf.cluster != r_viewcluster2) ):
 				r_viewcluster2 = leaf.cluster

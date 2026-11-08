@@ -24,6 +24,8 @@ import struct
 import numpy as np
 from client.refresh.gl1 import gl1_main, gl1_image, gl1_surf, gl1_warp
 from client.refresh.gl1.header import model
+from client.refresh.files import models as files_models
+from client.refresh.files import pvs as files_pvs
 pass
 pass
 from common.header import files as files_h
@@ -55,73 +57,6 @@ mod_inline = [model.model_t() for _ in range(MAX_MOD_KNOWN)]
 currentmodel = None
 registration_sequence = 0 #int		
 
-# ===================
-# Mod_PointInLeaf
-# ===================
-def Mod_PointInLeaf(p, model):
-	"""Return the leaf containing point `p` inside `model`."""
-
-	if model is None or not model.nodes:
-		gl1_main.ri.Sys_Error (shared.ERR_DROP, "Mod_PointInLeaf: bad model")
-
-	node = model.nodes[0] if model.nodes else None
-	while node is not None:
-		if node.contents != -1:
-			return node
-		plane = node.plane
-		if plane is None:
-			break
-		d = shared.DotProduct(p, plane.normal) - plane.dist
-		node = node.children[0] if d > 0 else node.children[1]
-
-	return None
-
-
-# ===================
-# Mod_DecompressVis
-# ===================
-def Mod_DecompressVis(data, model):
-
-	if not model or not model.vis:
-		return mod_novis
-
-	row = (model.vis.numclusters + 7) >> 3
-	if row <= 0:
-		return bytearray()
-
-	decompressed = bytearray(row)
-	if not data:
-		for i in range(row):
-			decompressed[i] = 0xff
-		return decompressed
-
-	out_pos = 0
-	i = 0
-	data_view = memoryview(data)
-	while out_pos < row and i < len(data_view):
-		value = data_view[i]
-		if value:
-			decompressed[out_pos] = value
-			out_pos += 1
-			i += 1
-			continue
-
-		if i + 1 >= len(data_view):
-			break
-		count = data_view[i + 1]
-		i += 2
-		for _ in range(count):
-			if out_pos >= row:
-				break
-			decompressed[out_pos] = 0
-			out_pos += 1
-
-	while out_pos < row:
-		decompressed[out_pos] = 0
-		out_pos += 1
-
-	return decompressed
-
 # ==================
 # Mod_ClusterPVS
 # ==================
@@ -136,7 +71,7 @@ def Mod_ClusterPVS(cluster, model):
 	if offset < 0 or data is None or len(data) == 0:
 		return mod_novis
 
-	return Mod_DecompressVis(data[offset:], model)
+	return files_pvs.Mod_DecompressVis(data[offset:], (model.vis.numclusters + 7) >> 3)
 
 
 
@@ -286,93 +221,6 @@ mod_base = None #byte *
 
 """
 =================
-Mod_LoadLighting
-=================
-"""
-def Mod_LoadLighting (l: files_h.lump_t):
-
-	if not l.filelen:
-	
-		loadmodel.lightdata = None
-		return
-	
-	in_offset = l.fileofs
-	in_offset2 = in_offset + l.filelen
-
-	loadmodel.lightdata = mod_base[in_offset:in_offset2]
-
-
-"""
-=================
-Mod_LoadVisibility
-=================
-"""
-def Mod_LoadVisibility(l: files_h.lump_t):
-
-	if not l.filelen:
-		loadmodel.vis = None
-		return
-
-	in_offset = l.fileofs
-	in_offset2 = in_offset + l.filelen
-	buffer = mod_base[in_offset:in_offset2]
-
-	vis = files_h.dvis_t()
-	vis.load(buffer)
-	loadmodel.vis = vis
-
-
-"""
-=================
-Mod_LoadVertexes
-=================
-"""
-def Mod_LoadVertexes (l): #qfiles.lump_t *
-
-	global mod_base, loadmodel
-	"""
-	dvertex_t	*in;
-	mvertex_t	*out;
-	int			i, count;
-	"""
-
-	#in = (void *)(mod_base + l->fileofs);
-	if l.filelen % files_h.dvertex_t.packed_size():
-		gl1_main.ri.Sys_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size in {}".format(loadmodel.name))
-	count = l.filelen // files_h.dvertex_t.packed_size()
-	#out = Hunk_Alloc ( count*sizeof(*out))
-
-	loadmodel.vertexes = np.zeros((count, 3), dtype=np.float32)
-	loadmodel.numvertexes = count
-	in_obj = files_h.dvertex_t()
-	out = loadmodel.vertexes
-
-	for i in range(count):
-	
-		in_offset = l.fileofs + i * files_h.dvertex_t.packed_size()
-		in_offset2 = in_offset + files_h.dvertex_t.packed_size()
-		in_obj.load(mod_base[in_offset:in_offset2])
-
-		out[i, 0] = in_obj.point[0]
-		out[i, 1] = in_obj.point[1]
-		out[i, 2] = in_obj.point[2]
-
-"""
-=================
-RadiusFromBounds
-=================
-"""
-def RadiusFromBounds(mins, maxs):
-
-	mins_arr = np.abs(np.array(mins))
-	maxs_arr = np.abs(np.array(maxs))
-	corner = np.maximum(mins_arr, maxs_arr)
-
-	return float(np.linalg.norm(corner))
-
-
-"""
-=================
 Mod_LoadSubmodels
 =================
 """
@@ -396,116 +244,12 @@ def Mod_LoadSubmodels(l: files_h.lump_t):
 		out.mins = in_obj.mins - 1.0
 		out.maxs = in_obj.maxs + 1.0
 		out.origin = in_obj.origin.copy()
-		out.radius = RadiusFromBounds(out.mins, out.maxs)
+		out.radius = files_pvs.Mod_RadiusFromBounds(out.mins, out.maxs)
 		out.headnode = in_obj.headnode
 		out.firstface = in_obj.firstface
 		out.numfaces = in_obj.numfaces
 
 		loadmodel.submodels.append(out)
-
-"""
-=================
-Mod_LoadEdges
-=================
-"""
-def Mod_LoadEdges (l: files_h.lump_t):
-
-	"""
-	dedge_t *in;
-	medge_t *out;
-	int 	i, count;
-	"""
-
-	#in = (void *)(mod_base + l->fileofs);
-	if l.filelen % files_h.dedge_t.packed_size():
-		gl1_main.ri.Sys_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size in {}".format(loadmodel.name))
-	count = l.filelen // files_h.dedge_t.packed_size()
-	out = np.zeros((count, 2), dtype=np.uint16)
-
-	loadmodel.edges = out
-	loadmodel.numedges = count
-	in_obj = files_h.dedge_t()
-
-	for i in range(count):
-	
-		in_offset = l.fileofs + i * files_h.dedge_t.packed_size()
-		in_offset2 = in_offset + files_h.dedge_t.packed_size()
-		in_obj.load(mod_base[in_offset:in_offset2])
-
-		out[i, 0] = in_obj.v[0]
-		out[i, 1] = in_obj.v[1]
-	
-
-
-"""
-=================
-Mod_LoadTexinfo
-=================
-"""
-def Mod_LoadTexinfo (l: files_h.lump_t):
-
-	"""
-	texinfo_t *in;
-	mtexinfo_t *out, *step;
-	int 	i, j, count;
-	char	name[MAX_QPATH];
-	int		next;
-	"""
-
-	#in = (void *)(mod_base + l->fileofs);
-	if l.filelen % files_h.texinfo_t.packed_size():
-		gl1_main.ri.Sys_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size in {}".format(loadmodel.name))
-	count = l.filelen // files_h.texinfo_t.packed_size()
-	out = []
-
-	loadmodel.texinfo = out
-	loadmodel.numtexinfo = count
-	in_obj = files_h.texinfo_t()
-
-	for i in range(count):
-	
-		in_offset = l.fileofs + i * files_h.texinfo_t.packed_size()
-		in_offset2 = in_offset + files_h.texinfo_t.packed_size()
-		in_obj.load(mod_base[in_offset:in_offset2])
-
-		out_obj = model.mtexinfo_t()
-
-		out_obj.vecs = in_obj.vecs.copy()
-
-		out_obj.flags = in_obj.flags
-		next = in_obj.nexttexinfo
-
-		if next > 0:
-			out_obj.next = next
-		else:
-		    out_obj.next = None
-		name = "textures/{}.wal".format(in_obj.texture)
-
-		out_obj.image = gl1_image.R_FindImage (name, gl1_image.imagetype_t.it_wall)
-		if out_obj.image is None:
-		
-			gl1_main.ri.Con_Printf (shared.PRINT_ALL, "Couldn't load {}\n".format(name))
-			out_obj.image = gl1_main.r_notexture
-		
-		out.append(out_obj)
-
-	
-	# out->next = loadmodel->texinfo + next; the index is turned into a reference
-	# once all the texinfos exist
-	for i in range(count):
-		if loadmodel.texinfo[i].next is not None:
-			loadmodel.texinfo[i].next = loadmodel.texinfo[loadmodel.texinfo[i].next]
-
-	# count animation frames
-	for i in range(count):
-
-		out = loadmodel.texinfo[i]
-		out.numframes = 1
-		step = out.next
-		while step is not None and step is not out:
-			out.numframes+=1
-			step = step.next
-
 
 """
 ================
@@ -530,11 +274,11 @@ def CalcSurfaceExtents(s: model.msurface_t):
 
 		e = int(loadmodel.surfedges[surfedge_index])
 		if e >= 0:
-			vertex_index = int(loadmodel.edges[e, 0])
+			vertex_index = int(loadmodel.edges[e].v[0])
 		else:
-			vertex_index = int(loadmodel.edges[-e, 1])
+			vertex_index = int(loadmodel.edges[-e].v[1])
 
-		vertex = loadmodel.vertexes[vertex_index]
+		vertex = loadmodel.vertexes[vertex_index].position
 		for j in range(2):
 			val = (
 				vertex[0] * tex.vecs[j, 0]
@@ -638,73 +382,6 @@ def Mod_LoadFaces(l: files_h.lump_t):
 
 """
 =================
-Mod_SetParent
-=================
-"""
-def Mod_SetParent(node: model.mnode_t, parent: model.mnode_t):
-
-	if node is None:
-		return
-
-	node.parent = parent
-	if node.contents != -1:
-		return
-
-	for child in node.children:
-		if child is not None:
-			Mod_SetParent(child, node)
-
-
-"""
-=================
-Mod_LoadNodes
-=================
-"""
-def Mod_LoadNodes(l: files_h.lump_t):
-
-	node_size = files_h.dnode_t.packed_size()
-	if l.filelen % node_size:
-		gl1_main.ri.Sys_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size in {}".format(loadmodel.name))
-
-	count = l.filelen // node_size
-	loadmodel.nodes = []
-	loadmodel.numnodes = count
-	in_obj = files_h.dnode_t()
-	child_indices = []
-
-	for i in range(count):
-
-		in_offset = l.fileofs + i * node_size
-		in_offset2 = in_offset + node_size
-		in_obj.load(mod_base[in_offset:in_offset2])
-
-		node = model.mnode_t()
-		node.minmaxs[:3] = in_obj.mins.tolist()
-		node.minmaxs[3:] = in_obj.maxs.tolist()
-		node.contents = -1
-		node.firstsurface = in_obj.firstface
-		node.numsurfaces = in_obj.numfaces
-		if 0 <= in_obj.planenum < loadmodel.numplanes:
-			node.plane = loadmodel.planes[in_obj.planenum]
-
-		loadmodel.nodes.append(node)
-		child_indices.append((int(in_obj.children[0]), int(in_obj.children[1])))
-
-	for node, (child0, child1) in zip(loadmodel.nodes, child_indices):
-		for idx, child_value in enumerate((child0, child1)):
-			if child_value >= 0:
-				node.children[idx] = loadmodel.nodes[child_value]
-			else:
-				leaf_index = -1 - child_value
-				if 0 <= leaf_index < len(loadmodel.leafs):
-					node.children[idx] = loadmodel.leafs[leaf_index]
-
-	if loadmodel.nodes:
-		Mod_SetParent(loadmodel.nodes[0], None)
-
-
-"""
-=================
 Mod_LoadLeafs
 =================
 """
@@ -765,84 +442,6 @@ def Mod_LoadMarksurfaces(l: files_h.lump_t):
 
 """
 =================
-Mod_LoadSurfedges
-=================
-"""
-def Mod_LoadSurfedges (l: files_h.lump_t):
-	
-	#int		i, count;
-	#int		*in, *out;
-	
-	#in = (void *)(mod_base + l->fileofs);
-	if l.filelen % 4:
-		gl1_main.ri.Sys_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size in {}".format(loadmodel.name))
-	count = l.filelen // 4
-	if count < 1 or count >= files_h.MAX_MAP_SURFEDGES:
-		gl1_main.ri.Sys_Error (shared.ERR_DROP, "MOD_LoadBmodel: bad surfedges count in {}: {}".format(
-		loadmodel.name, count))
-
-	out = np.zeros((count,), dtype=np.int32)
-
-	loadmodel.surfedges = out
-	loadmodel.numsurfedges = count
-
-	for i in range(count):
-		in_offset = l.fileofs + i * 4
-		in_offset2 = in_offset + 4
-
-		out[i] = shared_c.LittleSLong (mod_base[in_offset: in_offset2])
-
-
-
-"""
-=================
-Mod_LoadPlanes
-=================
-"""
-def Mod_LoadPlanes (l: files_h.lump_t):
-
-	"""
-	int			i, j;
-	cplane_t	*out;
-	dplane_t 	*in;
-	int			count;
-	int			bits;
-	"""	
-
-	#in = (void *)(mod_base + l->fileofs);
-	if l.filelen % files_h.dplane_t.packed_size():
-		gl1_main.ri.Sys_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size in {}".format(loadmodel.name))
-	count = l.filelen // files_h.dplane_t.packed_size()
-	out = []
-	
-	loadmodel.planes = out
-	loadmodel.numplanes = count
-	in_obj = files_h.dplane_t()
-
-	for i in range(count):
-	
-		in_offset = l.fileofs + i * files_h.dplane_t.packed_size()
-		in_offset2 = in_offset + files_h.dplane_t.packed_size()
-		in_obj.load(mod_base[in_offset:in_offset2])
-
-		out_obj = shared.cplane_t()
-
-		bits = 0
-		for j in range(3):
-		
-			out_obj.normal[j] = in_obj.normal[j]
-			if out_obj.normal[j] < 0.0:
-				bits |= (1<<j)
-		
-		out_obj.dist = in_obj.dist
-		out_obj.type = in_obj.type
-		out_obj.signbits = bits
-	
-		out.append(out_obj)
-
-
-"""
-=================
 Mod_LoadBrushModel
 =================
 """
@@ -867,19 +466,53 @@ def Mod_LoadBrushModel (mod, buff): #model_t *, void *
 
 	mod_base = buff
 
-	# load into heap
-	
-	Mod_LoadVertexes (header.lumps[files_h.LUMP_VERTEXES])
-	Mod_LoadEdges (header.lumps[files_h.LUMP_EDGES])
-	Mod_LoadSurfedges (header.lumps[files_h.LUMP_SURFEDGES])
-	Mod_LoadLighting (header.lumps[files_h.LUMP_LIGHTING])
-	Mod_LoadPlanes (header.lumps[files_h.LUMP_PLANES])
-	Mod_LoadTexinfo (header.lumps[files_h.LUMP_TEXINFO])
+	# load the shared lumps into arrays (files/models.c), then the gl1-specific
+	# faces/marksurfaces/leafs/nodes/submodels on top
+	vertexes = [None]; numvertexes = [0]
+	edges = [None]; numedges = [0]
+	surfedges = [None]; numsurfedges = [0]
+	lightdata = [None]
+	planes = [None]; numplanes = [0]
+	texinfo = [None]; numtexinfo = [0]
+	vis = [None]
+	nodes = [None]; numnodes = [0]
+
+	files_models.Mod_LoadVertexes (loadmodel.name, vertexes, numvertexes, mod_base,
+		header.lumps[files_h.LUMP_VERTEXES], 0)
+	files_models.Mod_LoadEdges (loadmodel.name, edges, numedges,
+		mod_base, header.lumps[files_h.LUMP_EDGES], 1)
+	files_models.Mod_LoadSurfedges (loadmodel.name, surfedges, numsurfedges,
+		mod_base, header.lumps[files_h.LUMP_SURFEDGES], 0)
+	files_models.Mod_LoadLighting (lightdata, mod_base, header.lumps[files_h.LUMP_LIGHTING])
+	files_models.Mod_LoadPlanes (loadmodel.name, planes, numplanes,
+		mod_base, header.lumps[files_h.LUMP_PLANES], 0)
+	files_models.Mod_LoadTexinfo (loadmodel.name, texinfo, numtexinfo,
+		mod_base, header.lumps[files_h.LUMP_TEXINFO], gl1_image.R_FindImage,
+		gl1_main.r_notexture, 0)
+
+	loadmodel.vertexes = vertexes[0]
+	loadmodel.numvertexes = numvertexes[0]
+	loadmodel.edges = edges[0]
+	loadmodel.numedges = numedges[0]
+	loadmodel.surfedges = surfedges[0]
+	loadmodel.numsurfedges = numsurfedges[0]
+	loadmodel.lightdata = lightdata[0]
+	loadmodel.planes = planes[0]
+	loadmodel.numplanes = numplanes[0]
+	loadmodel.texinfo = texinfo[0]
+	loadmodel.numtexinfo = numtexinfo[0]
+	loadmodel.vis = vis[0]
+
 	Mod_LoadFaces (header.lumps[files_h.LUMP_FACES])
 	Mod_LoadMarksurfaces (header.lumps[files_h.LUMP_LEAFFACES])
-	Mod_LoadVisibility (header.lumps[files_h.LUMP_VISIBILITY])
+	files_models.Mod_LoadVisibility (vis, mod_base, header.lumps[files_h.LUMP_VISIBILITY])
+	loadmodel.vis = vis[0]
 	Mod_LoadLeafs (header.lumps[files_h.LUMP_LEAFS])
-	Mod_LoadNodes (header.lumps[files_h.LUMP_NODES])
+	files_models.Mod_LoadNodes (loadmodel.name, loadmodel.planes, loadmodel.numplanes,
+		loadmodel.leafs, loadmodel.numleafs, nodes, numnodes, mod_base,
+		header.lumps[files_h.LUMP_NODES])
+	loadmodel.nodes = nodes[0]
+	loadmodel.numnodes = numnodes[0]
 	Mod_LoadSubmodels (header.lumps[files_h.LUMP_MODELS])
 	loadmodel.numframes = 2		# regular and alternate animation
 

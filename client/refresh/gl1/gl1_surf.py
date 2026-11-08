@@ -1454,12 +1454,12 @@ def GL_BuildPolygonFromSurface(fa): #msurface_t *
 		if lindex > 0:
 
 			r_pedge = pedges[lindex]
-			vec = currentmodel.vertexes[r_pedge[0]]
+			vec = currentmodel.vertexes[r_pedge.v[0]].position
 
 		else:
 
 			r_pedge = pedges[-lindex]
-			vec = currentmodel.vertexes[r_pedge[1]]
+			vec = currentmodel.vertexes[r_pedge.v[1]].position
 
 		s = shared.DotProduct (vec, fa.texinfo.vecs[0]) + fa.texinfo.vecs[0][3]
 		s /= image_width

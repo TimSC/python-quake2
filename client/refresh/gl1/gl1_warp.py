@@ -203,9 +203,9 @@ def GL_SubdivideSurface (fa): #msurface_t *
 		lindex = int(loadmodel.surfedges[fa.firstedge + i])
 
 		if lindex > 0:
-			vec = loadmodel.vertexes[loadmodel.edges[lindex, 0]]
+			vec = loadmodel.vertexes[loadmodel.edges[lindex].v[0]].position
 		else:
-			vec = loadmodel.vertexes[loadmodel.edges[-lindex, 1]]
+			vec = loadmodel.vertexes[loadmodel.edges[-lindex].v[1]].position
 		shared.VectorCopy (vec, verts[numverts])
 		numverts += 1
 	

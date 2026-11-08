@@ -393,6 +393,20 @@ Mod_LoadTexinfo
 extra for skybox in soft render
 =================
 """
+def GetTexImage(name, find_image): #const char *, findimage_t (returns struct image_s *)
+
+	image = None
+	image = find_image ("textures/{}.wal".format(name), ref_shared.imagetype_t.it_wall)
+	if image is None:
+
+		image = find_image ("textures/{}.m32".format(name), ref_shared.imagetype_t.it_wall)
+
+	if image is None:
+
+		image = find_image ("textures/{}.m8".format(name), ref_shared.imagetype_t.it_wall)
+
+	return image
+
 def Mod_LoadTexinfo(name, texinfo, numtexinfo, mod_base, l, find_image, notexture, extra): #const char *, mtexinfo_t **, int *, const byte *, const lump_t *, findimage_t, struct image_s *, int
 
 	in_obj = files_h.texinfo_t()
@@ -421,6 +435,13 @@ def Mod_LoadTexinfo(name, texinfo, numtexinfo, mod_base, l, find_image, notextur
 			out_obj.next = next # index, fixed up below
 		else:
 			out_obj.next = None
+
+		image = GetTexImage(in_obj.texture, find_image)
+		if image is None:
+			clientserver.Com_Printf ("{}: Couldn't load {}\n".format("Mod_LoadTexinfo", in_obj.texture))
+			image = notexture
+
+		out_obj.image = image
 
 		out.append(out_obj)
 
