@@ -26,7 +26,12 @@ from common import clientserver
 from common.header import common as common_h
 from common.header import shared
 from client.vid import vid
-from client.refresh.gl1 import gl1_main as gl_rmain
+# Q2PORT: the C glimp calls the active renderer via the re.* / ri.* globals, not a fixed
+# module. The port resolves the active renderer (gl1 or gl3) lazily, per vid_renderer.
+def _renderer():
+
+	from client.refresh import ref_dispatch
+	return ref_dispatch.get_renderer()
 """
 #include "../../common/header/common.h"
 #include "header/ref.h"
@@ -401,7 +406,7 @@ def GLimp_InitGraphics(fullscreen: int, pwidth: int, pheight: int)->bool: #int, 
 	initSuccessful = True
 
 	# let the sound and input subsystems know about the new window
-	gl_rmain.ri.Vid_NewWindow (width, height)
+	_renderer().ri.Vid_NewWindow (width, height)
 
 	return True
 
@@ -555,22 +560,22 @@ def GLimp_SetMode( pwidth, pheight, mode, fullscreen ): # int *, int *, int, qbo
 	width = None
 	height = None
 
-	gl_rmain.ri.Con_Printf( shared.PRINT_ALL, "Initializing OpenGL display\n")
+	_renderer().ri.Con_Printf( shared.PRINT_ALL, "Initializing OpenGL display\n")
 	
 	mode = int(mode)
 
 	if fullscreen:
-		gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "...setting fullscreen mode {}:".format(mode) )
+		_renderer().ri.Con_Printf (shared.PRINT_ALL, "...setting fullscreen mode {}:".format(mode) )
 	else:
-		gl_rmain.ri.Con_Printf (shared.PRINT_ALL, "...setting mode {}:".format(mode) )
+		_renderer().ri.Con_Printf (shared.PRINT_ALL, "...setting mode {}:".format(mode) )
 
 	ok, width, height = vid.VID_GetModeInfo( mode )
 	if not ok:
 	
-		gl_rmain.ri.Con_Printf( shared.PRINT_ALL, " invalid mode\n" )
-		return gl_rmain.rserr_t.rserr_invalid_mode, pwidth, pheight
+		_renderer().ri.Con_Printf( shared.PRINT_ALL, " invalid mode\n" )
+		return _renderer().rserr_t.rserr_invalid_mode, pwidth, pheight
 	
-	gl_rmain.ri.Con_Printf( shared.PRINT_ALL, " {} {}\n".format(width, height) )
+	_renderer().ri.Con_Printf( shared.PRINT_ALL, " {} {}\n".format(width, height) )
 	
 	# destroy the existing window
 	# ShutdownGraphics() only, not GLimp_Shutdown(): the C's GLimp_Shutdown quits SDL
@@ -583,10 +588,10 @@ def GLimp_SetMode( pwidth, pheight, mode, fullscreen ): # int *, int *, int, qbo
 	try:
 		pygame.display.set_mode((width, height), flags)
 	except pygame.error as err:
-		gl_rmain.ri.Con_Printf( shared.PRINT_ALL, "Error couldn't set the video mode: {}\n".format(err) )
+		_renderer().ri.Con_Printf( shared.PRINT_ALL, "Error couldn't set the video mode: {}\n".format(err) )
 		if fullscreen:
-			return gl_rmain.rserr_t.rserr_invalid_fullscreen, pwidth, pheight
-		return gl_rmain.rserr_t.rserr_invalid_mode, pwidth, pheight
+			return _renderer().rserr_t.rserr_invalid_fullscreen, pwidth, pheight
+		return _renderer().rserr_t.rserr_invalid_mode, pwidth, pheight
 
 	# Window title - set here so we can display renderer name in it.
 	# Q2PORT: use common.APPNAME in place of "Yamagi Quake II"
@@ -601,6 +606,6 @@ def GLimp_SetMode( pwidth, pheight, mode, fullscreen ): # int *, int *, int, qbo
 	initSuccessful = True
 
 	# let the sound and input subsystems know about the new window
-	gl_rmain.ri.Vid_NewWindow (width, height)
+	_renderer().ri.Vid_NewWindow (width, height)
 
-	return gl_rmain.rserr_t.rserr_ok, pwidth, pheight
+	return _renderer().rserr_t.rserr_ok, pwidth, pheight

@@ -2,6 +2,7 @@
 # and drive scripted movement into it on the server, logging position and overlap.
 # usage: walk_test.py <start x y z> <yaw> <forwardmove> <seconds> <game args...>
 import os, sys, time
+os.environ.setdefault("Q2PORT_NOMOUSE", "1")  # no mouse capture (tests)
 sx, sy, sz, yaw, fwd, secs = [float(v) for v in sys.argv[1:7]]
 sys.argv = ["main.py"] + sys.argv[7:]
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

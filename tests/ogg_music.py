@@ -2,6 +2,7 @@
 # track listing, play/pause/stop, save/recover state, volume and shutdown.
 # Music is copied into $Q2DATA/music/ for the run and removed afterwards.
 import os, sys, shutil, time, atexit, subprocess
+os.environ.setdefault("Q2PORT_NOMOUSE", "1")  # no mouse capture (tests)
 sys.argv = ["main.py"] + sys.argv[1:]
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

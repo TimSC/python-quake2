@@ -231,9 +231,14 @@ glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
   with id's original clients and servers.
 - **Renderer interface:** Yamagi's `refexport_t` differs from id's. Groups 10
   and 14 have to keep working with the old `ref_gl/` until group 15.
-- **gl3 (group 16):** PyOpenGL's GL 3 support and the GLSL shader pipeline
-  have never been tried in the port; group 16 is a new renderer, so its
-  failures can't break the gl1 one.
+- **gl3 (group 16):** a new, additive renderer selected at start up with
+  `Q2_RENDERER=gl3` (the port ships gl1 as the default; the C default is
+  gl3). The skeleton is live: all 28 GLSL programs compile and link, the
+  UBOs/VAOs are created, models load (reusing gl1's data subsystem), and
+  `RI_BeginFrame`/`RI_RenderFrame`/`RI_RenderView` run the full pipeline to a
+  screenshot on base maps. The 3D world draw (`gl3_surf.RI_DrawWorld`) is
+  still the minimal clear+sky skeleton; the per-surface drawCmd batching, the
+  lightmap upload, and alias-model VBOs are the remaining deep work.
 - **SDL 2 vs 3:** Yamagi's default is now SDL 3. The port follows the SDL 2
   files, which Yamagi still supports.
 - **Tests depend on game data:** the tests need the Quake II data in

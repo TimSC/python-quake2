@@ -2,6 +2,7 @@
 # the same entities, and the player's health and position.
 # Writes the save to the port's own home directory (save/porttest), never to the game data.
 import os, sys, time
+os.environ.setdefault("Q2PORT_NOMOUSE", "1")  # no mouse capture (tests)
 sys.argv = ["main.py"] + sys.argv[1:]
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backends.unix import system

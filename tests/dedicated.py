@@ -1,5 +1,6 @@
 # Run a dedicated server on base1 for a few seconds of server frames and report.
 import os, sys, time
+os.environ.setdefault("Q2PORT_NOMOUSE", "1")  # no mouse capture (tests)
 sys.argv = ["main.py"] + sys.argv[1:]
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backends.unix import system

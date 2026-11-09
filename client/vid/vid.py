@@ -179,9 +179,9 @@ def VID_HasRenderer(renderer: str)->bool: #const char * (returns qboolean)
 
 	reflib_path = VID_GetRendererLibPath(renderer)
 
-	# Sys_IsFile(reflib_path), Q2PORT: the port has one built in renderer (ref_gl, gl1),
-	# it is always available
-	return renderer == "gl1"
+	# Sys_IsFile(reflib_path), Q2PORT: the port has the built in renderers (gl1, gl3)
+	# as python modules, they are always available
+	return renderer in ("gl1", "gl3")
 
 """
  * Called by the renderer to request a restart.
@@ -261,8 +261,9 @@ def VID_LoadRenderer(): #void (returns qboolean)
 		return False
 
 	# mkay, let's load the requested renderer.
-	# Q2PORT: the renderer is a python module, imported directly in place of Sys_LoadLibrary
-	from client.refresh.gl1 import gl1_main as gl_rmain
+	# Q2PORT: the renderer is a python module, imported in place of Sys_LoadLibrary
+	from client.refresh import ref_dispatch
+	gl_rmain = ref_dispatch.get_renderer()
 
 	# fill in the struct exported to the renderer.
 	# FIXME: Do we really need all these?
@@ -426,8 +427,15 @@ def VID_Init(): #void
 	# console variables
 	vid_gamma = cvar.Cvar_Get( "vid_gamma", "1", shared.CVAR_ARCHIVE )
 	vid_fullscreen = cvar.Cvar_Get( "vid_fullscreen", "0", shared.CVAR_ARCHIVE )
-	# Q2PORT: the port has one renderer, gl1
+	# Q2PORT: the port has two built in renderers, gl1 (default, verified) and gl3 (group 16).
+	# The C default is gl3 (vid.c), but the port ships gl1 as the default. Q2_RENDERER is a
+	# test hook that forces a specific renderer; it must Cvar_Set because other modules
+	# (videomenu, cl_cin) register the cvar with the gl1 default before VID_Init.
+	import os
+	_env_renderer = os.environ.get ("Q2_RENDERER", "")
 	vid_renderer = cvar.Cvar_Get( "vid_renderer", "gl1", shared.CVAR_ARCHIVE )
+	if _env_renderer:
+		cvar.Cvar_Set( "vid_renderer", _env_renderer )
 
 	# commands
 	cmdparser.Cmd_AddCommand ("vid_restart", VID_Restart_f)
