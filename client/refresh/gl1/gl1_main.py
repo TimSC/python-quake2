@@ -620,10 +620,19 @@ def R_PolyBlend ():
 	GL.glColor4f(1,1,1,1)
 
 """
+===============
+R_ResetClearColor
+===============
+"""
+def R_ResetClearColor ():
 
-//=======================================================================
+	if gl_config.tilerendering and not r_clear.value:
+		GL.glClearColor( 0, 0, 0, 0.5 )
+	else:
+		GL.glClearColor( 1, 0, 0.5, 0.5 )
 
-/*
+
+"""
 ===============
 R_SetupFrame
 ===============
@@ -690,7 +699,7 @@ def R_SetupFrame ():
 		GL.glClearColor( 0.3, 0.3, 0.3, 1 )
 		GL.glScissor( r_newrefdef.x, vid.height - r_newrefdef.height - r_newrefdef.y, r_newrefdef.width, r_newrefdef.height )
 		GL.glClear( GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT )
-		GL.glClearColor( 1, 0, 0.5, 0.5 )
+		R_ResetClearColor ()
 		GL.glDisable( GL.GL_SCISSOR_TEST )
 	
 
@@ -1048,11 +1057,11 @@ def R_SetLightLevel ():
 
 """
 @@@@@@@@@@@@@@@@@@@@@
-R_RenderFrame
+RI_RenderFrame
 
 @@@@@@@@@@@@@@@@@@@@@
 """
-def R_RenderFrame (fd): #refdef_t *
+def RI_RenderFrame (fd): #refdef_t *
 
 	R_RenderView( fd )
 	R_SetLightLevel ()
@@ -1236,10 +1245,10 @@ def R_SetMode (): # (returns qboolean)
 
 """
 ===============
-R_Init
+RI_Init
 ===============
 """
-def R_Init( hinstance, hWnd ): #void *, void *
+def RI_Init( hinstance, hWnd ): #void *, void *
 
 	global gl_state, gl_ext_pointparameters, gl_ext_palettedtexture, gl_ext_multitexture
 
@@ -1264,7 +1273,7 @@ def R_Init( hinstance, hWnd ): #void *, void *
 	if ( !QGL_Init( gl_driver->string ) )
 	{
 		QGL_Shutdown();
-		ri.Con_Printf (q_shared.PRINT_ALL, "ref_gl::R_Init() - could not load \"%s\"\n", gl_driver->string );
+		ri.Con_Printf (q_shared.PRINT_ALL, "ref_gl::RI_Init() - could not load \"%s\"\n", gl_driver->string );
 		return -1;
 	}
 	"""
@@ -1281,7 +1290,7 @@ def R_Init( hinstance, hWnd ): #void *, void *
 	if not R_SetMode ():
 	
 		qgl_linux.QGL_Shutdown()
-		ri.Con_Printf (shared.PRINT_ALL, "ref_gl::R_Init() - could not R_SetMode()\n" )
+		ri.Con_Printf (shared.PRINT_ALL, "ref_gl::RI_Init() - could not R_SetMode()\n" )
 		return -1
 	
 	ri.Vid_MenuInit()
@@ -1544,10 +1553,10 @@ def onGlDebugMessage(*args, **kwargs):
 
 """
 ===============
-R_Shutdown
+RI_Shutdown
 ===============
 """
-def R_Shutdown ():
+def RI_Shutdown ():
 
 	ri.Cmd_RemoveCommand ("modellist")
 	ri.Cmd_RemoveCommand ("screenshot")
@@ -1570,10 +1579,10 @@ def R_Shutdown ():
 
 """
 @@@@@@@@@@@@@@@@@@@@@
-R_BeginFrame
+RI_BeginFrame
 @@@@@@@@@@@@@@@@@@@@@
 """
-def R_BeginFrame( camera_separation ): #float
+def RI_BeginFrame( camera_separation ): #float
 
 	global gl_state, gl_texturemode, gl1_texturealphamode, gl1_texturesolidmode
 
@@ -1679,13 +1688,13 @@ def R_BeginFrame( camera_separation ): #float
 
 """
 =============
-R_SetPalette
+RI_SetPalette
 =============
 */
 """
 r_rawpalette = [0]*256 #unsigned[256];
 
-def R_SetPalette (palette): #const unsigned char *
+def RI_SetPalette (palette): #const unsigned char *
 	
 	#int		i;
 	global r_rawpalette
@@ -1714,7 +1723,7 @@ def R_SetPalette (palette): #const unsigned char *
 
 	GL.glClearColor (0,0,0,0)
 	GL.glClear (GL.GL_COLOR_BUFFER_BIT)
-	GL.glClearColor (1,0, 0.5 , 0.5)
+	R_ResetClearColor ()
 
 
 """
@@ -1817,35 +1826,35 @@ def GetRefAPI ( rimp ): #refimport_t (returns refexport_t)
 
 	re.api_version = ref.API_VERSION
 
-	re.BeginRegistration = gl1_model.R_BeginRegistration
-	re.RegisterModel = gl1_model.R_RegisterModel
-	re.RegisterSkin = gl1_image.R_RegisterSkin
-	re.RegisterPic = gl1_draw.Draw_FindPic
-	re.SetSky = gl1_warp.R_SetSky
-	re.EndRegistration = gl1_model.R_EndRegistration
+	re.BeginRegistration = gl1_model.RI_BeginRegistration
+	re.RegisterModel = gl1_model.RI_RegisterModel
+	re.RegisterSkin = gl1_image.RI_RegisterSkin
+	re.RegisterPic = gl1_draw.RDraw_FindPic
+	re.SetSky = gl1_warp.RI_SetSky
+	re.EndRegistration = gl1_model.RI_EndRegistration
 
-	re.RenderFrame = R_RenderFrame
+	re.RenderFrame = RI_RenderFrame
 	
-	re.DrawGetPicSize = gl1_draw.Draw_GetPicSize
-	re.DrawPic = gl1_draw.Draw_Pic
-	re.DrawStretchPic = gl1_draw.Draw_StretchPic
-	re.DrawChar = gl1_draw.Draw_Char
-	re.DrawCharScaled = gl1_draw.Draw_CharScaled # Q2PORT: Yamagi's refexport, until group 15
-	re.DrawPicScaled = gl1_draw.Draw_PicScaled
-	re.DrawPicScaledCol = gl1_draw.Draw_PicScaledCol
-	re.DrawFindPic = gl1_draw.Draw_FindPic
-	re.DrawTileClear = gl1_draw.Draw_TileClear
-	re.DrawFill = gl1_draw.Draw_Fill
-	re.DrawFadeScreen= gl1_draw.Draw_FadeScreen
+	re.DrawGetPicSize = gl1_draw.RDraw_GetPicSize
+	#re.DrawPic = gl1_draw.Draw_Pic
+	re.DrawStretchPic = gl1_draw.RDraw_StretchPic
+	#re.DrawChar = gl1_draw.Draw_Char
+	re.DrawCharScaled = gl1_draw.RDraw_CharScaled # Q2PORT: Yamagi's refexport, until group 15
+	re.DrawPicScaled = gl1_draw.RDraw_PicScaled
+	re.DrawPicScaledCol = gl1_draw.RDraw_PicScaledCol
+	re.DrawFindPic = gl1_draw.RDraw_FindPic
+	re.DrawTileClear = gl1_draw.RDraw_TileClear
+	re.DrawFill = gl1_draw.RDraw_Fill
+	re.DrawFadeScreen= gl1_draw.RDraw_FadeScreen
 
-	re.DrawStretchRaw = gl1_draw.Draw_StretchRaw
+	re.DrawStretchRaw = gl1_draw.RDraw_StretchRaw
 
-	re.Init = R_Init
-	re.Shutdown = R_Shutdown
+	re.Init = RI_Init
+	re.Shutdown = RI_Shutdown
 
-	re.CinematicSetPalette = R_SetPalette
+	re.SetPalette = RI_SetPalette
 
-	re.BeginFrame = R_BeginFrame
+	re.BeginFrame = RI_BeginFrame
 	re.EndFrame = glimp_sdl2.GLimp_EndFrame
 
 	re.AppActivate = glimp_sdl2.GLimp_AppActivate

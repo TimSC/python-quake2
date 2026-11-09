@@ -78,7 +78,7 @@ shadedots = r_avertexnormal_dots[0] #float *
 
 SHELL_FLAGS = shared.RF_SHELL_RED | shared.RF_SHELL_GREEN | shared.RF_SHELL_BLUE | shared.RF_SHELL_DOUBLE | shared.RF_SHELL_HALF_DAM
 
-def GL_LerpVerts (nverts, v, ov, verts, lerp, move, frontv, backv): #int, dtrivertx_t *, dtrivertx_t *, dtrivertx_t *, float *, float[3], float[3], float[3]
+def R_LerpVerts (nverts, v, ov, verts, lerp, move, frontv, backv): #int, dtrivertx_t *, dtrivertx_t *, dtrivertx_t *, float *, float[3], float[3], float[3]
 
 	#int i;
 
@@ -98,13 +98,13 @@ def GL_LerpVerts (nverts, v, ov, verts, lerp, move, frontv, backv): #int, dtrive
 
 """
 =============
-GL_DrawAliasFrameLerp
+R_DrawAliasFrameLerp
 
 interpolates between two frames and origins
 FIXME: batch lerp all vertexes
 =============
 """
-def GL_DrawAliasFrameLerp (paliashdr, backlerp): #dmdl_t *, float
+def R_DrawAliasFrameLerp (paliashdr, backlerp): #dmdl_t *, float
 
 	"""
 	float 	l;
@@ -166,7 +166,7 @@ def GL_DrawAliasFrameLerp (paliashdr, backlerp): #dmdl_t *, float
 
 	lerp = s_lerped
 
-	GL_LerpVerts( paliashdr.num_xyz, v, ov, verts, lerp, move, frontv, backv )
+	R_LerpVerts( paliashdr.num_xyz, v, ov, verts, lerp, move, frontv, backv )
 
 	# Q2PORT: the C walks the glcmds and draws each strip and fan with
 	# qglBegin, one call per vertex and qglEnd (see the loops quoted below).
@@ -360,10 +360,10 @@ def GL_DrawAliasFrameLerp (paliashdr, backlerp): #dmdl_t *, float
 
 """
 =============
-GL_DrawAliasShadow
+R_DrawAliasShadow
 =============
 """
-def GL_DrawAliasShadow (paliashdr, posenum): #dmdl_t *, int
+def R_DrawAliasShadow (paliashdr, posenum): #dmdl_t *, int
 
 	"""
 	dtrivertx_t	*verts;
@@ -776,7 +776,7 @@ def R_DrawAliasModel (e): #entity_t *
 
 	if not gl1_main.r_lerpmodels.value:
 		currententity.backlerp = 0
-	GL_DrawAliasFrameLerp (paliashdr, currententity.backlerp)
+	R_DrawAliasFrameLerp (paliashdr, currententity.backlerp)
 
 	gl1_image.R_TexEnv( GL.GL_REPLACE )
 	GL.glShadeModel (GL.GL_FLAT)
@@ -822,7 +822,7 @@ def R_DrawAliasModel (e): #entity_t *
 		GL.glDisable (GL.GL_TEXTURE_2D)
 		GL.glEnable (GL.GL_BLEND)
 		GL.glColor4f (0,0,0,0.5)
-		GL_DrawAliasShadow (paliashdr, currententity.frame )
+		R_DrawAliasShadow (paliashdr, currententity.frame )
 		GL.glEnable (GL.GL_TEXTURE_2D)
 		GL.glDisable (GL.GL_BLEND)
 		GL.glPopMatrix ()

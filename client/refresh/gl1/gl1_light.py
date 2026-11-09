@@ -26,6 +26,7 @@ pass
 pass
 from client.refresh.gl1 import gl1_main
 from client.refresh.gl1.header import model
+from client.refresh.files import surf as files_surf
 from common.header import files as files_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -148,48 +149,34 @@ DYNAMIC LIGHTS
 
 """
 =============
-R_MarkLights
+R_MarkSurfaceLights
 =============
 """
-def R_MarkLights (light, bit, node): #dlight_t *, int, mnode_t *
+def R_MarkSurfaceLights (light, bit, node, lightframecount): #dlight_t *, int, mnode_t *, int
 
 	"""
-	cplane_t	*splitplane;
-	float		dist;
-	msurface_t	*surf;
-	int			i;
+	msurface_t *surf;
+	int i;
 	"""
-	
-	if node.contents != -1:
-		return
 
-	splitplane = node.plane
-	dist = shared.DotProduct (light.origin, splitplane.normal) - splitplane.dist
-	
-	if dist > light.intensity-DLIGHT_CUTOFF:
-	
-		R_MarkLights (light, bit, node.children[0])
-		return
-	
-	if dist < -light.intensity+DLIGHT_CUTOFF:
-	
-		R_MarkLights (light, bit, node.children[1])
-		return
-	
 	# mark the polygons
 	surfaces = gl1_main.r_worldmodel.surfaces
 	for i in range(node.numsurfaces):
-	
+
+		#int sidebit;
+		#float dist;
 		surf = surfaces[node.firstsurface + i]
-		if surf.dlightframe != r_dlightframecount:
-		
+		dist = shared.DotProduct (light.origin, surf.plane.normal) - surf.plane.dist
+		if dist >= 0:
+			sidebit = 0
+		else:
+			sidebit = model.SURF_PLANEBACK
+		if (surf.flags & model.SURF_PLANEBACK) != sidebit:
+			continue
+		if surf.dlightframe != lightframecount:
 			surf.dlightbits = 0
-			surf.dlightframe = r_dlightframecount
-		
+			surf.dlightframe = lightframecount
 		surf.dlightbits |= bit
-	
-	R_MarkLights (light, bit, node.children[0])
-	R_MarkLights (light, bit, node.children[1])
 
 
 """
@@ -210,7 +197,8 @@ def R_PushDlights ():
 	r_dlightframecount = gl1_main.r_framecount + 1	# because the count hasn't
 											#  advanced yet for this frame
 	for i in range(gl1_main.r_newrefdef.num_dlights):
-		R_MarkLights ( gl1_main.r_newrefdef.dlights[i], 1<<i, gl1_main.r_worldmodel.nodes[0] )
+		files_surf.R_MarkLights ( gl1_main.r_newrefdef.dlights[i], 1<<i,
+			gl1_main.r_worldmodel.nodes[0], r_dlightframecount, R_MarkSurfaceLights )
 
 
 """

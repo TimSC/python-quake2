@@ -157,15 +157,28 @@ glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
     `R_TextureMode`, `R_TextureSolidMode`, `R_LoadPic`, `R_Upload32/8`, ...).
     The old port already carried most of Yamagi's image module (with
     `currenttmu`/`currenttextures` state), so these were pure renames.
-  - **Remaining:** the structural splits, which are larger reworks (not renames):
-    the model loader dedup (Yamagi's `files/models.c` uses a *functional* API
-    filling separate `planes/leafs/nodes` arrays and `ref_shared` structs, vs the
-    id *object-oriented* `gl1_model.py` `model_t` attributes - the glue must be
-    reworked); the new `gl1_lightmap`, `gl1_buffer`, `gl1_scrap`, `gl1_sdl`
-    files; and the coupled cvar removals (`gl_playermip`, `gl_skymip`, `gl_nobind`,
-    `gl_monolightmap`) plus new-feature cvars (`gl1_minlight`, `gl1_multitexture`,
-    `gl1_overbrightbits`, `gl1_stencilshadow`, `gl1_tilerendering`, ...).
-    `qgl.c` stays unported (PyOpenGL/pygame stand in, as the old `ref_gl/` did).
+  - **Done (verified against the live display):** function renames to Yamagi's
+    gl1 names - the warp helpers (`BoundPoly`/`ClipSkyPolygon`/`DrawSkyPolygon`/
+    `EmitWaterPolys`/`MakeSkyVec`/`SubdividePolygon`/`GL_SubdivideSurface` -> `R_*`,
+    `R_SetSky` -> `RI_SetSky`); the mesh alias draws (`GL_DrawAliasFrameLerp`/
+    `GL_DrawAliasShadow`/`GL_LerpVerts` -> `R_*`); the 2d draw (`Draw_*` -> `RDraw_*`; the
+    vid-level `vid.py` `Draw_*` already matched the C); the light marker
+    (`R_MarkLights` -> `R_MarkSurfaceLights`, now the per-surface front/back marker
+    called through `files/surf.R_MarkLights` - a real Yamagi fix); and the renderer
+    entry points (`R_Init`/`R_Shutdown`/`R_RenderFrame`/`R_BeginFrame`/`R_SetPalette` ->
+    `RI_*`, `R_RegisterSkin`/`R_BeginRegistration`/`R_RegisterModel`/`R_EndRegistration`
+    -> `RI_*`), plus a port of `R_ResetClearColor`. `re.DrawPic`/`re.DrawChar` are now
+    commented out to match the C (the id-era base `Draw_Pic`/`Draw_Char` remain as
+    dead code, since removing them is a cleanup this pass leaves alone).
+  - **Remaining:** the structural splits that are real reworks, not renames:
+    `gl1_scrap` (partial - `Scrap_AllocBlock`/`Upload` live in `gl1_image`); the
+    coupled cvar removals (`gl_playermip`, `gl_skymip`, `gl_nobind`,
+    `gl_monolightmap`) plus new-feature cvars (`gl1_minlight`, `gl1_stereo`,
+    `gl1_particle_square`, `gl1_stencilshadow`, `gl1_tilerendering`,
+    `gl1_overbrightbits`); converting the remaining immediate-mode draw paths to
+    the buffer API; and stripping the Q2PORT speed-ups. `gl1_sdl.c` is intentionally
+    not ported (`glimp_sdl2.py` handles the `RI_*` context/swap calls) and `qgl.c`
+    stays unported (PyOpenGL/pygame stand in, as the old `ref_gl/` did).
 
 ## Group 0: tooling and conventions
 

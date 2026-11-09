@@ -584,7 +584,7 @@ def R_SetPalette(palette): #const unsigned char *
 
 	if ref_active:
 
-		re.CinematicSetPalette(palette) # Q2PORT: id's name for SetPalette
+		re.SetPalette(palette)
 
 def R_BeginFrame(camera_separation: float): #float
 

@@ -368,7 +368,7 @@ def Mod_LoadFaces(l: files_h.lump_t):
 				surf.extents[i] = 16384
 				surf.texturemins[i] = -8192
 
-			gl1_warp.GL_SubdivideSurface (surf)	# cut up polygon for warps
+			gl1_warp.R_SubdivideSurface (surf)	# cut up polygon for warps
 
 		# create lightmaps and polygons
 		if not (surf.texinfo.flags & (shared.SURF_SKY|shared.SURF_TRANS33|shared.SURF_TRANS66|shared.SURF_WARP)):
@@ -645,7 +645,7 @@ def Mod_LoadAliasModel (mod, buff): #model_t *, void *
 
 	# Q2PORT: the glcmds are also unrolled into a triangle list, in the same
 	# order and winding as the strips and fans GL draws from them, so that
-	# GL_DrawAliasFrameLerp can draw a model with one glDrawArrays instead of
+	# R_DrawAliasFrameLerp can draw a model with one glDrawArrays instead of
 	# one GL call per vertex. Texture coordinates belong to the draw list
 	# entry, not the model vertex, so the same index_xyz can repeat with a
 	# different s and t.
@@ -713,11 +713,11 @@ def Mod_LoadSpriteModel (mod, buff): # model_t *, void *
 	mod.extradata = sprite
 
 # @@@@@@@@@@@@@@@@@@@@@
-# R_BeginRegistration
+# RI_BeginRegistration
 #
 # Specifies the model that will be used as the world
 # @@@@@@@@@@@@@@@@@@@@@
-def R_BeginRegistration (model): #char *
+def RI_BeginRegistration (model): #char *
 
 	global registration_sequence
 
@@ -739,10 +739,10 @@ def R_BeginRegistration (model): #char *
 	gl1_main.r_viewcluster = -1
 
 # @@@@@@@@@@@@@@@@@@@@@
-# R_RegisterModel
+# RI_RegisterModel
 # 
 # @@@@@@@@@@@@@@@@@@@@@
-def R_RegisterModel (name): # char * (returns struct model_s *)
+def RI_RegisterModel (name): # char * (returns struct model_s *)
 
 	mod = Mod_ForName(name, False)
 	if not mod:
@@ -760,9 +760,9 @@ def R_RegisterModel (name): # char * (returns struct model_s *)
 	return mod
 
 # @@@@@@@@@@@@@@@@@@@@@
-# R_EndRegistration
+# RI_EndRegistration
 # @@@@@@@@@@@@@@@@@@@@@
-def R_EndRegistration ():
+def RI_EndRegistration ():
 
 	for mod in mod_known[:mod_numknown]:
 		if not mod or not mod.name:

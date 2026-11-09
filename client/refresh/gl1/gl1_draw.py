@@ -94,13 +94,13 @@ def Draw_Char (x, y, num): #int, int, int
 
 """
 ================
-Draw_CharScaled
+RDraw_CharScaled
 
 Q2PORT: Yamagi's RDraw_CharScaled (gl1_draw.c), in id's immediate mode
 until the renderer is ported (group 15).
 ================
 """
-def Draw_CharScaled (x, y, num, scale): #int, int, int, float
+def RDraw_CharScaled (x, y, num, scale): #int, int, int, float
 
 	#int row, col;
 	#float frow, fcol, size, scaledSize;
@@ -141,21 +141,21 @@ def Draw_CharScaled (x, y, num, scale): #int, int, int, float
 
 """
 =============
-Draw_PicScaled
+RDraw_PicScaled
 
 Q2PORT: Yamagi's RDraw_PicScaled and RDraw_PicScaledCol (gl1_draw.c), in
 id's immediate mode until the renderer is ported (group 15).
 =============
 """
-def Draw_PicScaled (x, y, pic, factor): #int, int, char *, float
+def RDraw_PicScaled (x, y, pic, factor): #int, int, char *, float
 
-	Draw_PicScaledCol (x, y, pic, factor, None)
+	RDraw_PicScaledCol (x, y, pic, factor, None)
 
-def Draw_PicScaledCol (x, y, pic, factor, color): #int, int, char *, float, const float[3]
+def RDraw_PicScaledCol (x, y, pic, factor, color): #int, int, char *, float, const float[3]
 
 	#image_t *gl;
 
-	gl = Draw_FindPic (pic)
+	gl = RDraw_FindPic (pic)
 	if gl is None:
 
 		gl1_main.ri.Con_Printf (shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
@@ -193,10 +193,10 @@ def Draw_PicScaledCol (x, y, pic, factor, color): #int, int, char *, float, cons
 
 """
 =============
-Draw_FindPic
+RDraw_FindPic
 =============
 """
-def Draw_FindPic (name): #char * (returns image_t	*)
+def RDraw_FindPic (name): #char * (returns image_t	*)
 
 	#image_t *gl;
 	#char	fullname[MAX_QPATH];
@@ -213,12 +213,12 @@ def Draw_FindPic (name): #char * (returns image_t	*)
 
 """
 =============
-Draw_GetPicSize
+RDraw_GetPicSize
 =============
 """
-def Draw_GetPicSize (pic): #int *, int *, char *
+def RDraw_GetPicSize (pic): #int *, int *, char *
 
-	gl = Draw_FindPic (pic)
+	gl = RDraw_FindPic (pic)
 	if gl is None:
 	
 		return -1, -1
@@ -227,14 +227,14 @@ def Draw_GetPicSize (pic): #int *, int *, char *
 
 """
 =============
-Draw_StretchPic
+RDraw_StretchPic
 =============
 """
-def Draw_StretchPic (x, y, w, h, pic): #int, int, int, int, char *
+def RDraw_StretchPic (x, y, w, h, pic): #int, int, int, int, char *
 
 	#image_t *gl;
 
-	gl = Draw_FindPic (pic)
+	gl = RDraw_FindPic (pic)
 	if gl is None:
 	
 		gl1_main.ri.Con_Printf (shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
@@ -271,7 +271,7 @@ def Draw_Pic (x, y, pic): #int, int, char *
 
 	#image_t *gl;
 
-	gl = Draw_FindPic (pic)
+	gl = RDraw_FindPic (pic)
 	if gl is None:
 	
 		gl1_main.ri.Con_Printf (shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
@@ -301,17 +301,17 @@ def Draw_Pic (x, y, pic): #int, int, char *
 
 """
 =============
-Draw_TileClear
+RDraw_TileClear
 
 This repeats a 64*64 tile graphic to fill the screen around a sized down
 refresh window.
 =============
 """
-def Draw_TileClear (x, y, w, h, pic): #int, int, int, int, char *
+def RDraw_TileClear (x, y, w, h, pic): #int, int, int, int, char *
 	
 	#image_t	*image;
 
-	image = Draw_FindPic (pic)
+	image = RDraw_FindPic (pic)
 	if image is None:
 	
 		gl1_main.ri.Con_Printf (shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
@@ -339,12 +339,12 @@ def Draw_TileClear (x, y, w, h, pic): #int, int, int, int, char *
 
 """
 =============
-Draw_Fill
+RDraw_Fill
 
 Fills a box of pixels with a single color
 =============
 """
-def Draw_Fill (x, y, w, h, c): #int, int, int, int, int
+def RDraw_Fill (x, y, w, h, c): #int, int, int, int, int
 
 	"""
 	union
@@ -355,7 +355,7 @@ def Draw_Fill (x, y, w, h, c): #int, int, int, int, int
 	"""
 
 	if c > 255:
-		gl1_main.ri.Sys_Error (shared.ERR_FATAL, "Draw_Fill: bad color")
+		gl1_main.ri.Sys_Error (shared.ERR_FATAL, "RDraw_Fill: bad color")
 
 	GL.glDisable (GL.GL_TEXTURE_2D)
 
@@ -382,11 +382,11 @@ def Draw_Fill (x, y, w, h, c): #int, int, int, int, int
 
 /*
 ================
-Draw_FadeScreen
+RDraw_FadeScreen
 
 ================
 """
-def Draw_FadeScreen ():
+def RDraw_FadeScreen ():
 
 	GL.glEnable(GL.GL_BLEND)
 	GL.glDisable(GL.GL_TEXTURE_2D)
@@ -409,12 +409,12 @@ def Draw_FadeScreen ():
 
 /*
 =============
-Draw_StretchRaw
+RDraw_StretchRaw
 =============
 */
 extern unsigned	r_rawpalette[256];
 """
-def Draw_StretchRaw (x, y, w, h, cols, rows, data): #int, int, int, int, int, int, byte *
+def RDraw_StretchRaw (x, y, w, h, cols, rows, data): #int, int, int, int, int, int, byte *
 
 	"""
 	unsigned	image32[256*256];

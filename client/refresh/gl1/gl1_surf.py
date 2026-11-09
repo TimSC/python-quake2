@@ -484,7 +484,7 @@ def R_RenderBrushPoly (fa): #msurface_t *
 			        gl1_main.gl_state.inverse_intensity,
 					gl1_main.gl_state.inverse_intensity,
 					1.0 )
-		gl1_warp.EmitWaterPolys (fa)
+		gl1_warp.R_EmitWaterPolys (fa)
 		gl1_image.R_TexEnv( GL.GL_REPLACE )
 
 		return
@@ -599,7 +599,7 @@ def R_DrawAlphaSurfaces ():
 		else:
 			GL.glColor4f (intens,intens,intens,1)
 		if s.flags & model.SURF_DRAWTURB:
-			gl1_warp.EmitWaterPolys (s)
+			gl1_warp.R_EmitWaterPolys (s)
 		elif s.texinfo.flags & shared.SURF_FLOWING:			# PGM	9/16/98
 			DrawGLFlowingPoly (s)							# PGM
 		else:
@@ -856,7 +856,9 @@ def R_DrawInlineBModel ():
 		for k in range(gl1_main.r_newrefdef.num_dlights):
 
 			lt = gl1_main.r_newrefdef.dlights[k]
-			gl1_light.R_MarkLights (lt, 1<<k, currentmodel.nodes[currentmodel.firstnode])
+			files_surf.R_MarkLights (lt, 1<<k,
+				currentmodel.nodes[currentmodel.firstnode],
+				gl1_light.r_dlightframecount, gl1_light.R_MarkSurfaceLights)
 
 	if currententity.flags & shared.RF_TRANSLUCENT:
 

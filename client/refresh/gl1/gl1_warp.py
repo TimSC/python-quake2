@@ -50,7 +50,7 @@ warpface = None #msurface_t *
 SUBDIVIDE_SIZE = 64
 #SUBDIVIDE_SIZE = 1024
 
-def BoundPoly (numverts, verts, mins, maxs): #int, float * (array [numverts][3]), vec3_t, vec3_t
+def R_BoundPoly (numverts, verts, mins, maxs): #int, float * (array [numverts][3]), vec3_t, vec3_t
 
 	#int		i, j;
 	#float	*v;
@@ -66,7 +66,7 @@ def BoundPoly (numverts, verts, mins, maxs): #int, float * (array [numverts][3])
 				maxs[j] = verts[i][j]
 		
 
-def SubdividePolygon (numverts, verts): #int, float * (array [numverts][3])
+def R_SubdividePolygon (numverts, verts): #int, float * (array [numverts][3])
 
 	"""
 	int		i, j, k;
@@ -88,7 +88,7 @@ def SubdividePolygon (numverts, verts): #int, float * (array [numverts][3])
 	if numverts > 60:
 		gl1_main.ri.Sys_Error (shared.ERR_DROP, "numverts = {}".format(numverts))
 
-	BoundPoly (numverts, verts, mins, maxs)
+	R_BoundPoly (numverts, verts, mins, maxs)
 
 	for i in range(3):
 	
@@ -136,8 +136,8 @@ def SubdividePolygon (numverts, verts): #int, float * (array [numverts][3])
 				f += 1
 				b += 1
 			
-		SubdividePolygon (f, front)
-		SubdividePolygon (b, back)
+		R_SubdividePolygon (f, front)
+		R_SubdividePolygon (b, back)
 		return
 	
 	# add a point in the center to help keep warp valid
@@ -171,14 +171,14 @@ def SubdividePolygon (numverts, verts): #int, float * (array [numverts][3])
 
 """
 ================
-GL_SubdivideSurface
+R_SubdivideSurface
 
 Breaks a polygon up along axial 64 unit
 boundaries so that turbulent and sky warps
 can be done reasonably.
 ================
 """
-def GL_SubdivideSurface (fa): #msurface_t *
+def R_SubdivideSurface (fa): #msurface_t *
 
 	global warpface
 
@@ -209,7 +209,7 @@ def GL_SubdivideSurface (fa): #msurface_t *
 		shared.VectorCopy (vec, verts[numverts])
 		numverts += 1
 	
-	SubdividePolygon (numverts, verts)
+	R_SubdividePolygon (numverts, verts)
 
 #=========================================================
 
@@ -228,12 +228,12 @@ TURBSCALE = (256.0 / (2 * math.pi))
 
 """
 =============
-EmitWaterPolys
+R_EmitWaterPolys
 
 Does a water warp on the pre-fragmented glpoly_t chain
 =============
 """
-def EmitWaterPolys (fa): #msurface_t *
+def R_EmitWaterPolys (fa): #msurface_t *
 
 	"""
 	glpoly_t	*p, *bp;
@@ -323,10 +323,10 @@ sky_min = None # float
 sky_max = None # float	
 """
 ==============
-DrawSkyPolygon
+R_DrawSkyPolygon
 ==============
 """
-def DrawSkyPolygon (nump, vecs): # int, vec3_t * (array [nump][3])
+def R_DrawSkyPolygon (nump, vecs): # int, vec3_t * (array [nump][3])
 
 	global c_sky
 
@@ -406,10 +406,10 @@ SIDE_ON = 2
 
 """
 ==============
-ClipSkyPolygon
+R_ClipSkyPolygon
 ==============
 """
-def ClipSkyPolygon (nump, vecs, stage): # int, vec3_t * (array [nump][3]), int
+def R_ClipSkyPolygon (nump, vecs, stage): # int, vec3_t * (array [nump][3]), int
 
 	"""
 	float	*norm;
@@ -424,10 +424,10 @@ def ClipSkyPolygon (nump, vecs, stage): # int, vec3_t * (array [nump][3]), int
 	"""
 
 	if nump > MAX_CLIP_VERTS-2:
-		gl1_main.ri.Sys_Error (shared.ERR_DROP, "ClipSkyPolygon: MAX_CLIP_VERTS")
+		gl1_main.ri.Sys_Error (shared.ERR_DROP, "R_ClipSkyPolygon: MAX_CLIP_VERTS")
 	if stage == 6:
 		# fully clipped, so draw it
-		DrawSkyPolygon (nump, vecs)
+		R_DrawSkyPolygon (nump, vecs)
 		return
 	
 	dists = [0.0] * MAX_CLIP_VERTS
@@ -454,7 +454,7 @@ def ClipSkyPolygon (nump, vecs, stage): # int, vec3_t * (array [nump][3]), int
 	
 	if not front or not back:
 		# not clipped
-		ClipSkyPolygon (nump, vecs, stage+1)
+		R_ClipSkyPolygon (nump, vecs, stage+1)
 		return
 	
 	# clip it
@@ -495,8 +495,8 @@ def ClipSkyPolygon (nump, vecs, stage): # int, vec3_t * (array [nump][3]), int
 		newc[1] += 1
 	
 	# continue
-	ClipSkyPolygon (newc[0], newv[0], stage+1)
-	ClipSkyPolygon (newc[1], newv[1], stage+1)
+	R_ClipSkyPolygon (newc[0], newv[0], stage+1)
+	R_ClipSkyPolygon (newc[1], newv[1], stage+1)
 
 
 """
@@ -516,7 +516,7 @@ def R_AddSkySurface (fa): # msurface_t *
 	for p in fa.polys:
 
 		verts = p.verts[:p.numverts, :3] - gl1_main.r_origin # VectorSubtract (p->verts[i], r_origin, verts[i])
-		ClipSkyPolygon (p.numverts, verts, 0)
+		R_ClipSkyPolygon (p.numverts, verts, 0)
 
 
 """
@@ -538,7 +538,7 @@ def R_ClearSkyBox ():
 		skymaxs[1][i] = -9999
 	
 
-def MakeSkyVec (s, t, axis): # float, float, int
+def R_MakeSkyVec (s, t, axis): # float, float, int
 
 	#vec3_t		v, b;
 	#int			j, k;
@@ -619,10 +619,10 @@ def R_DrawSkyBox ():
 		gl1_image.R_Bind (sky_images[skytexorder[i]].texnum)
 
 		GL.glBegin (GL.GL_QUADS)
-		MakeSkyVec (skymins[0,i], skymins[1,i], i)
-		MakeSkyVec (skymins[0,i], skymaxs[1,i], i)
-		MakeSkyVec (skymaxs[0,i], skymaxs[1,i], i)
-		MakeSkyVec (skymaxs[0,i], skymins[1,i], i)
+		R_MakeSkyVec (skymins[0,i], skymins[1,i], i)
+		R_MakeSkyVec (skymins[0,i], skymaxs[1,i], i)
+		R_MakeSkyVec (skymaxs[0,i], skymaxs[1,i], i)
+		R_MakeSkyVec (skymaxs[0,i], skymins[1,i], i)
 		GL.glEnd ()
 
 	GL.glPopMatrix ()
@@ -635,15 +635,15 @@ def R_DrawSkyBox ():
 
 """
 ============
-R_SetSky
+RI_SetSky
 ============
 """
 # 3dstudio environment map names
 suf = ["rt", "bk", "lf", "ft", "up", "dn"]
-def R_SetSky (name, rotate, axis): # char *, float, vec3_t
+def RI_SetSky (name, rotate, axis): # char *, float, vec3_t
 
 	global skyname, skyrotate, skyaxis, sky_images, sky_min, sky_max
-	#print ("R_SetSky", name, rotate, axis)
+	#print ("RI_SetSky", name, rotate, axis)
 	"""
 	int		i;
 	char	pathname[MAX_QPATH];

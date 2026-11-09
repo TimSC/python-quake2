@@ -1413,10 +1413,10 @@ def R_FindImage (name, imgType): #char *, imagetype_t (returns image_t *)
 
 """
 ===============
-R_RegisterSkin
+RI_RegisterSkin
 ===============
 """
-def R_RegisterSkin (name): #char * (returns struct image_s *)
+def RI_RegisterSkin (name): #char * (returns struct image_s *)
 
 	return R_FindImage (name, imagetype_t.it_skin)
 
