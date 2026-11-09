@@ -253,12 +253,12 @@ def Mod_LoadSubmodels(l: files_h.lump_t):
 
 """
 ================
-CalcSurfaceExtents
+Mod_CalcSurfaceExtents
 
 Fills in s->texturemins[] and s->extents[]
 ================
 """
-def CalcSurfaceExtents(s: model.msurface_t):
+def Mod_CalcSurfaceExtents(s: model.msurface_t):
 
 	tex = s.texinfo
 	if tex is None or s.numedges <= 0:
@@ -350,7 +350,7 @@ def Mod_LoadFaces(l: files_h.lump_t):
 			gl1_main.ri.Sys_Error (shared.ERR_DROP, "MOD_LoadBmodel: bad texinfo number")
 		surf.texinfo = loadmodel.texinfo[texinfo_index]
 
-		CalcSurfaceExtents(surf)
+		Mod_CalcSurfaceExtents(surf)
 
 		surf.styles = styles
 		if lightofs == -1 or loadmodel.lightdata is None:

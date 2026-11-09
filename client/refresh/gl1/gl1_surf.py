@@ -190,10 +190,10 @@ void DrawGLWaterPolyLightmap (glpoly_t *p)
 
 """
 ================
-DrawGLPoly
+R_DrawGLPoly
 ================
 """
-def DrawGLPoly (p): #glpoly_t *
+def R_DrawGLPoly (p): #glpoly_t *
 
 	#int		i;
 	#float	*v;
@@ -210,7 +210,7 @@ def DrawGLPoly (p): #glpoly_t *
 #PGM
 """
 ================
-DrawGLFlowingPoly -- version of DrawGLPoly that handles scrolling texture
+DrawGLFlowingPoly -- version of R_DrawGLPoly that handles scrolling texture
 ================
 """
 def DrawGLFlowingPoly (fa): #msurface_t *
@@ -274,9 +274,9 @@ def R_DrawTriangleOutlines ():
 	GL.glEnable (GL.GL_TEXTURE_2D)
 
 """
-** DrawGLPolyChain
+** R_DrawGLPolyChain
 """
-def DrawGLPolyChain( polys, soffset, toffset ): #glpoly_t list (was a chain), float, float
+def R_DrawGLPolyChain( polys, soffset, toffset ): #glpoly_t list (was a chain), float, float
 
 	if soffset == 0 and toffset == 0:
 
@@ -345,19 +345,7 @@ def R_BlendLightmaps ():
 
 		else:
 
-			if gl1_main.gl_monolightmap.string[0] != '0':
-
-				mode = gl1_main.gl_monolightmap.string[0].upper()
-				if mode == 'I':
-					GL.glBlendFunc (GL.GL_ZERO, GL.GL_SRC_COLOR )
-				elif mode == 'L':
-					GL.glBlendFunc (GL.GL_ZERO, GL.GL_SRC_COLOR )
-				else: # case 'A': default:
-					GL.glBlendFunc( GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA )
-
-			else:
-
-				GL.glBlendFunc (GL.GL_ZERO, GL.GL_SRC_COLOR )
+			GL.glBlendFunc (GL.GL_ZERO, GL.GL_SRC_COLOR )
 
 	if gl1_main.currentmodel is gl1_main.r_worldmodel:
 		c_visible_lightmaps = 0
@@ -376,7 +364,7 @@ def R_BlendLightmaps ():
 			for surf in gl_lms.lightmap_surfaces[i]:
 
 				if surf.polys:
-					DrawGLPolyChain( surf.polys, 0, 0 )
+					R_DrawGLPolyChain( surf.polys, 0, 0 )
 
 	#
 	# render dynamic lightmaps
@@ -419,7 +407,7 @@ def R_BlendLightmaps ():
 				for drawsurf in dynamic_surfaces[newdrawsurf:surf_i]:
 
 					if drawsurf.polys:
-						DrawGLPolyChain( drawsurf.polys,
+						R_DrawGLPolyChain( drawsurf.polys,
 							              ( drawsurf.light_s - drawsurf.dlight_s ) * ( 1.0 / 128.0 ),
 										( drawsurf.light_t - drawsurf.dlight_t ) * ( 1.0 / 128.0 ) )
 
@@ -447,7 +435,7 @@ def R_BlendLightmaps ():
 		for surf in dynamic_surfaces[newdrawsurf:]:
 
 			if surf.polys:
-				DrawGLPolyChain( surf.polys, ( surf.light_s - surf.dlight_s ) * ( 1.0 / 128.0 ), ( surf.light_t - surf.dlight_t ) * ( 1.0 / 128.0 ) )
+				R_DrawGLPolyChain( surf.polys, ( surf.light_s - surf.dlight_s ) * ( 1.0 / 128.0 ), ( surf.light_t - surf.dlight_t ) * ( 1.0 / 128.0 ) )
 
 	#
 	# restore state
@@ -500,7 +488,7 @@ def R_RenderBrushPoly (fa): #msurface_t *
 	if fa.texinfo.flags & shared.SURF_FLOWING:
 		DrawGLFlowingPoly (fa)
 	else:
-		DrawGLPoly (fa.polys[0])
+		R_DrawGLPoly (fa.polys[0])
 #PGM
 #======
 
@@ -603,7 +591,7 @@ def R_DrawAlphaSurfaces ():
 		elif s.texinfo.flags & shared.SURF_FLOWING:			# PGM	9/16/98
 			DrawGLFlowingPoly (s)							# PGM
 		else:
-			DrawGLPoly (s.polys[0])
+			R_DrawGLPoly (s.polys[0])
 
 	gl1_image.R_TexEnv( GL.GL_REPLACE )
 	GL.glColor4f (1,1,1,1)
@@ -613,10 +601,10 @@ def R_DrawAlphaSurfaces ():
 
 """
 ================
-DrawTextureChains
+R_DrawTextureChains
 ================
 """
-def DrawTextureChains ():
+def R_DrawTextureChains ():
 
 	global c_visible_textures
 
@@ -680,7 +668,7 @@ def DrawTextureChains ():
 	gl1_image.R_TexEnv( GL.GL_REPLACE )
 
 
-def GL_RenderLightmappedPoly( surf ): #msurface_t *
+def R_RenderLightmappedPoly( surf ): #msurface_t *
 
 	"""
 	int		i, nv = surf->polys->numverts;
@@ -888,7 +876,7 @@ def R_DrawInlineBModel ():
 
 			elif qgl_linux.qglMTexCoord2fSGIS and not ( psurf.flags & model.SURF_DRAWTURB ):
 
-				GL_RenderLightmappedPoly( psurf )
+				R_RenderLightmappedPoly( psurf )
 
 			else:
 
@@ -991,9 +979,6 @@ def R_DrawBrushModel (e): #entity_t *
 =============================================================
 """
 
-# Q2PORT DEBUG: per frame world node counters, printed by gl1_main.R_DebugFrustum
-dbg_nodes_visited, dbg_nodes_culled, dbg_leafs_drawn = 0, 0, 0
-
 """
 ================
 R_RecursiveWorldNode
@@ -1018,16 +1003,12 @@ def R_RecursiveWorldNode (node): #mnode_t *
 	if node.visframe != gl1_main.r_visframecount:
 		return
 
-	dbg_nodes_visited += 1 # Q2PORT DEBUG
-
 	if files_surf.R_CullBox (node.minmaxs[0:3], node.minmaxs[3:6], gl1_main.frustum):
-		dbg_nodes_culled += 1 # Q2PORT DEBUG
 		return
 
 	# if a leaf node, draw stuff
 	if node.contents != -1:
 
-		dbg_leafs_drawn += 1 # Q2PORT DEBUG
 		pleaf = node
 
 		# check for door connected areas
@@ -1090,7 +1071,7 @@ def R_RecursiveWorldNode (node): #mnode_t *
 
 			if qgl_linux.qglMTexCoord2fSGIS and not ( surf.flags & model.SURF_DRAWTURB ):
 
-				GL_RenderLightmappedPoly( surf )
+				R_RenderLightmappedPoly( surf )
 
 			else:
 
@@ -1124,7 +1105,7 @@ def R_RecursiveWorldNode (node): #mnode_t *
 		{
 			if ( qglMTexCoord2fSGIS && !( surf->flags & SURF_DRAWTURB ) )
 			{
-				GL_RenderLightmappedPoly( surf );
+				R_RenderLightmappedPoly( surf );
 			}
 			else
 			{
@@ -1197,7 +1178,7 @@ def R_DrawWorld ():
 	# theoretically nothing should happen in the next two functions
 	# if multitexture is enabled
 	#
-	DrawTextureChains ()
+	R_DrawTextureChains ()
 	R_BlendLightmaps ()
 
 	gl1_warp.R_DrawSkyBox ()

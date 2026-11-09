@@ -656,7 +656,7 @@ def RI_SetSky (name, rotate, axis): # char *, float, vec3_t
 	for i in range(6):
 	
 		# chop down rotating skies for less memory
-		if gl1_main.gl_skymip.value or skyrotate:
+		if skyrotate:
 			gl1_main.gl1_picmip.value+=1
 
 		if qgl_linux.qglColorTableEXT and gl1_main.gl_ext_palettedtexture.value:
@@ -668,7 +668,7 @@ def RI_SetSky (name, rotate, axis): # char *, float, vec3_t
 		if sky_images[i] is None:
 			sky_images[i] = gl1_main.r_notexture
 
-		if gl1_main.gl_skymip.value or skyrotate:
+		if skyrotate:
 			# take less memory
 			gl1_main.gl1_picmip.value -= 1
 			sky_min = 1.0/256

@@ -106,10 +106,10 @@ typedef struct _TargaHeader {
 """
 """ 
 ================== 
-GL_ScreenShot_f
+R_ScreenShot
 ================== 
 """
-def GL_ScreenShot_f ():
+def R_ScreenShot ():
 
 	"""
 	byte		*buffer;
@@ -166,10 +166,10 @@ def GL_ScreenShot_f ():
 """
 
 /*
-** GL_Strings_f
+** R_Strings_f
 */
 """
-def GL_Strings_f( ):
+def R_Strings_f( ):
 
 	gl1_main.ri.Con_Printf (shared.PRINT_ALL, "GL_VENDOR: {}\n".format(gl1_main.gl_config.vendor_string) )
 	gl1_main.ri.Con_Printf (shared.PRINT_ALL, "GL_RENDERER: {}\n".format(gl1_main.gl_config.renderer_string) )
@@ -179,10 +179,10 @@ def GL_Strings_f( ):
 
 """
 /*
-** GL_SetDefaultState
+** R_SetDefaultState
 */
 """
-def GL_SetDefaultState( ):
+def R_SetDefaultState( ):
 	
 
 	GL.glClearColor (1,0, 0.5 , 0.5)

@@ -28,7 +28,8 @@ import OpenGL.GL.ARB.multitexture as GLmt
 import pygame
 from enum import Enum
 pass
-from client.refresh.gl1 import gl1_main, gl1_model, gl1_draw
+from client.refresh.gl1 import gl1_main, gl1_model, gl1_draw, gl1_scrap
+from client.refresh.files import stb as files_stb
 pass
 from linux import qgl_linux
 from common.header import common as common_h
@@ -66,8 +67,8 @@ class image_t(object):
 		self.paletted = False #qboolean
 
 TEXNUM_LIGHTMAPS	= 1024
-TEXNUM_SCRAPS		= 1152
-TEXNUM_IMAGES		= 1153
+TEXNUM_SCRAPS		= TEXNUM_LIGHTMAPS + 128 * 3 # MAX_LIGHTMAPS * MAX_LIGHTMAP_COPIES
+TEXNUM_IMAGES		= TEXNUM_SCRAPS + 4 # MAX_SCRAPS
 
 MAX_GLTEXTURES	= 1024
 
@@ -461,66 +462,9 @@ def R_ImageList_f ():
 =============================================================================
 */
 
-"""
-MAX_SCRAPS = 1
-BLOCK_WIDTH = 256
-BLOCK_HEIGHT = 256
 
-scrap_allocated = [[0] * BLOCK_WIDTH for _ in range(MAX_SCRAPS)] #int [MAX_SCRAPS][BLOCK_WIDTH]
-scrap_texels = [bytearray(BLOCK_WIDTH*BLOCK_HEIGHT) for _ in range(MAX_SCRAPS)] #byte [MAX_SCRAPS][BLOCK_WIDTH*BLOCK_HEIGHT]
-scrap_dirty = False #qboolean
+# the scrap texture code now lives in gl1_scrap.py
 
-# returns a texture number and the position inside it
-def Scrap_AllocBlock (w, h): #int, int (returns int texnum, int x, int y)
-
-	#int		i, j;
-	#int		best, best2;
-	#int		texnum;
-	x = y = 0
-
-	for texnum in range(MAX_SCRAPS):
-	
-		best = BLOCK_HEIGHT
-
-		for i in range(BLOCK_WIDTH-w):
-		
-			best2 = 0
-
-			for j in range(w):
-			
-				if scrap_allocated[texnum][i+j] >= best:
-					break
-				if scrap_allocated[texnum][i+j] > best2:
-					best2 = scrap_allocated[texnum][i+j]
-			
-			else: # j == w
-				# this is a valid spot
-				x = i
-				y = best = best2
-			
-		if best + h > BLOCK_HEIGHT:
-			continue
-
-		for i in range(w):
-			scrap_allocated[texnum][x + i] = best + h
-
-		return texnum, x, y
-	
-	return -1, x, y
-#	Sys_Error ("Scrap_AllocBlock: full");
-
-scrap_uploads = 0 #int
-
-def Scrap_Upload ():
-
-	global scrap_uploads, scrap_dirty
-
-	scrap_uploads += 1
-	R_Bind(TEXNUM_SCRAPS)
-	R_Upload8 (scrap_texels[0], BLOCK_WIDTH, BLOCK_HEIGHT, False, False )
-	scrap_dirty = False
-
-"""
 =================================================================
 
 PCX LOADING
@@ -1221,7 +1165,7 @@ This is also used as an entry point for the generated r_notexture
 """
 def R_LoadPic (name, pic, width, height, imgType, bits): #char *, byte *, int, int, imagetype_t, int (returns image_t *)
 
-	global gltextures, numgltextures, TEXNUM_IMAGES, scrap_dirty
+	global gltextures, numgltextures, TEXNUM_IMAGES
 	#image_t		*image;
 	#int			i;
 
@@ -1255,36 +1199,35 @@ def R_LoadPic (name, pic, width, height, imgType, bits): #char *, byte *, int, i
 		R_FloodFillSkin(pic, width, height)
 
 	# load little pics into the scrap
-	scrap_texnum = -1
-	if (image.type == imagetype_t.it_pic and bits == 8
-		and image.width < 64 and image.height < 64):
+	nonscrap = True
+	if (image.type == imagetype_t.it_pic and width <= gl1_scrap.BLOCK_WIDTH and height <= gl1_scrap.BLOCK_HEIGHT):
 	
-		#int		x, y;
-		#int		i, j, k;
-		#int		texnum;
+		#int		texnum, x, y;
+		texnum = -1
+		x = [0]; y = [0]
+		nolerp = False
+		offset = 0 if nolerp else gl1_scrap.MAX_SCRAPS_NOLERP
 
-		scrap_texnum, x, y = Scrap_AllocBlock (image.width, image.height)
-		# if (texnum == -1) goto nonscrap;
+		if bits == 32:
+			texnum = gl1_scrap.Scrap_AllocBlock (width, height, x, y, pic, offset)
+		elif bits == 8:
+			trans = files_stb.R_Convert8to32(pic, width, height, d_8to24table)
+			if trans is not None:
+				texnum = gl1_scrap.Scrap_AllocBlock (width, height, x, y, trans, offset)
 
-	if scrap_texnum != -1:
+		if texnum != -1:
+			nonscrap = False
+			image.texnum = TEXNUM_SCRAPS + texnum
+			image.scrap = True
+			image.has_alpha = True
+			image.sl = x[0] / gl1_scrap.SCRAP_WIDTH
+			image.sh = (x[0] + width) / gl1_scrap.SCRAP_WIDTH
+			image.tl = y[0] / gl1_scrap.SCRAP_HEIGHT
+			image.th = (y[0] + height) / gl1_scrap.SCRAP_HEIGHT
+			image.upload_width = width
+			image.upload_height = height
 	
-		scrap_dirty = True
-
-		# copy the texels into the scrap block
-		k = 0
-		for si in range(image.height):
-			for sj in range(image.width):
-				scrap_texels[scrap_texnum][(y+si)*BLOCK_WIDTH + x + sj] = pic[k]
-				k += 1
-		image.texnum = TEXNUM_SCRAPS + scrap_texnum
-		image.scrap = True
-		image.has_alpha = True
-		image.sl = (x+0.01)/float(BLOCK_WIDTH)
-		image.sh = (x+image.width-0.01)/float(BLOCK_WIDTH)
-		image.tl = (y+0.01)/float(BLOCK_WIDTH)
-		image.th = (y+image.height-0.01)/float(BLOCK_WIDTH)
-	
-	else:
+	if nonscrap:
 	
 		#nonscrap:
 		image.scrap = False

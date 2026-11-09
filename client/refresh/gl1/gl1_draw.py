@@ -22,7 +22,35 @@ from __future__ import annotations
 import struct
 import OpenGL.GL as GL
 from PIL import Image
-from client.refresh.gl1 import gl1_main, gl1_image
+from client.refresh.gl1 import gl1_main, gl1_image, gl1_scrap
+
+
+"""
+** Scrap_Update
+"""
+def Scrap_Update ():
+
+	"""
+	qboolean default2Dnolerp;
+	int texnum;
+	"""
+
+	# r_2D_unfiltered not ported; default 0
+	default2Dnolerp = False
+
+	for texnum in range(gl1_scrap.MAX_SCRAPS):
+		scrap_texels = gl1_scrap.Scrap_Upload(texnum)
+		if scrap_texels is not None:
+			gl1_image.R_Bind(gl1_image.TEXNUM_SCRAPS + texnum)
+			gl1_image.R_Upload32(scrap_texels, gl1_scrap.SCRAP_WIDTH, gl1_scrap.SCRAP_HEIGHT, False)
+			if default2Dnolerp or (texnum < gl1_scrap.MAX_SCRAPS_NOLERP):
+				GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
+				GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+			else:
+				GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
+				GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+
+
 pass
 from linux import qgl_linux
 from common.header import shared
@@ -33,8 +61,7 @@ from common.header import shared
 """
 draw_chars = None #image_t *
 """
-extern	qboolean	scrap_dirty;
-void Scrap_Upload (void);
+# scrap code lives in gl1_scrap.py
 
 
 /*
@@ -79,16 +106,25 @@ def Draw_Char (x, y, num): #int, int, int
 	fcol = col*0.0625
 	size = 0.0625
 
+	#Q2PORT: conchars may live in the scrap (a 128x128 block of the scrap
+	#texture), so map the char UV through the scrap span like the C does
+	#(sl + fcol*(sh-sl)).  For a nonscrap texture sl/sh are 0/1 so this is
+	#a no-op.
+	fu  = draw_chars.sl  + fcol       * (draw_chars.sh - draw_chars.sl)
+	fu2 = draw_chars.sl  + (fcol+size)* (draw_chars.sh - draw_chars.sl)
+	fv  = draw_chars.tl  + frow       * (draw_chars.th - draw_chars.tl)
+	fv2 = draw_chars.tl  + (frow+size)* (draw_chars.th - draw_chars.tl)
+
 	gl1_image.R_Bind (draw_chars.texnum)
 
 	GL.glBegin (GL.GL_QUADS)
-	GL.glTexCoord2f (fcol, frow)
+	GL.glTexCoord2f (fu, fv)
 	GL.glVertex2f (x, y)
-	GL.glTexCoord2f (fcol + size, frow)
+	GL.glTexCoord2f (fu2, fv)
 	GL.glVertex2f (x+8, y)
-	GL.glTexCoord2f (fcol + size, frow + size)
+	GL.glTexCoord2f (fu2, fv2)
 	GL.glVertex2f (x+8, y+8)
-	GL.glTexCoord2f (fcol, frow + size)
+	GL.glTexCoord2f (fu, fv2)
 	GL.glVertex2f (x, y+8)
 	GL.glEnd ()
 
@@ -126,16 +162,22 @@ def RDraw_CharScaled (x, y, num, scale): #int, int, int, float
 
 	scaledSize = 8 * scale
 
+	#Q2PORT: map the char UV through the scrap span (see Draw_Char).
+	fu  = draw_chars.sl  + fcol        * (draw_chars.sh - draw_chars.sl)
+	fu2 = draw_chars.sl  + (fcol+size) * (draw_chars.sh - draw_chars.sl)
+	fv  = draw_chars.tl  + frow        * (draw_chars.th - draw_chars.tl)
+	fv2 = draw_chars.tl  + (frow+size) * (draw_chars.th - draw_chars.tl)
+
 	gl1_image.R_Bind (draw_chars.texnum)
 
 	GL.glBegin (GL.GL_QUADS)
-	GL.glTexCoord2f (fcol, frow)
+	GL.glTexCoord2f (fu, fv)
 	GL.glVertex2f (x, y)
-	GL.glTexCoord2f (fcol + size, frow)
+	GL.glTexCoord2f (fu2, fv)
 	GL.glVertex2f (x + scaledSize, y)
-	GL.glTexCoord2f (fcol + size, frow + size)
+	GL.glTexCoord2f (fu2, fv2)
 	GL.glVertex2f (x + scaledSize, y + scaledSize)
-	GL.glTexCoord2f (fcol, frow + size)
+	GL.glTexCoord2f (fu, fv2)
 	GL.glVertex2f (x, y + scaledSize)
 	GL.glEnd ()
 
@@ -162,9 +204,7 @@ def RDraw_PicScaledCol (x, y, pic, factor, color): #int, int, char *, float, con
 		return
 
 
-	if gl1_image.scrap_dirty:
-
-		gl1_image.Scrap_Upload ()
+	Scrap_Update ()
 
 
 	if color is not None:
@@ -241,8 +281,7 @@ def RDraw_StretchPic (x, y, w, h, pic): #int, int, int, int, char *
 		return
 	
 
-	if gl1_image.scrap_dirty:
-		gl1_image.Scrap_Upload ()
+	Scrap_Update ()
 	
 	#if ( ( ( gl_config.renderer == GL_RENDERER_MCD ) || ( gl_config.renderer & GL_RENDERER_RENDITION ) ) && !gl->has_alpha)
 	#	qglDisable (GL_ALPHA_TEST);
@@ -277,8 +316,7 @@ def Draw_Pic (x, y, pic): #int, int, char *
 		gl1_main.ri.Con_Printf (shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
 		return
 	
-	if gl1_image.scrap_dirty:
-		gl1_image.Scrap_Upload ()
+	Scrap_Update ()
 
 	#if ( ( ( gl_config.renderer == GL_RENDERER_MCD ) || ( gl_config.renderer & GL_RENDERER_RENDITION ) ) && !gl->has_alpha)
 	#	qglDisable (GL_ALPHA_TEST);

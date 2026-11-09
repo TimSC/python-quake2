@@ -647,19 +647,6 @@ def R_DrawAliasModel (e): #entity_t *
 				else:
 					gl1_main.r_lightlevel.value = 150*shadelight[2]
 
-		if gl1_main.gl_monolightmap.string[0] != '0':
-
-			s = shadelight[0]
-
-			if s < shadelight[1]:
-				s = shadelight[1]
-			if s < shadelight[2]:
-				s = shadelight[2]
-
-			shadelight[0] = s
-			shadelight[1] = s
-			shadelight[2] = s
-
 	if currententity.flags & shared.RF_MINLIGHT:
 
 		for i in range(3):

@@ -213,7 +213,7 @@ lightplane = None #cplane_t *, used as shadow plane
 lightspot = np.zeros((3,), dtype=np.float32)
 
 
-def RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (returns int)
+def R_RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (returns int)
 
 	global lightplane
 
@@ -243,7 +243,7 @@ def RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (returns 
 	side = 1 if front < 0 else 0
 	
 	if (back < 0) == side:
-		return RecursiveLightPoint (node.children[side], start, end)
+		return R_RecursiveLightPoint (node.children[side], start, end)
 	
 	frac = front / (front-back)
 	mid = np.zeros((3,), dtype=np.float32)
@@ -252,7 +252,7 @@ def RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (returns 
 	mid[2] = start[2] + (end[2] - start[2])*frac
 	
 	# go down front side	
-	r = RecursiveLightPoint (node.children[side], start, mid)
+	r = R_RecursiveLightPoint (node.children[side], start, mid)
 	if r >= 0:
 		return r		# hit something
 		
@@ -314,7 +314,7 @@ def RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (returns 
 		return 1
 	
 	# go down back side
-	return RecursiveLightPoint (node.children[1 - side], mid, end)
+	return R_RecursiveLightPoint (node.children[1 - side], mid, end)
 
 
 """
@@ -344,7 +344,7 @@ def R_LightPoint (p, color): #vec3_t, vec3_t
 	end[1] = p[1]
 	end[2] = p[2] - 2048
 	
-	r = RecursiveLightPoint (gl1_main.r_worldmodel.nodes[0], p, end)
+	r = R_RecursiveLightPoint (gl1_main.r_worldmodel.nodes[0], p, end)
 	
 	if r == -1:
 		shared.VectorClear (color) # VectorCopy (vec3_origin, color)
@@ -557,10 +557,6 @@ def R_BuildLightMap (surf, dest, stride): #msurface_t *, byte *, int
 	dest_view = memoryview(dest)
 	dest_idx = 0	
 	bl_idx = 0
-	monolightmap = '0'
-	if gl1_main.gl_monolightmap and getattr(gl1_main.gl_monolightmap, "string", None):
-		monolightmap = gl1_main.gl_monolightmap.string[0]
-	monolightmap = monolightmap.upper() if monolightmap else '0'
 
 	def _clamp(value):
 		value = int(value)
@@ -590,23 +586,7 @@ def R_BuildLightMap (surf, dest, stride): #msurface_t *, byte *, int
 				b *= t
 				a *= t
 
-			if monolightmap == '0':
-				val_r, val_g, val_b, val_a = r, g, b, a
-			else:
-				if monolightmap in ('L', 'I'):
-					val_r, val_g, val_b = a, 0, 0
-					val_a = a
-				elif monolightmap == 'C':
-					val_a = 255 - ((r + g + b) / 3.0)
-					if val_a == 0:
-						val_r = val_g = val_b = 0
-					else:
-						val_r = r * (val_a / 255.0)
-						val_g = g * (val_a / 255.0)
-						val_b = b * (val_a / 255.0)
-				else:
-					val_r = val_g = val_b = 0
-					val_a = 255 - a
+			val_r, val_g, val_b, val_a = r, g, b, a
 			val_r = _clamp(val_r)
 			val_g = _clamp(val_g)
 			val_b = _clamp(val_b)

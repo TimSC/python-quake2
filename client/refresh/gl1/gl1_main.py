@@ -20,7 +20,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import os
-import sys
 import math
 import struct
 import copy
@@ -34,7 +33,7 @@ from linux import qgl_linux
 from client.vid import glimp_sdl2
 pass
 pass
-from client.refresh.gl1 import gl1_draw, gl1_image, gl1_misc, gl1_model, gl1_warp, gl1_surf, gl1_mesh, gl1_light
+from client.refresh.gl1 import gl1_draw, gl1_image, gl1_misc, gl1_model, gl1_warp, gl1_surf, gl1_mesh, gl1_light, gl1_scrap
 from client.refresh.gl1.header import model
 from client.refresh.files import models as files_models
 from common.header import files as files_h
@@ -181,7 +180,7 @@ cplane_t	frustum[4];
 
 int			c_brush_polys, c_alias_polys;
 
-void GL_Strings_f( void );
+void R_Strings_f( void );
 """
 v_blend = np.zeros((4,), dtype=np.float32) #float[4], final blending color
 
@@ -870,39 +869,6 @@ R_RenderView
 r_newrefdef must be set before the first call
 ================
 """
-# Q2PORT DEBUG: frustum and world culling trace, enabled with env Q2DBG=1.
-# Output matches R_DebugFrustum added to the C gl1 renderer for diffing.
-dbg_frame = 0 #int
-
-def R_DebugFrustum ():
-
-	global dbg_frame
-
-	if not os.environ.get("Q2DBG") or dbg_frame >= 300 \
-		or (r_newrefdef.rdflags & shared.RDF_NOWORLDMODEL):
-		return
-
-	dbg_frame += 1
-	out = sys.stderr
-	out.write("DBG frame {} time {:.3f} fov {:.3f} {:.3f} size {} {} cluster {} {}\n".format(
-		dbg_frame, r_newrefdef.time, r_newrefdef.fov_x, r_newrefdef.fov_y,
-		r_newrefdef.width, r_newrefdef.height, r_viewcluster, r_viewcluster2))
-	out.write("DBG org {:.3f} {:.3f} {:.3f} ang {:.3f} {:.3f} {:.3f}\n".format(
-		r_origin[0], r_origin[1], r_origin[2], r_newrefdef.viewangles[0],
-		r_newrefdef.viewangles[1], r_newrefdef.viewangles[2]))
-	out.write("DBG vpn {:.5f} {:.5f} {:.5f} vright {:.5f} {:.5f} {:.5f} vup {:.5f} {:.5f} {:.5f}\n".format(
-		vpn[0], vpn[1], vpn[2], vright[0], vright[1], vright[2],
-		vup[0], vup[1], vup[2]))
-
-	for i in range(4):
-		out.write("DBG frustum {} normal {:.5f} {:.5f} {:.5f} dist {:.3f} type {} signbits {}\n".format(
-			i, frustum[i].normal[0], frustum[i].normal[1], frustum[i].normal[2],
-			frustum[i].dist, frustum[i].type, frustum[i].signbits))
-
-	out.write("DBG world visited {} culled {} leafs {} wpoly {}\n".format(
-		gl1_surf.dbg_nodes_visited, gl1_surf.dbg_nodes_culled, gl1_surf.dbg_leafs_drawn, c_brush_polys))
-
-
 def R_RenderView (fd): #refdef_t *
 
 	global r_norefresh, r_newrefdef, c_brush_polys, c_alias_polys
@@ -933,12 +899,7 @@ def R_RenderView (fd): #refdef_t *
 
 	gl1_surf.R_MarkLeaves ()	# done here so we know if we're in water
 
-	gl1_surf.dbg_nodes_visited, gl1_surf.dbg_nodes_culled, gl1_surf.dbg_leafs_drawn = 0, 0, 0 # Q2PORT DEBUG
-	c_brush_polys = 0 # Q2PORT DEBUG
-
 	gl1_surf.R_DrawWorld ()
-
-	R_DebugFrustum () # Q2PORT DEBUG
 
 	R_DrawEntitiesOnList ()
 
@@ -1076,8 +1037,8 @@ def R_Register():
 	gl_nosubimage, gl_allow_software, gl_vertex_arrays, \
 	gl1_particle_min_size, gl1_particle_max_size, gl1_particle_size, gl1_particle_att_a, gl1_particle_att_b, gl1_particle_att_c, \
 	gl_ext_swapinterval, gl_ext_palettedtexture, gl_ext_multitexture, gl_ext_pointparameters, gl_ext_compiled_vertex_array, \
-	gl_log, gl_bitdepth, gl_drawbuffer, gl_driver, r_lightmap, r_shadows, gl_mode, gl1_dynamic, gl_monolightmap, r_modulate, gl_nobind, \
-	gl1_round_down, gl1_picmip, gl_skymip, gl_showtris, gl1_ztrick, gl_finish, r_clear, r_cull, gl_polyblend, gl1_flashblend, gl_playermip, \
+	gl_log, gl_bitdepth, gl_drawbuffer, gl_driver, r_lightmap, r_shadows, gl_mode, gl1_dynamic, r_modulate, gl_nobind, \
+	gl1_round_down, gl1_picmip, gl_showtris, gl1_ztrick, gl_finish, r_clear, r_cull, gl_polyblend, gl1_flashblend, \
 	gl1_saturatelighting, r_vsync, gl_texturemode, gl1_texturealphamode, gl1_texturesolidmode, r_lockpvs, \
 	gl_3dlabs_broken, vid_fullscreen, vid_gamma, vid_ref, \
 	gl1_intensity, gl1_minlight, gl1_multitexture, gl1_overbrightbits, gl1_particle_square, \
@@ -1117,7 +1078,6 @@ def R_Register():
 	gl_nobind = ri.Cvar_Get ("gl_nobind", "0", 0)
 	gl1_round_down = ri.Cvar_Get ("gl1_round_down", "1", 0)
 	gl1_picmip = ri.Cvar_Get ("gl1_picmip", "0", 0)
-	gl_skymip = ri.Cvar_Get ("gl_skymip", "0", 0)
 	gl_showtris = ri.Cvar_Get ("gl_showtris", "0", 0)
 	gl1_ztrick = ri.Cvar_Get ("gl1_ztrick", "0", 0)
 	gl_finish = ri.Cvar_Get ("gl_finish", "0", shared.CVAR_ARCHIVE)
@@ -1125,8 +1085,6 @@ def R_Register():
 	r_cull = ri.Cvar_Get ("r_cull", "1", 0)
 	gl_polyblend = ri.Cvar_Get ("gl_polyblend", "1", 0)
 	gl1_flashblend = ri.Cvar_Get ("gl1_flashblend", "0", 0)
-	gl_playermip = ri.Cvar_Get ("gl_playermip", "0", 0)
-	gl_monolightmap = ri.Cvar_Get( "gl_monolightmap", "0", 0 )
 	gl_driver = ri.Cvar_Get( "gl_driver", "opengl32", shared.CVAR_ARCHIVE )
 	gl_texturemode = ri.Cvar_Get( "gl_texturemode", "GL_LINEAR_MIPMAP_NEAREST", shared.CVAR_ARCHIVE )
 	gl1_texturealphamode = ri.Cvar_Get( "gl1_texturealphamode", "default", shared.CVAR_ARCHIVE )
@@ -1183,9 +1141,9 @@ def R_Register():
 	r_videos_unfiltered = ri.Cvar_Get( "r_videos_unfiltered", "0", shared.CVAR_ARCHIVE )
 
 	ri.Cmd_AddCommand( "imagelist", gl1_image.R_ImageList_f )
-	ri.Cmd_AddCommand( "screenshot", gl1_misc.GL_ScreenShot_f )
+	ri.Cmd_AddCommand( "screenshot", gl1_misc.R_ScreenShot )
 	ri.Cmd_AddCommand( "modellist", gl1_model.Mod_Modellist_f )
-	ri.Cmd_AddCommand( "gl_strings", gl1_misc.GL_Strings_f )
+	ri.Cmd_AddCommand( "gl_strings", gl1_misc.R_Strings_f )
 
 
 """
@@ -1340,21 +1298,6 @@ def RI_Init( hinstance, hWnd ): #void *, void *
 	else:
 		gl_config.renderer = GL_RENDERER_OTHER
 
-	if gl_monolightmap.string[1:2].upper() != 'F':
-	
-		if gl_config.renderer == GL_RENDERER_PERMEDIA2:
-		
-			ri.Cvar_Set( "gl_monolightmap", "A" )
-			ri.Con_Printf( shared.PRINT_ALL, "...using gl_monolightmap 'a'\n" )
-		
-		elif gl_config.renderer & GL_RENDERER_POWERVR:
-		
-			ri.Cvar_Set( "gl_monolightmap", "0" )
-		
-		else:
-		
-			ri.Cvar_Set( "gl_monolightmap", "0" )
-		
 	# power vr can't have anything stay in the framebuffer, so
 	# the screen needs to redraw the tiled background every frame
 	if gl_config.renderer & GL_RENDERER_POWERVR:
@@ -1524,7 +1467,7 @@ def RI_Init( hinstance, hWnd ): #void *, void *
 		ri.Con_Printf( q_shared.PRINT_ALL, "...GL_SGIS_multitexture not found\n" );
 	}
 	"""
-	gl1_misc.GL_SetDefaultState()
+	gl1_misc.R_SetDefaultState()
 
 	#
 	# draw our stereo patterns
@@ -1533,6 +1476,7 @@ def RI_Init( hinstance, hWnd ): #void *, void *
 	# commented out until H3D pays us the money they owe us
 	## GL_DrawStereoPattern()
 
+	gl1_scrap.Scrap_Init ()
 	gl1_image.R_InitImages ()
 	gl1_model.Mod_Init ()
 	gl1_misc.R_InitParticleTexture ()
@@ -1542,13 +1486,6 @@ def RI_Init( hinstance, hWnd ): #void *, void *
 	err = GL.glGetError()
 	if err != GL.GL_NO_ERROR:
 		ri.Con_Printf (shared.PRINT_ALL, "glGetError() = 0x{:x}\n".format(err))
-
-	# q2 extra code to catch opengl errors
-	GL.glDebugMessageCallback(GL.GLDEBUGPROC(onGlDebugMessage), None)
-
-
-def onGlDebugMessage(*args, **kwargs):
-    print('glGetError args = {0}, kwargs = {1}'.format(args, kwargs))
 
 
 """
