@@ -426,9 +426,11 @@ def GLimp_GrabInput(grab: bool): #qboolean
 		# SDL_SetWindowGrab(window, grab)
 		pass
 
-	# SDL_SetRelativeMouseMode(grab)
+	# SDL_SetRelativeMouseMode(grab)  - hides the cursor while grabbed
 	try:
 		pygame.event.set_grab(bool(grab))
+		# Q2PORT: SDL_SetRelativeMouseMode hides the cursor, pygame's set_grab doesn't
+		pygame.mouse.set_visible(not bool(grab))
 	except pygame.error as err:
 
 		if not seen_error:
@@ -585,6 +587,10 @@ def GLimp_SetMode( pwidth, pheight, mode, fullscreen ): # int *, int *, int, qbo
 		if fullscreen:
 			return gl_rmain.rserr_t.rserr_invalid_fullscreen, pwidth, pheight
 		return gl_rmain.rserr_t.rserr_invalid_mode, pwidth, pheight
+
+	# Window title - set here so we can display renderer name in it.
+	# Q2PORT: use common.APPNAME in place of "Yamagi Quake II"
+	pygame.display.set_caption("{} {} - OpenGL 1.4".format(common_h.APPNAME, common_h.YQ2VERSION))
 
 	window = pygame.display.get_surface()
 	width, height = pygame.display.get_window_size()
