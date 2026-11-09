@@ -170,6 +170,24 @@ glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
     -> `RI_*`), plus a port of `R_ResetClearColor`. `re.DrawPic`/`re.DrawChar` are now
     commented out to match the C (the id-era base `Draw_Pic`/`Draw_Char` remain as
     dead code, since removing them is a cleanup this pass leaves alone).
+  - **Brightness bug fixed (verified against the compiled C reference):** the
+    base texture rendered ~2x too bright (fullbright ratio 2.01x, normal 1.79x;
+    the lightmap path was already correct). The C reference
+    (`yquake2/` at `4e2ad5e7`) is the ground truth. Two bugs, both in
+    `gl1_image.py` `R_Upload32`:
+    1. `gl_solid_format`/`gl_alpha_format`/`gl_tex_solid_format`/`gl_tex_alpha_format`
+       were the raw ints `3`/`4` instead of the GL enums `GL_RGB`/`GL_RGBA`; passing
+       an invalid internal format to `glTexImage2D` made the driver mis-read the
+       bytes (2x brighter). The C uses `Q2_GL_SOLID_FORMAT`/`Q2_GL_ALPHA_FORMAT`
+       (`GL_RGB`/`GL_RGBA`).
+    2. `R_LightScaleTexture` ran on the raw data **and** again on the resampled
+       result, so resampled (mip) textures were intensity-scaled twice. The C's
+       `R_Upload32Native` scales `data` once; `R_Upload32Soft` resamples the raw data
+       then scales the result once. Now the non-resample path scales `data` once and
+       the resample/mip path scales `scaled` once.
+    After the fix the rendered frame matches the C: fullbright ratio 1.005, lightmap
+    1.009, normal ~0.92 (the small residual is within the lightmap base-offset
+    tolerance, not a brightness bug).
   - **Remaining:** the structural splits that are real reworks, not renames:
     `gl1_scrap` (partial - `Scrap_AllocBlock`/`Upload` live in `gl1_image`); the
     coupled cvar removals (`gl_playermip`, `gl_skymip`, `gl_nobind`,

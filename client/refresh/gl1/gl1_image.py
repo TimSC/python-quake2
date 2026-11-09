@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import io
 import math
+import os
 import struct
 import numpy as np
 import OpenGL.GL as GL
@@ -89,6 +90,7 @@ gammatable = bytearray(256) #static unsigned char[256]
 cvar_t		*intensity;
 """
 d_8to24table = [] #unsigned [256];
+dump_texname = None # Q2PORT debug
 for i in range(256):
 	d_8to24table.append(None)
 FLOODFILL_FIFO_SIZE = 0x1000
@@ -145,11 +147,11 @@ def R_FloodFillSkin (skin: bytearray, skinwidth: int, skinheight: int) -> None:
 
 		skin[idx] = fdc
 
-gl_solid_format = 3 #int
-gl_alpha_format = 4 #int
+gl_solid_format = GL.GL_RGB #int  # Q2PORT: was 3 (invalid GL enum)
+gl_alpha_format = GL.GL_RGBA #int  # Q2PORT: was 4 (invalid GL enum)
 
-gl_tex_solid_format = 3 #int
-gl_tex_alpha_format = 4 #int
+gl_tex_solid_format = GL.GL_RGB #int  # Q2PORT: was 3 (invalid GL enum)
+gl_tex_alpha_format = GL.GL_RGBA #int  # Q2PORT: was 4 (invalid GL enum)
 
 
 gl_filter_min = GL.GL_LINEAR_MIPMAP_NEAREST #int
@@ -295,7 +297,7 @@ modes = [
 NUM_GL_MODES = len(modes)
 
 gl_alpha_modes = [
-	gltmode_t("default", 4),
+	gltmode_t("default", GL.GL_RGBA),
 	gltmode_t("GL_RGBA", GL.GL_RGBA),
 	gltmode_t("GL_RGBA8", GL.GL_RGBA8),
 	gltmode_t("GL_RGB5_A1", GL.GL_RGB5_A1),
@@ -305,7 +307,7 @@ gl_alpha_modes = [
 NUM_GL_ALPHA_MODES = len(gl_alpha_modes)
 
 gl_solid_modes = [
-	gltmode_t("default", 3),
+	gltmode_t("default", GL.GL_RGB),
 	gltmode_t("GL_RGB", GL.GL_RGB),
 	gltmode_t("GL_RGB8", GL.GL_RGB8),
 	gltmode_t("GL_RGB5", GL.GL_RGB5),
@@ -918,8 +920,10 @@ def R_Upload32 (data, width, height, mipmap): #unsigned *, int, int, qboolean (r
 	if scaled_width * scaled_height > scaledSize:
 		gl1_main.ri.Sys_Error (shared.ERR_DROP, "R_Upload32: too big")
 
-	# Q2PORT: the C scales the 32-bit pixels by intensity (and gamma) here before the alpha scan
-	R_LightScaleTexture (data, width, height, not mipmap )
+	# Q2PORT: the C scales the 32-bit pixels by intensity (and gamma) once, at the
+	# right point for each upload path (R_Upload32Native scales data; R_Upload32Soft
+	# resamples the raw data then scales the resampled result).  Don't scale here -
+	# the branch below scales exactly once so resampled textures aren't doubled.
 
 	# scan the texture for any non-255 alpha
 	c = width*height
@@ -964,6 +968,9 @@ def R_Upload32 (data, width, height, mipmap): #unsigned *, int, int, qboolean (r
 		
 		if not mipmap:
 		
+			# Q2PORT: native (no resample) path - scale the raw data once
+			R_LightScaleTexture (data, width, height, not mipmap )
+
 			if qgl_linux.qglColorTableEXT and gl1_main.gl_ext_palettedtexture.value and samples == gl_solid_format \
 				and False: #FIXME Disable for now, reintroduce later in porting
 			
@@ -993,6 +1000,8 @@ def R_Upload32 (data, width, height, mipmap): #unsigned *, int, int, qboolean (r
 	else:
 		scaled = GL_ResampleTexture (data, width, height, scaled_width, scaled_height)
 
+	# Q2PORT: resample/mip path - the data above is still raw (not scaled), so this
+	# single scale matches the C's R_Upload32Soft
 	R_LightScaleTexture (scaled, scaled_width, scaled_height, not mipmap )
 
 	if qgl_linux.qglColorTableEXT and gl1_main.gl_ext_palettedtexture.value and samples == gl_solid_format \
@@ -1163,7 +1172,8 @@ R_LoadPic
 This is also used as an entry point for the generated r_notexture
 ================
 """
-def R_LoadPic (name, pic, width, height, imgType, bits): #char *, byte *, int, int, imagetype_t, int (returns image_t *)
+def R_LoadPic (name, pic, width, height, imgType, bits):
+	global dump_texname # Q2PORT debug #char *, byte *, int, int, imagetype_t, int (returns image_t *)
 
 	global gltextures, numgltextures, TEXNUM_IMAGES
 	#image_t		*image;
@@ -1190,6 +1200,7 @@ def R_LoadPic (name, pic, width, height, imgType, bits): #char *, byte *, int, i
 		gl1_main.ri.Sys_Error (shared.ERR_DROP, "Draw_LoadPic: \"{}\" is too long".format(name))
 	image.name = name
 	image.registration_sequence = gl1_model.registration_sequence
+	dump_texname = name # Q2PORT debug
 
 	image.width = width
 	image.height = height
@@ -1422,6 +1433,12 @@ def Draw_GetPalette ():
 			d_8to24table[i] = (r, g, b, 255)
 		else:
 			d_8to24table[i] = (r, g, b, 0) # 255 is transparent
+
+	# Q2PALEXPAN: dump palette (debug)
+	if os.environ.get("Q2PALEXPAN"):
+		with open("/tmp/pal_py.txt","w") as _f:
+			for _i in range(256):
+				_f.write("%d %d %d %d\n" % d_8to24table[_i])
 
 	return 0
 
