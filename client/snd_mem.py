@@ -143,15 +143,17 @@ def S_LoadSound (s): #sfx_t * (returns sfxcache_t *)
 	else:
 		namebuffer = "sound/{}".format(name)
 
-	# Q2PORT: the C's S_LoadVorbis (static, sound.c) falls back to a .ogg when the
-	# .wav is missing; here it also builds the cache directly (see snd_dma.S_LoadVorbis)
-	sc = snd_dma.S_LoadVorbis(s, namebuffer)
-	if sc is not None:
-		s.cache = sc
-		return sc
+	# Q2PORT: the C's S_LoadVorbis is static in sound.c (snd_dma.S_LoadVorbis here);
+	# it returns the decoded samples and pygame's Sound for them
+	info, data, sound = snd_dma.S_LoadVorbis(namebuffer)
 
 	# can't load ogg file
-	size, data = filesystem.FS_LoadFile (namebuffer)
+	if data is None:
+	
+		size, data = filesystem.FS_LoadFile (namebuffer)
+
+		if data is not None:
+			info = GetWavinfo (s.name, data, size)
 
 	if data is None:
 	
@@ -159,7 +161,8 @@ def S_LoadSound (s): #sfx_t * (returns sfxcache_t *)
 		clientserver.Com_DPrintf ("Couldn't load {}\n".format(namebuffer))
 		return None
 
-	info = GetWavinfo (s.name, data, size)
+	#Com_Printf("%s: rate:%d\n\twidth:%d\n\tchannels:%d\n\tloopstart:%d\n\tsamples:%d\n\tdataofs:%d\n",
+	#	s->name, info.rate, info.width, info.channels, info.loopstart, info.samples, info.dataofs);
 
 	if info.channels < 1 or info.channels > 2:
 	
@@ -170,41 +173,93 @@ def S_LoadSound (s): #sfx_t * (returns sfxcache_t *)
 	if snd_dma.S_IsSilencedMuzzleFlash(info, data, namebuffer):
 		s.is_silenced_muzzle_flash = True
 
-	sound_volume = snd_dma.S_GetVolume(data[info.dataofs:info.dataofs + info.samples * info.width], info.samples, info.width)
+	sound_data = data[info.dataofs:info.dataofs + info.samples * info.width] # data + info.dataofs
+
+	sound_volume = snd_dma.S_GetVolume(sound_data, info.samples, info.width)
 
 	begin_length, end_length, attack_length, fade_length = snd_dma.S_GetStatistics(
-		data[info.dataofs:info.dataofs + info.samples * info.width], info.samples,
-		info.width, info.channels, sound_volume)
+		sound_data, info.samples, info.width, info.channels, sound_volume)
 
-	stepscale = info.rate / snd_dma.dma.speed
+	# Q2PORT: the C's USE_OPENAL / AL_UploadSfx branch is not ported
+	if snd_dma.sound_started:
+	
+		if sound is None:
+			# Pass a file object so pygame parses the wav header and converts the
+			# data to the mixer format. Raw bytes are treated as samples already in
+			# the mixer format (stereo), which played everything at double speed.
+			sound = pygame.mixer.Sound(file=io.BytesIO(data))
 
-	sc = snd_loc.sfxcache_t()
-	# Pass a file object so pygame parses the wav header and converts the mono
-	# data to the mixer format. Raw bytes are treated as samples already in the
-	# mixer format (stereo), which played everything at double speed.
-	sc.data = pygame.mixer.Sound(file=io.BytesIO(data))
+		if not SDL_Cache(s, info, sound, sound_volume,
+				begin_length, end_length,
+				attack_length, fade_length):
+		
+			clientserver.Com_Printf("Pansen!\n")
+			filesystem.FS_FreeFile(data)
+			return None
 
 	filesystem.FS_FreeFile(data)
+	# Q2PORT: the C returns its local sc here, which the SDL branch never sets (only
+	# AL_UploadSfx's return does), so a sound loaded on first use did not play; the
+	# port returns the new cache like the OpenAL branch
+	return s.cache
 
-	sc.length = int(sc.data.get_length() * snd_dma.dma.speed) # in samples, like paintedtime
+"""
+ * Q2PORT: the C's SDL_Cache (sdl.c). The C resamples the data into sc->data; here
+ * pygame's Sound already holds it at the mixer rate and format, so only the cache
+ * fields are filled in.
+"""
+def SDL_Cache (sfx, info, sound, volume, begin_length, end_length, attack_length, fade_length): #sfx_t *, wavinfo_t *, byte *, short, int, int, int, int (returns qboolean)
+
+	"""
+	float stepscale;
+	int i;
+	int len;
+	int sample;
+	sfxcache_t *sc;
+	unsigned int samplefrac = 0;
+	"""
+
+	stepscale = info.rate / snd_dma.dma.speed
+	len = int(info.samples / stepscale)
+
+	if info.samples == 0 or len == 0:
+	
+		clientserver.Com_Printf("WARNING: Zero length sound encountered: {}\n".format(sfx.name))
+		return False
+
+	#len = len * info->width * info->channels;
+	sc = sfx.cache = snd_loc.sfxcache_t() #Z_Malloc(len + sizeof(sfxcache_t));
+	sc.data = sound
+
 	sc.loopstart = info.loopstart
-	sc.speed = info.rate
-	sc.width = info.width
-	sc.stereo = info.channels
-	sc.begin = begin_length
-	sc.end = end_length
-	sc.attack = attack_length
-	sc.fade = fade_length
-	sc.volume = int(sound_volume)
+	sc.stereo = info.channels - 1
+	sc.length = int(info.samples / stepscale)
+	sc.speed = snd_dma.dma.speed
+	sc.volume = int(volume) # short
+	sc.begin = begin_length * 1000 // info.rate
+	sc.end = end_length * 1000 // info.rate
+	sc.fade = fade_length * 1000 // info.rate
+	sc.attack = attack_length * 1000 // info.rate
 
-	# pygame resamples the data, so only the loopstart scaling from ResampleSfx is applied
+	if int(info.samples / stepscale) == 0:
+	
+		clientserver.Com_Printf("{}: Invalid sound file '{}' (zero length)\n".format(
+			"SDL_Cache", sfx.name))
+		sfx.cache = None
+		return False
+
 	if sc.loopstart != -1:
 		sc.loopstart = int(sc.loopstart / stepscale)
-	sc.speed = snd_dma.dma.speed
 
-	s.cache = sc
+	if snd_dma.s_loadas8bit.value:
+		sc.width = 1 # Q2PORT: only the field; pygame keeps the samples in the mixer format
+	else:
+		sc.width = info.width
 
-	return sc
+	# resample / decimate to the current source rate
+	# Q2PORT: done by pygame.mixer.Sound
+
+	return True
 
 """
 
@@ -362,24 +417,35 @@ def GetWavinfo (name, wav, wavlength): #char *, byte *, int (returns wavinfo_t)
 	data_p += 4+2
 	info.width = GetLittleShort() // 8
 
+	# wBitPerSample assumes it's not an uncommon value such as < 8 bits
+	if info.width <= 0:
+	
+		clientserver.Com_Printf("Invalid bits per sample")
+		return info
+
 	# get cue chunk
 	FindChunk(b"cue ")
 	if data_p is not None:
 	
 		data_p += 32
 		info.loopstart = GetLittleLong()
-#		Com_Printf("loopstart=%d\n", sfx->loopstart);
 
-		# if the next chunk is a LIST chunk, look for a cue length marker
+		# if the next chunk is a LIST chunk,
+		# look for a cue length marker
 		FindNextChunk (b"LIST")
+
 		if data_p is not None:
 		
-			if iff_buf[data_p + 28:data_p + 32] == b"mark":
-				# this is not a proper parse, but it works with cooledit...
+			if (data_p + 32 <= wavlength) and \
+				iff_buf[data_p + 28:data_p + 32] == b"mark": # (data_p - wav) + 32 <= wavlength
+			
+				#int i;
+
+				# this is not a proper parse,
+				# but it works with cooledit...
 				data_p += 24
 				i = GetLittleLong ()	# samples in loop
 				info.samples = info.loopstart + i
-#				Com_Printf("looped length: %i\n", i);
 			
 	else:
 		info.loopstart = -1
@@ -392,12 +458,12 @@ def GetWavinfo (name, wav, wavlength): #char *, byte *, int (returns wavinfo_t)
 		return info
 	
 	data_p += 4
-	samples = int(GetLittleLong () / info.width)
+	samples = GetLittleLong () // info.width
 
 	if info.samples:
 	
 		if samples < info.samples:
-			clientserver.Com_Error (shared.ERR_DROP, "Sound {} has a bad loop length".format(name))
+			clientserver.Com_Error (shared.ERR_DROP, "{}: Sound {} has a bad loop length".format("GetWavinfo", name))
 	
 	else:
 		info.samples = samples

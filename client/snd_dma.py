@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from __future__ import annotations
 
+import builtins
 import io
 import math
 import struct
@@ -131,58 +132,13 @@ for i in range(snd_loc.MAX_RAW_SAMPLES):
 
 def S_SoundInfo_f():
 
-	#int		i;
-	#sfx_t	*sfx;
-	#sfxcache_t *sc;
-	#int		size, total;
-
-	global sound_started, num_sfx, known_sfx, sound_max
-
 	if not sound_started:
-		clientserver.Com_Printf ("sound system not started\n")
+	
+		clientserver.Com_Printf("Sound system not started\n")
 		return
 
-	total = 0
-
-	# the C's known_sfx[MAX_SFX] array; the port's list is the same, indexed 0..num_sfx-1
-	for i in range(num_sfx):
-	
-		sfx = known_sfx[i]
-
-		if not sfx.registration_sequence:
-			continue
-
-		sc = sfx.cache
-		if sc is not None:
-		
-			size = len(sc.data.get_raw()) # (size_t)sc->end - (size_t)sc->start
-			total += size
-			if sc.loopstart >= 0:
-				clientserver.Com_Printf ("L")
-			else:
-				clientserver.Com_Printf (" ")
-			clientserver.Com_Printf("  {}\n".format(sfx.name))
-		
-		else:
-		
-			if sfx.name[0] == '*':
-				clientserver.Com_Printf("  placeholder : {}\n".format(sfx.name))
-			else:
-				clientserver.Com_Printf("  not loaded  : {}\n".format(sfx.name))
-
-	clientserver.Com_Printf ("\n")
-	clientserver.Com_Printf ("%i known, %i in memory, %i max\n".format(num_sfx, total, sound_max))
-
-	clientserver.Com_Printf ("\n")
-	clientserver.Com_Printf ("%5d stereo\n", dma.channels - 1)
-	clientserver.Com_Printf ("%5d samples\n", dma.samples)
-	clientserver.Com_Printf ("%5d samplepos\n", dma.samplepos)
-	clientserver.Com_Printf ("%5d samplebits\n", dma.samplebits)
-	clientserver.Com_Printf ("%5d submission_chunk\n", dma.submission_chunk)
-	clientserver.Com_Printf ("%5d speed\n", dma.speed)
-	clientserver.Com_Printf ("0x%x dma buffer\n", dma.buffer if dma.buffer is not None else 0)
-
-
+	# Q2PORT: the C's USE_OPENAL / QAL_SoundInfo branch is not ported
+	snd_linux.SDL_SoundInfo()
 
 """
 ================
@@ -197,80 +153,77 @@ def S_Init ():
 	global s_ps_sorting, s_reverb_preset, s_occlusion_strength, s_feedback_kind
 
 	#cvar_t	*cv;
-	global s_numchannels, s_active
+	global s_numchannels, s_active, s_playsounds, s_freeplays, sound_max
 
 	clientserver.Com_Printf("\n------- sound initialization -------\n")
 
 	cv = cvar.Cvar_Get ("s_initsound", "1", 0)
+
 	if not cv.value:
-		clientserver.Com_Printf ("not initializing.\n")
-	else:
 	
-		s_volume = cvar.Cvar_Get ("s_volume", "0.5", shared.CVAR_ARCHIVE)
-		s_testsound = cvar.Cvar_Get ("s_testsound", "0", 0)
-		s_loadas8bit = cvar.Cvar_Get ("s_loadas8bit", "0", shared.CVAR_ARCHIVE)
-		s_khz = cvar.Cvar_Get ("s_khz", "22", shared.CVAR_ARCHIVE)
-		s_show = cvar.Cvar_Get ("s_show", "0", 0)
-		s_ambient = cvar.Cvar_Get ("s_ambient", "1", shared.CVAR_ARCHIVE)
-		s_underwater = cvar.Cvar_Get ("s_underwater", "1", shared.CVAR_ARCHIVE)
-		s_underwater_gain_hf = cvar.Cvar_Get ("s_underwater_gain_hf", "1", shared.CVAR_ARCHIVE)
-		s_doppler = cvar.Cvar_Get ("s_doppler", "1", shared.CVAR_ARCHIVE)
-		s_ps_sorting = cvar.Cvar_Get ("s_ps_sorting", "0", shared.CVAR_ARCHIVE)
-		# Q2PORT: the C's OpenAL-only cvars, registered so saved configs load
-		# unchanged; the pygame backend has no reverb/occlusion/haptic support
-		s_reverb_preset = cvar.Cvar_Get ("s_reverb_preset", "1", shared.CVAR_ARCHIVE)
-		s_occlusion_strength = cvar.Cvar_Get ("s_occlusion_strength", "1", shared.CVAR_ARCHIVE)
-		s_feedback_kind = cvar.Cvar_Get ("s_feedback_kind", "0", shared.CVAR_ARCHIVE)
-		s_mixahead = cvar.Cvar_Get ("s_mixahead", "0.10", 0)
+		clientserver.Com_Printf ("Not initializing.\n")
+		clientserver.Com_Printf("------------------------------------\n\n")
+		return
 
-		ogg.OGG_Init()
+	s_volume = cvar.Cvar_Get ("s_volume", "0.7", shared.CVAR_ARCHIVE)
+	s_khz = cvar.Cvar_Get ("s_khz", "44", shared.CVAR_ARCHIVE)
+	s_loadas8bit = cvar.Cvar_Get ("s_loadas8bit", "0", shared.CVAR_ARCHIVE)
+	s_mixahead = cvar.Cvar_Get ("s_mixahead", "0.14", shared.CVAR_ARCHIVE)
+	s_show = cvar.Cvar_Get ("s_show", "0", 0)
+	s_testsound = cvar.Cvar_Get ("s_testsound", "0", 0)
+	s_ambient = cvar.Cvar_Get ("s_ambient", "1", 0)
+	s_underwater = cvar.Cvar_Get ("s_underwater", "1", shared.CVAR_ARCHIVE)
+	s_underwater_gain_hf = cvar.Cvar_Get ("s_underwater_gain_hf", "0.25", shared.CVAR_ARCHIVE)
+	s_doppler = cvar.Cvar_Get ("s_doppler", "0", shared.CVAR_ARCHIVE)
+	s_ps_sorting = cvar.Cvar_Get ("s_ps_sorting", "1", shared.CVAR_ARCHIVE)
+	# Reverb and occlusion is fully disabled by default
+	# Q2PORT: OpenAL only, registered so saved configs load unchanged
+	s_reverb_preset = cvar.Cvar_Get ("s_reverb_preset", "-1", shared.CVAR_ARCHIVE)
+	s_occlusion_strength = cvar.Cvar_Get ("s_occlusion_strength", "0", shared.CVAR_ARCHIVE)
+	# Feedback kind: 0 - rumble, 1 - haptic
+	s_feedback_kind = cvar.Cvar_Get ("s_feedback_kind", "0", shared.CVAR_ARCHIVE)
 
-		cmdparser.Cmd_AddCommand("play", S_Play)
-		cmdparser.Cmd_AddCommand("stopsound", S_StopAllSounds)
-		cmdparser.Cmd_AddCommand("soundlist", S_SoundList)
-		cmdparser.Cmd_AddCommand("soundinfo", S_SoundInfo_f)
-		
-		if not snd_linux.SNDDMA_Init():
-			return
+	cmdparser.Cmd_AddCommand("play", S_Play)
+	cmdparser.Cmd_AddCommand("stopsound", S_StopAllSounds)
+	cmdparser.Cmd_AddCommand("soundlist", S_SoundList)
+	cmdparser.Cmd_AddCommand("soundinfo", S_SoundInfo_f)
 
+	# Q2PORT: the C's USE_OPENAL / s_openal branch (AL_Init) is not ported
+
+	if snd_linux.SNDDMA_Init(): # Q2PORT: the C's SDL_BackendInit
+	
+		# Q2PORT: the rest of the pygame backend setup (the C does it in SDL_BackendInit)
 		pygame.mixer.set_num_channels(snd_loc.MAX_CHANNELS)
-
-		# Q2PORT: the C's SDL_BackendInit picks the device channel count; the port
-		# keeps the pygame mixer channel count
+		# the C sets s_numchannels = MAX_CHANNELS; the port keeps the pygame mixer channel count
 		s_numchannels = min(snd_loc.MAX_CHANNELS, pygame.mixer.get_num_channels())
-		s_active = True
-
-		# Q2PORT: the C's s_playsounds[MAX_PLAYSOUNDS] array and free list
-		global s_playsounds
-		s_playsounds = [snd_loc.playsound_t() for _ in range(MAX_PLAYSOUNDS)]
-		s_freeplays = list(s_playsounds)
 
 		for ch_idx in range(s_numchannels):
 			channels[ch_idx].chan = pygame.mixer.Channel(ch_idx)
-		
+
 		snd_mix.S_InitScaletable ()
-
-		# make sure the music isn't playing before the sound system is up
-		ogg.OGG_Stop()
-
-		S_StopAllSounds ()
-	
-		sound_started = 1
-		num_sfx = 0
-
 		soundtime = 0
-		paintedtime = 0
 
-		clientserver.Com_Printf ("sound sampling rate: {}\n".format(dma.speed))
+		sound_started = 1 # SS_SDL
+	
+	else:
+	
+		sound_started = 0 # SS_NOT
+		return
 
-		# if not s_khz->value:
-		#	Com_DPrintf ("Sound system running at %i hz\n", dma.speed);
-		# else:
-		#	Com_DPrintf ("Sound system running at %i hz, but set to %i hz\n", dma.speed, s_khz->value);
+	# Q2PORT: the C's static s_playsounds[MAX_PLAYSOUNDS] array, linked by S_StopAllSounds
+	s_playsounds = [snd_loc.playsound_t() for _ in range(MAX_PLAYSOUNDS)]
 
-	clientserver.Com_Printf("------------------------------------\n")
+	num_sfx = 0
+	paintedtime = 0
+	sound_max = 0
+	s_active = True
 
+	ogg.OGG_Init()
 
+	clientserver.Com_Printf("Sound sampling rate: {}\n".format(dma.speed))
+	S_StopAllSounds()
+
+	clientserver.Com_Printf("------------------------------------\n\n")
 
 """
 =================
@@ -497,7 +450,7 @@ def S_RegisterSound (name): #char * (returns sfx_t *)
 """
  * Extracts the model name from a player configstring
  """
-def GetModelName (cs): #char * (returns char *)
+def GetModelName (cs, n): #const char *, size_t (returns char *model)
 
 	#char *end;
 
@@ -511,7 +464,10 @@ def GetModelName (cs): #char * (returns char *)
 
 	p += 1
 
-	model = cs[p:] # Q2PORT: the C copies into the caller's buffer, truncating at the size
+	if len(cs) - p >= n: # strlen(p) >= n
+		return ''
+
+	model = cs[p:] # Q_strlcpy(model, p, n);
 
 	end = model.find('/')
 
@@ -905,7 +861,7 @@ def S_RegisterSexedSound (entnum, base): #int, char * (returns struct sfx_s *)
 	else:
 		cs = None
 
-	model = GetModelName(cs)
+	model = GetModelName(cs, shared.MAX_QPATH) # sizeof(model)
 
 	# if we can't figure it out, they're male
 	if not model:
@@ -1352,7 +1308,7 @@ def S_IsShortSilence (info, raw_data): #wavinfo_t *, byte * (returns qboolean)
 		return False
 
 	# Treat it as silence if sample count too small.
-	if ((info.samples * 1000) / info.rate) <= S_MIN_LEN_TO_TREAT_AS_SILENCE_MS:
+	if ((info.samples * 1000) // info.rate) <= S_MIN_LEN_TO_TREAT_AS_SILENCE_MS:
 		return True
 
 	# Test only several second's of audio data.
@@ -1362,16 +1318,21 @@ def S_IsShortSilence (info, raw_data): #wavinfo_t *, byte * (returns qboolean)
 	if info.width == 1:
 	
 		# Unsigned 8-bit audio data.
-		samples = np.frombuffer(raw_data, dtype=np.uint8)
+		# Q2PORT: like the C, raw_data is the start of the file (not data + dataofs);
+		# the read is limited to the buffer
+		sample_count = info.samples * info.width
+		samples = np.frombuffer(raw_data, dtype=np.uint8, count=min(sample_count, len(raw_data)))
 		amp = np.abs(samples.astype(np.int32) - 0x80)
 		return bool(np.all(amp <= S_MIN_ABS_AMP_8_TO_TREAT_AS_SILENCE))
 	
 	if info.width == 2:
 	
 		# Signed 16-bit audio data.
-		samples = np.frombuffer(raw_data, dtype=np.uint16)
-		# the C's LittleShort
-		amp = np.abs(np.frombuffer(samples.tobytes(), dtype=np.int16).astype(np.int32))
+		# Q2PORT: like the C, raw_data is the start of the file (not data + dataofs)
+		# and the count is samples * width; the read is limited to the buffer
+		sample_count = info.samples * info.width
+		samples = np.frombuffer(raw_data, dtype="<i2", count=min(sample_count, len(raw_data) // 2)) # LittleShort
+		amp = np.abs(samples.astype(np.int32))
 		return bool(np.all(amp <= S_MIN_ABS_AMP_16_TO_TREAT_AS_SILENCE))
 	
 	# Unsupported bit depth.
@@ -1437,9 +1398,9 @@ def S_GetVolume (data, sound_length, width): #byte *, int, int (returns double)
 		sound_data = np.frombuffer(sound_data.tobytes(), dtype=np.int16).astype(np.float64) # the C's LittleShort
 		vol = float(np.sum(sound_data * sound_data))
 	elif width == 1:
-		sound_data = np.frombuffer(data, dtype=np.uint8).astype(np.float64)
-		# normalize to 16bit sound
-		sound_data = sound_data << 8
+		sound_data = np.frombuffer(data, dtype=np.uint8).astype(np.int32)
+		# normilize to 16bit sound;
+		sound_data = (sound_data << 8).astype(np.int16).astype(np.float64) # the C's short sound_sample = *sound_data << 8
 		vol = float(np.sum(sound_data * sound_data))
 	else:
 		vol = 0.0
@@ -1459,54 +1420,78 @@ Returns the begin, end, attack and fade lengths of the sound
 """
 def S_GetStatistics (data, sound_length, width, channels, sound_volume): #byte *, int, int, int, double (returns int *begin_length, int *end_length, int *attack_length, int *fade_length)
 
-	begin_length, end_length, attack_length, fade_length = 0, 0, 0, 0
+	# Q2PORT: the C's short arithmetic, wrapped to 16 bits
+	def short(x): return ((int(x) + 32768) & 0xFFFF) - 32768
 
-	# attack length
-	sound_max = 0
-	# calculate max value
 	if width == 2:
-		sound_data = np.frombuffer(data, dtype=np.uint16)
-		sound_data = np.frombuffer(sound_data.tobytes(), dtype=np.int16).astype(np.int32) # the C's LittleShort
+		sound_samples = np.frombuffer(data, dtype="<i2", count=min(sound_length, builtins.len(data) // 2)).tolist() # LittleShort
 	elif width == 1:
-		sound_data = np.frombuffer(data, dtype=np.uint8).astype(np.int32)
-		sound_data = sound_data << 8 # normalize to 16bit sound
+		# normilize to 16bit sound;
+		sound_samples = (np.frombuffer(data, dtype=np.uint8, count=min(sound_length, builtins.len(data))).astype(np.int32) << 8).astype(np.int16).tolist()
 	else:
 		return 0, 0, 0, 0
+	sound_samples += [0] * (sound_length - builtins.len(sound_samples)) # Q2PORT: a truncated file reads as silence
 
-	sound_max = int(np.max(np.abs(sound_data))) if sound_length else 0
+	# attack length
+	sound_max = 0 # short
+	# calculate max value
+	for sound_sample in sound_samples:
+		if sound_max < abs(sound_sample):
+			sound_max = short(abs(sound_sample))
 
 	# use something in middle
-	sound_max = (sound_max + int(sound_volume)) / 2
+	sound_max = short((sound_max + sound_volume) / 2)
 
 	# calculate attack/fade length
-	sound_treshold = sound_max / 2
-
-	abs_data = np.abs(sound_data)
+	# Q2PORT: the C's pointers become indices. The do/while loops read one sample past
+	# the ends of a (near) empty sound; the zero appended here stands in for those
+	# reads (index sound_length, and -1)
+	sound_samples.append(0)
+	sound_data = 0
+	delay_data = sound_data
+	fade_data = sound_data
+	sound_end = sound_data + sound_length
+	sound_sample = 0
+	sound_treshold = short(int(sound_max / 2))
 
 	# delay calculate
-	i = 0
-	while i < sound_length and abs_data[i] < sound_treshold:
-		i += 1
-	begin_length = i // channels
-	delay_data = i
+	while True:
+		sound_sample = sound_samples[sound_data]
+		sound_data += 1
+		if not (sound_data < sound_end and abs(sound_sample) < sound_treshold):
+			break
+	# delay_data == (short *)(data + info.dataofs)
+	begin_length = int((sound_data - delay_data) / channels)
+	delay_data = sound_data
+	fade_data = sound_data
 
 	# attack calculate
-	while i < sound_length and abs_data[i] < sound_max:
-		i += 1
-	attack_length = (i - delay_data) // channels
-	fade_data = i
+	while True:
+		sound_sample = sound_samples[sound_data]
+		sound_data += 1
+		if not (sound_data < sound_end and abs(sound_sample) < sound_max):
+			break
+	# fade_data == delay_data
+	attack_length = int((sound_data - delay_data) / channels)
+	fade_data = sound_data
 
 	# end calculate
-	i = sound_length
-	while i > fade_data and abs_data[i-1] < sound_treshold:
-		i -= 1
-	end_length = (sound_length - i) // channels
-	sound_end = i
+	sound_data = sound_end
+	while True:
+		sound_data -= 1
+		sound_sample = sound_samples[sound_data]
+		if not (sound_data > fade_data and abs(sound_sample) < sound_treshold):
+			break
+	end_length = int((sound_end - sound_data) / channels)
+	sound_end = sound_data
 
 	# fade calculate
-	while i > fade_data and abs_data[i-1] < sound_max:
-		i -= 1
-	fade_length = (sound_end - i) // channels
+	while True:
+		sound_data -= 1
+		sound_sample = sound_samples[sound_data]
+		if not (sound_data > fade_data and abs(sound_sample) < sound_max):
+			break
+	fade_length = int((sound_end - sound_data) / channels)
 
 	return begin_length, end_length, attack_length, fade_length
 
@@ -1517,7 +1502,7 @@ S_LoadVorbis
 Load a vorbis file into a sfxcache_t
 ====================
 """
-def S_LoadVorbis(s, namebuffer): #sfx_t *, char * (returns sfxcache_t *)
+def S_LoadVorbis(path): #const char *, (returns wavinfo_t *info, void **buffer)
 
 	"""
 	const char ogg_ext[] = ".ogg";
@@ -1526,39 +1511,29 @@ def S_LoadVorbis(s, namebuffer): #sfx_t *, char * (returns sfxcache_t *)
 	int	len;
 	"""
 
-	# Q2PORT: the C decodes the vorbis into a raw wav buffer via OGG_LoadAsWav and
-	# S_LoadSound builds the cache from it; pygame.mixer.Sound decodes the ogg directly,
-	# so the cache is built here.
+	# Q2PORT: the C fills info and buffer through pointers; the port returns
+	# (info, buffer, the pygame Sound decoded from the file) or (None, None, None)
 
-	ext = namebuffer.rfind(".")
-	if ext < 0:
-		return None
+	if path is None:
+		return None, None, None
 
-	len = ext
-	if (len < 1):
-		clientserver.Com_DPrintf("S_LoadVorbis: Bad filename {}\n".format(namebuffer))
-		return None
+	ext = shared_c.COM_FileExtension(path)
+	if not ext:
+		# file has no extension
+		return None, None, None
 
-	filename = namebuffer[:len] + ".ogg" #const char ogg_ext[] = ".ogg"
+	# Remove the extension
+	len = (builtins.len(path) - builtins.len(ext)) - 1 # (ext - path) - 1
+	if (len < 1) or (len > shared.MAX_QPATH - 5):
+	
+		clientserver.Com_DPrintf("{}: Bad filename {}\n".format("S_LoadVorbis", path))
+		return None, None, None
 
-	size, data = filesystem.FS_LoadFile(filename)
-	if data is None:
-		return None
+	# copy base path
+	# Add the extension
+	filename = path[:len] + ".ogg" #const char ogg_ext[] = ".ogg"
 
-	sc = snd_loc.sfxcache_t()
-	sc.data = pygame.mixer.Sound(file=io.BytesIO(data))
-	# Q2PORT: the C rejects stereo samples (info.channels != 1); pygame already converts
-	# the file to the (stereo) mixer format, so the source channel count is not available
-
-	# The OGG_LoadAsWav info
-	sc.length = int(sc.data.get_length() * dma.speed) #in samples, like paintedtime
-	sc.loopstart = -1
-	sc.speed = dma.speed
-	sc.width = 2
-	sc.stereo = 1
-
-	return sc
-
+	return ogg.OGG_LoadAsWav(filename)
 
 """
 ============
@@ -1572,9 +1547,11 @@ def S_RawSamples (samples: int, rate: int, width: int, channels: int, data, volu
 	global sound_started, s_rawend, s_rawsamples, paintedtime
 
 	"""
-	int		i;
-	int		src, dst;
-	float	scale;
+	float scale;
+	int dst;
+	int i;
+	int src;
+	int intVolume;
 	"""
 
 	if not sound_started:
@@ -1582,91 +1559,79 @@ def S_RawSamples (samples: int, rate: int, width: int, channels: int, data, volu
 
 	if s_rawend < paintedtime:
 		s_rawend = paintedtime
-	scale = rate / dma.speed
 
-#Com_Printf ("%i < %i < %i\n", soundtime, paintedtime, s_rawend);
+	# Q2PORT: the body of the C's SDL_RawSamples (sdl.c), the only backend ported
+	scale = rate / dma.speed
+	intVolume = int(256 * volume)
+
 	if channels == 2 and width == 2:
 	
-		if rate == dma.speed:
-			# optimized case
-			rangestart = None
-			rangeend = None
+		i = 0
+		while True:
+		
+			src = int(i * scale)
 
-			for i in range(samples):
-			
-				dst = s_rawend&(snd_loc.MAX_RAW_SAMPLES-1)
-				s_rawend+=1
-				s_rawsamples[dst].left = \
-					shared_c.LittleSShort(data[i*4:i*4+2] )
-				s_rawsamples[dst].right = \
-					shared_c.LittleSShort(data[i*4+2:i*4+4] )
+			if src >= samples:
+				break
 
-				#print ("a", dst, s_rawsamples[dst].left, s_rawsamples[dst].right)
-				if rangestart is None:
-					rangestart = dst
-				rangeend = dst
+			dst = s_rawend & (snd_loc.MAX_RAW_SAMPLES - 1)
+			s_rawend += 1
+			s_rawsamples[dst].left = shared_c.LittleSShort(data[src*4:src*4+2]) * intVolume # ((short *)data)[src * 2]
+			s_rawsamples[dst].right = shared_c.LittleSShort(data[src*4+2:src*4+4]) * intVolume # ((short *)data)[src * 2 + 1]
+			i += 1
 
-		else:
-			i = 0
-			while True:
-			
-				src = int(i*scale)
-				if src >= samples:
-					break
-				dst = s_rawend&(snd_loc.MAX_RAW_SAMPLES-1)
-				s_rawend+=1
-
-				s_rawsamples[dst].left = \
-					shared_c.LittleSShort(data[src*2:src*2+2] )
-				s_rawsamples[dst].right = \
-					shared_c.LittleSShort(data[src*2+2:src*2+4] )
-				i += 1
-			
 	elif channels == 1 and width == 2:
 	
 		i = 0
 		while True:
-			
-			src = int(i*scale)
+		
+			src = int(i * scale)
+
 			if src >= samples:
 				break
-			dst = s_rawend&(snd_loc.MAX_RAW_SAMPLES-1)
-			s_rawend+=1
-			s_rawsamples[dst].left = \
-				int(shared_c.LittleSShort(data[src*2:src*2+2]) << 8 * volume)
-			s_rawsamples[dst].right = \
-				int(shared_c.LittleSShort(data[src*2:src*2+2]) << 8 * volume)
+
+			dst = s_rawend & (snd_loc.MAX_RAW_SAMPLES - 1)
+			s_rawend += 1
+			s_rawsamples[dst].left = shared_c.LittleSShort(data[src*2:src*2+2]) * intVolume # ((short *)data)[src]
+			s_rawsamples[dst].right = shared_c.LittleSShort(data[src*2:src*2+2]) * intVolume
 			i += 1
-	
+
 	elif channels == 2 and width == 1:
 	
+		intVolume *= 256
+
 		i = 0
 		while True:
-			
-			src = int(i*scale)
-			if src >= samples:
-				break
-			dst = s_rawend&(snd_loc.MAX_RAW_SAMPLES-1)
-			s_rawend+=1
-			s_rawsamples[dst].left = \
-				int(struct.unpack("<b", data[src*2:src*2+1])[0] << 16 * volume)
-			s_rawsamples[dst].right = \
-				int(struct.unpack("<b", data[src*2+1:src*2+2])[0] << 16 * volume)
-			i += 1
-	
-	elif channels == 1 and width == 1:
 		
-		i = 0
-		while True:
-			
-			src = int(i*scale)
+			src = int(i * scale)
+
 			if src >= samples:
 				break
-			dst = s_rawend&(snd_loc.MAX_RAW_SAMPLES-1)
-			s_rawend+=1
+
+			dst = s_rawend & (snd_loc.MAX_RAW_SAMPLES - 1)
+			s_rawend += 1
 			s_rawsamples[dst].left = \
-				int((data[src]-128) << 16 * volume)
-			s_rawsamples[dst].right = int((data[src]-128) << 16 * volume)
+				(data[src * 2] - 128) * intVolume
+			s_rawsamples[dst].right = \
+				(data[src * 2 + 1] - 128) * intVolume
+			i += 1
+
+	elif channels == 1 and width == 1:
+	
+		intVolume *= 256
+
+		i = 0
+		while True:
+		
+			src = int(i * scale)
+
+			if src >= samples:
+				break
+
+			dst = s_rawend & (snd_loc.MAX_RAW_SAMPLES - 1)
+			s_rawend += 1
+			s_rawsamples[dst].left = (data[src] - 128) * intVolume
+			s_rawsamples[dst].right = (data[src] - 128) * intVolume
 			i += 1
 
 """
@@ -1696,39 +1661,48 @@ def S_Update(origin, forward, right, up): #vec3_t, vec3_t, vec3_t, vec3_t
 	if s_active == False:
 		return
 
-	# if the laoding plaque is up, clear everything
-	# out to make sure we aren't looping a dirty
-	# dma buffer while loading
-	if cl_main.cls.disable_screen:
-	
-		S_ClearBuffer ()
-		return
-	
-	"""
-	// rebuild scale tables if volume is modified
-	if (s_volume->modified)
-		S_InitScaletable ();
-	"""
-
 	shared.VectorCopy(origin, listener_origin)
 	shared.VectorCopy(forward, listener_forward)
 	shared.VectorCopy(right, listener_right)
 	shared.VectorCopy(up, listener_up)
 
-	combine = None
+	# Q2PORT: the C's USE_OPENAL / AL_Update branch is not ported; the rest is
+	# the C's SDL_Update (sdl.c)
 
-	# update spatialization for dynamic sounds	
-	for i in range(snd_loc.MAX_CHANNELS):
+	# Q2PORT: the s_underwater / s_underwater_gain_hf low-pass filter (lpf_*) is
+	# part of the C mixer, which is not ported (pygame mixes the channels)
+
+	# if the loading plaque is up, clear everything
+	# out to make sure we aren't looping a dirty
+	# SDL buffer while loading
+	if cl_main.cls.disable_screen:
+	
+		S_ClearBuffer ()
+		return
+
+	# rebuild scale tables if
+	# volume is modified
+	if s_volume.modified:
+		snd_mix.S_InitScaletable ()
+
+	# update spatialization
+	# for dynamic sounds
+	for i in range(s_numchannels):
 	
 		ch = channels[i]
 		if ch.sfx is None:
 			continue
+
 		if ch.autosound:
-			# autosounds are regenerated fresh each frame
+		
+			# autosounds are regenerated
+			# fresh each frame
 			ch.clear() # memset (ch, 0, sizeof(*ch)); loop_sfx is kept, see S_AddLoopSounds
 			continue
-		
-		S_Spatialize(ch)		 # respatialize channel
+
+		# respatialize channel
+		S_Spatialize(ch)
+
 		if not ch.leftvol and not ch.rightvol:
 		
 			ch.clear() # memset (ch, 0, sizeof(*ch));
@@ -1748,31 +1722,28 @@ def S_Update(origin, forward, right, up): #vec3_t, vec3_t, vec3_t, vec3_t
 			ch.chan.stop()
 			ch.loop_sfx = None
 
-	"""
-
-	#
 	# debugging output
-	#
-	if (s_show->value)
-	{
-		total = 0;
-		ch = channels;
-		for (i=0 ; i<MAX_CHANNELS; i++, ch++)
-			if (ch->sfx && (ch->leftvol || ch->rightvol) )
-			{
-				Com_Printf ("%3i %3i %s\n", ch->leftvol, ch->rightvol, ch->sfx->name);
-				total++;
-			}
-		
-		Com_Printf ("----(%i)---- painted: %i\n", total, paintedtime);
-	}
-"""
-	# mix some sound
-	S_Update_();
+	if s_show.value:
+	
+		total = 0
 
-	# Q2PORT: the C's SDL backend calls OGG_Stream() from its S_Update; the music is
-	# streamed inside pygame.mixer.music (see client/sound/ogg.py)
+		for i in range(s_numchannels):
+		
+			ch = channels[i]
+			if ch.sfx is not None and (ch.leftvol or ch.rightvol):
+			
+				clientserver.Com_Printf("{:3d} {:3d} {}\n".format(ch.leftvol,
+						ch.rightvol, ch.sfx.name))
+				total += 1
+
+		clientserver.Com_Printf("----({})---- painted: {}\n".format(total, paintedtime))
+
+	# stream music
+	# Q2PORT: the music is streamed inside pygame.mixer.music (see client/sound/ogg.py)
 	ogg.OGG_Stream()
+
+	# Mix the samples
+	S_Update_()
 
 
 def GetSoundtime():
@@ -1830,21 +1801,21 @@ def S_Update_():
 	# Updates DMA time
 	GetSoundtime()
 
+	if not soundtime:
+		return
+
 	# check to make sure that we haven't overshot
 	if paintedtime < soundtime:
 	
-	#	common.Com_DPrintf ("S_Update_ : overflow\n")
+		clientserver.Com_DPrintf("{}: overflow\n".format("SDL_Update"))
 		paintedtime = soundtime
-	
-	
+
 	# mix ahead of current position
 	endtime = int(soundtime + s_mixahead.value * dma.speed)
-	##endtime = (soundtime + 4096) & ~4095;
 
 	# mix to an even submission block size
-	#endtime = (endtime + dma.submission_chunk-1) \
-	#	& ~(dma.submission_chunk-1)
-	#samps = dma.samples >> (dma.channels-1)
+	endtime = (endtime + dma.submission_chunk - 1) & ~(dma.submission_chunk - 1)
+	samps = dma.samples >> (dma.channels - 1)
 
 	# start any pending playsounds (Q2PORT: the C's SDL backend does this in its paint loop)
 	while s_pendingplays:
@@ -1857,8 +1828,8 @@ def S_Update_():
 		if ps.begin < endtime:
 			endtime = ps.begin # stop here
 		break
-	#if endtime - soundtime > samps:
-	#	endtime = soundtime + samps
+	if endtime - soundtime > samps:
+		endtime = soundtime + samps
 	
 	snd_mix.S_PaintChannels (endtime)
 
@@ -1888,6 +1859,12 @@ def S_Play():
 		
 		else:
 			name = cmdparser.Cmd_Argv(i)
+
+		if ".." in name or name[0] == '/' or name[0] == '\\':
+		
+			clientserver.Com_Printf("Bad filename {}\n".format(name))
+			return
+
 		sfx = S_RegisterSound(name)
 		S_StartSound(None, cl_main.cl.playernum+1, 0, sfx, 1.0, 1.0, 0.0)
 		i+=1
@@ -1895,38 +1872,58 @@ def S_Play():
 def S_SoundList():
 	
 	"""
-	int		i;
-	sfx_t	*sfx;
-	sfxcache_t	*sc;
-	int		size, total;
+	int i;
+	sfx_t *sfx;
+	sfxcache_t *sc;
+	int size, total, used;
+	int numsounds;
+	qboolean freeup;
 	"""
-	global known_sfx, num_sfx
 
 	total = 0
+	used = 0
+	numsounds = 0
+
 	for i in range(num_sfx):
 	
-		sfx=known_sfx[i]
-		if not sfx.registration_sequence:
+		sfx = known_sfx[i]
+
+		if not sfx.name:
 			continue
+
+		if sfx.registration_sequence == s_registration_sequence:
+			used += 1
+
 		sc = sfx.cache
 
 		if sc is not None:
 		
-			size = len(sc.data.get_raw())
-			total += size;
-			if sc.loopstart >= 0:
-				clientserver.Com_Printf ("L")
-			else:
-				clientserver.Com_Printf (" ")
-			clientserver.Com_Printf("  {}\n", sfx.name)
+			size = sc.length * sc.width * (sc.stereo + 1)
+			total += size
+			# Q2PORT: log10 of 0 is -inf in C, a ValueError in Python
+			db = 10 * math.log10(sc.volume / (2 << 15)) if sc.volume > 0 else float("-inf")
+			clientserver.Com_Printf("{}({:2d}b) {:8d}({} ch) {} {:2.1f} dB {:.1f}s:{:.1f}..{:.1f}..{:.1f}..{:.1f}\n".format(
+					"L" if sc.loopstart != -1 else " ",
+					sc.width * 8, size,
+					(sc.stereo + 1), sfx.name,
+					db,
+					sc.length / 1000 / (sc.stereo + 1),
+					sc.begin / 1000,
+					sc.attack / 1000,
+					sc.fade / 1000,
+					sc.end / 1000))
 		
 		else:
 		
 			if sfx.name[0] == '*':
-				clientserver.Com_Printf("  placeholder : {}\n".format(sfx.name))
+				clientserver.Com_Printf("    placeholder : {}\n".format(sfx.name))
 			else:
-				clientserver.Com_Printf("  not loaded  : {}\n".format(sfx.name))
-		
-	clientserver.Com_Printf ("Total resident: {}\n".format(total))
+				clientserver.Com_Printf("    not loaded  : {}\n".format(sfx.name))
 
+		numsounds += 1
+
+	clientserver.Com_Printf("Total resident: {} bytes ({:.2f} MB) in {} sounds\n".format(total,
+			total / 1024 / 1024, numsounds))
+	freeup = S_HasFreeSpace()
+	clientserver.Com_Printf("Used {} of {} sounds{}.\n".format(used, sound_max, ", has free space" if freeup else ""))
 

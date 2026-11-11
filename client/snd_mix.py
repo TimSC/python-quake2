@@ -23,6 +23,7 @@ import struct
 import pygame
 from linux import snd_linux
 from client import snd_dma, snd_loc
+from common import cvar
 """
 // snd_mix.c -- portable code to mix sounds for snd_dma.c
 
@@ -115,7 +116,8 @@ def S_PaintChannels(endtime): #int
 			for i in range(snd_dma.paintedtime, stop):
 			
 				s = i&(snd_loc.MAX_RAW_SAMPLES-1)
-				paintbuffer[i-snd_dma.paintedtime] = snd_dma.s_rawsamples[s]			
+				paintbuffer[i-snd_dma.paintedtime].left = snd_dma.s_rawsamples[s].left # Q2PORT: the C copies the struct
+				paintbuffer[i-snd_dma.paintedtime].right = snd_dma.s_rawsamples[s].right
 
 ##		if (i != end)
 ##			Com_Printf ("partial stream\n");
@@ -141,7 +143,18 @@ def S_PaintChannels(endtime): #int
 		for i in range(snd_dma.paintedtime, end):
 			s = i-snd_dma.paintedtime
 			samp = paintbuffer[s]
-			raw_buff += struct.pack("<hh", samp.left, samp.right)
+			# Q2PORT: the C's SDL_TransferPaintBuffer, 16 bit stereo case
+			val = samp.left >> 8
+			if val > 0x7fff:
+				val = 0x7fff
+			elif val < -32768:
+				val = -32768
+			val2 = samp.right >> 8
+			if val2 > 0x7fff:
+				val2 = 0x7fff
+			elif val2 < -32768:
+				val2 = -32768
+			raw_buff += struct.pack("<hh", val, val2)
 			#test.writeframes(struct.pack("<hh", samp.left, samp.right))
 
 			if startrange is None: startrange = s
@@ -157,5 +170,13 @@ def S_PaintChannels(endtime): #int
 		snd_dma.paintedtime = end
 
 def S_InitScaletable ():
-	# Q2PORT: the C scale table is only used by the unported mixer
-	pass
+
+	# Q2PORT: Yamagi's SDL_UpdateScaletable; the scale table itself is only
+	# used by the unported mixer, so only the s_volume clamp is ported
+
+	if snd_dma.s_volume.value > 2.0:
+		cvar.Cvar_Set("s_volume", "2")
+	elif snd_dma.s_volume.value < 0:
+		cvar.Cvar_Set("s_volume", "0")
+
+	snd_dma.s_volume.modified = False

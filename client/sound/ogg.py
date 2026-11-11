@@ -45,10 +45,11 @@ from __future__ import annotations
 #define STB_VORBIS_NO_PUSHDATA_API
 #include "header/stb_vorbis.h"
 """
+import io
 import os
 import pygame
 from enum import Enum
-from client import cl_main, snd_dma
+from client import cl_main, snd_dma, snd_loc
 from client.sound.header import vorbis
 from client.header import client as client_h
 from common.header import common as common_h
@@ -276,7 +277,7 @@ def OGG_Stream(): #void
 	// with get_busy() (the C sees stb_vorbis run out of samples).
 	"""
 
-	global ogg_numsamples, ogg_mapcdtrack
+	global ogg_numsamples, ogg_mapcdtrack, ogg_status
 
 	if not ogg_started:
 		return
@@ -303,7 +304,12 @@ def OGG_Stream(): #void
 		pygame.mixer.music.set_volume(0.0 if ogg_mutemusic else ogg_volume.value)
 		
 		if not pygame.mixer.music.get_busy():
-			# track finished, start the next one like the C when the stream runs dry
+			# track finished, start the next one like the C's OGG_Read when the stream runs dry
+			#stb_vorbis_close(ogg_file);
+			ogg_status = vorbis.STOP
+			#ogg_numbufs = 0;
+			ogg_numsamples = 0
+
 			OGG_PlayTrack("{}".format(ogg_curfile), False, False)
 
 	if ogg_status == vorbis.PLAY and ogg_shuffle.modified:
@@ -680,8 +686,45 @@ def OGG_Shutdown(): #void
 	ogg_started = False
 
 """
- * Q2PORT: the C's OGG_LoadAsWav decodes a .ogg into a raw wav buffer that
- * S_LoadSound turns into a sfxcache_t. Here pygame.mixer.Sound decodes the ogg
- * directly, so the cache is built by S_LoadVorbis in snd_dma.py instead.
+ * Load an Ogg Vorbis file as a wav
+ *
+ * Q2PORT: stb_vorbis is replaced by pygame, which decodes the file straight to the
+ * mixer format, so the "wav" returned has the mixer's rate and channel count instead
+ * of the file's. The C fills info and buffer through pointers; the port returns
+ * (info, buffer, pygame Sound) or (None, None, None).
  */
 """
+def OGG_LoadAsWav(filename): #char *, (returns wavinfo_t *info, void **buffer)
+
+	size, temp_buffer = filesystem.FS_LoadFile(filename)
+
+	if temp_buffer is None:
+		# no such file
+		return None, None, None
+
+	# load vorbis file from memory
+	try:
+		ogg2wav_file = pygame.mixer.Sound(file=io.BytesIO(temp_buffer))
+	except pygame.error:
+		filesystem.FS_FreeFile(temp_buffer)
+		return None, None, None
+
+	final_buffer = ogg2wav_file.get_raw()
+
+	info = snd_loc.wavinfo_t()
+	# fill in wav structure
+	info.rate = snd_dma.dma.speed
+	info.width = 2
+	info.channels = snd_dma.dma.channels
+	info.loopstart = -1
+	# return length * channels
+	info.samples = len(final_buffer) // 2
+	info.dataofs = 0
+
+	filesystem.FS_FreeFile(temp_buffer)
+
+	if info.samples <= 0:
+		# something is going wrong
+		return None, None, None
+
+	return info, final_buffer, ogg2wav_file

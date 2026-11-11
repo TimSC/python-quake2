@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import pygame
 from client import snd_dma
+from common import clientserver
 
 """
 #include <unistd.h>
@@ -55,11 +56,15 @@ def SNDDMA_Init(): #(returns qboolean)
 
 	# Q2PORT: the Linux C took the rate from the sndspeed cvar and ignored s_khz. The
 	# pygame backend uses s_khz like the win32 driver, so the "sound quality" option works.
-	if snd_dma.s_khz.value == 44:
+	# (Yamagi's SDL_BackendInit rates)
+	speed = 0 # Q2PORT: the C's zeroed spec.freq; pygame then opens the mixer at its default rate
+	if snd_dma.s_khz.value == 48:
+		speed = 48000
+	elif snd_dma.s_khz.value == 44:
 		speed = 44100
 	elif snd_dma.s_khz.value == 22:
 		speed = 22050
-	else:
+	elif snd_dma.s_khz.value == 11:
 		speed = 11025
 	pygame.mixer.quit()	# pygame.init() in Qcommon_Init has already opened the mixer at its default rate
 	pygame.mixer.init(speed)
@@ -149,6 +154,26 @@ def SNDDMA_Init(): #(returns qboolean)
 	"""
 	snd_dma.dma.speed, snd_format, snd_channels = pygame.mixer.get_init()
 	snd_dma.dma.channels = snd_channels # Q2PORT: the channels pygame's mixer was opened with
+	# Q2PORT: the remaining fields as Yamagi's SDL_BackendInit sets them (only soundinfo shows them)
+	snd_dma.dma.samplebits = abs(snd_format) & 0xFF # spec.format & 0xFF
+	if snd_dma.dma.speed <= 11025:
+		samples = 256
+	elif snd_dma.dma.speed <= 22050:
+		samples = 512
+	elif snd_dma.dma.speed <= 44100:
+		samples = 1024
+	else:
+		samples = 2048
+	tmp = (samples * snd_dma.dma.channels) * 10
+	if tmp & (tmp - 1):
+		# make it a power of two
+		val = 1
+		while val < tmp:
+			val <<= 1
+		tmp = val
+	snd_dma.dma.samples = tmp
+	snd_dma.dma.samplepos = 0
+	snd_dma.dma.submission_chunk = 1
 
 	"""
 	if (!dma.speed) {
@@ -285,6 +310,19 @@ int SNDDMA_GetDMAPos(void)
 
 }
 """
+"""
+ * Q2PORT: Yamagi's SDL_SoundInfo (sdl.c), for the soundinfo command
+"""
+def SDL_SoundInfo(): #void
+
+	clientserver.Com_Printf("{:5d} stereo\n".format(snd_dma.dma.channels - 1))
+	clientserver.Com_Printf("{:5d} samples\n".format(snd_dma.dma.samples))
+	clientserver.Com_Printf("{:5d} samplepos\n".format(snd_dma.dma.samplepos))
+	clientserver.Com_Printf("{:5d} samplebits\n".format(snd_dma.dma.samplebits))
+	clientserver.Com_Printf("{:5d} submission_chunk\n".format(snd_dma.dma.submission_chunk))
+	clientserver.Com_Printf("{:5d} speed\n".format(snd_dma.dma.speed))
+	clientserver.Com_Printf("{} sound buffer\n".format("(nil)" if snd_dma.dma.buffer is None else hex(id(snd_dma.dma.buffer)))) # %p
+
 def SNDDMA_Shutdown():
 
 	pygame.mixer.quit()
