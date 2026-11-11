@@ -921,7 +921,7 @@ def SDL_DriftBeginofs(timeofs): #float (returns int)
 
 	if timeofs == 0.0:
 		return paintedtime
-	return start + timeofs * dma.speed
+	return int(start + timeofs * dma.speed) # the C returns int
 
 """
 // =======================================================================

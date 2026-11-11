@@ -187,20 +187,34 @@ def R_SetTexturePalette(palette): #unsigned palette[256]
 		"""
 
 
-def R_EnableMultitexture( enable ):
+R_EnableMultitexture_active = False #static qboolean active, in R_EnableMultitexture
 
-	if not qgl_linux.qglSelectTextureSGIS and not qgl_linux.qglActiveTextureARB:
-		return
+def R_EnableMultitexture( enable ): #qboolean
 
-	if enable :
+	global R_EnableMultitexture_active
+
+	# Q2PORT: the C tests gl_config.multitexture; the id-era callers here still
+	# key the multitexture path on the qgl extension flags, so the same test is used
+	if (not qgl_linux.qglSelectTextureSGIS and not qgl_linux.qglActiveTextureARB) or enable == R_EnableMultitexture_active:
+		return	# current state is the right one
+
+	R_EnableMultitexture_active = enable
+	R_SelectTexture( GL.GL_TEXTURE1 )
+
+	if R_EnableMultitexture_active and not gl1_main.r_fullbright.value:
 	
-		R_SelectTexture( GL.GL_TEXTURE1 )
 		GL.glEnable( GL.GL_TEXTURE_2D )
-		R_TexEnv( GL.GL_REPLACE )
+
+		if gl1_main.r_lightmap.value:
+		
+			R_TexEnv( GL.GL_REPLACE )
+		
+		else:
+		
+			R_TexEnv( GL.GL_MODULATE )
+		
+	else:	# disable multitexturing
 	
-	else:
-	
-		R_SelectTexture( GL.GL_TEXTURE1 )
 		GL.glDisable( GL.GL_TEXTURE_2D )
 		R_TexEnv( GL.GL_REPLACE )
 	
@@ -356,13 +370,15 @@ R_TextureMode
 """
 def R_TextureMode( string ): #char *
 
+	global gl_filter_min, gl_filter_max
+
 	#int		i;
 	#image_t	*glt;
 
 	foundMode = None
 	for mode in modes:
 	
-		if mode.name == string:
+		if not shared_c.Q_stricmp(mode.name, string):
 			foundMode = mode
 			break;
 	
@@ -1454,17 +1470,25 @@ def R_InitImages ():
 	int		i, j;
 	float	g
 	"""
-	g = gl1_main.vid_gamma.value
+	# Q2PORT: Yamagi's SDL2 build doesn't define GL1_GAMMATABLE; vid_gamma is
+	# applied as a hardware gamma ramp by RI_UpdateGamma instead
+	#ifdef GL1_GAMMATABLE
+	#float	g = vid_gamma->value;
+	#else
+	g = 1.0
+	#endif
+	g = shared.Q_max(g, 0.1)
 
 	gl1_model.registration_sequence = 1
 	
 	# init intensity conversions
-	intensity = gl1_main.ri.Cvar_Get ("intensity", "2", 0)
+	intensity = gl1_main.ri.Cvar_Get ("gl1_intensity", "2", shared.CVAR_ARCHIVE)
 
 	if intensity.value <= 1:
-		gl1_main.ri.Cvar_Set( "intensity", "1" )
+		gl1_main.ri.Cvar_Set( "gl1_intensity", "1" )
 
-	gl1_main.gl_state.inverse_intensity = 1 / intensity.value
+	gl1_main.gl_state.sw_gamma = g
+	gl1_main.gl_state.inverse_intensity = g / intensity.value
 
 	Draw_GetPalette ()
 
@@ -1493,7 +1517,7 @@ def R_InitImages ():
 		
 			#float inf
 
-			inf = 255 * math.pow ( (i+0.5)/255.5 , g ) + 0.5
+			inf = math.pow ( (i + 0.5) / 255.5 , 1.0 / g ) * 255.0 + 0.5 # g = 1.0f / g;
 			if inf < 0:
 				inf = 0
 			if inf > 255:

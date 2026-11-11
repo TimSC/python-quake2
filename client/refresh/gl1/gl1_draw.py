@@ -20,8 +20,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 from __future__ import annotations
 
 import struct
+import numpy as np
 import OpenGL.GL as GL
-from PIL import Image
 from client.refresh.gl1 import gl1_main, gl1_image, gl1_scrap
 
 
@@ -42,7 +42,9 @@ def Scrap_Update ():
 		scrap_texels = gl1_scrap.Scrap_Upload(texnum)
 		if scrap_texels is not None:
 			gl1_image.R_Bind(gl1_image.TEXNUM_SCRAPS + texnum)
-			gl1_image.R_Upload32(scrap_texels, gl1_scrap.SCRAP_WIDTH, gl1_scrap.SCRAP_HEIGHT, False)
+			# R_Upload32 changes its data in place (gamma), so upload a copy like the C
+			tmp = bytearray(scrap_texels) # memcpy(tmp, scrap_texels, scrap_size);
+			gl1_image.R_Upload32(tmp, gl1_scrap.SCRAP_WIDTH, gl1_scrap.SCRAP_HEIGHT, False)
 			if default2Dnolerp or (texnum < gl1_scrap.MAX_SCRAPS_NOLERP):
 				GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
 				GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
@@ -442,107 +444,175 @@ def RDraw_FadeScreen ():
 	GL.glDisable(GL.GL_BLEND)
 
 """
-//====================================================================
-
-
-/*
 =============
 RDraw_StretchRaw
 =============
-*/
-extern unsigned	r_rawpalette[256];
 """
-def RDraw_StretchRaw (x, y, w, h, cols, rows, data): #int, int, int, int, int, int, byte *
+def RDraw_StretchRaw (x, y, w, h, cols, rows, data, bits=8): #int, int, int, int, int, int, const byte *, int
+
+	# Q2PORT: vid.Draw_StretchRaw doesn't pass bits yet (8-bit cinematics only), hence the default
 
 	"""
-	unsigned	image32[256*256];
-	unsigned char image8[256*256];
-	int			i, j, trows;
-	byte		*source;
-	int			frac, fracstep;
-	float		hscale;
-	int			row;
-	float		t;
+	GLfloat tex[8];
+	float hscale = 1.0f;
+	int frac, fracstep;
+	int row;
 	"""
-	image32 = bytearray(256*256*4)
+	tex = np.zeros((8,), dtype=np.float32)
+	hscale = 1.0
 
-	gl1_image.R_Bind (0)
+	gl1_image.R_Bind(0)
 
-	if rows<=256:
+	if gl1_main.gl_config.npottextures or rows <= 256 or bits == 32:
 	
-		hscale = 1
-		trows = rows
+		# X, X
+		tex[0] = 0
+		tex[1] = 0
+
+		# X, Y
+		tex[2] = 1
+		tex[3] = 0
+
+		# Y, X
+		tex[4] = 1
+		tex[5] = 1
+
+		# Y, Y
+		tex[6] = 0
+		tex[7] = 1
 	
 	else:
 	
-		hscale = rows/256.0
-		trows = 256
+		# Scale params
+		hscale = rows / 256.0
 
-	t = rows*hscale / 256
+		# X, X
+		tex[0] = 1.0 / 512.0
+		tex[1] = 1.0 / 512.0
+
+		# X, Y
+		tex[2] = 511.0 / 512.0
+		tex[3] = 1.0 / 512.0
+
+		# Y, X
+		tex[4] = 511.0 / 512.0
+		tex[5] = rows * hscale / 256 - 1.0 / 512.0
+
+		# Y, Y
+		tex[6] = 1.0 / 512.0
+		tex[7] = rows * hscale / 256 - 1.0 / 512.0
+
+	vtx = np.array([
+			x, y,
+			x + w, y,
+			x + w, y + h,
+			x, y + h
+	], dtype=np.float32)
+
+	# Q2PORT: r_rawpalette as an array, for the numpy palette lookups below
+	rawpalette = np.array(gl1_main.r_rawpalette, dtype=np.uint32)
+
+	if not gl1_main.gl_config.palettedtexture or bits == 32:
 	
-	if not qgl_linux.qglColorTableEXT:
+		# .. because now if non-power-of-2 textures are supported, we just load
+		# the data into a texture in the original format, without skipping any
+		# pixels to fit into a 256x256 texture.
+		# This causes text in videos (which are 320x240) to not look broken anymore.
+		if bits == 32:
+		
+			GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, gl1_image.gl_tex_solid_format,
+					cols, rows, 0, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE,
+					bytes(data))
+		
+		elif gl1_main.gl_config.npottextures or rows <= 256:
+		
+			# Q2PORT: the per-pixel palette loop is a numpy lookup
+			# img[rowOffset+j] = r_rawpalette[data[rowOffset+j]]
+			img = rawpalette[np.frombuffer(bytes(data), dtype=np.uint8, count=cols * rows)]
 
-		raw_palette_buff = bytearray()
-		for col in gl1_main.r_rawpalette:
-			raw_palette_buff += struct.pack("<L", col)[:3]	
+			GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, gl1_image.gl_tex_solid_format,
+								cols, rows, 0, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE,
+								img.view(np.uint8))
+		
+		else:
+		
+			#static unsigned int image32[320 * 240];
+			image32 = np.zeros((320 * 240,), dtype=np.uint32)
+			trows = 256
+			src = np.frombuffer(bytes(data), dtype=np.uint8)
 
-		img = Image.frombuffer("P", (cols, rows), data, 'raw', 'P', 0, 1)
-		img.putpalette(raw_palette_buff)
-		img = img.resize((256, 256))
-		img = img.convert("RGBA")
-
-		GL.glTexImage2D (GL.GL_TEXTURE_2D, 0, gl1_image.gl_tex_solid_format, 
-			256, 256, 0, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, img.tobytes())
+			for i in range(trows):
 			
-	else:
-		raise NotImplemented()
-		"""
-		unsigned char *dest;
+				row = int(i * hscale)
 
-		for (i=0 ; i<trows ; i++)
+				if row > rows:
+					break
+
+				source = cols * row # data + cols * row
+				dest = i * 256 # &image32[i * 256]
+				fracstep = cols * 0x10000 // 256
+				frac = fracstep >> 1
+
+				for j in range(256):
+				
+					image32[dest + j] = rawpalette[src[source + (frac >> 16)]]
+					frac += fracstep
+
+			GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, gl1_image.gl_tex_solid_format,
+					256, 256, 0, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE,
+					image32.view(np.uint8))
+	
+	else:
+	
+		# Q2PORT: gl_config.palettedtexture is never set (GL_EXT_paletted_texture
+		# isn't offered by current drivers)
+		raise NotImplementedError()
+		"""
+		static byte image8[256 * 256];
+		int trows = 256;
+		size_t i;
+
+		for (i = 0; i < trows; i++)
 		{
-			row = (int)(i*hscale);
+			const byte *source;
+			byte *dest;
+			size_t j;
+
+			row = (int)(i * hscale);
+
 			if (row > rows)
-				break;
-			source = data + cols*row;
-			dest = &image8[i*256];
-			fracstep = cols*0x10000/256;
-			frac = fracstep >> 1;
-			for (j=0 ; j<256 ; j++)
 			{
-				dest[j] = source[frac>>16];
+				break;
+			}
+
+			source = data + cols * row;
+			dest = &image8[i * 256];
+			fracstep = cols * 0x10000 / 256;
+			frac = fracstep >> 1;
+
+			for (j = 0; j < 256; j++)
+			{
+				dest[j] = source[frac >> 16];
 				frac += fracstep;
 			}
 		}
 
-		qglTexImage2D( GL_TEXTURE_2D, 
-			           0, 
-					   GL_COLOR_INDEX8_EXT, 
-					   256, 256, 
-					   0, 
-					   GL_COLOR_INDEX, 
-					   GL_UNSIGNED_BYTE, 
-					   image8 );
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_COLOR_INDEX8_EXT, 256, 256,
+				0, GL_COLOR_INDEX, GL_UNSIGNED_BYTE, image8);
 		"""
 
-	
-	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
-	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+	# Note: gl_filter_min could be GL_*_MIPMAP_* so we can't use it for min filter here (=> no mipmaps)
+	#       but gl_filter_max (either GL_LINEAR or GL_NEAREST) should do the trick.
+	filter = gl1_image.gl_filter_max if (gl1_main.r_videos_unfiltered.value == 0) else GL.GL_NEAREST #GLint
+	GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, filter)
+	GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, filter)
 
-	#if ( gl1_main.gl_config.renderer == GL.GL_RENDERER_MCD ) or ( gl1_main.gl_config.renderer & GL.GL_RENDERER_RENDITION ):
-	#	GL.glDisable (GL.GL_ALPHA_TEST)
+	GL.glEnableClientState( GL.GL_VERTEX_ARRAY )
+	GL.glEnableClientState( GL.GL_TEXTURE_COORD_ARRAY )
 
-	GL.glBegin (GL.GL_QUADS)
-	GL.glTexCoord2f (0, 0)
-	GL.glVertex2f (x, y)
-	GL.glTexCoord2f (1, 0)
-	GL.glVertex2f (x+w, y)
-	GL.glTexCoord2f (1, t)
-	GL.glVertex2f (x+w, y+h)
-	GL.glTexCoord2f (0, t)
-	GL.glVertex2f (x, y+h)
-	GL.glEnd ()
+	GL.glVertexPointer( 2, GL.GL_FLOAT, 0, vtx )
+	GL.glTexCoordPointer( 2, GL.GL_FLOAT, 0, tex )
+	GL.glDrawArrays( GL.GL_TRIANGLE_FAN, 0, 4 )
 
-	#if ( gl1_main.gl_config.renderer == GL.GL_RENDERER_MCD ) or ( gl1_main.gl_config.renderer & GL.GL_RENDERER_RENDITION ):
-	#	GL.glEnable (GL.GL_ALPHA_TEST)
-
+	GL.glDisableClientState( GL.GL_VERTEX_ARRAY )
+	GL.glDisableClientState( GL.GL_TEXTURE_COORD_ARRAY )

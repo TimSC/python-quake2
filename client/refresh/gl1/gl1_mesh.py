@@ -625,7 +625,7 @@ def R_DrawAliasModel (e): #entity_t *
 
 	else:
 
-		gl1_light.R_LightPoint (currententity.origin, shadelight)
+		gl1_light.R_LightPoint (currententity, currententity.origin, shadelight)
 
 		# player lighting hack for communication back to server
 		# big hack!
@@ -702,16 +702,23 @@ def R_DrawAliasModel (e): #entity_t *
 	if currententity.flags & shared.RF_DEPTHHACK: # hack the depth range to prevent view model from poking into walls
 		GL.glDepthRange (gl1_main.gldepthmin, gl1_main.gldepthmin + 0.3*(gl1_main.gldepthmax-gl1_main.gldepthmin))
 
-	if ( currententity.flags & shared.RF_WEAPONMODEL ) and ( gl1_main.gl_lefthand.value == 1.0 ):
+	# Q2PORT: Yamagi sets up the weapon projection (r_gunfov, left hand) in
+	# R_ApplyGLBuffer's buf_alias case; this immediate-mode draw does it here
+	if currententity.flags & shared.RF_WEAPONMODEL:
 
 		GL.glMatrixMode( GL.GL_PROJECTION )
 		GL.glPushMatrix()
 		GL.glLoadIdentity()
-		GL.glScalef( -1, 1, 1 )
-		gl1_main.MYgluPerspective( gl1_main.r_newrefdef.fov_y, float(gl1_main.r_newrefdef.width) / gl1_main.r_newrefdef.height,  4,  4096)
+
+		if gl1_main.gl_lefthand.value == 1.0:
+			GL.glScalef( -1, 1, 1 )
+
+		gl1_main.R_SetPerspective( gl1_main.r_newrefdef.fov_y if (gl1_main.r_gunfov.value < 0) else gl1_main.r_gunfov.value )
+
 		GL.glMatrixMode( GL.GL_MODELVIEW )
 
-		GL.glCullFace( GL.GL_BACK )
+		if gl1_main.gl_lefthand.value == 1.0:
+			GL.glCullFace( GL.GL_BACK )
 
 	GL.glPushMatrix ()
 	e.angles[gl1_main.PITCH] = -e.angles[gl1_main.PITCH]	# sigh.
@@ -787,12 +794,13 @@ def R_DrawAliasModel (e): #entity_t *
 #endif
 	"""
 
-	if ( currententity.flags & shared.RF_WEAPONMODEL ) and ( gl1_main.gl_lefthand.value == 1.0 ):
+	if currententity.flags & shared.RF_WEAPONMODEL:
 
 		GL.glMatrixMode( GL.GL_PROJECTION )
 		GL.glPopMatrix()
 		GL.glMatrixMode( GL.GL_MODELVIEW )
-		GL.glCullFace( GL.GL_FRONT )
+		if gl1_main.gl_lefthand.value == 1.0:
+			GL.glCullFace( GL.GL_FRONT )
 
 	if currententity.flags & shared.RF_TRANSLUCENT:
 

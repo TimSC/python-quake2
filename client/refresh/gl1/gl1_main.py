@@ -21,11 +21,13 @@ from __future__ import annotations
 
 import os
 import math
+import warnings
 import struct
 import copy
 import OpenGL.GL as GL
 import OpenGL.GLU as GLU
 import numpy as np
+import pygame
 from OpenGL.GL import glGetString
 from enum import Enum
 from client import ref
@@ -137,6 +139,7 @@ class glstate_t(object):
 		self.currenttextures = [None, None] #int[2]
 		self.currenttmu = 0 #int
 
+		self.sw_gamma = 1.0 #float
 		self.camera_separation = None #float
 		self.stereo_enabled = None #qboolean
 
@@ -375,7 +378,7 @@ def R_DrawNullModel ():
 	if currententity.flags & shared.RF_FULLBRIGHT:
 		shadelight[0] = shadelight[1] = shadelight[2] = 1.0
 	else:
-		gl1_light.R_LightPoint (currententity.origin, shadelight)
+		gl1_light.R_LightPoint (currententity, currententity.origin, shadelight)
 
 	GL.glPushMatrix ()
 	R_RotateForEntity (currententity)
@@ -685,8 +688,9 @@ def R_SetupFrame ():
 				(leaf.cluster != r_viewcluster2) ):
 				r_viewcluster2 = leaf.cluster
 		
-	for i in range(4):
-		v_blend[i] = r_newrefdef.blend[i]
+	for i in range(3):
+		v_blend[i] = r_newrefdef.blend[i] * gl_state.sw_gamma
+	v_blend[3] = r_newrefdef.blend[3]
 
 	c_brush_polys = 0
 	c_alias_polys = 0
@@ -986,7 +990,7 @@ R_SetLightLevel
 
 ====================
 """
-def R_SetLightLevel ():
+def R_SetLightLevel (currententity): #entity_t *
 
 	#vec3_t		shadelight;
 	shadelight = np.zeros((3,), dtype=np.float32)
@@ -996,7 +1000,7 @@ def R_SetLightLevel ():
 
 	# save off light value for server to look at (BIG HACK!)
 
-	gl1_light.R_LightPoint (r_newrefdef.vieworg, shadelight)
+	gl1_light.R_LightPoint (currententity, r_newrefdef.vieworg, shadelight)
 
 	# pick the greatest component, which should be the same
 	# as the mono value returned by software
@@ -1025,7 +1029,7 @@ RI_RenderFrame
 def RI_RenderFrame (fd): #refdef_t *
 
 	R_RenderView( fd )
-	R_SetLightLevel ()
+	R_SetLightLevel (None)
 	R_SetGL2D ()
 
 
@@ -1216,12 +1220,18 @@ def RI_Init( hinstance, hWnd ): #void *, void *
 	int		err;
 	int		j;
 	extern float r_turbsin[256];
-
-	for ( j = 0; j < 256; j++ )
-	{
-		r_turbsin[j] *= 0.5;
-	}
 	"""
+
+	# Q2PORT: the C module is reloaded on every vid_restart, so its static
+	# r_turbsin starts out unscaled; this module stays loaded, so reload the table
+	gl1_warp.r_turbsin[:] = gl1_warp._LoadTurbsin()
+	for j in range(256):
+	
+		gl1_warp.r_turbsin[j] *= 0.5
+	
+	# Q2PORT: likewise for R_EnableMultitexture's static state (the new context
+	# starts with multitexturing off)
+	gl1_image.R_EnableMultitexture_active = False
 	ri.Con_Printf (shared.PRINT_ALL, "ref_gl version: {}\n".format(REF_VERSION))
 	
 	gl1_image.Draw_GetPalette ()
@@ -1252,6 +1262,9 @@ def RI_Init( hinstance, hWnd ): #void *, void *
 		return -1
 	
 	ri.Vid_MenuInit()
+
+	# Initialize gamma.
+	vid_gamma.modified = True # Q2PORT: done in RI_InitContext (gl1_sdl.c)
 
 	#
 	# get our various GL strings
@@ -1551,15 +1564,7 @@ def RI_BeginFrame( camera_separation ): #float
 	if vid_gamma.modified:
 	
 		vid_gamma.modified = False
-
-		if gl_config.renderer & ( GL_RENDERER_VOODOO ):
-		
-			#char envbuffer[1024];
-			#float g;
-
-			g = 2.00 * ( 0.8 - ( vid_gamma.value - 0.5 ) ) + 1.0
-			os.environ["SSTV2_GAMMA"] = "{:f}".format(g) # putenv( envbuffer );
-			os.environ["SST_GAMMA"] = "{:f}".format(g)
+		RI_UpdateGamma()
 		
 	glimp_sdl2.GLimp_BeginFrame( camera_separation )
 
@@ -1625,6 +1630,33 @@ def RI_BeginFrame( camera_separation ): #float
 
 """
 =============
+RI_UpdateGamma
+
+Q2PORT: from gl1_sdl.c, which is otherwise not ported (glimp_sdl2 does its work)
+=============
+"""
+def RI_UpdateGamma(): #void
+
+	# Hardware gamma / gamma ramps are no longer supported with SDL3.
+	# There's no replacement and sdl2-compat won't support it either.
+	# See https://github.com/libsdl-org/SDL/pull/6617 for the rational.
+	# Gamma works with a lookup table when using SDL3 (or GLES1).
+	#ifndef GL1_GAMMATABLE
+	gamma = vid_gamma.value
+
+	# Q2PORT: pygame's set_gamma is SDL_CalculateGammaRamp + SDL_SetWindowGammaRamp
+	# (it is deprecated, so its warning is silenced)
+	with warnings.catch_warnings():
+		warnings.simplefilter("ignore", DeprecationWarning)
+		ok = pygame.display.set_gamma(gamma)
+
+	if not ok:
+		ri.Con_Printf (shared.PRINT_ALL, "Setting gamma failed: {}\n".format(pygame.get_error()))
+	#endif
+
+
+"""
+=============
 RI_SetPalette
 =============
 */
@@ -1643,9 +1675,9 @@ def RI_SetPalette (palette): #const unsigned char *
 		for i in range(256):
 		
 			c = [0, 0, 0, 0]
-			c[0] = palette[i*3+0]
-			c[1] = palette[i*3+1]
-			c[2] = palette[i*3+2]
+			c[0] = gl1_image.gammatable[palette[i*3+0]]
+			c[1] = gl1_image.gammatable[palette[i*3+1]]
+			c[2] = gl1_image.gammatable[palette[i*3+2]]
 			c[3] = 0xff
 			r_rawpalette[i] = struct.unpack("<L", struct.pack("<BBBB", *c))[0]
 		

@@ -169,7 +169,7 @@ def R_ApplyGLBuffer(): #void
 			if gl1_main.gl_lefthand.value == 1.0:
 				GL.glScalef(-1, 1, 1)
 
-			gl1_main.R_SetPerspective ( (gl1_main.r_gunfov.value < 0) and gl1_main.r_newrefdef.fov_y or gl1_main.r_gunfov.value )
+			gl1_main.R_SetPerspective ( gl1_main.r_newrefdef.fov_y if (gl1_main.r_gunfov.value < 0) else gl1_main.r_gunfov.value )
 
 			GL.glMatrixMode(GL.GL_MODELVIEW)
 

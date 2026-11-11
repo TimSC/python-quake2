@@ -466,7 +466,7 @@ def Mod_LoadBrushModel (mod, buff): #model_t *, void *
 	header.parse(buff)
 
 	if header.version != files_h.BSPVERSION:
-		gl1_main.ri.Sys_Error (shared.ERR_DROP, "Mod_LoadBrushModel: {} has wrong version number ({} should be {})".format(mod.name, i, files_h.BSPVERSION))
+		gl1_main.ri.Sys_Error (shared.ERR_DROP, "Mod_LoadBrushModel: {} has wrong version number ({} should be {})".format(mod.name, header.version, files_h.BSPVERSION))
 
 	mod_base = buff
 

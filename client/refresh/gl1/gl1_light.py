@@ -322,7 +322,7 @@ def R_RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (return
 R_LightPoint
 ===============
 """
-def R_LightPoint (p, color): #vec3_t, vec3_t
+def R_LightPoint (currententity, p, color): #entity_t *, vec3_t, vec3_t
 
 	"""
 	vec3_t		end;
@@ -334,7 +334,7 @@ def R_LightPoint (p, color): #vec3_t, vec3_t
 	float		add;
 	"""
 	
-	if gl1_main.r_worldmodel.lightdata is None:
+	if gl1_main.r_worldmodel.lightdata is None or not currententity:
 	
 		color[0] = color[1] = color[2] = 1.0
 		return
@@ -359,7 +359,7 @@ def R_LightPoint (p, color): #vec3_t, vec3_t
 	for lnum in range(gl1_main.r_newrefdef.num_dlights):
 	
 		dl = dlights[lnum]
-		shared.VectorSubtract (gl1_main.currententity.origin,
+		shared.VectorSubtract (currententity.origin,
 						dl.origin,
 						dist)
 		add = dl.intensity - shared_c.VectorLength(dist)
