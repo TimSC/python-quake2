@@ -29,8 +29,9 @@ import re
 import numpy as np
 import OpenGL.GL as GL
 pass
-from linux import qgl_linux
 from client.refresh.gl1 import gl1_main, gl1_image, gl1_model
+from client.refresh.files import stb as files_stb
+from common import clientserver
 from client.refresh.gl1.header import model
 from common.header import shared
 from common.shared import shared as shared_c
@@ -640,42 +641,31 @@ RI_SetSky
 """
 # 3dstudio environment map names
 suf = ["rt", "bk", "lf", "ft", "up", "dn"]
-def RI_SetSky (name, rotate, axis): # char *, float, vec3_t
+def RI_SetSky(name, rotate, axis): #const char *, float, vec3_t
 
-	global skyname, skyrotate, skyaxis, sky_images, sky_min, sky_max
-	#print ("RI_SetSky", name, rotate, axis)
-	"""
-	int		i;
-	char	pathname[MAX_QPATH];
-	"""
+	global skyrotate, sky_images, sky_min, sky_max
 
-	skyname = name
+	#char	skyname[MAX_QPATH];
+	#int		i;
+
+	skyname = name[:shared.MAX_QPATH - 1] # Q_strlcpy(skyname, name, sizeof(skyname));
 	skyrotate = rotate
-	shared.VectorCopy (axis, skyaxis)
+	shared.VectorCopy(axis, skyaxis)
 
 	for i in range(6):
-	
-		# chop down rotating skies for less memory
-		if skyrotate:
-			gl1_main.gl1_picmip.value+=1
 
-		if qgl_linux.qglColorTableEXT and gl1_main.gl_ext_palettedtexture.value:
-			pathname = "env/{}{}.pcx".format(skyname, suf[i])
-		else:
-			pathname  = "env/{}{}.tga".format(skyname, suf[i])
+		#image_t	*image;
 
-		sky_images[i] = gl1_image.R_FindImage (pathname, gl1_image.imagetype_t.it_sky)
-		if sky_images[i] is None:
-			sky_images[i] = gl1_main.r_notexture
+		image = files_stb.GetSkyImage(skyname, suf[i],
+			gl1_main.gl_config.palettedtexture, gl1_image.R_FindImage)
 
-		if skyrotate:
-			# take less memory
-			gl1_main.gl1_picmip.value -= 1
-			sky_min = 1.0/256
-			sky_max = 255.0/256
-		
-		else:
-			sky_min = 1.0/512
-			sky_max = 511.0/512
+		if not image:
 
-		
+			clientserver.Com_Printf("{}: can't load {}:{} sky\n".format(
+				"RI_SetSky", skyname, suf[i]))
+			image = gl1_main.r_notexture
+
+		sky_images[i] = image
+
+	sky_min = 1.0 / 512
+	sky_max = 511.0 / 512

@@ -27,7 +27,6 @@ import numpy as np
 import OpenGL.GL as GL
 from client.refresh.gl1 import gl1_warp, gl1_image, gl1_main, gl1_model, gl1_light, gl1_lightmap, gl1_buffer
 from client.refresh.gl1.header import model
-from linux import qgl_linux
 pass
 pass
 from client import ref
@@ -335,7 +334,7 @@ def R_BlendLightmaps ():
 	# set the appropriate blending mode unless we're only looking at the
 	# lightmaps.
 	#
-	if not gl1_main.r_lightmap.value:
+	if not gl1_main.gl_lightmap.value:
 
 		GL.glEnable (GL.GL_BLEND)
 
@@ -618,7 +617,7 @@ def R_DrawTextureChains ():
 
 #	R_TexEnv( GL_REPLACE );
 
-	if not qgl_linux.qglSelectTextureSGIS and not qgl_linux.qglActiveTextureARB:
+	if not gl1_main.gl_config.multitexture:
 
 		for image in gl1_image.gltextures[:gl1_image.numgltextures]:
 
@@ -874,7 +873,7 @@ def R_DrawInlineBModel ():
 				# add to the translucent chain
 				r_alpha_surfaces.append(psurf)
 
-			elif qgl_linux.qglMTexCoord2fSGIS and not ( psurf.flags & model.SURF_DRAWTURB ):
+			elif gl1_main.gl_config.multitexture and not ( psurf.flags & model.SURF_DRAWTURB ):
 
 				R_RenderLightmappedPoly( psurf )
 
@@ -886,7 +885,7 @@ def R_DrawInlineBModel ():
 
 	if not (currententity.flags & shared.RF_TRANSLUCENT):
 
-		if not qgl_linux.qglMTexCoord2fSGIS:
+		if not gl1_main.gl_config.multitexture:
 			R_BlendLightmaps ()
 
 	else:
@@ -1069,7 +1068,7 @@ def R_RecursiveWorldNode (node): #mnode_t *
 
 		else:
 
-			if qgl_linux.qglMTexCoord2fSGIS and not ( surf.flags & model.SURF_DRAWTURB ):
+			if gl1_main.gl_config.multitexture and not ( surf.flags & model.SURF_DRAWTURB ):
 
 				R_RenderLightmappedPoly( surf )
 
@@ -1151,7 +1150,7 @@ def R_DrawWorld ():
 	gl_lms.lightmap_surfaces = [[] for _ in range(MAX_LIGHTMAPS)] # memset (gl_lms.lightmap_surfaces, 0, sizeof(gl_lms.lightmap_surfaces));
 	gl1_warp.R_ClearSkyBox ()
 
-	if qgl_linux.qglMTexCoord2fSGIS:
+	if gl1_main.gl_config.multitexture:
 
 		gl1_image.R_EnableMultitexture( True )
 
@@ -1159,7 +1158,7 @@ def R_DrawWorld ():
 		gl1_image.R_TexEnv( GL.GL_REPLACE )
 		gl1_image.R_SelectTexture( GL.GL_TEXTURE1)
 
-		if gl1_main.r_lightmap.value:
+		if gl1_main.gl_lightmap.value:
 			gl1_image.R_TexEnv( GL.GL_REPLACE )
 		else:
 			gl1_image.R_TexEnv( GL.GL_MODULATE )

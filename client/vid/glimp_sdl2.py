@@ -211,6 +211,10 @@ def ShutdownGraphics(): #void
 		# cleanly ungrab input (needs window)
 		GLimp_GrabInput(False)
 		pygame.display.quit()
+		# Q2PORT: SDL_DestroyWindow keeps the SDL video subsystem up, pygame's
+		# display.quit takes it down; bring it back so the renderer can set the
+		# GL attributes for the next window (R_PrepareForWindow)
+		pygame.display.init()
 
 		window = None # SDL_DestroyWindow(window)
 

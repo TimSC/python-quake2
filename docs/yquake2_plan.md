@@ -188,15 +188,27 @@ glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
     After the fix the rendered frame matches the C: fullbright ratio 1.005, lightmap
     1.009, normal ~0.92 (the small residual is within the lightmap base-offset
     tolerance, not a brightness bug).
-  - **Remaining:** the structural splits that are real reworks, not renames:
-    `gl1_scrap` (partial - `Scrap_AllocBlock`/`Upload` live in `gl1_image`); the
-    coupled cvar removals (`gl_playermip`, `gl_skymip`, `gl_nobind`,
-    `gl_monolightmap`) plus new-feature cvars (`gl1_minlight`, `gl1_stereo`,
-    `gl1_particle_square`, `gl1_stencilshadow`, `gl1_tilerendering`,
-    `gl1_overbrightbits`); converting the remaining immediate-mode draw paths to
-    the buffer API; and stripping the Q2PORT speed-ups. `gl1_sdl.c` is intentionally
-    not ported (`glimp_sdl2.py` handles the `RI_*` context/swap calls) and `qgl.c`
-    stays unported (PyOpenGL/pygame stand in, as the old `ref_gl/` did).
+  - **Re-ported from Yamagi (function by function):** `gl1_buffer`, `gl1_scrap`,
+    `gl1_image` (Native/Soft uploads, nolerp lists, anisotropy, minlight table,
+    retexturing through `files/stb.R_LoadImage`), `gl1_draw` (2D through the
+    buffer), `gl1_misc` (16x16 dot/square particle texture, `R_Strings`,
+    `R_SetDefaultState`; `R_ScreenShot` still writes id's TGA until the client's
+    `Vid_WriteScreenshot` is ported), `gl1_sdl` (window/context hooks used by
+    `GLimp_InitGraphics`, vsync, hardware gamma), `qgl` (+ `header/qgl.py`), and
+    gl1_main's set-up: `R_Register` (Yamagi cvar names), `SetMode_impl`/`R_SetMode`,
+    `RI_Init` extension probing, `RI_Shutdown`, `RI_BeginFrame`, the particles,
+    `R_SetGL2D`, `R_DrawBeam`, `GetRefAPI`. `files/stb.py` gained `ResizeSTB`
+    (Pillow) and `SmoothColorImage`, and `R_Convert8to32` uses numpy (Q2PORT).
+  - **Remaining (still id code):** gl1_main's frame code (`R_SetupFrame`,
+    `R_SetupGL`/stereo, `R_Clear` stencil/tile, `R_RenderView` stereo,
+    `R_DrawSpriteModel`/`R_DrawNullModel`/`R_DrawEntitiesOnList` with entity
+    arguments), `gl1_surf` (buffer batching, `R_RegenAllLightmaps`,
+    `R_GetBrushesLighting`), `gl1_mesh` (buffer, stencil shadows, overbright,
+    minlight; strip the `drawtris` Q2PORT), `gl1_light` (buffered dlights,
+    minlight/gammatable in `R_BuildLightMap`), `gl1_warp` (buffered water/sky),
+    `gl1_lightmap` (multitexture buffers), `gl1_model` (`Mod_LoadMD2`/`Mod_LoadSP2`/
+    `Mod_ReLoadSkins`, free-space checks). The id `gl_vertex_arrays` cvar stays
+    registered until gl1_mesh is ported.
 
 ## Group 0: tooling and conventions
 

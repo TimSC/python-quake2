@@ -29,6 +29,8 @@ from __future__ import annotations
 
 import io
 
+import numpy as np
+
 from PIL import Image
 
 from common import clientserver, filesystem
@@ -86,7 +88,7 @@ def LoadSTB(origname, type): #const char *, const char*, byte **, int *, int * (
 	try:
 		img = Image.open(io.BytesIO(rawdata)).convert("RGBA")
 		w, h = img.size
-		data = img.tobytes()
+		data = bytearray(img.tobytes()) # Q2PORT: mutable like the C's malloc'd buffer (the renderers change it in place)
 	except (OSError, ValueError) as e:
 		clientserver.Com_Printf("{} couldn't load data from {}: {}!\n".format("LoadSTB", filename, e))
 		filesystem.FS_FreeFile(rawdata)
@@ -99,31 +101,140 @@ def LoadSTB(origname, type): #const char *, const char*, byte **, int *, int * (
 	pic = data
 	return True, pic, w, h
 
-"""
-qboolean
-ResizeSTB(const byte *input_pixels, int input_width, int input_height,
-			  byte *output_pixels, int output_width, int output_height)
-{
-	if (stbir_resize_uint8(input_pixels, input_width, input_height, 0,
-			       output_pixels, output_width, output_height, 0, 4))
-	{
-		return true;
-	}
+def ResizeSTB(input_pixels, input_width, input_height, output_pixels, output_width, output_height): #const byte *, int, int, byte *, int, int (returns qboolean)
 
-	return false;
-}
-"""
+	# Q2PORT: stbir_resize_uint8 (stb_image_resize) is replaced by Pillow's
+	# resize, like LoadSTB uses Pillow for stb_image. stbir defaults to a
+	# Catmull-Rom/Mitchell cubic filter; BICUBIC is the closest Pillow has.
+	# The pixels are RGBA (4 channels); the result is written into output_pixels.
+	try:
+		img = Image.frombytes("RGBA", (input_width, input_height),
+			bytes(input_pixels[:input_width * input_height * 4]))
+		img = img.resize((output_width, output_height), Image.BICUBIC)
+	except (ValueError, OSError):
+		return False
 
-"""
-/* 8 looks good for smoothed textures with whole width as rstep */
-#define COLOR_DISTANCE 8
+	output_pixels[:output_width * output_height * 4] = img.tobytes()
+	return True
 
-void
-SmoothColorImage(unsigned *dst, size_t size, size_t rstep)
-{
-	(not ported yet: only the software renderer uses it)
-}
-"""
+# 8 looks good for smoothed textures with whole width as rstep
+COLOR_DISTANCE = 8
+
+def SmoothColorImage(dst, size, rstep): #unsigned *, size_t, size_t
+
+	"""
+	const unsigned *full_size;
+	unsigned last_color;
+	unsigned *last_diff;
+	"""
+
+	# Q2PORT: dst is the RGBA bytearray; pix is a view of it as the C's unsigned
+	# pixels, and the pointers are indices into it
+	pix = np.frombuffer(dst, dtype=np.uint32, count=size)
+	d = 0 # dst
+
+	# maximum step for apply
+	if rstep < 2:
+		return
+
+	# step one pixel back as with check one pixel more
+	full_size = d + size - rstep - 1
+	last_diff = d
+	last_color = int(pix[d])
+
+	# skip current point
+	d += 1
+
+	while d < full_size:
+	
+		if last_color != pix[d]:
+		
+			step = d - last_diff
+			if step > 1:
+			
+				#int a_beg, b_beg, c_beg, d_beg;
+				#int a_end, b_end, c_end, d_end;
+				#int a_step, b_step, c_step, d_step;
+				#int k;
+
+				# minimize effect size to rstep
+				if step > rstep:
+				
+					# change place for start effect
+					last_diff += (step - rstep)
+					step = rstep
+
+				# compare next pixels
+				k = 1
+				while k <= step:
+				
+					if pix[d + k] != pix[d]:
+						break
+					k += 1
+
+				# step back as pixel different after previous step
+				k -= 1
+
+				# mirror steps
+				if k < step:
+				
+					# Com_Printf("%s %d -> %d\n", __func__, k, step);
+					# change place for start effect
+					last_diff += (step - k)
+					step = k
+
+				# update step to correct value
+				step += k
+				d += k
+
+				# get colors
+				a_beg = (last_color >> 0 ) & 0xff
+				b_beg = (last_color >> 8 ) & 0xff
+				c_beg = (last_color >> 16) & 0xff
+				d_beg = (last_color >> 24) & 0xff
+
+				cur = int(pix[d])
+				a_end = (cur >> 0 ) & 0xff
+				b_end = (cur >> 8 ) & 0xff
+				c_end = (cur >> 16) & 0xff
+				d_end = (cur >> 24) & 0xff
+
+				a_step = a_end - a_beg
+				b_step = b_end - b_beg
+				c_step = c_end - c_beg
+				d_step = d_end - d_beg
+
+				if (step > 0 and
+					(abs(a_step) < COLOR_DISTANCE) and
+					(abs(b_step) < COLOR_DISTANCE) and
+					(abs(c_step) < COLOR_DISTANCE) and
+					(abs(d_step) < COLOR_DISTANCE) and
+					(
+						abs(a_step) > 1 or
+						abs(b_step) > 1 or
+						abs(c_step) > 1 or
+						abs(d_step) > 1
+					)):
+				
+					# generate color change steps (the C's int division truncates)
+					a_step = int((a_step << 16) / step)
+					b_step = int((b_step << 16) / step)
+					c_step = int((c_step << 16) / step)
+					d_step = int((d_step << 16) / step)
+
+					# apply color changes
+					for k in range(step):
+					
+						pix[last_diff] = ((((a_beg + ((a_step * k) >> 16)) << 0) & 0x000000ff) |
+									 (((b_beg + ((b_step * k) >> 16)) << 8) & 0x0000ff00) |
+									 (((c_beg + ((c_step * k) >> 16)) << 16) & 0x00ff0000) |
+									 (((d_beg + ((d_step * k) >> 16)) << 24) & 0xff000000))
+						last_diff += 1
+
+			last_color = int(pix[d])
+			last_diff = d
+		
+		d += 1
 
 """
  https://en.wikipedia.org/wiki/Pixel-art_scaling_algorithms
@@ -558,36 +669,27 @@ def R_Convert8to32 (data, width, height, table_8to24): #byte *, size_t, size_t, 
 
 	s = width * height
 
-	trans = bytearray(s * 4)
+	# Q2PORT: the C's per-pixel loop is done with numpy (a palette lookup, then the
+	# same neighbour search for the transparent pixels, in the same order)
+	pal = np.array(table_8to24, dtype=np.uint8)
+	d = np.frombuffer(bytes(data[:s]), dtype=np.uint8).astype(np.intp)
+	trans = pal[d] # trans[i] = table_8to24[p];
 
-	for i in range(s):
-		p = data[i]
-		r, g, b, a = table_8to24[p]
-		base = i * 4
-		trans[base] = r
-		trans[base + 1] = g
-		trans[base + 2] = b
-		trans[base + 3] = a
+	i = np.nonzero(d == 255)[0]
+	if len(i):
 
 		# transparent, so scan around for
 		# another color to avoid alpha fringes
-		if p == 255:
-			if i > width and data[i - width] != 255:
-				p = data[i - width]
-			elif i < s - width and data[i + width] != 255:
-				p = data[i + width]
-			elif i > 0 and data[i - 1] != 255:
-				p = data[i - 1]
-			elif i < s - 1 and data[i + 1] != 255:
-				p = data[i + 1]
-			else:
-				p = 0
+		up = np.where(i > width, d[np.maximum(i - width, 0)], 255)
+		down = np.where(i < s - width, d[np.minimum(i + width, s - 1)], 255)
+		left = np.where(i > 0, d[np.maximum(i - 1, 0)], 255)
+		right = np.where(i < s - 1, d[np.minimum(i + 1, s - 1)], 255)
+		p = np.where(up != 255, up, np.where(down != 255, down, np.where(left != 255, left, np.where(right != 255, right, 0))))
 
-			# copy rgb components
-			r, g, b, a = table_8to24[p]
-			trans[base] = r
-			trans[base + 1] = g
-			trans[base + 2] = b
+		# copy rgb components
+		trans[i, 0:3] = pal[p, 0:3]
+
+	trans = bytearray(trans.tobytes())
 
 	return trans
 

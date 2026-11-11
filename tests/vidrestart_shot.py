@@ -7,13 +7,14 @@ import OpenGL.GL as GL
 from PIL import Image
 from backends.unix import system
 from client.vid import glimp_sdl2
+from client.refresh.gl1 import gl1_sdl, gl1_buffer # the gl1 frame swap (Yamagi's RI_EndFrame)
 from client import cl_main
 pass
 from client.refresh.gl1 import gl1_main as gl_rmain
 from common import cmdparser
 from client import cl_main
 t0 = [None]; st = {"restart": False, "shot": False}
-oe = glimp_sdl2.GLimp_EndFrame
+oe = gl1_sdl.RI_EndFrame
 def EF():
 	if cl_main.cls.state.name == "ca_active":
 		if t0[0] is None: t0[0] = time.time()
@@ -25,11 +26,12 @@ def EF():
 			st["last"] = int(t)
 			vp = GL.glGetIntegerv(GL.GL_VIEWPORT); w, h = int(vp[2]), int(vp[3])
 			GL.glReadBuffer(GL.GL_BACK)
+			gl1_buffer.R_ApplyGLBuffer() # draw the batched 2D first (RI_EndFrame does it before the swap)
 			Image.frombytes("RGB", (w, h), GL.glReadPixels(0, 0, w, h, GL.GL_RGB, GL.GL_UNSIGNED_BYTE)).transpose(Image.FLIP_TOP_BOTTOM).save(os.environ.get("SHOT", "/tmp/q2tests/vr_t%d.png") % int(t))
 			from client import cl_screen
 			from client import cl_console
 			print("vr: t=%d polys %d viewcluster %s old %s key_dest %s con.current %.0f vid %dx%d refdef %dx%d" % (t, gl_rmain.c_brush_polys, gl_rmain.r_viewcluster, gl_rmain.r_oldviewcluster, cl_main.cls.key_dest.name, cl_screen.scr_con_current, gl_rmain.vid.width, gl_rmain.vid.height, cl_main.cl.refdef.width, cl_main.cl.refdef.height))
 			if int(t) == 12: sys.stdout.flush(); os._exit(0)
 	return oe()
-glimp_sdl2.GLimp_EndFrame = EF
+gl1_sdl.RI_EndFrame = EF
 system.main()

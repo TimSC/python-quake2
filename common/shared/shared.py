@@ -1786,28 +1786,22 @@ def StrList_Print(sl: shared.strlist_t, printfunc=None): #const strlist_t *, voi
 	printfunc("}\n")
 
 
-"""
-int
-Word_Count(const char *s)
-{
-	int n = 0;
-	qboolean in_word = false;
+def Word_Count(s: str)->int: #const char * (returns int)
 
-	if (!s) return 0;
+	n = 0
+	in_word = False
 
-	for (; *s; ++s)
-	{
-		if ( isspace( (unsigned char)*s ) )
-		{
-			in_word = false;
-		}
-		else if (!in_word)
-		{
-			in_word = true;
-			++n;
-		}
-	}
+	if not s: return 0
 
-	return n;
-}
-"""
+	for ch in s:
+
+		if ch.isspace(): # isspace( (unsigned char)*s )
+
+			in_word = False
+
+		elif not in_word:
+
+			in_word = True
+			n += 1
+
+	return n

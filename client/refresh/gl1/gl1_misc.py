@@ -1,221 +1,221 @@
 """
-Copyright (C) 1997-2001 Id Software, Inc.
-
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
-
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
+ * Copyright (C) 1997-2001 Id Software, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or (at
+ * your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
+ *
+ * =======================================================================
+ *
+ * Misc refresher functions
+ *
+ * =======================================================================
 """
 from __future__ import annotations
 
 import os
 import OpenGL.GL as GL
-from client.refresh.gl1 import gl1_image, gl1_main
+from client.refresh.gl1 import gl1_image, gl1_main, qgl
+from client.refresh.gl1.header import qgl as qgl_h
 from backends.unix import system
-from linux import qgl_linux
-pass
-from common.header import shared
-"""
-// r_misc.c
+from common import clientserver
 
-#include "gl_local.h"
-
-/*
-==================
-R_InitParticleTexture
-==================
-*/
 """
-dottexture = [ #byte[8][8]
-	[0,0,0,0,0,0,0,0],
-	[0,0,1,1,0,0,0,0],
-	[0,1,1,1,1,0,0,0],
-	[0,1,1,1,1,0,0,0],
-	[0,0,1,1,0,0,0,0],
-	[0,0,0,0,0,0,0,0],
-	[0,0,0,0,0,0,0,0],
-	[0,0,0,0,0,0,0,0],
+#include "header/local.h"
+"""
+
+dottexture = [ #static byte[16][16]
+	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+	[0, 0, 1, 2, 3, 3, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+	[0, 1, 3, 3, 3, 3, 3, 3, 1, 0, 0, 0, 0, 0, 0, 0],
+	[0, 2, 3, 3, 3, 3, 3, 3, 2, 0, 0, 0, 0, 0, 0, 0],
+	[0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0],
+	[0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0],
+	[0, 2, 3, 3, 3, 3, 3, 3, 2, 0, 0, 0, 0, 0, 0, 0],
+	[0, 1, 3, 3, 3, 3, 3, 3, 1, 0, 0, 0, 0, 0, 0, 0],
+	[0, 0, 1, 2, 3, 3, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 ]
 
-def R_InitParticleTexture ():
+squaretexture = [ #static byte[16][16]
+	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+	[0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0],
+	[0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0],
+	[0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0],
+	[0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0],
+	[0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0],
+	[0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0],
+	[0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0],
+	[0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+]
 
-	#int		x,y;
-	#byte	data[8][8][4];
-	data = bytearray(8*8*4)
+notex = [ #static byte[4][4]
+	[0, 0, 0, 0],
+	[0, 0, 1, 1],
+	[0, 1, 1, 1],
+	[0, 1, 1, 1]
+]
 
-	#
+def R_InitParticleTexture(): #void
+
+	#int x, y;
+	#byte partData[16][16][4];
+	#byte notexData[8][8][4];
+	partData = bytearray(16 * 16 * 4)
+	notexData = bytearray(8 * 8 * 4)
+
 	# particle texture
-	#
-	for x in range(8):
-	
-		for y in range(8):
-		
-			data[(y*8+x)*4+0] = 255
-			data[(y*8+x)*4+1] = 255
-			data[(y*8+x)*4+2] = 255
-			data[(y*8+x)*4+3] = dottexture[x][y]*255
-		
-	gl1_main.r_particletexture = gl1_image.R_LoadPic ("***particle***", data, 8, 8, gl1_image.imagetype_t.it_sprite, 32)
+	for x in range(16):
 
-	#
+		for y in range(16):
+
+			partData[(y * 16 + x) * 4 + 0] = 255
+			partData[(y * 16 + x) * 4 + 1] = 255
+			partData[(y * 16 + x) * 4 + 2] = 255
+
+			if not gl1_main.gl1_particle_square.value:
+
+				partData[(y * 16 + x) * 4 + 3] = dottexture[x][y] * 85
+
+			else:
+
+				partData[(y * 16 + x) * 4 + 3] = squaretexture[x][y] * 85
+
+	gl1_main.r_particletexture = gl1_image.R_LoadPic("***particle***", partData,
+	                              16, 0, 16, 0, 16 * 16, gl1_image.imagetype_t.it_sprite, 32)
+
 	# also use this for bad textures, but without alpha
-	#
-	data = bytearray(8*8*4)
 	for x in range(8):
-	
+
 		for y in range(8):
-		
-			data[(y*8+x)*4+0] = dottexture[x&3][y&3]*255
-			data[(y*8+x)*4+1] = 0 # dottexture[x&3][y&3]*255;
-			data[(y*8+x)*4+2] = 0 #dottexture[x&3][y&3]*255;
-			data[(y*8+x)*4+3] = 255
-		
-	gl1_main.r_notexture = gl1_image.R_LoadPic ("***r_notexture***", data, 8, 8, gl1_image.imagetype_t.it_wall, 32)
 
-"""
+			notexData[(y * 8 + x) * 4 + 0] = notex[x & 3][y & 3] * 255
+			notexData[(y * 8 + x) * 4 + 1] = 0
+			notexData[(y * 8 + x) * 4 + 2] = 0
+			notexData[(y * 8 + x) * 4 + 3] = 255
 
+	gl1_main.r_notexture = gl1_image.R_LoadPic("***r_notexture***", notexData,
+	                        8, 0, 8, 0, 8 * 8, gl1_image.imagetype_t.it_wall, 32)
 
-/* 
-============================================================================== 
- 
-						SCREEN SHOTS 
- 
-============================================================================== 
-*/ 
+def R_ScreenShot(): #void
 
-typedef struct _TargaHeader {
-	unsigned char 	id_length, colormap_type, image_type;
-	unsigned short	colormap_index, colormap_length;
-	unsigned char	colormap_size;
-	unsigned short	x_origin, y_origin, width, height;
-	unsigned char	pixel_size, attributes;
-} TargaHeader;
+	w = gl1_main.vid.width
+	h = gl1_main.vid.height
 
+	GL.glPixelStorei(GL.GL_PACK_ALIGNMENT, 1)
+	buffer = bytearray(GL.glReadPixels(0, 0, w, h, GL.GL_RGB, GL.GL_UNSIGNED_BYTE))
 
-"""
-""" 
-================== 
-R_ScreenShot
-================== 
-"""
-def R_ScreenShot ():
-
+	# the pixels are now row-wise left to right, bottom to top,
+	# but we need them row-wise left to right, top to bottom.
+	# so swap bottom rows with top rows
 	"""
-	byte		*buffer;
-	char		picname[80]; 
-	char		checkname[MAX_OSPATH];
-	int			i, c, temp;
-	FILE		*f;
+	(row swap: not needed for the TGA below, which is stored bottom to top)
 	"""
-	vid = gl1_main.vid
 
-	# create the scrnshots directory if it doesn't exist
+	# ri.Vid_WriteScreenshot(w, h, 3, buffer);
+	# Q2PORT: the port's refimport_t has no Vid_WriteScreenshot yet (the
+	# client's VID_WriteScreenshot isn't ported), so the screenshot is
+	# written as id's quakeNN.tga in scrnshot/ until it is
 	checkname = "{}/scrnshot".format(gl1_main.ri.FS_Gamedir())
-	system.Sys_Mkdir (checkname)
+	system.Sys_Mkdir(checkname)
 
-	# 
-	# find a file name to save it to 
-	# 
-	picname = list("quake00.tga")
+	for i in range(100):
 
-	for i in range(101):
-	
-		if i == 100:
+		picname = "quake{:02d}.tga".format(i)
+		checkname = "{}/scrnshot/{}".format(gl1_main.ri.FS_Gamedir(), picname)
+		if not os.path.exists(checkname):
 			break
-		picname[5] = chr(i//10 + ord('0'))
-		picname[6] = chr(i%10 + ord('0'))
-		checkname = "{}/scrnshot/{}".format(gl1_main.ri.FS_Gamedir(), "".join(picname))
-		if not os.path.exists(checkname): # f = fopen (checkname, "rb"); if (!f)
-			break	# file doesn't exist
-	
-	if i == 100:
-	
-		gl1_main.ri.Con_Printf (shared.PRINT_ALL, "SCR_ScreenShot_f: Couldn't create a file\n")
-		return
-	
-	buffer = bytearray(vid.width*vid.height*3 + 18) # malloc and memset (buffer, 0, 18);
-	buffer[2] = 2		# uncompressed type
-	buffer[12] = vid.width&255
-	buffer[13] = vid.width>>8
-	buffer[14] = vid.height&255
-	buffer[15] = vid.height>>8
-	buffer[16] = 24	# pixel size
 
-	GL.glPixelStorei(GL.GL_PACK_ALIGNMENT, 1) # rows are not padded in the C buffer
-	buffer[18:] = GL.glReadPixels (0, 0, vid.width, vid.height, GL.GL_RGB, GL.GL_UNSIGNED_BYTE)
+	else:
+
+		clientserver.Com_Printf("SCR_ScreenShot_f: Couldn't create a file\n")
+		return
+
+	header = bytearray(18)
+	header[2] = 2		# uncompressed type
+	header[12] = w & 255
+	header[13] = w >> 8
+	header[14] = h & 255
+	header[15] = h >> 8
+	header[16] = 24	# pixel size
 
 	# swap rgb to bgr
-	c = 18+vid.width*vid.height*3
-	buffer[18:c:3], buffer[20:c:3] = buffer[20:c:3], buffer[18:c:3]
+	buffer[0::3], buffer[2::3] = buffer[2::3], buffer[0::3]
 
-	with open (checkname, "wb") as f:
-		f.write (buffer[:c])
+	with open(checkname, "wb") as f:
+		f.write(header + buffer)
 
-	gl1_main.ri.Con_Printf (shared.PRINT_ALL, "Wrote {}\n".format("".join(picname)))
-"""
+	clientserver.Com_Printf("Wrote {}\n".format(picname))
 
-/*
-** R_Strings_f
-*/
-"""
-def R_Strings_f( ):
+def R_Strings(show_ext): #qboolean
 
-	gl1_main.ri.Con_Printf (shared.PRINT_ALL, "GL_VENDOR: {}\n".format(gl1_main.gl_config.vendor_string) )
-	gl1_main.ri.Con_Printf (shared.PRINT_ALL, "GL_RENDERER: {}\n".format(gl1_main.gl_config.renderer_string) )
-	gl1_main.ri.Con_Printf (shared.PRINT_ALL, "GL_VERSION: {}\n".format(gl1_main.gl_config.version_string) )
-	gl1_main.ri.Con_Printf (shared.PRINT_ALL, "GL_EXTENSIONS: {}\n".format(gl1_main.gl_config.extensions) )
+	Printf_Ext = clientserver.Com_Printf if show_ext else clientserver.Com_DPrintf
 
+	clientserver.Com_Printf("GL_VENDOR: {}\n".format(gl1_main.gl_config.vendor_string))
+	clientserver.Com_Printf("GL_RENDERER: {}\n".format(gl1_main.gl_config.renderer_string))
+	clientserver.Com_Printf("GL_VERSION: {}\n".format(gl1_main.gl_config.version_string))
+	Printf_Ext("GL_EXTENSIONS: {}".format(gl1_main.gl_config.extensions_string))
+	Printf_Ext("\n")	# For some reason this is being ignored in the line above.
+	clientserver.Com_Printf("GL_EXTENSIONS number: {}\n".format(gl1_main.gl_config.num_extensions))
 
-"""
-/*
-** R_SetDefaultState
-*/
-"""
-def R_SetDefaultState( ):
-	
+def R_SetDefaultState(): #void
 
-	GL.glClearColor (1,0, 0.5 , 0.5)
+	GL.glDisable(qgl_h.GL_MULTISAMPLE)
 	GL.glCullFace(GL.GL_FRONT)
 	GL.glEnable(GL.GL_TEXTURE_2D)
 
 	GL.glEnable(GL.GL_ALPHA_TEST)
 	GL.glAlphaFunc(GL.GL_GREATER, 0.666)
 
-	GL.glDisable (GL.GL_DEPTH_TEST)
-	GL.glDisable (GL.GL_CULL_FACE)
-	GL.glDisable (GL.GL_BLEND)
+	GL.glDisable(GL.GL_DEPTH_TEST)
+	GL.glDisable(GL.GL_CULL_FACE)
+	GL.glDisable(GL.GL_BLEND)
 
-	GL.glColor4f (1,1,1,1)
+	GL.glColor4f(1, 1, 1, 1)
 
-	GL.glPolygonMode (GL.GL_FRONT_AND_BACK, GL.GL_FILL)
-	GL.glShadeModel (GL.GL_FLAT)
+	GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+	GL.glShadeModel(GL.GL_FLAT)
 
-	gl1_image.R_TextureMode( gl1_main.gl_texturemode.string )
-	gl1_image.R_TextureAlphaMode( gl1_main.gl1_texturealphamode.string )
-	gl1_image.R_TextureSolidMode( gl1_main.gl1_texturesolidmode.string )
-	
-	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, gl1_image.gl_filter_min)
-	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, gl1_image.gl_filter_max)
+	gl1_image.R_TextureMode(gl1_main.gl_texturemode.string)
+	gl1_image.R_TextureAlphaMode(gl1_main.gl1_texturealphamode.string)
+	gl1_image.R_TextureSolidMode(gl1_main.gl1_texturesolidmode.string)
 
-	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_REPEAT)
-	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_REPEAT)
+	GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, gl1_image.gl_filter_min)
+	GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, gl1_image.gl_filter_max)
 
-	GL.glBlendFunc (GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+	GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_REPEAT)
+	GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_REPEAT)
 
-	gl1_image.R_TexEnv( GL.GL_REPLACE )
+	GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
 
-	if qgl_linux.qglPointParameterfEXT:
+	gl1_image.R_TexEnv(GL.GL_REPLACE)
+
+	if gl1_main.gl_config.pointparameters:
 
 		#float attenuations[3];
 		attenuations = [0.0, 0.0, 0.0]
@@ -224,32 +224,29 @@ def R_SetDefaultState( ):
 		attenuations[1] = gl1_main.gl1_particle_att_b.value
 		attenuations[2] = gl1_main.gl1_particle_att_c.value
 
-		GL.glEnable( GL.GL_POINT_SMOOTH )
-		GL.glPointParameterf( GL.GL_POINT_SIZE_MIN, gl1_main.gl1_particle_min_size.value ) # GL_POINT_SIZE_MIN_EXT
-		GL.glPointParameterf( GL.GL_POINT_SIZE_MAX, gl1_main.gl1_particle_max_size.value ) # GL_POINT_SIZE_MAX_EXT
-		GL.glPointParameterfv( GL.GL_POINT_DISTANCE_ATTENUATION, attenuations ) # GL_DISTANCE_ATTENUATION_EXT
-	"""
-	if ( qglColorTableEXT && gl_ext_palettedtexture->value )
-	{
-		qglEnable( GL_SHARED_TEXTURE_PALETTE_EXT );
+		qgl.qglPointParameterf(qgl_h.GL_POINT_SIZE_MIN, gl1_main.gl1_particle_min_size.value)
+		qgl.qglPointParameterf(qgl_h.GL_POINT_SIZE_MAX, gl1_main.gl1_particle_max_size.value)
+		qgl.qglPointParameterfv(qgl_h.GL_POINT_DISTANCE_ATTENUATION, attenuations)
 
-		R_SetTexturePalette( d_8to24table );
-	}
+		# GL_POINT_SMOOTH is not implemented by some OpenGL
+		# drivers, especially the crappy Mesa3D backends like
+		# i915.so. That the points are squares and not circles
+		# is not a problem by Quake II!
+		if gl1_main.gl1_particle_square.value:
 
-	GL_UpdateSwapInterval();
-}
-"""
-def GL_UpdateSwapInterval():
-	r_vsync = getattr(gl1_main, "r_vsync", None)
-	if r_vsync is None:
-		return
-	if not r_vsync.modified:
-		return
+			GL.glDisable(GL.GL_POINT_SMOOTH)
 
-	r_vsync.modified = False
-	if gl1_main.gl_state.stereo_enabled:
-		return
+		else:
 
-	# No platform-specific swap interval hooks in this port.
-	return
+			GL.glEnable(GL.GL_POINT_SMOOTH)
 
+	if gl1_main.gl_config.palettedtexture:
+
+		GL.glEnable(qgl_h.GL_SHARED_TEXTURE_PALETTE_EXT)
+		# Q2PORT: d_8to24table holds (r, g, b, a); R_SetTexturePalette takes the C's packed unsigneds
+		gl1_image.R_SetTexturePalette([c[0] | (c[1] << 8) | (c[2] << 16) | (c[3] << 24) for c in gl1_image.d_8to24table])
+
+	if gl1_main.gl_msaa_samples.value:
+
+		GL.glEnable(qgl_h.GL_MULTISAMPLE)
+		GL.glHint(qgl_h.GL_MULTISAMPLE_FILTER_HINT_NV, GL.GL_NICEST)

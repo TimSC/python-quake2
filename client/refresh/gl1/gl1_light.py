@@ -36,6 +36,7 @@ from common.shared import shared as shared_c
 #include "gl_local.h"
 """
 r_dlightframecount = None #int
+minlight = bytearray(256) #byte[256]
 
 DLIGHT_CUTOFF = 64
 

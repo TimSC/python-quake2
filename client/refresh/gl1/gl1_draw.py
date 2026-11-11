@@ -1,144 +1,101 @@
 """
-Copyright (C) 1997-2001 Id Software, Inc.
-
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
-
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
+ * Copyright (C) 1997-2001 Id Software, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or (at
+ * your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
+ *
+ * =======================================================================
+ *
+ * Drawing of all images that are not textures
+ *
+ * =======================================================================
 """
 from __future__ import annotations
 
-import struct
 import numpy as np
 import OpenGL.GL as GL
-from client.refresh.gl1 import gl1_main, gl1_image, gl1_scrap
-
-
-"""
-** Scrap_Update
-"""
-def Scrap_Update ():
-
-	"""
-	qboolean default2Dnolerp;
-	int texnum;
-	"""
-
-	# r_2D_unfiltered not ported; default 0
-	default2Dnolerp = False
-
-	for texnum in range(gl1_scrap.MAX_SCRAPS):
-		scrap_texels = gl1_scrap.Scrap_Upload(texnum)
-		if scrap_texels is not None:
-			gl1_image.R_Bind(gl1_image.TEXNUM_SCRAPS + texnum)
-			# R_Upload32 changes its data in place (gamma), so upload a copy like the C
-			tmp = bytearray(scrap_texels) # memcpy(tmp, scrap_texels, scrap_size);
-			gl1_image.R_Upload32(tmp, gl1_scrap.SCRAP_WIDTH, gl1_scrap.SCRAP_HEIGHT, False)
-			if default2Dnolerp or (texnum < gl1_scrap.MAX_SCRAPS_NOLERP):
-				GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
-				GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
-			else:
-				GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
-				GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
-
-
-pass
-from linux import qgl_linux
+from client.refresh.gl1 import gl1_main, gl1_image, gl1_scrap, gl1_buffer
+from client.refresh.files import stb as files_stb
+from common import clientserver
 from common.header import shared
-"""
-// draw.c
 
-#include "gl_local.h"
 """
+#include "header/local.h"
+"""
+
 draw_chars = None #image_t *
-"""
-# scrap code lives in gl1_scrap.py
 
+#extern unsigned r_rawpalette[256];
 
-/*
-===============
-Draw_InitLocal
-===============
-"""
-def Draw_InitLocal ():
+def Draw_InitLocal(): #void
+
 	global draw_chars
 
-	# load console characters (don't bilerp characters)
-	draw_chars = gl1_image.R_FindImage ("pics/conchars.pcx", gl1_image.imagetype_t.it_pic)
-	gl1_image.R_Bind( draw_chars.texnum )
-	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
-	GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+	# load console characters
+	draw_chars = files_stb.R_FindPic("conchars", gl1_image.R_FindImage)
+	if not draw_chars:
+
+		clientserver.Com_Error(shared.ERR_FATAL, "{}: Couldn't load pics/conchars.pcx".format(
+			"Draw_InitLocal"))
+
+def Scrap_Update(): #void (static)
+
+	#qboolean default2Dnolerp;
+	#int texnum;
+
+	default2Dnolerp = gl1_main.r_2D_unfiltered.value != 0.0
+
+	for texnum in range(gl1_scrap.MAX_SCRAPS):
+
+		#unsigned *scrap_texels;
+
+		scrap_texels = gl1_scrap.Scrap_Upload(texnum)
+		if scrap_texels is not None:
+
+			#size_t scrap_size;
+			#unsigned *tmp;
+
+			gl1_image.R_Bind(gl1_image.TEXNUM_SCRAPS + texnum)
+
+			scrap_size = gl1_scrap.SCRAP_WIDTH * gl1_scrap.SCRAP_HEIGHT * 4 # sizeof(unsigned)
+			tmp = bytearray(scrap_texels[:scrap_size]) # malloc + memcpy(tmp, scrap_texels, scrap_size);
+
+			gl1_image.R_Upload32(tmp, gl1_scrap.SCRAP_WIDTH, gl1_scrap.SCRAP_HEIGHT, False)
+			#free(tmp);
+
+			if default2Dnolerp or (texnum < gl1_scrap.MAX_SCRAPS_NOLERP):
+
+				# 2D textures shouldn't be filtered by default (r_2D_unfiltered),
+				# so the scrap shouldn't be filtered
+				GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
+				GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+
+			else: # 2D textures should be filtered by default => filter the scrap
+
+				# we can't use gl_filter_min which might be GL_*_MIPMAP_*
+				# also, there's no anisotropic filtering for textures w/o mipmaps
+				GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, gl1_image.gl_filter_max)
+				GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, gl1_image.gl_filter_max)
 
 """
-================
-Draw_Char
-
-Draws one 8*8 graphics character with 0 being transparent.
-It can be clipped to the top of the screen to allow the console to be
-smoothly scrolled off.
-================
+ * Draws one 8*8 graphics character with 0 being transparent.
+ * It can be clipped to the top of the screen to allow the console to be
+ * smoothly scrolled off.
 """
-def Draw_Char (x, y, num): #int, int, int
-
-	#int				row, col;
-	#float			frow, fcol, size;
-
-	num &= 255
-	if (num&127) == 32:
-		return		# space
-
-	if y <= -8:
-		return			# totally off screen
-
-	row = num>>4
-	col = num&15
-
-	frow = row*0.0625
-	fcol = col*0.0625
-	size = 0.0625
-
-	#Q2PORT: conchars may live in the scrap (a 128x128 block of the scrap
-	#texture), so map the char UV through the scrap span like the C does
-	#(sl + fcol*(sh-sl)).  For a nonscrap texture sl/sh are 0/1 so this is
-	#a no-op.
-	fu  = draw_chars.sl  + fcol       * (draw_chars.sh - draw_chars.sl)
-	fu2 = draw_chars.sl  + (fcol+size)* (draw_chars.sh - draw_chars.sl)
-	fv  = draw_chars.tl  + frow       * (draw_chars.th - draw_chars.tl)
-	fv2 = draw_chars.tl  + (frow+size)* (draw_chars.th - draw_chars.tl)
-
-	gl1_image.R_Bind (draw_chars.texnum)
-
-	GL.glBegin (GL.GL_QUADS)
-	GL.glTexCoord2f (fu, fv)
-	GL.glVertex2f (x, y)
-	GL.glTexCoord2f (fu2, fv)
-	GL.glVertex2f (x+8, y)
-	GL.glTexCoord2f (fu2, fv2)
-	GL.glVertex2f (x+8, y+8)
-	GL.glTexCoord2f (fu, fv2)
-	GL.glVertex2f (x, y+8)
-	GL.glEnd ()
-
-"""
-================
-RDraw_CharScaled
-
-Q2PORT: Yamagi's RDraw_CharScaled (gl1_draw.c), in id's immediate mode
-until the renderer is ported (group 15).
-================
-"""
-def RDraw_CharScaled (x, y, num, scale): #int, int, int, float
+def RDraw_CharScaled(x, y, num, scale): #int, int, int, float
 
 	#int row, col;
 	#float frow, fcol, size, scaledSize;
@@ -149,11 +106,9 @@ def RDraw_CharScaled (x, y, num, scale): #int, int, int, float
 
 		return # space
 
-
 	if y <= -8:
 
 		return # totally off screen
-
 
 	row = num >> 4
 	col = num & 15
@@ -164,281 +119,278 @@ def RDraw_CharScaled (x, y, num, scale): #int, int, int, float
 
 	scaledSize = 8 * scale
 
-	#Q2PORT: map the char UV through the scrap span (see Draw_Char).
-	fu  = draw_chars.sl  + fcol        * (draw_chars.sh - draw_chars.sl)
-	fu2 = draw_chars.sl  + (fcol+size) * (draw_chars.sh - draw_chars.sl)
-	fv  = draw_chars.tl  + frow        * (draw_chars.th - draw_chars.tl)
-	fv2 = draw_chars.tl  + (frow+size) * (draw_chars.th - draw_chars.tl)
+	if draw_chars.scrap:
 
-	gl1_image.R_Bind (draw_chars.texnum)
+		Scrap_Update()
 
-	GL.glBegin (GL.GL_QUADS)
-	GL.glTexCoord2f (fu, fv)
-	GL.glVertex2f (x, y)
-	GL.glTexCoord2f (fu2, fv)
-	GL.glVertex2f (x + scaledSize, y)
-	GL.glTexCoord2f (fu2, fv2)
-	GL.glVertex2f (x + scaledSize, y + scaledSize)
-	GL.glTexCoord2f (fu, fv2)
-	GL.glVertex2f (x, y + scaledSize)
-	GL.glEnd ()
+	gl1_buffer.R_UpdateGLBuffer(gl1_buffer.buf_2d, draw_chars.texnum, 0, 0, 1)
 
-"""
-=============
-RDraw_PicScaled
+	gl1_buffer.R_Buffer2DQuad(x, y, x + scaledSize, y + scaledSize,
+		draw_chars.sl + fcol * (draw_chars.sh - draw_chars.sl),
+		draw_chars.tl + frow * (draw_chars.th - draw_chars.tl),
+		draw_chars.sl + (fcol + size) * (draw_chars.sh - draw_chars.sl),
+		draw_chars.tl + (frow + size) * (draw_chars.th - draw_chars.tl))
 
-Q2PORT: Yamagi's RDraw_PicScaled and RDraw_PicScaledCol (gl1_draw.c), in
-id's immediate mode until the renderer is ported (group 15).
-=============
-"""
-def RDraw_PicScaled (x, y, pic, factor): #int, int, char *, float
+def RDraw_FindPic(name): #const char * (returns image_t *)
 
-	RDraw_PicScaledCol (x, y, pic, factor, None)
+	return files_stb.R_FindPic(name, gl1_image.R_FindImage)
 
-def RDraw_PicScaledCol (x, y, pic, factor, color): #int, int, char *, float, const float[3]
+def RDraw_GetPicSize(pic): #int *, int *, const char * (Q2PORT: returns w, h)
 
-	#image_t *gl;
+	#const image_t *gl;
 
-	gl = RDraw_FindPic (pic)
-	if gl is None:
+	gl = files_stb.R_FindPic(pic, gl1_image.R_FindImage)
 
-		gl1_main.ri.Con_Printf (shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
-		return
+	if not gl:
 
+		return -1, -1 # *w = *h = -1;
 
-	Scrap_Update ()
-
-
-	if color is not None:
-
-		GL.glTexEnvf (GL.GL_TEXTURE_ENV, GL.GL_TEXTURE_ENV_MODE, GL.GL_MODULATE)
-		GL.glColor4f (color[0], color[1], color[2], 1)
-
-
-	gl1_image.R_Bind (gl.texnum)
-	GL.glBegin (GL.GL_QUADS)
-	GL.glTexCoord2f (gl.sl, gl.tl)
-	GL.glVertex2f (x, y)
-	GL.glTexCoord2f (gl.sh, gl.tl)
-	GL.glVertex2f (x + gl.width * factor, y)
-	GL.glTexCoord2f (gl.sh, gl.th)
-	GL.glVertex2f (x + gl.width * factor, y + gl.height * factor)
-	GL.glTexCoord2f (gl.sl, gl.th)
-	GL.glVertex2f (x, y + gl.height * factor)
-	GL.glEnd ()
-
-	if color is not None:
-
-		GL.glColor4f (1, 1, 1, 1)
-		GL.glTexEnvf (GL.GL_TEXTURE_ENV, GL.GL_TEXTURE_ENV_MODE, GL.GL_REPLACE)
-
-
-"""
-=============
-RDraw_FindPic
-=============
-"""
-def RDraw_FindPic (name): #char * (returns image_t	*)
-
-	#image_t *gl;
-	#char	fullname[MAX_QPATH];
-
-	if name[0] != '/' and name[0] != '\\':
-	
-		fullname = "pics/{}.pcx".format(name)
-		gl = gl1_image.R_FindImage (fullname, gl1_image.imagetype_t.it_pic)
-	
-	else:
-		gl = gl1_image.R_FindImage (name[1:], gl1_image.imagetype_t.it_pic)
-
-	return gl
-
-"""
-=============
-RDraw_GetPicSize
-=============
-"""
-def RDraw_GetPicSize (pic): #int *, int *, char *
-
-	gl = RDraw_FindPic (pic)
-	if gl is None:
-	
-		return -1, -1
-	
 	return gl.width, gl.height
 
-"""
-=============
-RDraw_StretchPic
-=============
-"""
-def RDraw_StretchPic (x, y, w, h, pic): #int, int, int, int, char *
+def RDraw_StretchPic(x, y, w, h, pic): #int, int, int, int, const char *
 
 	#image_t *gl;
 
-	gl = RDraw_FindPic (pic)
-	if gl is None:
-	
-		gl1_main.ri.Con_Printf (shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
+	gl = files_stb.R_FindPic(pic, gl1_image.R_FindImage)
+
+	if not gl:
+
+		clientserver.Com_Printf("{}(): Can't find pic: {}\n".format("RDraw_StretchPic", pic))
 		return
-	
 
-	Scrap_Update ()
-	
-	#if ( ( ( gl_config.renderer == GL_RENDERER_MCD ) || ( gl_config.renderer & GL_RENDERER_RENDITION ) ) && !gl->has_alpha)
-	#	qglDisable (GL_ALPHA_TEST);
+	if gl.scrap:
 
-	gl1_image.R_Bind (gl.texnum)
-	GL.glBegin (GL.GL_QUADS)
-	GL.glTexCoord2f (gl.sl, gl.tl)
-	GL.glVertex2f (x, y)
-	GL.glTexCoord2f (gl.sh, gl.tl)
-	GL.glVertex2f (x+w, y)
-	GL.glTexCoord2f (gl.sh, gl.th)
-	GL.glVertex2f (x+w, y+h)
-	GL.glTexCoord2f (gl.sl, gl.th)
-	GL.glVertex2f (x, y+h)
-	GL.glEnd ()
+		Scrap_Update()
 
-	#if ( ( ( gl_config.renderer == GL_RENDERER_MCD ) || ( gl_config.renderer & GL_RENDERER_RENDITION ) ) && !gl->has_alpha)
-	#	qglEnable (GL_ALPHA_TEST);
+	gl1_buffer.R_UpdateGLBuffer(gl1_buffer.buf_2d, gl.texnum, 0, 0, 1)
 
-"""
-=============
-Draw_Pic
-=============
-"""
-def Draw_Pic (x, y, pic): #int, int, char *
+	gl1_buffer.R_Buffer2DQuad(x, y, x + w, y + h,
+		gl.sl, gl.tl, gl.sh, gl.th)
+
+def RDraw_PicScaled(x, y, pic, factor): #int, int, const char *, float
 
 	#image_t *gl;
 
-	gl = RDraw_FindPic (pic)
-	if gl is None:
-	
-		gl1_main.ri.Con_Printf (shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
+	gl = files_stb.R_FindPic(pic, gl1_image.R_FindImage)
+
+	if not gl:
+
+		clientserver.Com_Printf("Can't find pic: {}\n".format(pic))
 		return
-	
-	Scrap_Update ()
 
-	#if ( ( ( gl_config.renderer == GL_RENDERER_MCD ) || ( gl_config.renderer & GL_RENDERER_RENDITION ) ) && !gl->has_alpha)
-	#	qglDisable (GL_ALPHA_TEST);
+	if gl.scrap:
 
-	gl1_image.R_Bind (gl.texnum)
-	GL.glBegin (GL.GL_QUADS)
-	GL.glTexCoord2f (gl.sl, gl.tl)
-	GL.glVertex2f (x, y)
-	GL.glTexCoord2f (gl.sh, gl.tl)
-	GL.glVertex2f (x+gl.width, y)
-	GL.glTexCoord2f (gl.sh, gl.th)
-	GL.glVertex2f (x+gl.width, y+gl.height)
-	GL.glTexCoord2f (gl.sl, gl.th)
-	GL.glVertex2f (x, y+gl.height)
-	GL.glEnd ()
+		Scrap_Update()
 
-	#if ( ( ( gl_config.renderer == GL_RENDERER_MCD ) || ( gl_config.renderer & GL_RENDERER_RENDITION ) )  && !gl->has_alpha)
-	#	qglEnable (GL_ALPHA_TEST);
+	if gl.texnum >= gl1_image.TEXNUM_SCRAPS and gl.texnum < gl1_image.TEXNUM_IMAGES:
 
-
-"""
-=============
-RDraw_TileClear
-
-This repeats a 64*64 tile graphic to fill the screen around a sized down
-refresh window.
-=============
-"""
-def RDraw_TileClear (x, y, w, h, pic): #int, int, int, int, char *
-	
-	#image_t	*image;
-
-	image = RDraw_FindPic (pic)
-	if image is None:
-	
-		gl1_main.ri.Con_Printf (shared.PRINT_ALL, "Can't find pic: {}\n".format(pic))
+		gl1_buffer.R_UpdateGLBuffer(gl1_buffer.buf_2d, gl.texnum, 0, 0, 1)
+		gl1_buffer.R_Buffer2DQuad(x, y, x + gl.width * factor, y + gl.height * factor,
+			gl.sl, gl.tl, gl.sh, gl.th)
 		return
-	
-	if  ( ( gl1_main.gl_config.renderer == gl1_main.GL_RENDERER_MCD ) or ( gl1_main.gl_config.renderer & gl1_main.GL_RENDERER_RENDITION ) )  and not image.has_alpha:
-		GL.glDisable (GL.GL_ALPHA_TEST)
 
-	gl1_image.R_Bind (image.texnum)
-	GL.glBegin (GL.GL_QUADS)
-	GL.glTexCoord2f (x/64.0, y/64.0)
-	GL.glVertex2f (x, y)
-	GL.glTexCoord2f ( (x+w)/64.0, y/64.0)
-	GL.glVertex2f (x+w, y)
-	GL.glTexCoord2f ( (x+w)/64.0, (y+h)/64.0)
-	GL.glVertex2f (x+w, y+h)
-	GL.glTexCoord2f ( x/64.0, (y+h)/64.0 )
-	GL.glVertex2f (x, y+h)
-	GL.glEnd ()
+	if gl.scrap:
 
-	if ( ( gl1_main.gl_config.renderer == gl1_main.GL_RENDERER_MCD ) or ( gl1_main.gl_config.renderer & gl1_main.GL_RENDERER_RENDITION ) )  and not image.has_alpha:
-		GL.glEnable (GL.GL_ALPHA_TEST)
+		Scrap_Update()
 
+	gl1_buffer.R_ApplyGLBuffer()	# respect drawing order
 
+	gl1_image.R_Bind(gl.texnum)
+
+	vtx = np.array([ #GLfloat[]
+		x, y,
+		x + gl.width * factor, y,
+		x + gl.width * factor, y + gl.height * factor,
+		x, y + gl.height * factor
+	], dtype=np.float32)
+
+	tex = np.array([ #GLfloat[]
+		gl.sl, gl.tl,
+		gl.sh, gl.tl,
+		gl.sh, gl.th,
+		gl.sl, gl.th
+	], dtype=np.float32)
+
+	GL.glEnableClientState( GL.GL_VERTEX_ARRAY )
+	GL.glEnableClientState( GL.GL_TEXTURE_COORD_ARRAY )
+
+	GL.glVertexPointer( 2, GL.GL_FLOAT, 0, vtx )
+	GL.glTexCoordPointer( 2, GL.GL_FLOAT, 0, tex )
+	GL.glDrawArrays( GL.GL_TRIANGLE_FAN, 0, 4 )
+
+	GL.glDisableClientState( GL.GL_VERTEX_ARRAY )
+	GL.glDisableClientState( GL.GL_TEXTURE_COORD_ARRAY )
+
+def RDraw_PicScaledCol(x, y, pic, factor, color): #int, int, const char *, float, const float[3]
+
+	#image_t *gl;
+
+	gl = files_stb.R_FindPic(pic, gl1_image.R_FindImage)
+
+	if not gl:
+
+		clientserver.Com_Printf("Can't find pic: {}\n".format(pic))
+		return
+
+	if gl.scrap:
+
+		Scrap_Update()
+
+	gl1_buffer.R_ApplyGLBuffer()
+
+	gl1_image.R_TexEnv(GL.GL_MODULATE)
+	GL.glColor4f(color[0], color[1], color[2], 1)
+
+	gl1_image.R_Bind(gl.texnum)
+
+	vtx = np.array([ #GLfloat[]
+		x, y,
+		x + gl.width * factor, y,
+		x + gl.width * factor, y + gl.height * factor,
+		x, y + gl.height * factor
+	], dtype=np.float32)
+
+	tex = np.array([ #GLfloat[]
+		gl.sl, gl.tl,
+		gl.sh, gl.tl,
+		gl.sh, gl.th,
+		gl.sl, gl.th
+	], dtype=np.float32)
+
+	GL.glEnableClientState( GL.GL_VERTEX_ARRAY )
+	GL.glEnableClientState( GL.GL_TEXTURE_COORD_ARRAY )
+
+	GL.glVertexPointer( 2, GL.GL_FLOAT, 0, vtx )
+	GL.glTexCoordPointer( 2, GL.GL_FLOAT, 0, tex )
+	GL.glDrawArrays( GL.GL_TRIANGLE_FAN, 0, 4 )
+
+	GL.glDisableClientState( GL.GL_VERTEX_ARRAY )
+	GL.glDisableClientState( GL.GL_TEXTURE_COORD_ARRAY )
+
+	GL.glColor4f(1, 1, 1, 1)
+	gl1_image.R_TexEnv(GL.GL_REPLACE)
 
 """
-=============
-RDraw_Fill
-
-Fills a box of pixels with a single color
-=============
+ * This repeats a 64*64 tile graphic to fill
+ * the screen around a sized down
+ * refresh window.
 """
-def RDraw_Fill (x, y, w, h, c): #int, int, int, int, int
+def RDraw_TileClear(x, y, w, h, pic): #int, int, int, int, const char *
+
+	#const image_t *image;
+	#int x2;
+
+	image = files_stb.R_FindPic(pic, gl1_image.R_FindImage)
+
+	if not image:
+
+		clientserver.Com_Printf("{}(): Can't find pic: {}\n".format("RDraw_TileClear", pic))
+		return
+
+	if image.scrap:
+
+		Scrap_Update()
+
+	gl1_buffer.R_UpdateGLBuffer(gl1_buffer.buf_2d, image.texnum, 0, 0, 1)
+
+	for x2 in range(0, w, image.width):
+
+		#int next_x, y2, tile_w;
+		#float tile_sh;
+
+		next_x = x + x2 + image.width
+		if next_x > x + w:
+
+			next_x = x + w
+
+		tile_w = next_x - (x + x2)
+
+		tile_sh = image.sl + \
+			(image.sh - image.sl) * (tile_w / image.width)
+
+		for y2 in range(0, h, image.height):
+
+			#int next_y, tile_h;
+			#float tile_th;
+
+			next_y = y + y2 + image.height
+			if next_y > y + h:
+
+				next_y = y + h
+
+			tile_h = next_y - (y + y2)
+			tile_th = image.tl + \
+				(image.th - image.tl) * (tile_h / image.height)
+
+			gl1_buffer.R_Buffer2DQuad(x + x2, y + y2,
+				next_x,
+				next_y,
+				image.sl, image.tl,
+				tile_sh, tile_th
+			)
+
+"""
+ * Fills a box of pixels with a single color
+"""
+def RDraw_Fill(x, y, w, h, c): #int, int, int, int, int
 
 	"""
 	union
 	{
-		unsigned	c;
-		byte		v[4];
+		unsigned c;
+		byte v[4];
 	} color;
 	"""
 
-	if c > 255:
-		gl1_main.ri.Sys_Error (shared.ERR_FATAL, "RDraw_Fill: bad color")
+	if c < 0 or c > 255: # (unsigned)c > 255
 
-	GL.glDisable (GL.GL_TEXTURE_2D)
+		clientserver.Com_Error(shared.ERR_FATAL, "{}: bad color".format("RDraw_Fill"))
+		return
 
-	color = gl1_image.d_8to24table[c]
+	GL.glDisable(GL.GL_TEXTURE_2D)
 
-	GL.glColor3f (color[0]/255.0,
-		color[1]/255.0,
-		color[2]/255.0)
+	color = gl1_image.d_8to24table[c] # color.c = d_8to24table[c]; Q2PORT: (r, g, b, a)
+	GL.glColor4f(color[0] / 255.0, color[1] / 255.0,
+			   color[2] / 255.0, 1)
 
-	GL.glBegin (GL.GL_QUADS)
+	vtx = np.array([ #GLfloat[]
+		x, y,
+		x + w, y,
+		x + w, y + h,
+		x, y + h
+	], dtype=np.float32)
 
-	GL.glVertex2f (x,y)
-	GL.glVertex2f (x+w, y)
-	GL.glVertex2f (x+w, y+h)
-	GL.glVertex2f (x, y+h)
+	GL.glEnableClientState( GL.GL_VERTEX_ARRAY )
 
-	GL.glEnd ()
-	GL.glColor3f (1,1,1)
-	GL.glEnable (GL.GL_TEXTURE_2D)
+	GL.glVertexPointer( 2, GL.GL_FLOAT, 0, vtx )
+	GL.glDrawArrays( GL.GL_TRIANGLE_FAN, 0, 4 )
 
+	GL.glDisableClientState( GL.GL_VERTEX_ARRAY )
 
-"""
-//=============================================================================
+	GL.glColor4f( 1, 1, 1, 1 )
+	GL.glEnable(GL.GL_TEXTURE_2D)
 
-/*
-================
-RDraw_FadeScreen
+def RDraw_FadeScreen(): #void
 
-================
-"""
-def RDraw_FadeScreen ():
-
+	gl1_buffer.R_ApplyGLBuffer()	# draw what needs to be hidden
 	GL.glEnable(GL.GL_BLEND)
 	GL.glDisable(GL.GL_TEXTURE_2D)
 	GL.glColor4f(0, 0, 0, 0.8)
-	GL.glBegin(GL.GL_QUADS)
 
-	GL.glVertex2f(0, 0)
-	GL.glVertex2f(gl1_main.vid.width, 0)
-	GL.glVertex2f(gl1_main.vid.width, gl1_main.vid.height)
-	GL.glVertex2f(0, gl1_main.vid.height)
+	vtx = np.array([ #GLfloat[]
+		0, 0,
+		gl1_main.vid.width, 0,
+		gl1_main.vid.width, gl1_main.vid.height,
+		0, gl1_main.vid.height
+	], dtype=np.float32)
 
-	GL.glEnd()
+	GL.glEnableClientState( GL.GL_VERTEX_ARRAY )
+
+	GL.glVertexPointer( 2, GL.GL_FLOAT, 0, vtx )
+	GL.glDrawArrays( GL.GL_TRIANGLE_FAN, 0, 4 )
+
+	GL.glDisableClientState( GL.GL_VERTEX_ARRAY )
+
 	GL.glColor4f(1, 1, 1, 1)
 	GL.glEnable(GL.GL_TEXTURE_2D)
 	GL.glDisable(GL.GL_BLEND)

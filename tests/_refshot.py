@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image
 from backends.unix import system
 from client.vid import glimp_sdl2
+from client.refresh.gl1 import gl1_sdl, gl1_buffer # the gl1 frame swap (Yamagi's RI_EndFrame)
 from client import cl_main
 from client.refresh.gl1 import gl1_main
 from client.refresh.gl1 import gl1_surf
@@ -23,7 +24,7 @@ def RV(fd):
         fd.time = 0.0; fd.blend[:] = (0.0,0.0,0.0,0.0)
     return orv(fd)
 gl1_main.R_RenderView=RV
-oe=glimp_sdl2.GLimp_EndFrame
+oe=gl1_sdl.RI_EndFrame
 def EF():
     if cl_main.cls.state.name=="ca_active" and not done[0]:
         frame[0]+=1
@@ -35,6 +36,7 @@ def EF():
                 cl_screen.scr_conlines=0.75
             vp=GL.glGetIntegerv(GL.GL_VIEWPORT); w,h=int(vp[2]),int(vp[3])
             GL.glReadBuffer(GL.GL_BACK)
+            gl1_buffer.R_ApplyGLBuffer() # draw the batched 2D first (RI_EndFrame does it before the swap)
             Image.frombytes("RGB",(w,h),GL.glReadPixels(0,0,w,h,GL.GL_RGB,GL.GL_UNSIGNED_BYTE)).transpose(Image.FLIP_TOP_BOTTOM).save(out)
             print("refshot %s -> %s" % (os.path.basename(out), out)); done[0]=True
             if os.environ.get("Q2LMDUMP"):
@@ -45,5 +47,5 @@ def EF():
                     a=np.frombuffer(buf,dtype=np.uint8).reshape(-1,4)[:,:3].astype(np.int32).mean()
                     print ("Q2LMDUMP lm%d mean=%.1f" % (li, a))
     return oe()
-glimp_sdl2.GLimp_EndFrame=EF
+gl1_sdl.RI_EndFrame=EF
 system.main()

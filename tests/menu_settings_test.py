@@ -9,6 +9,7 @@ import OpenGL.GL as GL
 from PIL import Image
 from backends.unix import system
 from client.vid import glimp_sdl2
+from client.refresh.gl1 import gl1_sdl, gl1_buffer # the gl1 frame swap (Yamagi's RI_EndFrame)
 from client import cl_main
 from client.header import keyboard as keyboard_h
 from client.menu import menu, qmenu, videomenu
@@ -27,6 +28,7 @@ MENUS = ["M_Menu_Main_f", "M_Menu_Game_f", "M_Menu_LoadGame_f", "M_Menu_SaveGame
 def shot(name):
 	vp = GL.glGetIntegerv(GL.GL_VIEWPORT); w, h = int(vp[2]), int(vp[3])
 	GL.glReadBuffer(GL.GL_BACK)
+	gl1_buffer.R_ApplyGLBuffer() # draw the batched 2D first (RI_EndFrame does it before the swap)
 	Image.frombytes("RGB", (w, h), GL.glReadPixels(0, 0, w, h, GL.GL_RGB, GL.GL_UNSIGNED_BYTE)).transpose(Image.FLIP_TOP_BOTTOM).save(os.path.join(OUT, name))
 
 def slide(item, dir_):
@@ -36,7 +38,7 @@ def slide(item, dir_):
 	else: qmenu.SpinControl_DoSlide(item, dir_)
 	return before, (cvar.Cvar_VariableValue(cv) if cv else item.curvalue)
 
-oe = glimp_sdl2.GLimp_EndFrame
+oe = gl1_sdl.RI_EndFrame
 def EF():
 	if cl_main.cls.state.name == "ca_active":
 		if st["t0"] is None: st["t0"] = time.time()
@@ -79,5 +81,5 @@ def EF():
 			print("ms: after renderer restart: r_mode %s, key_dest %s" % (cvar.Cvar_VariableValue("r_mode"), cl_main.cls.key_dest.name))
 			sys.stdout.flush(); os._exit(0)
 	return oe()
-glimp_sdl2.GLimp_EndFrame = EF
+gl1_sdl.RI_EndFrame = EF
 system.main()

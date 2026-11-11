@@ -32,6 +32,7 @@ import pygame
 from backends.unix import system
 from client import cl_main
 from client.vid import glimp_sdl2
+from client.refresh.gl1 import gl1_sdl # the gl1 frame swap (Yamagi's RI_EndFrame)
 from client import snd_loc, snd_mem
 from client.sound import ogg
 from client.sound.header import vorbis
@@ -39,7 +40,7 @@ from common import cvar
 
 st = {"t0": None, "step": 0}
 
-oe = glimp_sdl2.GLimp_EndFrame
+oe = gl1_sdl.RI_EndFrame
 def EF():
 	if cl_main.cls.state.name == "ca_active":
 		if st["t0"] is None:
@@ -91,5 +92,5 @@ def EF():
 			sys.stdout.flush()
 			os._exit(0)
 	return oe()
-glimp_sdl2.GLimp_EndFrame = EF
+gl1_sdl.RI_EndFrame = EF
 system.main()
