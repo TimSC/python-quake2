@@ -241,6 +241,15 @@ class refexport_t(object):
 
 		self.AppActivate = None #void (*)( qboolean activate )
 
+		# Q2PORT: from Yamagi's refexport_t (vid/header/ref.h), for renderers that
+		# have them (gl3); None means the renderer doesn't (gl1, until group 15)
+		self.PrepareForWindow = None #int (*)(void), called by GLimp_InitGraphics() before creating window, returns flags for SDL window creation, returns -1 on error
+		self.InitContext = None #int (*)(void* sdl_window), called by GLimp_InitGraphics() *after* creating window, passing the SDL_Window* (void* so we don't spill SDL.h here), returns true (1) on success
+		self.GetDrawableSize = None #void (*)(int* width, int* height), called by GLimp_InitGraphics() *after* creating render context. Returns the actual drawable size in the width and height variables. This may be different from the window size due to high dpi awareness.
+		self.ShutdownContext = None #void (*)(void), shuts down rendering (OpenGL) context.
+		self.IsVSyncActive = None #qboolean (*)(void), returns true if vsync is active, else false
+		self.EndWorldRenderpass = None #qboolean (*) (void)
+
 
 
 #
@@ -279,6 +288,9 @@ class refimport_t(object):
 		self.Vid_GetModeInfo = None #qboolean (*)( int *width, int *height, int mode )
 		self.Vid_MenuInit = None #void (*)( void )
 		self.Vid_NewWindow = None #void (*)( int width, int height )
+		# Q2PORT: from Yamagi's refimport_t (vid/header/ref.h)
+		self.GLimp_InitGraphics = None #qboolean (*) (int fullscreen, int *pwidth, int *pheight)
+		self.GLimp_GetDesktopMode = None #qboolean (*) (int *pwidth, int *pheight)
 
 """
 // this is the only function actually exported at the linker level

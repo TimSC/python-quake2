@@ -3,10 +3,12 @@ hmm.py - HandmadeMath.h
 
 Q2PORT of the HandmadeMath subset used by the gl3 renderer (header/HandmadeMath.h).
 The C uses a fixed 4x4 matrix (Elements[col][row], column-major) and vec3/vec4.
-The port uses numpy: an hmm_mat4 is a 4x4 float32 array indexed [row][col], so
-HMM_MultiplyMat4(Left, Right) is a standard numpy @ and a column-major flatten is
-M.flatten(order="F") (for glUniformMatrix4fv). Only the functions gl3 calls are
-ported.
+The port uses numpy: an hmm_mat4 is a 4x4 float32 array indexed like the C,
+[col][row], so the functions below are written exactly as in the C. Read row
+after row, that array is GL's column-major order, so it is uploaded with a plain
+M.flatten() (NOT order="F", which would transpose it). The catch is that numpy's
+@ works on the transposed matrices, so HMM_MultiplyMat4(Left, Right) is
+Right @ Left. Only the functions gl3 calls are ported.
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ import numpy as np
 
 HMM_PI32 = 3.14159265359
 
-# An hmm_mat4 is a 4x4 float32 numpy array [row][col].
+# An hmm_mat4 is a 4x4 float32 numpy array [col][row] (hmm_mat4.Elements).
 # An hmm_vec3 / hmm_vec4 is a 3/4 element float32 numpy array.
 
 
@@ -78,7 +80,9 @@ def HMM_NormalizeVec3 (a): #hmm_vec3 (returns hmm_vec3)
 
 def HMM_MultiplyMat4 (left, right): #hmm_mat4, hmm_mat4 (returns hmm_mat4)
 
-	return np.matmul (left, right).astype (np.float32)
+	# Q2PORT: the arrays hold the transposed matrices ([col][row]), and
+	# (L*R)^T = R^T * L^T
+	return np.matmul (right, left).astype (np.float32)
 
 
 def HMM_Orthographic (lft, right, bottom, top, near, far): #float *6 (returns hmm_mat4)

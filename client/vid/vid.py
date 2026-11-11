@@ -298,6 +298,8 @@ def VID_LoadRenderer(): #void (returns qboolean)
 	ri.Com_VPrintf = clientserver.Com_VPrintf
 	ri.Con_Printf = VID_Printf
 	ri.Vid_NewWindow = VID_NewWindow
+	ri.GLimp_InitGraphics = glimp_sdl2.GLimp_InitGraphics # Q2PORT: Yamagi's refimport, for gl3
+	ri.GLimp_GetDesktopMode = glimp_sdl2.GLimp_GetDesktopMode
 
 	# exchange our export struct with the renderers import struct.
 	re = gl_rmain.GetRefAPI(ri)
@@ -604,7 +606,11 @@ def R_EndWorldRenderpass()->bool: #void (returns qboolean)
 
 	if ref_active:
 
-		return True # Q2PORT: re.EndWorldRenderpass(); id's renderer has no render passes
+		if re.EndWorldRenderpass is not None: # Q2PORT: id's renderer (gl1) has no render passes
+
+			return re.EndWorldRenderpass()
+
+		return True
 
 
 	return False
@@ -619,7 +625,11 @@ def R_IsVSyncActive()->bool: #void (returns qboolean)
 
 	if ref_active:
 
-		return False # Q2PORT: re.IsVSyncActive(); id's renderer doesn't report it
+		if re.IsVSyncActive is not None: # Q2PORT: id's renderer (gl1) doesn't report it
+
+			return re.IsVSyncActive()
+
+		return False
 
 
 	return False

@@ -26,8 +26,7 @@
 from __future__ import annotations
 
 from common.header import files as files_h
-from common.header import shared
-from common.shared import shared as shared_c
+# Q2PORT: LittleLong() is done by the files_h structs' load()
 from common import clientserver, filesystem
 from client.refresh.files import pcx
 
@@ -49,9 +48,9 @@ def LoadWal(origname, type, load_image): #const char *, imagetype_t, loadimage_t
 	img_header = files_h.miptex_t()
 	img_header.load(mt)
 
-	width = shared_c.LittleLong(img_header.width)
-	height = shared_c.LittleLong(img_header.height)
-	ofs = shared_c.LittleLong(img_header.offsets[0])
+	width = img_header.width
+	height = img_header.height
+	ofs = img_header.offsets[0]
 
 	if (ofs <= 0) or (width <= 0) or (height <= 0) or (((size - ofs) // height) < width):
 		clientserver.Com_Printf("{}: can't load {}, small body\n".format("LoadWal", name))
@@ -85,14 +84,14 @@ def LoadM8(origname, type, load_image): #const char *, imagetype_t, loadimage_t 
 	mt_obj = files_h.m8tex_t()
 	mt_obj.load(mt)
 
-	if shared_c.LittleLong(mt_obj.version) != files_h.M8_VERSION:
+	if mt_obj.version != files_h.M8_VERSION:
 		clientserver.Com_Printf("{}: can't load {}, wrong magic value.\n".format("LoadM8", name))
 		filesystem.FS_FreeFile(mt)
 		return None
 
-	width = shared_c.LittleLong(mt_obj.width[0])
-	height = shared_c.LittleLong(mt_obj.height[0])
-	ofs = shared_c.LittleLong(mt_obj.offsets[0])
+	width = mt_obj.width[0]
+	height = mt_obj.height[0]
+	ofs = mt_obj.offsets[0]
 
 	if (ofs <= 0) or (width <= 0) or (height <= 0) or (((size - ofs) // height) < width):
 		clientserver.Com_Printf("{}: can't load {}, small body\n".format("LoadM8", name))
@@ -134,14 +133,14 @@ def LoadM32(origname, type, load_image): #const char *, imagetype_t, loadimage_t
 	mt_obj = files_h.m32tex_t()
 	mt_obj.load(mt)
 
-	if shared_c.LittleLong(mt_obj.version) != files_h.M32_VERSION:
+	if mt_obj.version != files_h.M32_VERSION:
 		clientserver.Com_Printf("{}: can't load {}, wrong magic value.\n".format("LoadM32", name))
 		filesystem.FS_FreeFile(mt)
 		return None
 
-	width = shared_c.LittleLong(mt_obj.width[0])
-	height = shared_c.LittleLong(mt_obj.height[0])
-	ofs = shared_c.LittleLong(mt_obj.offsets[0])
+	width = mt_obj.width[0]
+	height = mt_obj.height[0]
+	ofs = mt_obj.offsets[0]
 
 	if (ofs <= 0) or (width <= 0) or (height <= 0) or (((size - ofs) // height) < (width * 4)):
 		clientserver.Com_Printf("{}: can't load {}, small body\n".format("LoadM32", name))
@@ -173,8 +172,8 @@ def GetWalInfo(origname, width, height): #const char *, int *, int *
 	img_header = files_h.miptex_t()
 	img_header.load(mt)
 
-	width[0] = shared_c.LittleLong(img_header.width)
-	height[0] = shared_c.LittleLong(img_header.height)
+	width[0] = img_header.width
+	height[0] = img_header.height
 
 	filesystem.FS_FreeFile(mt)
 
@@ -196,11 +195,11 @@ def GetM8Info(origname, width, height): #const char *, int *, int *
 
 	mt_obj = files_h.m8tex_t()
 	mt_obj.load(mt)
-	if shared_c.LittleLong(mt_obj.version) != files_h.M8_VERSION:
+	if mt_obj.version != files_h.M8_VERSION:
 		filesystem.FS_FreeFile(mt)
 		return None, None
-	width[0] = shared_c.LittleLong(mt_obj.width[0])
-	height[0] = shared_c.LittleLong(mt_obj.height[0])
+	width[0] = mt_obj.width[0]
+	height[0] = mt_obj.height[0]
 
 	filesystem.FS_FreeFile(mt)
 
@@ -222,12 +221,12 @@ def GetM32Info(origname, width, height): #const char *, int *, int *
 
 	mt_obj = files_h.m32tex_t()
 	mt_obj.load(mt)
-	if shared_c.LittleLong(mt_obj.version) != files_h.M32_VERSION:
+	if mt_obj.version != files_h.M32_VERSION:
 		filesystem.FS_FreeFile(mt)
 		return None, None
 
-	width[0] = shared_c.LittleLong(mt_obj.width[0])
-	height[0] = shared_c.LittleLong(mt_obj.height[0])
+	width[0] = mt_obj.width[0]
+	height[0] = mt_obj.height[0]
 
 	filesystem.FS_FreeFile(mt)
 

@@ -53,6 +53,7 @@ def _gl3state (): #gl3state_t (from gl3_main)
 	return _gl3main ().gl3state
 from client.refresh.gl3.header import local
 from client.refresh.gl3.header import hmm
+from client.refresh.gl3 import gl3_draw
 from common import cvar
 
 # cvars
@@ -1164,7 +1165,7 @@ def updateUBO (ubo, size, data): #GLuint, int, void *
 		_gl3state ().currentUBO = ubo
 		GL.glBindBuffer (GL.GL_UNIFORM_BUFFER, ubo)
 
-	local.gl3_numBufferUniforms += 1
+	gl3_draw.gl3_numBufferUniforms += 1
 
 	# this seems to be reasonably fast everywhere
 	GL.glBufferData (GL.GL_UNIFORM_BUFFER, size, data, GL.GL_DYNAMIC_DRAW)

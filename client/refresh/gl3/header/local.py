@@ -57,8 +57,7 @@ GL3_ATTRIB_COLOR = _attr.GL3_ATTRIB_COLOR.value
 GL3_ATTRIB_NORMAL = _attr.GL3_ATTRIB_NORMAL.value
 GL3_ATTRIB_LIGHTFLAGS = _attr.GL3_ATTRIB_LIGHTFLAGS.value
 
-# for stats
-gl3_num3Ddraws, gl3_num2Ddraws, gl3_numBufferVtxData, gl3_numBufferUniforms = 0, 0, 0, 0
+# for stats: gl3_num3Ddraws etc. are in gl3_draw (gl3_draw.c defines them)
 
 class gl3config_t(object):
 
@@ -186,27 +185,73 @@ class gl3state_t(object):
 		self.projMat3D = hmm.HMM_Mat4d (1.0) #hmm_mat4
 		self.viewMat3D = hmm.HMM_Mat4d (1.0) #hmm_mat4
 
-# _gl3_numShaders: siParticle .. si2D inclusive (si2D must be first, siParticle last)
-_gl3_numShaders = 15
+# Q2PORT: the shader infos of gl3state_t in their order, si2D first and
+# siParticle last; the C does pointer arithmetic over them
+_gl3_shaderNames = ("si2D", "si2Dtinted", "si2Dcolor", "si2DpostProcess", "si2DpostProcessWater",
+	"si3Dlm", "si3Dtrans", "si3DcolorOnly", "si3Dturb", "si3DlmFlow", "si3DtransFlow", "si3Dsky",
+	"si3Dsprite", "si3DspriteAlpha", "si3Dalias", "si3DaliasColor", "siParticle")
+
+_gl3_numShaders = len(_gl3_shaderNames) # 1 + ((offsetof(gl3state_t, siParticle) - offsetof(gl3state_t, si2D)) / sizeof(gl3ShaderInfo_t))
 
 # drawcommands using gl3_3D_vtx_t, for batching
 class gl3drawCmd_t(object):
 
 	def __init__(self):
-		# create an "empty" gl3drawCmd_t with sane defaults (GL3_CreateDrawCmd)
+		# Q2PORT: all zero, as the C's {0}; GL3_CreateDrawCmd() sets the sane defaults
 		self.texnum = 0 #GLuint
-		self.lmtexnum = -1 #signed char
-		self.shaderIdx = -1 #signed char
+		self.lmtexnum = 0 #signed char
+		self.shaderIdx = 0 #signed char
 		self.transModelMatIdx = 0 #unsigned short, index into gl3_main.c transModelMats; 0 always is identity
 		self.scroll = 0.0 #float, for gl3state.uni3DData.scroll
 		self.lightScaleForTurb = 0.0 #float
-		self.alpha = 1.0 #float, either part of color or for gl3state.uni3DData.alpha
+		self.alpha = 0.0 #float, either part of color or for gl3state.uni3DData.alpha
 		self.color = [0, 0, 0] #byte [3], for uniCommonData.color; its alpha chan is in .alpha
 		self.flags = 0 #byte, gl3drawCmd_Flags
-		self.styles = [255] * files_h.MAXLIGHTMAPS #byte, indexes into r_newrefdef.lightstyles[]; 255 means "ignore"
+		self.styles = [0] * files_h.MAXLIGHTMAPS #byte, indexes into r_newrefdef.lightstyles[]; 255 means "ignore"
 		# the following are set in GL3_BufferAndDraw3D()
 		self.idxBufOffset = 0 #int
 		self.numElements = 0 #int, in index buffer
+
+def GL3_CreateDrawCmd(): #void (returns gl3drawCmd_t)
+
+	ret = gl3drawCmd_t() # = {0}
+	ret.alpha = 1.0
+	ret.styles = [255, 0, 0, 0] # ret.styles[0] = 255; the rest stay 0
+	ret.lmtexnum = -1
+	ret.shaderIdx = -1
+	# the other values can remain 0/NULL
+
+	return ret
+
+def GL3_SetDrawCmdShader(drawCmd, shader): #gl3drawCmd_t*, const gl3ShaderInfo_t*
+
+	from client.refresh.gl3 import gl3_main
+	if shader is None:
+
+		drawCmd.shaderIdx = -1
+		return
+
+	offset = -1 # ptrdiff_t offset = shader - &gl3state.si2D;
+	for i, name in enumerate(_gl3_shaderNames):
+		if getattr(gl3_main.gl3state, name) is shader:
+			offset = i
+			break
+	if offset >= 0 and offset < _gl3_numShaders:
+
+		drawCmd.shaderIdx = offset
+
+	else:
+
+		assert False, "invalid shader!"
+		drawCmd.shaderIdx = -1
+
+def GL3_GetDrawCmdShader(drawCmd): #const gl3drawCmd_t* (returns gl3ShaderInfo_t*)
+
+	from client.refresh.gl3 import gl3_main
+	shaderIdx = drawCmd.shaderIdx
+	if shaderIdx < 0 or shaderIdx >= _gl3_numShaders: # because it's unsigned this also handles shaderIdx -1
+		return None
+	return getattr(gl3_main.gl3state, _gl3_shaderNames[shaderIdx]) # &gl3state.si2D + shaderIdx
 
 # for gl3drawCmd_t::flags
 DCFlag_DisableDepthMask = 1 # glDepthMask() - GL_FALSE if bit is set

@@ -29,36 +29,48 @@ import numpy as np
 from enum import Enum
 from common.header import files as files_h
 from common.header import shared
+from client.refresh import ref_shared
 
 
-# gl3_3D_vtx_t: pos[3] texCoord[2] lmTexCoord[2] normal[3] lightFlags(uint)
-# 10 floats + 1 uint, uploaded to the VBO as 44 bytes
-GL3_3D_VTX_SIZE = 11
-# gl3_alias_vtx_t: pos[3] texCoord[2] color[4] = 9 floats
-GL3_ALIAS_VTX_SIZE = 9
+# used for vertex array elements when drawing brushes, sprites, sky and more
+# (ok, it has the layout used for rendering brushes, but is not used there)
+# Q2PORT: the structs are numpy structured dtypes with the C layout, so an
+# array of them is the vertex buffer data; dtype.fields gives offsetof()
+gl3_3D_vtx_t = np.dtype([
+	("pos", "<f4", 3), #vec3_t
+	("texCoord", "<f4", 2), #float [2]
+	("lmTexCoord", "<f4", 2), #float [2], lightmap texture coordinate (sometimes unused)
+	("normal", "<f4", 3), #vec3_t
+	("lightFlags", "<u4"), #GLuint, bit i set means: dynlight i affects surface
+]) # 44 bytes
+
+# used for vertex array elements when drawing models
+gl3_alias_vtx_t = np.dtype([
+	("pos", "<f4", 3), #GLfloat [3]
+	("texCoord", "<f4", 2), #GLfloat [2]
+	("color", "<f4", 4), #GLfloat [4]
+]) # 36 bytes
 
 # surface flags
-SURF_PLANEBACK = 2
-SURF_DRAWSKY = 4
-SURF_DRAWTURB = 0x10
-SURF_DRAWBACKGROUND = 0x40
-SURF_UNDERWATER = 0x80
+# Q2PORT: these and modtype_t are in ref_shared.h; kept here for the gl3 modules
+SURF_PLANEBACK = ref_shared.SURF_PLANEBACK
+SURF_DRAWSKY = ref_shared.SURF_DRAWSKY
+SURF_DRAWTURB = ref_shared.SURF_DRAWTURB
+SURF_DRAWBACKGROUND = ref_shared.SURF_DRAWBACKGROUND
+SURF_UNDERWATER = ref_shared.SURF_UNDERWATER
 
-class modtype_t(Enum):
+modtype_t = ref_shared.modtype_t
 
-	mod_bad = 0
-	mod_brush = 1
-	mod_sprite = 2
-	mod_alias = 3
-
+# in memory representation
 class glpoly_t(object):
 
-	def __init__(self):
-		# struct glpoly_s *next, *chain; are replaced by lists of polys
-		self.numverts = 0 #int
+	def __init__(self, numverts=4):
+
+		# struct  glpoly_s *next;  Q2PORT: msurface_t.polys is a list
+		# struct  glpoly_s *chain;
+		self.numverts = numverts #int
 		self.flags = 0 #int, for SURF_UNDERWATER (not needed anymore?)
-		# gl3_3D_vtx_t vertices[4], variable sized: pos, tex, lmtex, normal, lightFlags
-		self.verts = np.zeros((4, GL3_3D_VTX_SIZE), dtype=np.float32)
+		self.vertices = np.zeros(numverts, dtype=gl3_3D_vtx_t) #gl3_3D_vtx_t [4], variable sized
 
 class msurface_t(object):
 

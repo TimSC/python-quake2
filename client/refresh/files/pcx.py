@@ -28,6 +28,7 @@ from __future__ import annotations
 import struct
 from common.header import files as files_h
 from common.header import shared
+from common.shared import shared as shared_c
 from common import clientserver, filesystem
 
 
@@ -43,9 +44,22 @@ def COM_FileBase(in_name): #char *, char * (returns char *)
 	return base
 
 
-def FixFileExt(origname, ext, filename): #const char *, const char *, char *
-	# char filename[256]; Com_sprintf(filename, size, "%s.%s", COM_FileBase(origname), ext)
-	return "{}.{}".format(COM_FileBase(origname), ext)
+"""
+ * Add extension to file name
+"""
+def FixFileExt(origname, ext, filename): #const char *, const char *, char *, size_t
+
+	# Q2PORT: this is stb.c's FixFileExt; it returns the new name instead of
+	# filling filename (which callers pass as None). It used to strip the
+	# directory (COM_FileBase), which LoadWal etc. can't work with.
+	filename = origname
+
+	# Add the extension
+	if shared_c.COM_FileExtension(filename) != ext:
+
+		filename += "." + ext
+
+	return filename
 
 
 """
@@ -53,7 +67,12 @@ def FixFileExt(origname, ext, filename): #const char *, const char *, char *
 LoadPCX
 ==============
 """
-def LoadPCX(filename): #char *, byte **, byte **, int *, int * (returns qboolean)
+def LoadPCX(origname): #char *, byte **, byte **, int *, int * (returns qboolean)
+
+	# Q2PORT: Yamagi's LoadPCX takes the name without extension (it is
+	# FixFileExt'ed, so a name with ".pcx" works too) and also returns
+	# bitsPerPixel; the port only reads 8 bit PCX, so that is always 8.
+	filename = FixFileExt(origname, "pcx", None)
 
 	#
 	# load the file

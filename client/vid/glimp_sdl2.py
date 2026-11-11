@@ -107,12 +107,12 @@ def CreateSDLWindow(flags: int, w: int, h: int)->bool: #int, int, int (returns q
 	# SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "1") - the window manager does this
 
 	window = None
-	pyflags = pygame.OPENGL | pygame.DOUBLEBUF
+	pyflags = flags & ~(0x10000 | 0x20000) # Q2PORT: the pygame flags (OPENGL, DOUBLEBUF) without the SDL fullscreen ones
 	if flags & 0x10000: # SDL_WINDOW_FULLSCREEN
 		pyflags |= pygame.FULLSCREEN
 
 	try:
-		window = pygame.display.set_mode((w, h), pyflags, position=(last_position_x, last_position_y) if last_position_x is not None else None)
+		window = pygame.display.set_mode((w, h), pyflags) # Q2PORT: pygame's set_mode has no window position
 	except pygame.error as err:
 
 		clientserver.Com_Printf("Creating window failed: {}\n".format(err))
@@ -329,16 +329,32 @@ def GLimp_InitGraphics(fullscreen: int, pwidth: int, pheight: int)->bool: #int, 
 	# is the surface used?
 	if window:
 
-		# re.ShutdownContext(); the old renderer has no ShutdownContext, Q2PORT
+		if vid.re.ShutdownContext is not None: # Q2PORT: the old renderer (gl1) has no ShutdownContext
+
+			vid.re.ShutdownContext()
+
 		ShutdownGraphics()
 
 		window = None
 
 	# SDL_GL_ResetAttributes when (last_flags & SDL_WINDOW_OPENGL), Q2PORT: nothing to reset
 
-	# let the renderer prepare things (set OpenGL attributes); the C calls re.PrepareForWindow()
-	# which the old renderer doesn't have, so the flags are the port's pygame flags
-	flags = pygame.OPENGL | pygame.DOUBLEBUF
+	# let the renderer prepare things (set OpenGL attributes).
+	# FIXME: This is no longer necessary, the renderer
+	# could and should pass the flags when calling this
+	# function.
+	if vid.re.PrepareForWindow is not None:
+
+		flags = vid.re.PrepareForWindow()
+
+	else:
+
+		flags = pygame.OPENGL | pygame.DOUBLEBUF # Q2PORT: the old renderer (gl1) has no PrepareForWindow
+
+	if flags == -1:
+
+		clientserver.Com_Printf("R_PrepareForWindow() failed\n")
+		return False
 
 	if fs_flag:
 
@@ -383,10 +399,14 @@ def GLimp_InitGraphics(fullscreen: int, pwidth: int, pheight: int)->bool: #int, 
 	# now that we've got a working window print its mode.
 	# SDL_GetCurrentDisplayMode
 	info = pygame.display.Info()
-	clientserver.Com_Printf("Real display mode: {}x{}@{}\n".format(info.current_w, info.current_h, info.refresh_rate))
+	clientserver.Com_Printf("Real display mode: {}x{}@{}\n".format(info.current_w, info.current_h, int(GLimp_GetRefreshRate()))) # Q2PORT: pygame's Info() has no refresh_rate
 
 	# initialize rendering context.
-	# re.InitContext(window); the old renderer makes the context in set_mode, Q2PORT
+	# Q2PORT: the old renderer (gl1) has no InitContext, pygame made the context in set_mode
+	if vid.re.InitContext is not None and not vid.re.InitContext(window):
+
+		# InitContext() should have logged an error.
+		return False
 
 	# we need the actual drawable size for things like the
 	# console, the menus, etc. This might be different to
@@ -458,8 +478,9 @@ def GLimp_GetRefreshRate(): #void (returns float)
 	elif glimp_refreshRate == -1:
 
 		# SDL_GetCurrentDisplayMode
-		info = pygame.display.Info()
-		glimp_refreshRate = float(info.refresh_rate)
+		# Q2PORT: pygame 2.6's display.Info() has no refresh rate (pygame-ce's
+		# get_current_refresh_rate() isn't in pygame), so this falls back to 60
+		glimp_refreshRate = 0.0
 
 		# something went wrong, use default.
 		if glimp_refreshRate <= 0:

@@ -233,12 +233,19 @@ glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
   and 14 have to keep working with the old `ref_gl/` until group 15.
 - **gl3 (group 16):** a new, additive renderer selected at start up with
   `Q2_RENDERER=gl3` (the port ships gl1 as the default; the C default is
-  gl3). The skeleton is live: all 28 GLSL programs compile and link, the
-  UBOs/VAOs are created, models load (reusing gl1's data subsystem), and
-  `RI_BeginFrame`/`RI_RenderFrame`/`RI_RenderView` run the full pipeline to a
-  screenshot on base maps. The 3D world draw (`gl3_surf.RI_DrawWorld`) is
-  still the minimal clear+sky skeleton; the per-surface drawCmd batching, the
-  lightmap upload, and alias-model VBOs are the remaining deep work.
+  gl3). All of Yamagi's `gl3/*.c` is now ported function by function (main,
+  draw, image, misc, model, lightmap, light, surf, warp, mesh, shaders, sdl),
+  self-contained (no gl1 code), with the 2D and 3D batching, in a real
+  OpenGL 3.2 core context: the renderer's `PrepareForWindow`/`InitContext`
+  are called by `GLimp_InitGraphics`, through new optional fields on the
+  port's `refexport_t`. It needed the rest of `files/stb.c` (`R_LoadImage`,
+  `R_FindPic`, `GetSkyImage`, scale2x/3x, `R_FloodFillSkin`; tga/png/jpg via
+  PIL) and fixes to `files/pcx.c`/`wal.c`, which gl1 doesn't use yet.
+  Checked by screenshot against gl1: console, menus, cinematics, base1/base2,
+  test entities/particles/dlights, the underwater FBO and a level change.
+  Not ported: the stereo code (`#if 0` in the C), `gl3_debugcontext`'s
+  callback, and `GL3_ScreenShot`'s file writing (the client's
+  `VID_WriteScreenshot` isn't ported).
 - **SDL 2 vs 3:** Yamagi's default is now SDL 3. The port follows the SDL 2
   files, which Yamagi still supports.
 - **Tests depend on game data:** the tests need the Quake II data in

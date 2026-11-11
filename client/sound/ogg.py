@@ -45,6 +45,7 @@ from __future__ import annotations
 #define STB_VORBIS_NO_PUSHDATA_API
 #include "header/stb_vorbis.h"
 """
+import os
 import pygame
 from enum import Enum
 from client import cl_main, snd_dma
@@ -348,16 +349,25 @@ def OGG_PlayTrack(track: str, cdtrack: bool, immediate: bool): #const char *, qb
 		
 		name = "{}/music/{}".format(path, track)
 		
-		# Q2PORT: the C opens the file with Q_fopen and stb_vorbis_open_file;
-		# pygame.mixer.music.load() loads and validates the vorbis stream.
-		try:
-			pygame.mixer.music.load(name)
-		except pygame.error:
+		# Open ogg vorbis file.
+		# Q2PORT: f = Q_fopen(name, "rb"); if (f == NULL) continue;
+		# (pygame-ce's music.load raises FileNotFoundError for a missing file,
+		# pygame's raises pygame.error, so the file is checked first, as the C does)
+		if not os.path.isfile(name):
 			continue
 		
 		# Check running music.
 		if ogg_status == vorbis.PLAY:
 			OGG_Stop()
+		
+		# Q2PORT: stb_vorbis_open_file is pygame.mixer.music.load(), which
+		# loads and validates the vorbis stream
+		try:
+			pygame.mixer.music.load(name)
+		except pygame.error as err:
+			clientserver.Com_Printf("{}: '{}' is not a valid Ogg Vorbis file (error {}).\n".format(
+				"OGG_PlayTrack", name, err))
+			return
 		
 		# Play file.
 		ogg_curfile = 0
