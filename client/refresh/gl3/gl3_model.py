@@ -384,8 +384,10 @@ def Mod_LoadLeafs(loadmodel, mod_base, l): #gl3model_t *, byte *, lump_t *
 
 		for j in range(3):
 
-			out.minmaxs[j] = in_.mins[j]
-			out.minmaxs[3 + j] = in_.maxs[j]
+			# Q2PORT: float(), the C stores the short into its float minmaxs; a numpy
+			# int16 kept here made each BoxOnPlaneSide() in R_CullBox about 8 times slower
+			out.minmaxs[j] = float(in_.mins[j])
+			out.minmaxs[3 + j] = float(in_.maxs[j])
 
 		p = in_.contents
 		out.contents = p

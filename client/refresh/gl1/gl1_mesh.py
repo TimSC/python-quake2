@@ -151,6 +151,8 @@ def R_DrawAliasFrameLerp(currententity, paliashdr, backlerp): #entity_t *, dmdl_
 
 	lerped = s_lerped.tolist() # Q2PORT: python floats for the per vertex loops below
 	lightnormalindex = verts[:, 3].tolist()
+	shadedots_l = shadedots.tolist() # Q2PORT: shadedots and shadelight as python floats too,
+	shadelight_l = shadelight.tolist() # numpy scalar arithmetic per vertex is slow
 
 	while True:
 
@@ -187,7 +189,7 @@ def R_DrawAliasFrameLerp(currententity, paliashdr, backlerp): #entity_t *, dmdl_
 
 				for i in range(3):
 
-					idx[i] = int(shadelight[i] * 255)
+					idx[i] = int(shadelight_l[i] * 255)
 					idx[i] = shared.Q_clamp(idx[i], 0, 255)
 
 				if gl1_main.gl_state.minlight_set:
@@ -214,7 +216,7 @@ def R_DrawAliasFrameLerp(currententity, paliashdr, backlerp): #entity_t *, dmdl_
 				o += 3
 
 				# normals and vertexes come from the frame list
-				l = shadedots[lightnormalindex[index_xyz]]
+				l = shadedots_l[lightnormalindex[index_xyz]]
 
 				gl1_buffer.GLBUFFER_VERTEX(lerped[index_xyz][0],
 					lerped[index_xyz][1], lerped[index_xyz][2])
@@ -223,7 +225,7 @@ def R_DrawAliasFrameLerp(currententity, paliashdr, backlerp): #entity_t *, dmdl_
 
 				for i in range(3):
 
-					idx[i] = int(l * shadelight[i] * 255)
+					idx[i] = int(l * shadelight_l[i] * 255)
 					idx[i] = shared.Q_clamp(idx[i], 0, 255)
 
 				if gl1_main.gl_state.minlight_set:

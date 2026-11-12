@@ -273,8 +273,10 @@ def Mod_LoadNodes(name, planes, numplanes, leafs, numleafs, nodes, numnodes, mod
 
 		node = ref_shared.mnode_t()
 		for j in range(3):
-			node.minmaxs[j] = in_obj.mins[j]
-			node.minmaxs[3 + j] = in_obj.maxs[j]
+			# Q2PORT: float(), the C stores the short into its float minmaxs; a numpy
+			# int16 kept here made each BoxOnPlaneSide() in R_CullBox about 8 times slower
+			node.minmaxs[j] = float(in_obj.mins[j])
+			node.minmaxs[3 + j] = float(in_obj.maxs[j])
 
 		if in_obj.planenum < 0 or in_obj.planenum >= numplanes:
 			clientserver.Com_Error(shared.ERR_DROP, "{}: Incorrect {} < {} planenum.\n".format("Mod_LoadNodes", in_obj.planenum, numplanes))

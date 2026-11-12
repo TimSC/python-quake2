@@ -19,7 +19,7 @@ import importlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-SKIP_DIRS = {"env", "yquake2", "quake2-original", "tests", "scripts", "docs", "DOCS", "baseq2", ".git", "__pycache__"}
+SKIP_DIRS = {"env", "yquake2", "quake2-original", "tests", "scripts", "benchmarks", "docs", "DOCS", "baseq2", ".git", "__pycache__"}
 
 
 def package_files():

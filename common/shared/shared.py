@@ -355,10 +355,59 @@ def BoxOnPlaneSide(emins, emaxs, plane):
 			return 2
 		return 3
 
-	#Q2PORT: the two extreme corners, vectorised
-	n = plane.normal
-	dist1 = float(n @ np.where(n < 0, emins, emaxs))
-	dist2 = float(n @ np.where(n < 0, emaxs, emins))
+	# Q2PORT: the normal and the box as python floats, as numpy scalar arithmetic
+	# is slow (this is called over a million times per demo, from R_CullBox and
+	# CM_BoxLeafnums_r). The sums are in doubles rather than the C's floats.
+	n = plane.normal.tolist()
+	if type(emins) is np.ndarray:
+		emins = emins.tolist()
+	if type(emaxs) is np.ndarray:
+		emaxs = emaxs.tolist()
+
+	# general case
+	s = plane.signbits #switch (p->signbits)
+	if s == 0:
+		dist1 = n[0] * emaxs[0] + n[1] * emaxs[1] + \
+				n[2] * emaxs[2]
+		dist2 = n[0] * emins[0] + n[1] * emins[1] + \
+				n[2] * emins[2]
+	elif s == 1:
+		dist1 = n[0] * emins[0] + n[1] * emaxs[1] + \
+				n[2] * emaxs[2]
+		dist2 = n[0] * emaxs[0] + n[1] * emins[1] + \
+				n[2] * emins[2]
+	elif s == 2:
+		dist1 = n[0] * emaxs[0] + n[1] * emins[1] + \
+				n[2] * emaxs[2]
+		dist2 = n[0] * emins[0] + n[1] * emaxs[1] + \
+				n[2] * emins[2]
+	elif s == 3:
+		dist1 = n[0] * emins[0] + n[1] * emins[1] + \
+				n[2] * emaxs[2]
+		dist2 = n[0] * emaxs[0] + n[1] * emaxs[1] + \
+				n[2] * emins[2]
+	elif s == 4:
+		dist1 = n[0] * emaxs[0] + n[1] * emaxs[1] + \
+				n[2] * emins[2]
+		dist2 = n[0] * emins[0] + n[1] * emins[1] + \
+				n[2] * emaxs[2]
+	elif s == 5:
+		dist1 = n[0] * emins[0] + n[1] * emaxs[1] + \
+				n[2] * emins[2]
+		dist2 = n[0] * emaxs[0] + n[1] * emins[1] + \
+				n[2] * emaxs[2]
+	elif s == 6:
+		dist1 = n[0] * emaxs[0] + n[1] * emins[1] + \
+				n[2] * emins[2]
+		dist2 = n[0] * emins[0] + n[1] * emaxs[1] + \
+				n[2] * emaxs[2]
+	elif s == 7:
+		dist1 = n[0] * emins[0] + n[1] * emins[1] + \
+				n[2] * emins[2]
+		dist2 = n[0] * emaxs[0] + n[1] * emaxs[1] + \
+				n[2] * emaxs[2]
+	else:
+		dist1 = dist2 = 0
 
 	sides = 0
 	if dist1 >= plane.dist:

@@ -727,9 +727,11 @@ def GL3_Draw3DBatchesNow(): #void
 	local.GL3_BindVBO(gl3state.vbo3D)
 	local.GL3_BindEBO(gl3state.ebo3D)
 
-	vtx = np.concatenate(vtxBuf)
+	# Q2PORT: vtxBuf is a list of record arrays; join them as bytes, as joining
+	# the record arrays makes numpy merge their field types for each one (slow)
+	vtx = np.concatenate([b.view(np.uint8) for b in vtxBuf])
 	idx = np.array(idxBuf, dtype=np.uint16)
-	GL.glBufferData(GL.GL_ARRAY_BUFFER, vtx.nbytes, vtx.view(np.uint8), GL.GL_STREAM_DRAW)
+	GL.glBufferData(GL.GL_ARRAY_BUFFER, vtx.nbytes, vtx, GL.GL_STREAM_DRAW)
 	GL.glBufferData(GL.GL_ELEMENT_ARRAY_BUFFER, idx.nbytes, idx, GL.GL_STREAM_DRAW)
 
 	gl3_draw.gl3_numBufferVtxData += 1

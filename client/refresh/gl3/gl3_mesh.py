@@ -301,9 +301,11 @@ def DrawAliasFrameLerp(paliashdr, entity, shadelight): #dmdl_t *, entity_t*, vec
 	local.GL3_BindVAO(gl3_main.gl3state.vaoAlias)
 	local.GL3_BindVBO(gl3_main.gl3state.vboAlias)
 
-	vtx = np.concatenate(vtxBuf)
+	# Q2PORT: vtxBuf is a list of record arrays; join them as bytes, as joining
+	# the record arrays makes numpy merge their field types for each one (slow)
+	vtx = np.concatenate([b.view(np.uint8) for b in vtxBuf])
 	idx = np.array(idxBuf, dtype=np.uint16)
-	GL.glBufferData(GL.GL_ARRAY_BUFFER, vtx.nbytes, vtx.view(np.uint8), GL.GL_STREAM_DRAW)
+	GL.glBufferData(GL.GL_ARRAY_BUFFER, vtx.nbytes, vtx, GL.GL_STREAM_DRAW)
 	local.GL3_BindEBO(gl3_main.gl3state.eboAlias)
 	GL.glBufferData(GL.GL_ELEMENT_ARRAY_BUFFER, idx.nbytes, idx, GL.GL_STREAM_DRAW)
 	GL.glDrawElements(GL.GL_TRIANGLES, len(idxBuf), GL.GL_UNSIGNED_SHORT, ctypes.c_void_p(0))
@@ -428,9 +430,11 @@ def DrawAliasShadow(shadowInfo): #gl3_shadowinfo_t*
 	local.GL3_BindVAO(gl3_main.gl3state.vaoAlias)
 	local.GL3_BindVBO(gl3_main.gl3state.vboAlias)
 
-	vtx = np.concatenate(vtxBuf)
+	# Q2PORT: vtxBuf is a list of record arrays; join them as bytes, as joining
+	# the record arrays makes numpy merge their field types for each one (slow)
+	vtx = np.concatenate([b.view(np.uint8) for b in vtxBuf])
 	idx = np.array(idxBuf, dtype=np.uint16)
-	GL.glBufferData(GL.GL_ARRAY_BUFFER, vtx.nbytes, vtx.view(np.uint8), GL.GL_STREAM_DRAW)
+	GL.glBufferData(GL.GL_ARRAY_BUFFER, vtx.nbytes, vtx, GL.GL_STREAM_DRAW)
 	local.GL3_BindEBO(gl3_main.gl3state.eboAlias)
 	GL.glBufferData(GL.GL_ELEMENT_ARRAY_BUFFER, idx.nbytes, idx, GL.GL_STREAM_DRAW)
 	GL.glDrawElements(GL.GL_TRIANGLES, len(idxBuf), GL.GL_UNSIGNED_SHORT, ctypes.c_void_p(0))
