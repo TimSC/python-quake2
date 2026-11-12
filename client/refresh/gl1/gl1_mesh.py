@@ -411,6 +411,10 @@ def R_DrawAliasShadow(currententity, paliashdr, posenum): #entity_t *, dmdl_t *,
 
 		GL.glDisable(GL.GL_STENCIL_TEST)
 
+# Q2PORT: for R_CullAliasModel(), which corners of the box take mins (else
+# maxs) on each axis: corner i, axis j is mins when i & (1 << j)
+BBOX_CORNER_MINS = ((np.arange(8)[:, None] >> np.arange(3)) & 1).astype(bool)
+
 def R_CullAliasModel(currentmodel, bbox, e): #const model_t *, vec3_t [8], entity_t * (returns qboolean) (static)
 
 	"""
@@ -478,70 +482,33 @@ def R_CullAliasModel(currentmodel, bbox, e): #const model_t *, vec3_t [8], entit
 
 				maxs[i] = oldmaxs
 
+	# Q2PORT: the three loops over the 8 corners of the box below are done with
+	# numpy on the (8, 3) bbox array at once, rather than corner by corner with
+	# DotProduct() (slow in python, this runs for every model every frame).
+
 	# compute a full bounding box
-	for i in range(8):
-
-		tmp = np.zeros((3,), dtype=np.float32) #vec3_t
-
-		if i & 1:
-
-			tmp[0] = mins[0]
-
-		else:
-
-			tmp[0] = maxs[0]
-
-		if i & 2:
-
-			tmp[1] = mins[1]
-
-		else:
-
-			tmp[1] = maxs[1]
-
-		if i & 4:
-
-			tmp[2] = mins[2]
-
-		else:
-
-			tmp[2] = maxs[2]
-
-		shared.VectorCopy(tmp, bbox[i])
+	# Q2PORT: for i in range(8): bbox[i][j] = mins[j] if i & (1 << j) else maxs[j]
+	bbox[:] = np.where(BBOX_CORNER_MINS, mins, maxs)
 
 	# rotate the bounding box
 	angles = e.angles.copy() # VectorCopy(e->angles, angles);
 	angles[gl1_main.YAW] = -angles[gl1_main.YAW]
 	shared_c.AngleVectors(angles, vectors[0], vectors[1], vectors[2])
 
-	for i in range(8):
-
-		tmp = bbox[i].copy() # VectorCopy(bbox[i], tmp);
-
-		bbox[i][0] = shared.DotProduct(vectors[0], tmp)
-		bbox[i][1] = -shared.DotProduct(vectors[1], tmp)
-		bbox[i][2] = shared.DotProduct(vectors[2], tmp)
-
-		shared.VectorAdd(e.origin, bbox[i], bbox[i])
+	# Q2PORT: for each corner tmp, bbox[i] = (DotProduct(vectors[0], tmp),
+	# -DotProduct(vectors[1], tmp), DotProduct(vectors[2], tmp)) + e->origin
+	bbox[:] = bbox @ np.array((vectors[0], -vectors[1], vectors[2])).T + e.origin
 
 	#int p, f, aggregatemask = ~0;
-	aggregatemask = ~0
+	# Q2PORT: corner p is outside plane f when DotProduct(frustum[f].normal,
+	# bbox[p]) - frustum[f].dist < 0; the model is culled when all 8 corners
+	# are outside the same plane (the C's aggregatemask of the corners' masks)
+	frustum = gl1_main.frustum[0:4]
+	dp = bbox @ np.array([f.normal for f in frustum]).T # (8, 4)
+	mask = (dp - np.array([f.dist for f in frustum], dtype=np.float32)) < 0
+	aggregatemask = mask.all(axis=0)
 
-	for p in range(8):
-
-		mask = 0
-
-		for f in range(4):
-
-			dp = shared.DotProduct(gl1_main.frustum[f].normal, bbox[p])
-
-			if (dp - gl1_main.frustum[f].dist) < 0:
-
-				mask |= (1 << f)
-
-		aggregatemask &= mask
-
-	if aggregatemask:
+	if aggregatemask.any():
 
 		return True
 
