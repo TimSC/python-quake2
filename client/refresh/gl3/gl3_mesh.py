@@ -147,6 +147,37 @@ def _AddFanOrStripIndices(type_, count, nextVtxIdx): # Q2PORT: the fan/strip to 
 			               nextVtxIdx + i,
 			               nextVtxIdx + i+1))
 
+def GL3_AliasGLCmdsTris(counts): # Q2PORT: list of int (returns numpy array of GLushort)
+
+	# Q2PORT: the idxBuf DrawAliasFrameLerp()'s fan/strip loop in the C builds for
+	# a model, from the signed count of each fan (< 0) and strip (> 0). It's the
+	# same for every frame, so it's made once per model.
+	idxBuf.clear() # da_clear(idxBuf)
+	numVtx = 0
+
+	for count in counts:
+
+		nextVtxIdx = numVtx # GLushort, da_count(vtxBuf)
+
+		if count < 0:
+
+			count = -count
+
+			type_ = GL.GL_TRIANGLE_FAN
+
+		else:
+
+			type_ = GL.GL_TRIANGLE_STRIP
+
+		numVtx += count
+
+		_AddFanOrStripIndices(type_, count, nextVtxIdx)
+
+	tris = np.array(idxBuf, dtype=np.uint16)
+	idxBuf.clear()
+
+	return tris
+
 """
  * Interpolates between two frames and origins
 """
@@ -237,78 +268,47 @@ def DrawAliasFrameLerp(paliashdr, entity, shadelight): #dmdl_t *, entity_t*, vec
 	# this way there's only one draw call (and two glBufferData() calls)
 	# instead of (at least) dozens. *greatly* improves performance.
 
-	# so first clear out the data from last call to this function
-	# (the buffers are static global so we don't have malloc()/free() for each rendered model)
-	vtxBuf.clear() # da_clear(vtxBuf)
-	idxBuf.clear() # da_clear(idxBuf)
-	numVtx = 0
+	# Q2PORT: the C walks the fans and strips of the glcmds here, appending the
+	# vertices of each one to vtxBuf and its triangles to idxBuf. Here they're all
+	# done at once with numpy, from the glcmds arrays the model loader made: a
+	# python loop per fan/strip was the slowest part of the renderer. The
+	# vertices and indices are the same, in the same order.
+	if paliashdr.glcmds_tris is None:
 
-	while True:
+		paliashdr.glcmds_tris = GL3_AliasGLCmdsTris(paliashdr.glcmds_counts)
 
-		nextVtxIdx = numVtx # GLushort, da_count(vtxBuf)
+	index_xyz = paliashdr.glcmds_xyz # of all the vertices
+	vtx = np.zeros(len(index_xyz), dtype=model_h.gl3_alias_vtx_t) # vtxBuf
 
-		# get the vertex count and primitive type
-		count = order[o]
-		o += 1
+	if colorOnly:
 
-		if not count:
+		vtx["pos"] = s_lerped[index_xyz, 0:3]
+		vtx["color"][:, 0:3] = shadelight
+		vtx["color"][:, 3] = alpha
 
-			break # done
+	else:
 
-		if count < 0:
+		# texture coordinates come from the draw list
+		vtx["texCoord"] = paliashdr.glcmds_st
 
-			count = -count
+		# normals and vertexes come from the frame list
+		# shadedots is set above according to rotation (around Z axis I think)
+		# to one of 16 (SHADEDOT_QUANT) presets in r_avertexnormal_dots
+		l = shadedots[verts[index_xyz, 3]]
 
-			type_ = GL.GL_TRIANGLE_FAN
+		vtx["pos"] = s_lerped[index_xyz, 0:3]
+		vtx["color"][:, 0:3] = l[:, None] * np.asarray(shadelight, dtype=np.float32)
+		vtx["color"][:, 3] = alpha
 
-		else:
-
-			type_ = GL.GL_TRIANGLE_STRIP
-
-		buf = np.zeros(count, dtype=model_h.gl3_alias_vtx_t) # da_addn_uninit(vtxBuf, count)
-
-		# Q2PORT: the glcmds of this fan/strip: (s, t, index_xyz) per vertex
-		cmds = order[o:o + count * 3]
-		o += count * 3
-		index_xyz = np.array(cmds[2::3], dtype=np.int32)
-
-		if colorOnly:
-
-			buf["pos"] = s_lerped[index_xyz, 0:3]
-			buf["color"][:, 0:3] = shadelight
-			buf["color"][:, 3] = alpha
-
-		else:
-
-			# texture coordinates come from the draw list
-			buf["texCoord"][:, 0] = cmds[0::3]
-			buf["texCoord"][:, 1] = cmds[1::3]
-
-			# normals and vertexes come from the frame list
-			# shadedots is set above according to rotation (around Z axis I think)
-			# to one of 16 (SHADEDOT_QUANT) presets in r_avertexnormal_dots
-			l = shadedots[verts[index_xyz, 3]]
-
-			buf["pos"] = s_lerped[index_xyz, 0:3]
-			buf["color"][:, 0:3] = l[:, None] * np.asarray(shadelight, dtype=np.float32)
-			buf["color"][:, 3] = alpha
-
-		vtxBuf.append(buf)
-		numVtx += count
-
-		_AddFanOrStripIndices(type_, count, nextVtxIdx)
+	idx = paliashdr.glcmds_tris # idxBuf
 
 	local.GL3_BindVAO(gl3_main.gl3state.vaoAlias)
 	local.GL3_BindVBO(gl3_main.gl3state.vboAlias)
 
-	# Q2PORT: vtxBuf is a list of record arrays; join them as bytes, as joining
-	# the record arrays makes numpy merge their field types for each one (slow)
-	vtx = np.concatenate([b.view(np.uint8) for b in vtxBuf])
-	idx = np.array(idxBuf, dtype=np.uint16)
-	GL.glBufferData(GL.GL_ARRAY_BUFFER, vtx.nbytes, vtx, GL.GL_STREAM_DRAW)
+	GL.glBufferData(GL.GL_ARRAY_BUFFER, vtx.nbytes, vtx.view(np.uint8), GL.GL_STREAM_DRAW)
 	local.GL3_BindEBO(gl3_main.gl3state.eboAlias)
 	GL.glBufferData(GL.GL_ELEMENT_ARRAY_BUFFER, idx.nbytes, idx, GL.GL_STREAM_DRAW)
-	GL.glDrawElements(GL.GL_TRIANGLES, len(idxBuf), GL.GL_UNSIGNED_SHORT, ctypes.c_void_p(0))
+	GL.glDrawElements(GL.GL_TRIANGLES, len(idx), GL.GL_UNSIGNED_SHORT, ctypes.c_void_p(0))
 	gl3_draw.gl3_num3Ddraws += 1
 	gl3_draw.gl3_numBufferVtxData += 1
 	# TODO ++gl3_numBufferIdxData ?

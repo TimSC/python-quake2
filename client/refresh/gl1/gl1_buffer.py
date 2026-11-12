@@ -400,3 +400,32 @@ def R_SetBufferIndices(primitive, vertices_num): #GLenum, GLuint
 
 	# GLBUFFER_VERTEX() must be called as many times as vertices_num
 	vtx_ptr += vertices_num
+
+
+def R_SetBufferIndicesTris(tris, vertices_num): # Q2PORT: numpy array of GLushort, GLuint (returns qboolean)
+
+	# Q2PORT: R_SetBufferIndices() for all the fans and strips of an alias model
+	# at once (R_DrawAliasGLCmds() in gl1_mesh.py). tris is their triangle index
+	# list, numbered from the model's first vertex, as R_SetBufferIndices() builds
+	# it. The buffer is drawn first if the model doesn't fit, rather than between
+	# two fans or strips (the same pixels). Returns False, storing nothing, if
+	# the model wouldn't fit an empty buffer either.
+	# After calling this, vertices_num vertices must be stored.
+
+	global vtx_ptr, idx_ptr
+
+	if ( vtx_ptr + vertices_num >= MAX_VERTICES or
+		idx_ptr + len(tris) >= MAX_INDICES ):
+
+		if vertices_num >= MAX_VERTICES or len(tris) >= MAX_INDICES:
+
+			return False
+
+		R_ApplyGLBuffer()
+
+	gl_buf.idx[idx_ptr:idx_ptr + len(tris)] = tris + vtx_ptr
+	idx_ptr += len(tris)
+
+	vtx_ptr += vertices_num
+
+	return True

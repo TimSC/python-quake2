@@ -86,6 +86,100 @@ def R_LerpVerts(currententity, nverts, v, ov, verts, lerp, move, frontv, backv):
 
 		lerp[:nverts, :3] = move + ov[:nverts, :3] * backv + v[:nverts, :3] * frontv
 
+def R_AliasGLCmdsTris(counts): # Q2PORT: list of int (returns numpy array of GLushort)
+
+	# Q2PORT: the triangle index list R_SetBufferIndices() builds for each fan
+	# (count < 0) and strip (count > 0) of a model, numbered from the model's
+	# first vertex; for R_DrawAliasGLCmds()
+	tris = []
+	first = 0
+
+	for count in counts:
+
+		if count < 0:
+
+			count = -count
+
+			for i in range(count-2):
+				tris.extend((first, first+i+1, first+i+2))
+
+		else:
+
+			for i in range(count-2):
+				if i % 2 == 0:
+					tris.extend((first+i, first+i+1, first+i+2))
+				else:
+					# backwards order
+					tris.extend((first+i+2, first+i+1, first+i))
+
+		first += count
+
+	return np.array(tris, dtype=np.uint16)
+
+def R_DrawAliasGLCmds(currententity, paliashdr, verts, alpha): # Q2PORT: entity_t *, dmdl_t *, dtrivertx_t *, float (returns qboolean)
+
+	# Q2PORT: the glcmds loop at the end of R_DrawAliasFrameLerp(), for all the
+	# fans and strips of the model at once with numpy: the per vertex loop in
+	# python was the slowest part of the renderer. The vertices, texture
+	# coordinates and colours stored are the same, in the same order (the
+	# colour maths is in numpy float32, the C's float). Returns False if the
+	# model doesn't fit the buffer, storing nothing; the C loop draws it then.
+
+	if paliashdr.glcmds_tris is None:
+
+		paliashdr.glcmds_tris = R_AliasGLCmdsTris(paliashdr.glcmds_counts)
+
+	xyz = paliashdr.glcmds_xyz # index_xyz of each vertex
+	num = len(xyz)
+
+	if not gl1_buffer.R_SetBufferIndicesTris(paliashdr.glcmds_tris, num):
+
+		return False
+
+	gl_buf = gl1_buffer.gl_buf
+
+	# GLBUFFER_VERTEX(lerp[index_xyz][0], lerp[index_xyz][1], lerp[index_xyz][2])
+	gl_buf.vtx[gl_buf.vt:gl_buf.vt + num * 3] = s_lerped[xyz, :3].ravel()
+	gl_buf.vt += num * 3
+
+	if (currententity.flags &
+		(shared.RF_SHELL_RED | shared.RF_SHELL_GREEN | shared.RF_SHELL_BLUE)):
+
+		# the same colour for every vertex
+		idx = [0, 0, 0]
+
+		for i in range(3):
+
+			idx[i] = int(shadelight[i] * 255)
+			idx[i] = shared.Q_clamp(idx[i], 0, 255)
+
+		rgb = np.array(idx, dtype=np.intp)
+
+	else:
+
+		# GLBUFFER_SINGLETEX(tex[0], tex[1]), texture coordinates come from the draw list
+		gl_buf.tex[0][gl_buf.tx:gl_buf.tx + num * 2] = paliashdr.glcmds_st.ravel()
+		gl_buf.tx += num * 2
+
+		# normals and vertexes come from the frame list
+		l = shadedots[verts[xyz, 3]]
+
+		# idx[i] = (int)(l * shadelight[i] * 255), clamped to 0..255
+		rgb = (l[:, None] * shadelight * 255).astype(np.intp)
+		np.clip(rgb, 0, 255, out=rgb)
+
+	if gl1_main.gl_state.minlight_set:
+
+		rgb = np.frombuffer(gl1_light.minlight, dtype=np.uint8)[rgb]
+
+	# GLBUFFER_COLOR(idx[0], idx[1], idx[2], alpha * 255)
+	clr = gl_buf.clr[gl_buf.cl:gl_buf.cl + num * 4].reshape((num, 4))
+	clr[:, :3] = np.frombuffer(gl1_image.gammatable, dtype=np.uint8)[rgb]
+	clr[:, 3] = int(alpha * 255) & 0xff
+	gl_buf.cl += num * 4
+
+	return True
+
 """
  * Interpolates between two frames and origins
 """
@@ -148,6 +242,11 @@ def R_DrawAliasFrameLerp(currententity, paliashdr, backlerp): #entity_t *, dmdl_
 	lerp = s_lerped # s_lerped[0]
 
 	R_LerpVerts(currententity, paliashdr.num_xyz, v, ov, verts, lerp, move, frontv, backv)
+
+	# Q2PORT: the loop below for the whole model with numpy (much faster)
+	if R_DrawAliasGLCmds(currententity, paliashdr, verts, alpha):
+
+		return
 
 	lerped = s_lerped.tolist() # Q2PORT: python floats for the per vertex loops below
 	lightnormalindex = verts[:, 3].tolist()

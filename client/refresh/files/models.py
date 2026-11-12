@@ -114,6 +114,9 @@ def Mod_LoadMD2(mod_name, buff, modfilelen, mins, maxs, skins, find_image, type)
 	# punned into the same array. Decode them here into a plain list of
 	# count, then (s float, t float, index_xyz int) per vertex, ending with 0.
 	glcmds = []
+	glcmds_counts = [] # Q2PORT: see header.glcmds_counts below
+	glcmds_st = []
+	glcmds_xyz = []
 	cmd_offset = header.ofs_glcmds
 	cmd_end = header.ofs_glcmds + header.num_glcmds * 4
 	while cmd_offset < cmd_end:
@@ -122,10 +125,13 @@ def Mod_LoadMD2(mod_name, buff, modfilelen, mins, maxs, skins, find_image, type)
 		glcmds.append(count)
 		if not count:
 			break
+		glcmds_counts.append(count)
 		for _ in range(abs(count)):
 			s, t, index_xyz = struct.unpack_from("<ffi", buff, cmd_offset)
 			cmd_offset += 12
 			glcmds.extend((s, t, index_xyz))
+			glcmds_st.append((s, t))
+			glcmds_xyz.append(index_xyz)
 
 	if glcmds and glcmds[-1] != 0:
 		clientserver.Com_Printf("{}: Entity {} has possible last element issues with {} verts.\n".format("Mod_LoadMD2", mod_name, glcmds[-1]))
@@ -150,6 +156,16 @@ def Mod_LoadMD2(mod_name, buff, modfilelen, mins, maxs, skins, find_image, type)
 	header.stverts = stverts
 	header.frames = frames
 	header.glcmds = glcmds
+	# Q2PORT: the glcmds again as arrays, so the renderers can draw a whole
+	# model with numpy instead of walking the fans and strips vertex by vertex
+	# (much faster in python). glcmds_counts is the signed count of each
+	# fan (< 0) or strip (> 0), glcmds_st and glcmds_xyz the (s, t) and
+	# index_xyz of all their vertices in order. glcmds_tris is the triangle
+	# index list the renderer builds from these on the first draw.
+	header.glcmds_counts = glcmds_counts
+	header.glcmds_st = np.array(glcmds_st, dtype=np.float32).reshape((-1, 2))
+	header.glcmds_xyz = np.array(glcmds_xyz, dtype=np.intp)
+	header.glcmds_tris = None
 	header.skinnames = skinnames
 	return header # extradata
 
