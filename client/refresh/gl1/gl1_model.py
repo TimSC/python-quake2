@@ -316,7 +316,6 @@ def Mod_LoadFaces(l: files_h.lump_t):
 	loadmodel.numsurfaces = count
 	global currentmodel
 	currentmodel = loadmodel
-	gl1_main.currentmodel = loadmodel # GL_BuildPolygonFromSurface reads the renderer global
 
 
 	gl1_lightmap.LM_BeginBuildingLightmaps (loadmodel)

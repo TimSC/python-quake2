@@ -106,13 +106,7 @@ def LM_UploadBlock(dynamic): #qboolean
 	height = 0
 
 	texture = 0 if dynamic else gl1_surf.gl_lms.current_lightmap_texture
-	#
-	#FIXME Simplified while porting: the classic dynamic lightmap path
-	#(R_BlendLightmaps) writes into buffer 0, so the dynamic upload must
-	#read buffer 0.  Yamagi's R_RegenAllLightmaps (not ported) writes to
-	#buffer[current] and is what the literal C assumes.
-	#
-	buffer = 0 if dynamic else (gl1_surf.gl_lms.current_lightmap_texture if gl1_main.gl_config.multitexture else 0)
+	buffer = gl1_surf.gl_lms.current_lightmap_texture if gl1_main.gl_config.multitexture else 0
 
 	gl1_image.R_Bind( gl1_main.gl_state.lightmap_textures + texture )
 	GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
@@ -325,10 +319,6 @@ def LM_BeginBuildingLightmaps (m): #model_t *
 
 	gl1_main.r_framecount = 1		# no dlightcache
 
-	# build the lightmap textures on texture unit 1 (R_Bind is unit-relative)
-	gl1_image.R_EnableMultitexture( True )
-	gl1_image.R_SelectTexture( GL.GL_TEXTURE1 )
-
 	#
 	# setup the base lightstyles so the lightmaps won't have to be regenerated
 	# the first time they're seen
@@ -351,7 +341,12 @@ def LM_BeginBuildingLightmaps (m): #model_t *
 
 	gl1_surf.gl_lms.current_lightmap_texture = 1
 
-	# the dynamic lightmap lives in buffer 0 (classic rendering path)
+	if gl1_main.gl_config.multitexture:
+
+		LM_AllocLightmapBuffer(gl1_surf.gl_lms.current_lightmap_texture, False)
+		return
+
+	# dynamic lightmap for classic rendering path (no multitexture)
 	LM_AllocLightmapBuffer(0, True)
 
 	# initialize the dynamic lightmap texture
@@ -363,11 +358,6 @@ def LM_BeginBuildingLightmaps (m): #model_t *
 			0, GL_LIGHTMAP_FORMAT, GL.GL_UNSIGNED_BYTE,
 			bytes(gl1_surf.gl_lms.lightmap_buffer[0]))
 
-	if gl1_main.gl_config.multitexture:
-
-		LM_AllocLightmapBuffer(gl1_surf.gl_lms.current_lightmap_texture, False)
-		return
-
 
 """
 ================
@@ -378,4 +368,3 @@ def LM_EndBuildingLightmaps ():
 
 
 	LM_UploadBlock( False )
-	gl1_image.R_EnableMultitexture( False )

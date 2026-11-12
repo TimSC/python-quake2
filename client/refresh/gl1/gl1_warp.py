@@ -29,7 +29,7 @@ import re
 import numpy as np
 import OpenGL.GL as GL
 pass
-from client.refresh.gl1 import gl1_main, gl1_image, gl1_model
+from client.refresh.gl1 import gl1_main, gl1_image, gl1_model, gl1_buffer
 from client.refresh.files import stb as files_stb
 from common import clientserver
 from client.refresh.gl1.header import model
@@ -234,44 +234,42 @@ R_EmitWaterPolys
 Does a water warp on the pre-fragmented glpoly_t chain
 =============
 """
-def R_EmitWaterPolys (fa): #msurface_t *
+def R_EmitWaterPolys(fa): #msurface_t *
 
 	"""
-	glpoly_t	*p, *bp;
-	float		*v;
-	int			i;
-	float		s, t, os, ot;
-	float		scroll;
-	float		rdt = r_newrefdef.time;
+	glpoly_t *p, *bp;
+	float *v;
+	int i, nv;
+	float s, t, os, ot;
+	float scroll;
+	float rdt = r_newrefdef.time;
 	"""
 	rdt = gl1_main.r_newrefdef.time
 
 	if fa.texinfo.flags & shared.SURF_FLOWING:
-		scroll = -64 * ( (rdt*0.5) - int(rdt*0.5) )
+
+		scroll = -64 * ((gl1_main.r_newrefdef.time * 0.5) - int(gl1_main.r_newrefdef.time * 0.5))
+
 	else:
+
 		scroll = 0
+
 	for bp in fa.polys:
 
 		p = bp
+		nv = p.numverts
+		gl1_buffer.R_SetBufferIndices(GL.GL_TRIANGLE_FAN, nv)
 
-		GL.glBegin (GL.GL_TRIANGLE_FAN)
-		for v in p.verts[:p.numverts].tolist():
-		
+		for v in p.verts[:nv].tolist():
+
 			os = v[3]
 			ot = v[4]
 
-			s = os + r_turbsin[int((ot*0.125+rdt) * TURBSCALE) & 255]
-			s += scroll
-			s *= (1.0/64)
+			s = os + r_turbsin[int((ot * 0.125 + rdt) * TURBSCALE) & 255] + scroll
+			t = ot + r_turbsin[int((os * 0.125 + rdt) * TURBSCALE) & 255]
 
-			t = ot + r_turbsin[int((os*0.125+rdt) * TURBSCALE) & 255]
-			t *= (1.0/64)
-
-			GL.glTexCoord2f (s, t)
-			GL.glVertex3f (v[0], v[1], v[2])
-		
-		GL.glEnd ()
-
+			gl1_buffer.GLBUFFER_VERTEX( v[0], v[1], v[2] )
+			gl1_buffer.GLBUFFER_SINGLETEX( s * (1.0 / 64), t * (1.0 / 64) )
 
 #===================================================================
 

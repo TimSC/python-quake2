@@ -1,21 +1,27 @@
 """
-Copyright (C) 1997-2001 Id Software, Inc.
-
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
+ * Copyright (C) 1997-2001 Id Software, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or (at
+ * your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
+ *
+ * =======================================================================
+ *
+ * Mesh handling
+ *
+ * =======================================================================
 """
 from __future__ import annotations
 
@@ -24,103 +30,82 @@ import os
 import re
 import numpy as np
 import OpenGL.GL as GL
-import OpenGL.GL.EXT.compiled_vertex_array as GLcva
-from linux import qgl_linux
-pass
-pass
 from client import ref
-from client.refresh.gl1 import gl1_main, gl1_image, gl1_light
+from client.refresh.gl1 import gl1_main, gl1_image, gl1_light, gl1_buffer
+from common import clientserver
+from common import movemsg
 from common.header import files as files_h
 from common.header import shared
 from common.shared import shared as shared_c
-from common import movemsg
-"""
-// gl1_mesh.c: triangle model functions
 
-#include "gl_local.h"
 """
-"""
-=============================================================
-
-  ALIAS MODELS
-
-=============================================================
+#include "header/local.h"
 """
 
 NUMVERTEXNORMALS = 162
-
-# float r_avertexnormals[NUMVERTEXNORMALS][3] = { #include "anorms.h" };
-# this is the same table as common.bytedirs, which is used directly. It
-# can't be aliased here because qcommon.common is still loading when this
-# module is first imported.
-
-s_lerped = np.zeros((files_h.MAX_VERTS, 3), dtype=np.float32) #static vec4_t [MAX_VERTS], 4th value was SIMD padding
-# colorArray for the vertex array path. The C one is on the stack, but GL reads it
-# during glArrayElement, so it is kept at module level so it outlives the pointer.
-s_colorArray = np.zeros((files_h.MAX_VERTS, 3), dtype=np.float32) #float [MAX_VERTS*4]
-
-shadevector = np.zeros((3,), dtype=np.float32) #vec3_t
-shadelight = np.zeros((3,), dtype=np.float32) #float[3]
-
-# precalculated dot products for quantized angles
 SHADEDOT_QUANT = 16
 
-def _LoadAnormtab ():
-	# float r_avertexnormal_dots[SHADEDOT_QUANT][256] = #include "anormtab.h"
+# float r_avertexnormals[NUMVERTEXNORMALS][3] = { #include "../constants/anorms.h" };
+# Q2PORT: the same table as common's bytedirs, which is used directly (it can't
+# be aliased here because common is still loading when this module is imported)
+
+# precalculated dot products for quantized angles
+def _LoadAnormtab(): # Q2PORT: float r_avertexnormal_dots[SHADEDOT_QUANT][256] = { #include "../constants/anormtab.h" };
 	text = open(os.path.join(os.path.dirname(__file__), "anormtab.h")).read()
 	text = text[text.index("{"):] # skip the licence comment
 	values = [float(x) for x in re.findall(r"\d+\.\d+", text)]
 	return np.array(values, dtype=np.float32).reshape((SHADEDOT_QUANT, 256))
 
-r_avertexnormal_dots = _LoadAnormtab()
+r_avertexnormal_dots = _LoadAnormtab() #float [SHADEDOT_QUANT][256]
 
+#typedef float vec4_t[4];
+s_lerped = np.zeros((files_h.MAX_VERTS, 4), dtype=np.float32) #static vec4_t [MAX_VERTS]
+shadevector = np.zeros((3,), dtype=np.float32) #vec3_t
+shadelight = np.zeros((3,), dtype=np.float32) #float [3]
 shadedots = r_avertexnormal_dots[0] #float *
+#extern vec3_t lightspot;
 
-SHELL_FLAGS = shared.RF_SHELL_RED | shared.RF_SHELL_GREEN | shared.RF_SHELL_BLUE | shared.RF_SHELL_DOUBLE | shared.RF_SHELL_HALF_DAM
-
-def R_LerpVerts (nverts, v, ov, verts, lerp, move, frontv, backv): #int, dtrivertx_t *, dtrivertx_t *, dtrivertx_t *, float *, float[3], float[3], float[3]
+def R_LerpVerts(currententity, nverts, v, ov, verts, lerp, move, frontv, backv): #entity_t *, int, dtrivertx_t *, dtrivertx_t *, dtrivertx_t *, float *, float[3], float[3], float[3] (static)
 
 	#int i;
 
-	# v, ov and verts are numpy arrays of dtrivertx_t rows (v[0], v[1], v[2], lightnormalindex)
-	# so the per vertex loop is done as one numpy expression
+	# Q2PORT: v, ov and verts are (nverts, 4) byte arrays of dtrivertx_t
+	# (v[0], v[1], v[2], lightnormalindex); the per vertex loop is one numpy
+	# expression with the same arithmetic
+	if (currententity.flags &
+		(shared.RF_SHELL_RED | shared.RF_SHELL_GREEN |
+		 shared.RF_SHELL_BLUE | shared.RF_SHELL_DOUBLE |
+		 shared.RF_SHELL_HALF_DAM)):
 
-	#PMM -- added RF_SHELL_DOUBLE, RF_SHELL_HALF_DAM
-	if gl1_main.currententity.flags & SHELL_FLAGS:
+		normal = movemsg.bytedirs[verts[:nverts, 3]] # r_avertexnormals[verts[i].lightnormalindex]
 
-		normal = movemsg.bytedirs[verts[:nverts, 3]] # r_avertexnormals
-		lerp[:nverts] = move + ov[:nverts, :3]*backv + v[:nverts, :3]*frontv + normal * ref.POWERSUIT_SCALE
+		lerp[:nverts, :3] = move + ov[:nverts, :3] * backv + v[:nverts, :3] * frontv + \
+				  normal * ref.POWERSUIT_SCALE
 
 	else:
 
-		lerp[:nverts] = move + ov[:nverts, :3]*backv + v[:nverts, :3]*frontv
-
+		lerp[:nverts, :3] = move + ov[:nverts, :3] * backv + v[:nverts, :3] * frontv
 
 """
-=============
-R_DrawAliasFrameLerp
-
-interpolates between two frames and origins
-FIXME: batch lerp all vertexes
-=============
+ * Interpolates between two frames and origins
 """
-def R_DrawAliasFrameLerp (paliashdr, backlerp): #dmdl_t *, float
+def R_DrawAliasFrameLerp(currententity, paliashdr, backlerp): #entity_t *, dmdl_t *, float (static)
 
 	"""
-	float 	l;
-	daliasframe_t	*frame, *oldframe;
-	dtrivertx_t	*v, *ov, *verts;
-	int		*order;
-	int		count;
-	float	frontlerp;
-	float	alpha;
-	vec3_t	move, delta, vectors[3];
-	vec3_t	frontv, backv;
-	int		i;
-	int		index_xyz;
-	float	*lerp;
+	daliasframe_t *frame, *oldframe;
+	dtrivertx_t *v, *ov, *verts;
+	int *order;
+	int count, i, index_xyz;
+	float tex[2], frontlerp, l, alpha;
+	vec3_t move, delta, vectors[3];
+	vec3_t frontv, backv;
+	float *lerp;
 	"""
-	currententity = gl1_main.currententity
+	move = np.zeros((3,), dtype=np.float32)
+	delta = np.zeros((3,), dtype=np.float32)
+	vectors = [np.zeros((3,), dtype=np.float32) for _ in range(3)]
+	frontv = np.zeros((3,), dtype=np.float32)
+	backv = np.zeros((3,), dtype=np.float32)
 
 	frame = paliashdr.frames[currententity.frame]
 	verts = v = frame.verts
@@ -128,412 +113,315 @@ def R_DrawAliasFrameLerp (paliashdr, backlerp): #dmdl_t *, float
 	oldframe = paliashdr.frames[currententity.oldframe]
 	ov = oldframe.verts
 
-	order = paliashdr.glcmds
-
-#	glTranslatef (frame->translate[0], frame->translate[1], frame->translate[2]);
-#	glScalef (frame->scale[0], frame->scale[1], frame->scale[2]);
+	order = paliashdr.glcmds # (int *)((byte *)paliashdr + paliashdr->ofs_glcmds)
+	o = 0 # Q2PORT: an index into order
 
 	if currententity.flags & shared.RF_TRANSLUCENT:
-		alpha = currententity.alpha
-	else:
-		alpha = 1.0
 
-	# PMM - added double shell
-	if currententity.flags & SHELL_FLAGS:
-		GL.glDisable( GL.GL_TEXTURE_2D )
+		alpha = currententity.alpha
+
+	else:
+
+		alpha = 1.0
 
 	frontlerp = 1.0 - backlerp
 
 	# move should be the delta back to the previous frame * backlerp
-	delta = np.zeros((3,), dtype=np.float32)
-	vectors = [np.zeros((3,), dtype=np.float32) for _ in range(3)]
-	move = np.zeros((3,), dtype=np.float32)
-	shared.VectorSubtract (currententity.oldorigin, currententity.origin, delta)
-	shared_c.AngleVectors (currententity.angles, vectors[0], vectors[1], vectors[2])
+	shared.VectorSubtract(currententity.oldorigin, currententity.origin, delta)
+	shared_c.AngleVectors(currententity.angles, vectors[0], vectors[1], vectors[2])
 
-	move[0] = shared.DotProduct (delta, vectors[0])	# forward
-	move[1] = -shared.DotProduct (delta, vectors[1])	# left
-	move[2] = shared.DotProduct (delta, vectors[2])	# up
+	move[0] = shared.DotProduct(delta, vectors[0]) # forward
+	move[1] = -shared.DotProduct(delta, vectors[1]) # left
+	move[2] = shared.DotProduct(delta, vectors[2]) # up
 
-	shared.VectorAdd (move, oldframe.translate, move)
+	shared.VectorAdd(move, oldframe.translate, move)
 
 	for i in range(3):
 
-		move[i] = backlerp*move[i] + frontlerp*frame.translate[i]
+		move[i] = backlerp * move[i] + frontlerp * frame.translate[i]
 
-	frontv = frontlerp*frame.scale
-	backv = backlerp*oldframe.scale
+	for i in range(3):
 
-	lerp = s_lerped
+		frontv[i] = frontlerp * frame.scale[i]
+		backv[i] = backlerp * oldframe.scale[i]
 
-	R_LerpVerts( paliashdr.num_xyz, v, ov, verts, lerp, move, frontv, backv )
+	lerp = s_lerped # s_lerped[0]
 
-	# Q2PORT: the C walks the glcmds and draws each strip and fan with
-	# qglBegin, one call per vertex and qglEnd (see the loops quoted below).
-	# One python GL call per vertex is too slow, so both paths gather the
-	# vertex data into the draw list order of paliashdr.drawtris_xyz (the
-	# glcmds unrolled into triangles by Mod_LoadAliasModel) and draw the
-	# model with one glDrawArrays. The arrays enabled here are disabled
-	# again afterwards, as a later shell model would otherwise draw with a
-	# stale color array.
-	drawtris_xyz = paliashdr.drawtris_xyz
-	lerped = s_lerped[drawtris_xyz]
+	R_LerpVerts(currententity, paliashdr.num_xyz, v, ov, verts, lerp, move, frontv, backv)
 
-	if gl1_main.gl_vertex_arrays.value:
-	
-		#float colorArray[MAX_VERTS*4];
-		colorArray = s_colorArray
+	lerped = s_lerped.tolist() # Q2PORT: python floats for the per vertex loops below
+	lightnormalindex = verts[:, 3].tolist()
 
-		GL.glEnableClientState( GL.GL_VERTEX_ARRAY )
-		GL.glVertexPointer( 3, GL.GL_FLOAT, 0, lerped )	# C points at s_lerped with a stride of 16, padded for SIMD
+	while True:
 
-#		if ( currententity->flags & ( RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE ) )
-		# PMM - added double damage shell
-		if currententity.flags & SHELL_FLAGS:
-		
-			GL.glColor4f( shadelight[0], shadelight[1], shadelight[2], alpha )
-		
-		else:
-		
-			GL.glEnableClientState( GL.GL_COLOR_ARRAY )
+		#int idx[3];
+		idx = [0, 0, 0]
 
-			#
-			# pre light everything
-			#
-			# for ( i = 0; i < paliashdr->num_xyz; i++ ) colorArray[i*3+n] = shadedots[verts[i].lightnormalindex] * shadelight[n]
-			l = shadedots[verts[:paliashdr.num_xyz, 3]]
-			colorArray[:paliashdr.num_xyz] = l[:, np.newaxis] * shadelight
+		# get the vertex count and primitive type
+		count = order[o]
+		o += 1
 
-			colors = colorArray[drawtris_xyz]
-			GL.glColorPointer( 3, GL.GL_FLOAT, 0, colors )	# C points at colorArray
+		if not count:
 
-			# texture coordinates come from the draw list
-			GL.glEnableClientState( GL.GL_TEXTURE_COORD_ARRAY )
-			GL.glTexCoordPointer( 2, GL.GL_FLOAT, 0, paliashdr.drawtris_st )
-		
-		if qgl_linux.qglLockArraysEXT:
-			GLcva.glLockArraysEXT( 0, len(drawtris_xyz) )	# C locks paliashdr->num_xyz
+			break # done
 
-		"""
-		while (1)
-		{
-			// get the vertex count and primitive type
-			count = *order++;
-			if (!count)
-				break;		// done
-			if (count < 0)
-			{
-				count = -count;
-				qglBegin (GL_TRIANGLE_FAN);
-			}
-			else
-			{
-				qglBegin (GL_TRIANGLE_STRIP);
-			}
+		if count < 0:
 
-			// PMM - added double damage shell
-			if ( currententity->flags & ( RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE | RF_SHELL_DOUBLE | RF_SHELL_HALF_DAM) )
-			{
-				do
-				{
-					index_xyz = order[2];
-					order += 3;
-
-					qglVertex3fv( s_lerped[index_xyz] );
-
-				} while (--count);
-			}
-			else
-			{
-				do
-				{
-					// texture coordinates come from the draw list
-					qglTexCoord2f (((float *)order)[0], ((float *)order)[1]);
-					index_xyz = order[2];
-
-					order += 3;
-
-					// normals and vertexes come from the frame list
-//					l = shadedots[verts[index_xyz].lightnormalindex];
-					
-//					qglColor4f (l* shadelight[0], l*shadelight[1], l*shadelight[2], alpha);
-					qglArrayElement( index_xyz );
-
-				} while (--count);
-			}
-			qglEnd ();
-		}
-		"""
-		GL.glDrawArrays( GL.GL_TRIANGLES, 0, len(drawtris_xyz) )
-
-		if qgl_linux.qglUnlockArraysEXT:
-			GLcva.glUnlockArraysEXT()
-
-		GL.glDisableClientState( GL.GL_TEXTURE_COORD_ARRAY )
-		GL.glDisableClientState( GL.GL_COLOR_ARRAY )
-		GL.glDisableClientState( GL.GL_VERTEX_ARRAY )
-
-	else:
-
-		"""
-		while (1)
-		{
-			// get the vertex count and primitive type
-			count = *order++;
-			if (!count)
-				break;		// done
-			if (count < 0)
-			{
-				count = -count;
-				qglBegin (GL_TRIANGLE_FAN);
-			}
-			else
-			{
-				qglBegin (GL_TRIANGLE_STRIP);
-			}
-
-			if ( currententity->flags & ( RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE ) )
-			{
-				do
-				{
-					index_xyz = order[2];
-					order += 3;
-
-					qglColor4f( shadelight[0], shadelight[1], shadelight[2], alpha);
-					qglVertex3fv (s_lerped[index_xyz]);
-
-				} while (--count);
-			}
-			else
-			{
-				do
-				{
-					// texture coordinates come from the draw list
-					qglTexCoord2f (((float *)order)[0], ((float *)order)[1]);
-					index_xyz = order[2];
-					order += 3;
-
-					// normals and vertexes come from the frame list
-					l = shadedots[verts[index_xyz].lightnormalindex];
-					
-					qglColor4f (l* shadelight[0], l*shadelight[1], l*shadelight[2], alpha);
-					qglVertex3fv (s_lerped[index_xyz]);
-				} while (--count);
-			}
-
-			qglEnd ();
-		}
-		"""
-		GL.glEnableClientState( GL.GL_VERTEX_ARRAY )
-		GL.glVertexPointer( 3, GL.GL_FLOAT, 0, lerped )	# qglVertex3fv (s_lerped[index_xyz]);
-
-		if currententity.flags & ( shared.RF_SHELL_RED | shared.RF_SHELL_GREEN | shared.RF_SHELL_BLUE ):
-
-			GL.glColor4f( shadelight[0], shadelight[1], shadelight[2], alpha)
+			count = -count
+			gl1_buffer.R_SetBufferIndices(GL.GL_TRIANGLE_FAN, count)
 
 		else:
 
-			# texture coordinates come from the draw list
-			GL.glEnableClientState( GL.GL_TEXTURE_COORD_ARRAY )
-			GL.glTexCoordPointer( 2, GL.GL_FLOAT, 0, paliashdr.drawtris_st )
+			gl1_buffer.R_SetBufferIndices(GL.GL_TRIANGLE_STRIP, count)
 
-			# normals and vertexes come from the frame list
-			l = shadedots[verts[drawtris_xyz, 3]]
+		if (currententity.flags &
+			(shared.RF_SHELL_RED | shared.RF_SHELL_GREEN | shared.RF_SHELL_BLUE)):
 
-			colors = np.empty((len(drawtris_xyz), 4), dtype=np.float32) # qglColor4f (l* shadelight[0], l*shadelight[1], l*shadelight[2], alpha);
-			colors[:, :3] = l[:, np.newaxis] * shadelight
-			colors[:, 3] = alpha
-			GL.glEnableClientState( GL.GL_COLOR_ARRAY )
-			GL.glColorPointer( 4, GL.GL_FLOAT, 0, colors )
+			while True:
 
-		GL.glDrawArrays( GL.GL_TRIANGLES, 0, len(drawtris_xyz) )
+				index_xyz = order[o + 2]
+				o += 3
 
-		GL.glDisableClientState( GL.GL_TEXTURE_COORD_ARRAY )
-		GL.glDisableClientState( GL.GL_COLOR_ARRAY )
-		GL.glDisableClientState( GL.GL_VERTEX_ARRAY )
+				gl1_buffer.GLBUFFER_VERTEX(lerped[index_xyz][0],
+					lerped[index_xyz][1], lerped[index_xyz][2])
 
-#	if ( currententity->flags & ( RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE ) )
-	# PMM - added double damage shell
-	if currententity.flags & SHELL_FLAGS:
-		GL.glEnable( GL.GL_TEXTURE_2D )
+				for i in range(3):
 
+					idx[i] = int(shadelight[i] * 255)
+					idx[i] = shared.Q_clamp(idx[i], 0, 255)
 
-"""
-=============
-R_DrawAliasShadow
-=============
-"""
-def R_DrawAliasShadow (paliashdr, posenum): #dmdl_t *, int
+				if gl1_main.gl_state.minlight_set:
 
-	"""
-	dtrivertx_t	*verts;
-	int		*order;
-	vec3_t	point;
-	float	height, lheight;
-	int		count;
-	daliasframe_t	*frame;
-	"""
-	currententity = gl1_main.currententity
+					for i in range(3):
+
+						idx[i] = gl1_light.minlight[idx[i]]
+
+				gl1_buffer.GLBUFFER_COLOR(idx[0], idx[1], idx[2], int(alpha * 255))
+
+				count -= 1
+				if not count: # while (--count);
+					break
+
+		else:
+
+			while True:
+
+				# texture coordinates come from the draw list
+				tex0 = order[o + 0] # ((float *)order)[0]
+				tex1 = order[o + 1]
+
+				index_xyz = order[o + 2]
+				o += 3
+
+				# normals and vertexes come from the frame list
+				l = shadedots[lightnormalindex[index_xyz]]
+
+				gl1_buffer.GLBUFFER_VERTEX(lerped[index_xyz][0],
+					lerped[index_xyz][1], lerped[index_xyz][2])
+
+				gl1_buffer.GLBUFFER_SINGLETEX(tex0, tex1)
+
+				for i in range(3):
+
+					idx[i] = int(l * shadelight[i] * 255)
+					idx[i] = shared.Q_clamp(idx[i], 0, 255)
+
+				if gl1_main.gl_state.minlight_set:
+
+					for i in range(3):
+
+						idx[i] = gl1_light.minlight[idx[i]]
+
+				gl1_buffer.GLBUFFER_COLOR(idx[0], idx[1], idx[2], int(alpha * 255))
+
+				count -= 1
+				if not count: # while (--count);
+					break
+
+def R_DrawAliasShadow(currententity, paliashdr, posenum): #entity_t *, dmdl_t *, int (static)
+
+	# Don't do stencil test on unsupported stereo modes
+	stencilt = ( gl1_main.gl_state.stencil and gl1_main.gl1_stencilshadow.value and
+		( gl1_main.gl_state.stereo_mode < gl1_main.STEREO_MODE_ROW_INTERLEAVED
+		or gl1_main.gl_state.stereo_mode > gl1_main.STEREO_MODE_PIXEL_INTERLEAVED ) ) #const qboolean
+
+	#int *order;
+	#vec3_t point;
+	#float height = 0, lheight;
+	#int count;
+	point = [0.0, 0.0, 0.0]
 
 	lheight = currententity.origin[2] - gl1_light.lightspot[2]
+	order = paliashdr.glcmds # (int *)((byte *)paliashdr + paliashdr->ofs_glcmds)
+	o = 0 # Q2PORT: an index into order
+	height = -lheight + 0.1
 
-	frame = paliashdr.frames[currententity.frame]
-	verts = frame.verts
+	gl1_buffer.R_UpdateGLBuffer(gl1_buffer.buf_shadow, 0, 0, 0, 1)
 
-	height = 0
+	# stencilbuffer shadows
+	if stencilt:
 
-	order = paliashdr.glcmds
+		GL.glEnable(GL.GL_STENCIL_TEST)
+		GL.glStencilFunc(GL.GL_EQUAL, 1, 2)
+		GL.glStencilOp(GL.GL_KEEP, GL.GL_KEEP, GL.GL_INCR)
 
-	height = -lheight + 1.0
+	lerped = s_lerped.tolist() # Q2PORT: python floats for the per vertex loop below
 
-	point = np.zeros((3,), dtype=np.float32)
-	o = 0 # order offset
 	while True:
 
 		# get the vertex count and primitive type
 		count = order[o]
 		o += 1
+
 		if not count:
-			break		# done
+
+			break # done
+
 		if count < 0:
 
 			count = -count
-			GL.glBegin (GL.GL_TRIANGLE_FAN)
+			gl1_buffer.R_SetBufferIndices(GL.GL_TRIANGLE_FAN, count)
 
 		else:
-			GL.glBegin (GL.GL_TRIANGLE_STRIP)
 
-		for _ in range(count):
+			gl1_buffer.R_SetBufferIndices(GL.GL_TRIANGLE_STRIP, count)
+
+		while True:
 
 			# normals and vertexes come from the frame list
-			"""
-			point[0] = verts[order[2]].v[0] * frame->scale[0] + frame->translate[0];
-			point[1] = verts[order[2]].v[1] * frame->scale[1] + frame->translate[1];
-			point[2] = verts[order[2]].v[2] * frame->scale[2] + frame->translate[2];
-			"""
+			point[:] = lerped[order[o + 2]][:3] # memcpy(point, s_lerped[order[2]], sizeof(point));
 
-			point[:] = s_lerped[order[o+2]] # memcpy( point, s_lerped[order[2]], sizeof( point )  );
-
-			point[0] -= shadevector[0]*(point[2]+lheight)
-			point[1] -= shadevector[1]*(point[2]+lheight)
+			point[0] -= shadevector[0] * (point[2] + lheight)
+			point[1] -= shadevector[1] * (point[2] + lheight)
 			point[2] = height
-#			height -= 0.001;
-			GL.glVertex3fv (point)
+
+			gl1_buffer.GLBUFFER_VERTEX( point[0], point[1], point[2] )
 
 			o += 3
 
-#			verts++;
+			count -= 1
+			if not count: # while (--count);
+				break
 
-		GL.glEnd ()
+	gl1_buffer.R_ApplyGLBuffer()
 
+	# stencilbuffer shadows
+	if stencilt:
 
-"""
-** R_CullAliasModel
-"""
-def R_CullAliasModel (bbox, e): #vec3_t[8], entity_t * (returns qboolean)
+		GL.glDisable(GL.GL_STENCIL_TEST)
+
+def R_CullAliasModel(currentmodel, bbox, e): #const model_t *, vec3_t [8], entity_t * (returns qboolean) (static)
 
 	"""
 	int i;
-	vec3_t		mins, maxs;
-	dmdl_t		*paliashdr;
-	vec3_t		vectors[3];
-	vec3_t		thismins, oldmins, thismaxs, oldmaxs;
+	vec3_t mins, maxs;
+	dmdl_t *paliashdr;
+	vec3_t vectors[3];
+	vec3_t thismins, oldmins, thismaxs, oldmaxs;
 	daliasframe_t *pframe, *poldframe;
 	vec3_t angles;
 	"""
-	currentmodel = gl1_main.currentmodel
+	mins = np.zeros((3,), dtype=np.float32)
+	maxs = np.zeros((3,), dtype=np.float32)
+	vectors = [np.zeros((3,), dtype=np.float32) for _ in range(3)]
 
 	paliashdr = currentmodel.extradata
 
-	if ( e.frame >= paliashdr.num_frames ) or ( e.frame < 0 ):
+	if (e.frame >= paliashdr.num_frames) or (e.frame < 0):
 
-		gl1_main.ri.Con_Printf (shared.PRINT_ALL, "R_CullAliasModel {}: no such frame {}\n".format(
-			currentmodel.name, e.frame))
+		clientserver.Com_DPrintf("{} {}: no such frame {}\n".format("R_CullAliasModel",
+				currentmodel.name, e.frame))
 		e.frame = 0
 
-	if ( e.oldframe >= paliashdr.num_frames ) or ( e.oldframe < 0 ):
+	if (e.oldframe >= paliashdr.num_frames) or (e.oldframe < 0):
 
-		gl1_main.ri.Con_Printf (shared.PRINT_ALL, "R_CullAliasModel {}: no such oldframe {}\n".format(
-			currentmodel.name, e.oldframe))
+		clientserver.Com_DPrintf("{} {}: no such oldframe {}\n".format("R_CullAliasModel",
+				currentmodel.name, e.oldframe))
 		e.oldframe = 0
 
 	pframe = paliashdr.frames[e.frame]
 
 	poldframe = paliashdr.frames[e.oldframe]
 
-	#
 	# compute axially aligned mins and maxs
-	#
-	mins = np.zeros((3,), dtype=np.float32)
-	maxs = np.zeros((3,), dtype=np.float32)
 	if pframe is poldframe:
 
 		for i in range(3):
 
 			mins[i] = pframe.translate[i]
-			maxs[i] = mins[i] + pframe.scale[i]*255
+			maxs[i] = mins[i] + pframe.scale[i] * 255
 
 	else:
 
 		for i in range(3):
 
 			thismins = pframe.translate[i]
-			thismaxs = thismins + pframe.scale[i]*255
+			thismaxs = thismins + pframe.scale[i] * 255
 
-			oldmins  = poldframe.translate[i]
-			oldmaxs  = oldmins + poldframe.scale[i]*255
+			oldmins = poldframe.translate[i]
+			oldmaxs = oldmins + poldframe.scale[i] * 255
 
 			if thismins < oldmins:
+
 				mins[i] = thismins
+
 			else:
+
 				mins[i] = oldmins
 
 			if thismaxs > oldmaxs:
+
 				maxs[i] = thismaxs
+
 			else:
+
 				maxs[i] = oldmaxs
 
-	#
 	# compute a full bounding box
-	#
 	for i in range(8):
 
 		tmp = np.zeros((3,), dtype=np.float32) #vec3_t
 
 		if i & 1:
+
 			tmp[0] = mins[0]
+
 		else:
+
 			tmp[0] = maxs[0]
 
 		if i & 2:
+
 			tmp[1] = mins[1]
+
 		else:
+
 			tmp[1] = maxs[1]
 
 		if i & 4:
+
 			tmp[2] = mins[2]
+
 		else:
+
 			tmp[2] = maxs[2]
 
-		shared.VectorCopy( tmp, bbox[i] )
+		shared.VectorCopy(tmp, bbox[i])
 
-	#
 	# rotate the bounding box
-	#
-	angles = e.angles.copy() # VectorCopy( e->angles, angles );
+	angles = e.angles.copy() # VectorCopy(e->angles, angles);
 	angles[gl1_main.YAW] = -angles[gl1_main.YAW]
-	vectors = [np.zeros((3,), dtype=np.float32) for _ in range(3)]
-	shared_c.AngleVectors( angles, vectors[0], vectors[1], vectors[2] )
+	shared_c.AngleVectors(angles, vectors[0], vectors[1], vectors[2])
 
 	for i in range(8):
 
-		tmp = bbox[i].copy() # VectorCopy( bbox[i], tmp );
+		tmp = bbox[i].copy() # VectorCopy(bbox[i], tmp);
 
-		bbox[i][0] = shared.DotProduct( vectors[0], tmp )
-		bbox[i][1] = -shared.DotProduct( vectors[1], tmp )
-		bbox[i][2] = shared.DotProduct( vectors[2], tmp )
+		bbox[i][0] = shared.DotProduct(vectors[0], tmp)
+		bbox[i][1] = -shared.DotProduct(vectors[1], tmp)
+		bbox[i][2] = shared.DotProduct(vectors[2], tmp)
 
-		shared.VectorAdd( e.origin, bbox[i], bbox[i] )
+		shared.VectorAdd(e.origin, bbox[i], bbox[i])
 
 	#int p, f, aggregatemask = ~0;
 	aggregatemask = ~0
@@ -544,67 +432,59 @@ def R_CullAliasModel (bbox, e): #vec3_t[8], entity_t * (returns qboolean)
 
 		for f in range(4):
 
-			dp = shared.DotProduct( gl1_main.frustum[f].normal, bbox[p] )
+			dp = shared.DotProduct(gl1_main.frustum[f].normal, bbox[p])
 
-			if ( dp - gl1_main.frustum[f].dist ) < 0:
+			if (dp - gl1_main.frustum[f].dist) < 0:
 
-				mask |= ( 1 << f )
+				mask |= (1 << f)
 
 		aggregatemask &= mask
 
 	if aggregatemask:
+
 		return True
 
 	return False
 
-
-"""
-=================
-R_DrawAliasModel
-
-=================
-"""
-def R_DrawAliasModel (e): #entity_t *
+def R_DrawAliasModel(currententity, currentmodel): #entity_t *, const model_t *
 
 	global shadedots
 
 	"""
-	int			i;
-	dmdl_t		*paliashdr;
-	float		an;
-	vec3_t		bbox[8];
-	image_t		*skin;
+	int i;
+	dmdl_t *paliashdr;
+	float an;
+	vec3_t bbox[8];
+	image_t *skin;
 	"""
-	currententity = gl1_main.currententity
-	currentmodel = gl1_main.currentmodel
 	bbox = np.zeros((8, 3), dtype=np.float32)
 
-	if not ( e.flags & shared.RF_WEAPONMODEL ):
+	if not (currententity.flags & shared.RF_WEAPONMODEL):
 
-		if R_CullAliasModel( bbox, e ):
+		if R_CullAliasModel(currentmodel, bbox, currententity):
+
 			return
 
-	if e.flags & shared.RF_WEAPONMODEL:
+	if currententity.flags & shared.RF_WEAPONMODEL:
 
 		if gl1_main.gl_lefthand.value == 2:
+
 			return
 
 	paliashdr = currentmodel.extradata
 
-	#
 	# get lighting information
-	#
-	# PMM - rewrote, reordered to handle new shells & mixing
-	# PMM - 3.20 code .. replaced with original way of doing it to keep mod authors happy
-	#
-	if currententity.flags & ( shared.RF_SHELL_HALF_DAM | shared.RF_SHELL_GREEN | shared.RF_SHELL_RED | shared.RF_SHELL_BLUE | shared.RF_SHELL_DOUBLE ):
+	if (currententity.flags &
+		(shared.RF_SHELL_HALF_DAM | shared.RF_SHELL_GREEN | shared.RF_SHELL_RED |
+		 shared.RF_SHELL_BLUE | shared.RF_SHELL_DOUBLE)):
 
-		shared.VectorClear (shadelight)
+		shared.VectorClear(shadelight)
+
 		if currententity.flags & shared.RF_SHELL_HALF_DAM:
 
-				shadelight[0] = 0.56
-				shadelight[1] = 0.59
-				shadelight[2] = 0.45
+			shadelight[0] = 0.56
+			shadelight[1] = 0.59
+			shadelight[2] = 0.45
 
 		if currententity.flags & shared.RF_SHELL_DOUBLE:
 
@@ -612,215 +492,197 @@ def R_DrawAliasModel (e): #entity_t *
 			shadelight[1] = 0.7
 
 		if currententity.flags & shared.RF_SHELL_RED:
+
 			shadelight[0] = 1.0
+
 		if currententity.flags & shared.RF_SHELL_GREEN:
+
 			shadelight[1] = 1.0
+
 		if currententity.flags & shared.RF_SHELL_BLUE:
+
 			shadelight[2] = 1.0
 
 	elif currententity.flags & shared.RF_FULLBRIGHT:
 
 		for i in range(3):
+
 			shadelight[i] = 1.0
 
 	else:
 
-		gl1_light.R_LightPoint (currententity, currententity.origin, shadelight)
+		gl1_light.R_LightPoint(currententity, currententity.origin, shadelight)
 
 		# player lighting hack for communication back to server
-		# big hack!
 		if currententity.flags & shared.RF_WEAPONMODEL:
 
-			# pick the greatest component, which should be the same
-			# as the mono value returned by software
+			# pick the greatest component, which should be
+			# the same as the mono value returned by software
 			if shadelight[0] > shadelight[1]:
 
 				if shadelight[0] > shadelight[2]:
-					gl1_main.r_lightlevel.value = 150*shadelight[0]
+
+					gl1_main.r_lightlevel.value = 150 * shadelight[0]
+
 				else:
-					gl1_main.r_lightlevel.value = 150*shadelight[2]
+
+					gl1_main.r_lightlevel.value = 150 * shadelight[2]
 
 			else:
 
 				if shadelight[1] > shadelight[2]:
-					gl1_main.r_lightlevel.value = 150*shadelight[1]
+
+					gl1_main.r_lightlevel.value = 150 * shadelight[1]
+
 				else:
-					gl1_main.r_lightlevel.value = 150*shadelight[2]
+
+					gl1_main.r_lightlevel.value = 150 * shadelight[2]
 
 	if currententity.flags & shared.RF_MINLIGHT:
 
 		for i in range(3):
+
 			if shadelight[i] > 0.1:
+
 				break
-		else: # i == 3 in C
+
+		else: # i == 3
 
 			shadelight[0] = 0.1
 			shadelight[1] = 0.1
 			shadelight[2] = 0.1
 
 	if currententity.flags & shared.RF_GLOW:
-		# bonus items will pulse with time
-		#float	scale;
-		#float	min;
 
-		scale = 0.1 * math.sin(gl1_main.r_newrefdef.time*7)
+		# bonus items will pulse with time
+		#float scale;
+		#float min;
+
+		scale = 0.1 * math.sin(gl1_main.r_newrefdef.time * 7)
+
 		for i in range(3):
 
-			min_light = shadelight[i] * 0.8
+			min_ = shadelight[i] * 0.8
 			shadelight[i] += scale
-			if shadelight[i] < min_light:
-				shadelight[i] = min_light
 
-# =================
-# PGM	ir goggles color override
-	if gl1_main.r_newrefdef.rdflags & shared.RDF_IRGOGGLES and currententity.flags & shared.RF_IR_VISIBLE:
+			if shadelight[i] < min_:
+
+				shadelight[i] = min_
+
+	# Apply gl1_overbrightbits to the mesh. If we don't do this they will appear slightly dimmer relative to walls.
+	if gl1_main.gl1_overbrightbits.value:
+
+		for i in range(3):
+
+			shadelight[i] *= gl1_main.gl1_overbrightbits.value
+
+	# ir goggles color override
+	if (gl1_main.r_newrefdef.rdflags & shared.RDF_IRGOGGLES and currententity.flags &
+		shared.RF_IR_VISIBLE):
 
 		shadelight[0] = 1.0
 		shadelight[1] = 0.0
 		shadelight[2] = 0.0
 
-# PGM
-# =================
+	shadedots = r_avertexnormal_dots[(int(currententity.angles[1] *
+				(SHADEDOT_QUANT / 360.0))) & (SHADEDOT_QUANT - 1)]
 
-	shadedots = r_avertexnormal_dots[(int(currententity.angles[1] * (SHADEDOT_QUANT / 360.0))) & (SHADEDOT_QUANT - 1)]
-
-	an = currententity.angles[1]/180*math.pi
+	an = currententity.angles[1] / 180 * math.pi
 	shadevector[0] = math.cos(-an)
 	shadevector[1] = math.sin(-an)
 	shadevector[2] = 1
-	shared_c.VectorNormalize (shadevector)
+	shared_c.VectorNormalize(shadevector)
 
-	#
 	# locate the proper data
-	#
-
 	gl1_main.c_alias_polys += paliashdr.num_tris
 
-	#
-	# draw all the triangles
-	#
-	if currententity.flags & shared.RF_DEPTHHACK: # hack the depth range to prevent view model from poking into walls
-		GL.glDepthRange (gl1_main.gldepthmin, gl1_main.gldepthmin + 0.3*(gl1_main.gldepthmax-gl1_main.gldepthmin))
-
-	# Q2PORT: Yamagi sets up the weapon projection (r_gunfov, left hand) in
-	# R_ApplyGLBuffer's buf_alias case; this immediate-mode draw does it here
-	if currententity.flags & shared.RF_WEAPONMODEL:
-
-		GL.glMatrixMode( GL.GL_PROJECTION )
-		GL.glPushMatrix()
-		GL.glLoadIdentity()
-
-		if gl1_main.gl_lefthand.value == 1.0:
-			GL.glScalef( -1, 1, 1 )
-
-		gl1_main.R_SetPerspective( gl1_main.r_newrefdef.fov_y if (gl1_main.r_gunfov.value < 0) else gl1_main.r_gunfov.value )
-
-		GL.glMatrixMode( GL.GL_MODELVIEW )
-
-		if gl1_main.gl_lefthand.value == 1.0:
-			GL.glCullFace( GL.GL_BACK )
-
-	GL.glPushMatrix ()
-	e.angles[gl1_main.PITCH] = -e.angles[gl1_main.PITCH]	# sigh.
-	gl1_main.R_RotateForEntity (e)
-	e.angles[gl1_main.PITCH] = -e.angles[gl1_main.PITCH]	# sigh.
+	GL.glPushMatrix()
+	currententity.angles[gl1_main.PITCH] = -currententity.angles[gl1_main.PITCH]
+	gl1_main.R_RotateForEntity(currententity)
+	currententity.angles[gl1_main.PITCH] = -currententity.angles[gl1_main.PITCH]
 
 	# select skin
-	if currententity.skin is not None:
-		skin = currententity.skin	# custom player skin
+	if currententity.skin:
+
+		skin = currententity.skin # custom player skin
+
 	else:
 
 		if currententity.skinnum >= files_h.MAX_MD2SKINS:
+
 			skin = currentmodel.skins[0]
+
 		else:
 
 			skin = currentmodel.skins[currententity.skinnum]
-			if skin is None:
+
+			if not skin:
+
 				skin = currentmodel.skins[0]
 
-	if skin is None:
-		skin = gl1_main.r_notexture	# fallback...
-	# FIXME r_notexture is None until R_InitParticleTexture is ported, so draw untextured
-	gl1_image.R_Bind(skin.texnum if skin is not None else 0)
+	if not skin:
 
-	# draw it
+		skin = gl1_main.r_notexture # fallback...
 
-	GL.glShadeModel (GL.GL_SMOOTH)
+	if ((currententity.frame >= paliashdr.num_frames) or
+		(currententity.frame < 0)):
 
-	gl1_image.R_TexEnv( GL.GL_MODULATE )
-	if currententity.flags & shared.RF_TRANSLUCENT:
-
-		GL.glEnable (GL.GL_BLEND)
-
-	if ( (currententity.frame >= paliashdr.num_frames)
-		or (currententity.frame < 0) ):
-
-		gl1_main.ri.Con_Printf (shared.PRINT_ALL, "R_DrawAliasModel {}: no such frame {}\n".format(
-			currentmodel.name, currententity.frame))
+		clientserver.Com_DPrintf("{} {}: no such frame {}\n".format("R_DrawAliasModel",
+				currentmodel.name, currententity.frame))
 		currententity.frame = 0
 		currententity.oldframe = 0
 
-	if ( (currententity.oldframe >= paliashdr.num_frames)
-		or (currententity.oldframe < 0)):
+	if ((currententity.oldframe >= paliashdr.num_frames) or
+		(currententity.oldframe < 0)):
 
-		gl1_main.ri.Con_Printf (shared.PRINT_ALL, "R_DrawAliasModel {}: no such oldframe {}\n".format(
-			currentmodel.name, currententity.oldframe))
+		clientserver.Com_DPrintf("{} {}: no such oldframe {}\n".format("R_DrawAliasModel",
+				currentmodel.name, currententity.oldframe))
 		currententity.frame = 0
 		currententity.oldframe = 0
 
 	if not gl1_main.r_lerpmodels.value:
+
 		currententity.backlerp = 0
-	R_DrawAliasFrameLerp (paliashdr, currententity.backlerp)
 
-	gl1_image.R_TexEnv( GL.GL_REPLACE )
-	GL.glShadeModel (GL.GL_FLAT)
+	gl1_buffer.R_UpdateGLBuffer(gl1_buffer.buf_alias, skin.texnum, 0, currententity.flags, 1)
+	R_DrawAliasFrameLerp(currententity, paliashdr, currententity.backlerp)
+	gl1_buffer.R_ApplyGLBuffer()
 
-	GL.glPopMatrix ()
+	gl1_image.R_TexEnv(GL.GL_REPLACE)
+	GL.glShadeModel(GL.GL_FLAT)
 
-	"""
-#if 0
-	qglDisable( GL_CULL_FACE );
-	qglPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-	qglDisable( GL_TEXTURE_2D );
-	qglBegin( GL_TRIANGLE_STRIP );
-	for ( i = 0; i < 8; i++ )
-	{
-		qglVertex3fv( bbox[i] );
-	}
-	qglEnd();
-	qglEnable( GL_TEXTURE_2D );
-	qglPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
-	qglEnable( GL_CULL_FACE );
-#endif
-	"""
+	GL.glPopMatrix()
 
-	if currententity.flags & shared.RF_WEAPONMODEL:
+	if gl1_main.gl_showbbox.value:
 
-		GL.glMatrixMode( GL.GL_PROJECTION )
+		GL.glDisable(GL.GL_CULL_FACE)
+		GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
+		GL.glDisable(GL.GL_TEXTURE_2D)
+
+		GL.glEnableClientState(GL.GL_VERTEX_ARRAY)
+		GL.glVertexPointer(3, GL.GL_FLOAT, 0, bbox)
+		GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 8)
+		GL.glDisableClientState(GL.GL_VERTEX_ARRAY)
+
+		GL.glEnable(GL.GL_TEXTURE_2D)
+		GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+		GL.glEnable(GL.GL_CULL_FACE)
+
+	if (gl1_main.gl_shadows.value and
+		not (currententity.flags & (shared.RF_TRANSLUCENT | shared.RF_WEAPONMODEL | shared.RF_NOSHADOW))):
+
+		GL.glPushMatrix()
+
+		# don't rotate shadows on ungodly axes
+		GL.glTranslatef(currententity.origin[0], currententity.origin[1], currententity.origin[2])
+		GL.glRotatef(currententity.angles[1], 0, 0, 1)
+
+		GL.glDisable(GL.GL_TEXTURE_2D)
+		GL.glEnable(GL.GL_BLEND)
+		GL.glColor4f(0, 0, 0, 0.5)
+		R_DrawAliasShadow(currententity, paliashdr, currententity.frame)
+		GL.glEnable(GL.GL_TEXTURE_2D)
+		GL.glDisable(GL.GL_BLEND)
 		GL.glPopMatrix()
-		GL.glMatrixMode( GL.GL_MODELVIEW )
-		if gl1_main.gl_lefthand.value == 1.0:
-			GL.glCullFace( GL.GL_FRONT )
 
-	if currententity.flags & shared.RF_TRANSLUCENT:
-
-		GL.glDisable (GL.GL_BLEND)
-
-	if currententity.flags & shared.RF_DEPTHHACK:
-		GL.glDepthRange (gl1_main.gldepthmin, gl1_main.gldepthmax)
-
-#if 1
-	if gl1_main.gl_shadows.value and not (currententity.flags & (shared.RF_TRANSLUCENT | shared.RF_WEAPONMODEL)):
-
-		GL.glPushMatrix ()
-		gl1_main.R_RotateForEntity (e)
-		GL.glDisable (GL.GL_TEXTURE_2D)
-		GL.glEnable (GL.GL_BLEND)
-		GL.glColor4f (0,0,0,0.5)
-		R_DrawAliasShadow (paliashdr, currententity.frame )
-		GL.glEnable (GL.GL_TEXTURE_2D)
-		GL.glDisable (GL.GL_BLEND)
-		GL.glPopMatrix ()
-
-#endif
-	GL.glColor4f (1,1,1,1)
+	GL.glColor4f(1, 1, 1, 1)

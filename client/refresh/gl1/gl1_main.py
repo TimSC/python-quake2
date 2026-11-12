@@ -34,7 +34,7 @@ from client import ref
 from client.refresh.gl1 import gl1_draw, gl1_image, gl1_misc, gl1_model, gl1_warp, gl1_surf, gl1_mesh, gl1_light, \
 	gl1_scrap, gl1_buffer, gl1_sdl, gl1_lightmap, qgl
 from client.refresh.gl1.header import model, qgl as qgl_h
-from client.refresh.files import models as files_models, pcx as files_pcx
+from client.refresh.files import models as files_models, pcx as files_pcx, surf as files_surf
 from common import clientserver
 from common.header import common as common_h
 from common.header import files as files_h
@@ -253,7 +253,6 @@ gl1_waterwarp = None #static cvar_t *
 gl1_tilerendering = None #static cvar_t *, this is always "forced on" in GLES1
 #endif
 
-gl_vertex_arrays = None #cvar_t *, Q2PORT: id's, read by gl1_mesh until it is ported
 
 ri = ref.refimport_t() #refimport_t
 
@@ -261,49 +260,6 @@ ri = ref.refimport_t() #refimport_t
 #extern void R_SetDefaultState(void);
 #extern void R_ResetGLBuffer(void);
 
-# Q2PORT: the entity being drawn, still passed this way by the id-era gl1_mesh,
-# gl1_surf and gl1_light code (Yamagi passes it as an argument)
-currententity = None #entity_t *
-currentmodel = None #model_t *
-
-def SignbitsForPlane(out):
-    bits = 0
-    for j in range(3):
-        if out.normal[j] < 0:
-            bits |= 1 << j
-    return bits
-
-
-def R_SetFrustum():
-    shared_c.RotatePointAroundVector(
-        frustum[0].normal,
-        vup,
-        vpn,
-        -(90 - r_newrefdef.fov_x / 2.0),
-    )
-    shared_c.RotatePointAroundVector(
-        frustum[1].normal,
-        vup,
-        vpn,
-        90 - r_newrefdef.fov_x / 2.0,
-    )
-    shared_c.RotatePointAroundVector(
-        frustum[2].normal,
-        vright,
-        vpn,
-        90 - r_newrefdef.fov_y / 2.0,
-    )
-    shared_c.RotatePointAroundVector(
-        frustum[3].normal,
-        vright,
-        vpn,
-        -(90 - r_newrefdef.fov_y / 2.0),
-    )
-
-    for i in range(4):
-        frustum[i].type = files_h.PLANE_ANYZ
-        frustum[i].dist = shared.DotProduct(r_origin, frustum[i].normal)
-        frustum[i].signbits = SignbitsForPlane(frustum[i])
 
 def R_RotateForEntity (e): #entity_t *
 
@@ -327,211 +283,228 @@ R_DrawSpriteModel
 
 =================
 """
-def R_DrawSpriteModel (e): #entity_t *
+def R_DrawSpriteModel(currententity, currentmodel): #entity_t *, const model_t *
 
 	"""
 	float alpha = 1.0F;
-	vec3_t	point;
-	dsprframe_t	*frame;
-	float		*up, *right;
-	dsprite_t		*psprite;
+	vec3_t point[4];
+	dsprframe_t *frame;
+	float *up, *right;
+	dsprite_t *psprite;
+	image_t *skin;
 	"""
 	alpha = 1.0
-	point = np.zeros((3,), dtype=np.float32)
+	point = np.zeros((4, 3), dtype=np.float32)
 
-	# don't even bother culling, because it's just a single
-	# polygon without a surface cache
-
+	gl1_image.R_EnableMultitexture(False)
+	# don't even bother culling, because it's just
+	# a single polygon without a surface cache
 	psprite = currentmodel.extradata
 
-	e.frame %= psprite.numframes
+	currententity.frame %= psprite.numframes
+	frame = psprite.frames[currententity.frame]
 
-	frame = psprite.frames[e.frame]
-
-	"""
-#if 0
-	if (psprite->type == SPR_ORIENTED)
-	{	// bullet marks on walls
-	vec3_t		v_forward, v_right, v_up;
-
-	AngleVectors (currententity->angles, v_forward, v_right, v_up);
-		up = v_up;
-		right = v_right;
-	}
-	else
-#endif
-	"""
 	# normal sprite
 	up = vup
 	right = vright
 
-	if e.flags & shared.RF_TRANSLUCENT:
-		alpha = e.alpha
+	if currententity.flags & shared.RF_TRANSLUCENT:
+
+		alpha = currententity.alpha
 
 	if alpha != 1.0:
-		GL.glEnable( GL.GL_BLEND )
 
-	GL.glColor4f( 1, 1, 1, alpha )
+		GL.glEnable(GL.GL_BLEND)
 
-	gl1_image.R_Bind(currentmodel.skins[e.frame].texnum)
+	GL.glColor4f(1, 1, 1, alpha)
 
-	gl1_image.R_TexEnv( GL.GL_MODULATE )
+	skin = currentmodel.skins[currententity.frame]
+	if not skin:
+
+		skin = r_notexture # fallback...
+
+	gl1_image.R_Bind(skin.texnum)
+
+	gl1_image.R_TexEnv(GL.GL_MODULATE)
 
 	if alpha == 1.0:
-		GL.glEnable (GL.GL_ALPHA_TEST)
+
+		GL.glEnable(GL.GL_ALPHA_TEST)
+
 	else:
-		GL.glDisable( GL.GL_ALPHA_TEST )
 
-	GL.glBegin (GL.GL_QUADS)
+		GL.glDisable(GL.GL_ALPHA_TEST)
 
-	GL.glTexCoord2f (0, 1)
-	shared_c.VectorMA (e.origin, -frame.origin_y, up, point)
-	shared_c.VectorMA (point, -frame.origin_x, right, point)
-	GL.glVertex3fv (point)
+	tex = np.array([ #GLfloat[]
+		0, 1,
+		0, 0,
+		1, 0,
+		1, 1
+	], dtype=np.float32)
 
-	GL.glTexCoord2f (0, 0)
-	shared_c.VectorMA (e.origin, frame.height - frame.origin_y, up, point)
-	shared_c.VectorMA (point, -frame.origin_x, right, point)
-	GL.glVertex3fv (point)
+	shared_c.VectorMA( currententity.origin, -frame.origin_y, up, point[0] )
+	shared_c.VectorMA( point[0], -frame.origin_x, right, point[0] )
 
-	GL.glTexCoord2f (1, 0)
-	shared_c.VectorMA (e.origin, frame.height - frame.origin_y, up, point)
-	shared_c.VectorMA (point, frame.width - frame.origin_x, right, point)
-	GL.glVertex3fv (point)
+	shared_c.VectorMA( currententity.origin, frame.height - frame.origin_y, up, point[1] )
+	shared_c.VectorMA( point[1], -frame.origin_x, right, point[1] )
 
-	GL.glTexCoord2f (1, 1)
-	shared_c.VectorMA (e.origin, -frame.origin_y, up, point)
-	shared_c.VectorMA (point, frame.width - frame.origin_x, right, point)
-	GL.glVertex3fv (point)
-	
-	GL.glEnd ()
+	shared_c.VectorMA( currententity.origin, frame.height - frame.origin_y, up, point[2] )
+	shared_c.VectorMA( point[2], frame.width - frame.origin_x, right, point[2] )
 
-	GL.glDisable (GL.GL_ALPHA_TEST)
-	gl1_image.R_TexEnv( GL.GL_REPLACE )
+	shared_c.VectorMA( currententity.origin, -frame.origin_y, up, point[3] )
+	shared_c.VectorMA( point[3], frame.width - frame.origin_x, right, point[3] )
+
+	GL.glEnableClientState( GL.GL_VERTEX_ARRAY )
+	GL.glEnableClientState( GL.GL_TEXTURE_COORD_ARRAY )
+
+	GL.glVertexPointer( 3, GL.GL_FLOAT, 0, point )
+	GL.glTexCoordPointer( 2, GL.GL_FLOAT, 0, tex )
+	GL.glDrawArrays( GL.GL_TRIANGLE_FAN, 0, 4 )
+
+	GL.glDisableClientState( GL.GL_VERTEX_ARRAY )
+	GL.glDisableClientState( GL.GL_TEXTURE_COORD_ARRAY )
+
+	GL.glDisable(GL.GL_ALPHA_TEST)
+	gl1_image.R_TexEnv(GL.GL_REPLACE)
 
 	if alpha != 1.0:
-		GL.glDisable( GL.GL_BLEND )
 
-	GL.glColor4f( 1, 1, 1, 1 )
+		GL.glDisable(GL.GL_BLEND)
 
-#==================================================================================
+	GL.glColor4f(1, 1, 1, 1)
 
-"""
-=============
-R_DrawNullModel
-=============
-"""
-def R_DrawNullModel ():
+def R_DrawNullModel(currententity): #entity_t *
 
-	"""
-	vec3_t	shadelight;
-	int		i;
-	"""
+	#vec3_t shadelight;
 	shadelight = np.zeros((3,), dtype=np.float32)
 
 	if currententity.flags & shared.RF_FULLBRIGHT:
+
 		shadelight[0] = shadelight[1] = shadelight[2] = 1.0
+
 	else:
-		gl1_light.R_LightPoint (currententity, currententity.origin, shadelight)
 
-	GL.glPushMatrix ()
-	R_RotateForEntity (currententity)
+		gl1_light.R_LightPoint(currententity, currententity.origin, shadelight)
 
-	GL.glDisable (GL.GL_TEXTURE_2D)
-	GL.glColor3fv (shadelight)
+	gl1_image.R_EnableMultitexture(False)
+	GL.glPushMatrix()
+	R_RotateForEntity(currententity)
 
-	GL.glBegin (GL.GL_TRIANGLE_FAN)
-	GL.glVertex3f (0, 0, -16)
-	for i in range(5):
-		GL.glVertex3f (16*math.cos(i*math.pi/2), 16*math.sin(i*math.pi/2), 0)
-	GL.glEnd ()
+	GL.glDisable(GL.GL_TEXTURE_2D)
+	GL.glColor4f( shadelight[0], shadelight[1], shadelight[2], 1 )
 
-	GL.glBegin (GL.GL_TRIANGLE_FAN)
-	GL.glVertex3f (0, 0, 16)
-	for i in range(4, -1, -1):
-		GL.glVertex3f (16*math.cos(i*math.pi/2), 16*math.sin(i*math.pi/2), 0)
-	GL.glEnd ()
+	vtxA = np.array([ #GLfloat[]
+		0, 0, -16,
+		16 * math.cos( 0 * math.pi / 2 ), 16 * math.sin( 0 * math.pi / 2 ), 0,
+		16 * math.cos( 1 * math.pi / 2 ), 16 * math.sin( 1 * math.pi / 2 ), 0,
+		16 * math.cos( 2 * math.pi / 2 ), 16 * math.sin( 2 * math.pi / 2 ), 0,
+		16 * math.cos( 3 * math.pi / 2 ), 16 * math.sin( 3 * math.pi / 2 ), 0,
+		16 * math.cos( 4 * math.pi / 2 ), 16 * math.sin( 4 * math.pi / 2 ), 0
+	], dtype=np.float32)
 
-	GL.glColor3f (1,1,1)
-	GL.glPopMatrix ()
-	GL.glEnable (GL.GL_TEXTURE_2D)
+	GL.glEnableClientState( GL.GL_VERTEX_ARRAY )
 
+	GL.glVertexPointer( 3, GL.GL_FLOAT, 0, vtxA )
+	GL.glDrawArrays( GL.GL_TRIANGLE_FAN, 0, 6 )
 
-"""
-=============
-R_DrawEntitiesOnList
-=============
-"""
-def R_DrawEntitiesOnList ():
+	GL.glDisableClientState( GL.GL_VERTEX_ARRAY )
 
-	global currententity, currentmodel
+	vtxB = np.array([ #GLfloat[]
+		0, 0, 16,
+		16 * math.cos( 4 * math.pi / 2 ), 16 * math.sin( 4 * math.pi / 2 ), 0,
+		16 * math.cos( 3 * math.pi / 2 ), 16 * math.sin( 3 * math.pi / 2 ), 0,
+		16 * math.cos( 2 * math.pi / 2 ), 16 * math.sin( 2 * math.pi / 2 ), 0,
+		16 * math.cos( 1 * math.pi / 2 ), 16 * math.sin( 1 * math.pi / 2 ), 0,
+		16 * math.cos( 0 * math.pi / 2 ), 16 * math.sin( 0 * math.pi / 2 ), 0
+	], dtype=np.float32)
 
-	#int		i;
+	GL.glEnableClientState( GL.GL_VERTEX_ARRAY )
+
+	GL.glVertexPointer( 3, GL.GL_FLOAT, 0, vtxB )
+	GL.glDrawArrays( GL.GL_TRIANGLE_FAN, 0, 6 )
+
+	GL.glDisableClientState( GL.GL_VERTEX_ARRAY )
+
+	GL.glColor4f(1, 1, 1, 1)
+	GL.glPopMatrix()
+	GL.glEnable(GL.GL_TEXTURE_2D)
+
+def R_DrawEntitiesOnList(): #void
+
+	#int i;
 
 	if not r_drawentities.value:
+
 		return
 
 	# draw non-transparent first
 	for i in range(r_newrefdef.num_entities):
-	
+
 		currententity = r_newrefdef.entities[i]
+
 		if currententity.flags & shared.RF_TRANSLUCENT:
-			continue	# solid
+
+			continue # solid
 
 		if currententity.flags & shared.RF_BEAM:
-		
-			R_DrawBeam( currententity )
-		
+
+			R_DrawBeam(currententity)
+
 		else:
-		
+
 			currentmodel = currententity.model
+
 			if not currentmodel:
-			
-				R_DrawNullModel ()
+
+				R_DrawNullModel(currententity)
 				continue
-			
+
 			if currentmodel.type == model.modtype_t.mod_alias:
-				gl1_mesh.R_DrawAliasModel (currententity)
+				gl1_mesh.R_DrawAliasModel(currententity, currentmodel)
 			elif currentmodel.type == model.modtype_t.mod_brush:
-				gl1_surf.R_DrawBrushModel (currententity)
+				gl1_surf.R_DrawBrushModel(currententity, currentmodel)
 			elif currentmodel.type == model.modtype_t.mod_sprite:
-				R_DrawSpriteModel (currententity)
+				R_DrawSpriteModel(currententity, currentmodel)
 			else:
-				ri.Sys_Error (shared.ERR_DROP, "Bad modeltype")
-			
+				clientserver.Com_Error(shared.ERR_DROP, "Bad modeltype")
 
 	# draw transparent entities
-	# we could sort these if it ever becomes a problem...
-	GL.glDepthMask (0)		# no z writes
+	# we could sort these if it ever
+	# becomes a problem...
+	GL.glDepthMask(GL.GL_FALSE)
+
 	for i in range(r_newrefdef.num_entities):
-	
+
 		currententity = r_newrefdef.entities[i]
+
 		if not (currententity.flags & shared.RF_TRANSLUCENT):
-			continue	# solid
+
+			continue # solid
 
 		if currententity.flags & shared.RF_BEAM:
-		
-			R_DrawBeam( currententity )
-		
-		else:
-		
-			currentmodel = currententity.model
-			if not currentmodel:
-			
-				R_DrawNullModel ()
-				continue
-			
-			if currentmodel.type == model.modtype_t.mod_alias:
-				gl1_mesh.R_DrawAliasModel (currententity)
-			elif currentmodel.type == model.modtype_t.mod_brush:
-				gl1_surf.R_DrawBrushModel (currententity)
-			elif currentmodel.type == model.modtype_t.mod_sprite:
-				R_DrawSpriteModel (currententity)
-			else:
-				ri.Sys_Error (shared.ERR_DROP, "Bad modeltype")
-			
 
-	GL.glDepthMask (1)		# back to writing
+			R_DrawBeam(currententity)
+
+		else:
+
+			currentmodel = currententity.model
+
+			if not currentmodel:
+
+				R_DrawNullModel(currententity)
+				continue
+
+			if currentmodel.type == model.modtype_t.mod_alias:
+				gl1_mesh.R_DrawAliasModel(currententity, currentmodel)
+			elif currentmodel.type == model.modtype_t.mod_brush:
+				gl1_surf.R_DrawBrushModel(currententity, currentmodel)
+			elif currentmodel.type == model.modtype_t.mod_sprite:
+				R_DrawSpriteModel(currententity, currentmodel)
+			else:
+				clientserver.Com_Error(shared.ERR_DROP, "Bad modeltype")
+
+	GL.glDepthMask(GL.GL_TRUE) # back to writing
+	gl1_image.R_EnableMultitexture(False)
 
 def _ParticleArrays(num_particles, particles, colortable): # Q2PORT: shared by both particle draws
 	# The C fills vtx and clr per particle; here numpy arrays of the origins and
@@ -672,114 +645,119 @@ def R_DrawParticles(): #void
 		R_DrawParticles2(r_newrefdef.num_particles,
 				r_newrefdef.particles, gl1_image.d_8to24table)
 
-"""
-============
-R_PolyBlend
-============
-"""
-def R_PolyBlend ():
+def R_PolyBlend(): #void
 
 	if not gl_polyblend.value:
+
 		return
+
 	if not v_blend[3]:
+
 		return
 
-	GL.glDisable (GL.GL_ALPHA_TEST)
-	GL.glEnable (GL.GL_BLEND)
-	GL.glDisable (GL.GL_DEPTH_TEST)
-	GL.glDisable (GL.GL_TEXTURE_2D)
+	GL.glDisable(GL.GL_ALPHA_TEST)
+	GL.glEnable(GL.GL_BLEND)
+	GL.glDisable(GL.GL_DEPTH_TEST)
+	GL.glDisable(GL.GL_TEXTURE_2D)
 
-	GL.glLoadIdentity ()
+	GL.glLoadIdentity()
 
-	# FIXME: get rid of these
-	GL.glRotatef (-90,  1, 0, 0)		# put Z going up
-	GL.glRotatef (90,  0, 0, 1)		# put Z going up
+	GL.glRotatef(-90, 1, 0, 0) # put Z going up
+	GL.glRotatef(90, 0, 0, 1) # put Z going up
 
-	GL.glColor4fv (v_blend)
+	GL.glColor4f( v_blend[0], v_blend[1], v_blend[2], v_blend[3] )
 
-	GL.glBegin (GL.GL_QUADS)
+	vtx = np.array([ #GLfloat[]
+		10, 100, 100,
+		10, -100, 100,
+		10, -100, -100,
+		10, 100, -100
+	], dtype=np.float32)
 
-	GL.glVertex3f (10, 100, 100)
-	GL.glVertex3f (10, -100, 100)
-	GL.glVertex3f (10, -100, -100)
-	GL.glVertex3f (10, 100, -100)
-	GL.glEnd ()
+	GL.glEnableClientState( GL.GL_VERTEX_ARRAY )
 
-	GL.glDisable (GL.GL_BLEND)
-	GL.glEnable (GL.GL_TEXTURE_2D)
-	GL.glEnable (GL.GL_ALPHA_TEST)
+	GL.glVertexPointer( 3, GL.GL_FLOAT, 0, vtx )
+	GL.glDrawArrays( GL.GL_TRIANGLE_FAN, 0, 4 )
 
-	GL.glColor4f(1,1,1,1)
+	GL.glDisableClientState( GL.GL_VERTEX_ARRAY )
 
-"""
-===============
-R_ResetClearColor
-===============
-"""
-def R_ResetClearColor ():
+	GL.glDisable(GL.GL_BLEND)
+	GL.glEnable(GL.GL_TEXTURE_2D)
+	GL.glEnable(GL.GL_ALPHA_TEST)
+
+	GL.glColor4f(1, 1, 1, 1)
+
+def R_ResetClearColor(): #void (static)
 
 	if gl_config.tilerendering and not r_clear.value:
-		GL.glClearColor( 0, 0, 0, 0.5 )
+
+		GL.glClearColor(0, 0, 0, 0.5)
+
 	else:
-		GL.glClearColor( 1, 0, 0.5, 0.5 )
 
+		GL.glClearColor(1, 0, 0.5, 0.5)
 
-"""
-===============
-R_SetupFrame
-===============
-"""
-
-def R_SetupFrame ():
+def R_SetupFrame(): #void
 
 	global r_framecount, r_oldviewcluster, r_oldviewcluster2, r_viewcluster, r_viewcluster2, \
 		c_brush_polys, c_alias_polys
 
-	"""
-	int i;
-	mleaf_t	*leaf;
-	"""
+	#int i;
+	#mleaf_t *leaf;
 
 	r_framecount += 1
 
 	# build the transformation matrix for the given view angles
-	shared.VectorCopy (r_newrefdef.vieworg, r_origin)
+	shared.VectorCopy(r_newrefdef.vieworg, r_origin)
 
-	shared_c.AngleVectors (r_newrefdef.viewangles, vpn, vright, vup)
+	shared_c.AngleVectors(r_newrefdef.viewangles, vpn, vright, vup)
 
 	# current viewcluster
-	if not ( r_newrefdef.rdflags & shared.RDF_NOWORLDMODEL ):
-	
+	if not (r_newrefdef.rdflags & shared.RDF_NOWORLDMODEL):
+
+		if not r_worldmodel:
+
+			clientserver.Com_Error(shared.ERR_DROP, "{}: bad world model".format("R_SetupFrame"))
+			return
+
 		r_oldviewcluster = r_viewcluster
 		r_oldviewcluster2 = r_viewcluster2
-		leaf = files_models.Mod_PointInLeaf (r_origin, r_worldmodel.nodes[0])
+		leaf = files_models.Mod_PointInLeaf(r_origin, r_worldmodel.nodes[0]) # r_worldmodel->nodes
 		r_viewcluster = r_viewcluster2 = leaf.cluster
 
 		# check above and below so crossing solid water doesn't draw wrong
 		if not leaf.contents:
+
 			# look down a bit
 			temp = np.zeros((3,), dtype=np.float32) #vec3_t
 
-			shared.VectorCopy (r_origin, temp)
+			shared.VectorCopy(r_origin, temp)
 			temp[2] -= 16
-			leaf = files_models.Mod_PointInLeaf (temp, r_worldmodel.nodes[0])
-			if ( not (leaf.contents & shared.CONTENTS_SOLID) and
-				(leaf.cluster != r_viewcluster2) ):
+			leaf = files_models.Mod_PointInLeaf(temp, r_worldmodel.nodes[0])
+
+			if (not (leaf.contents & shared.CONTENTS_SOLID) and
+				(leaf.cluster != r_viewcluster2)):
+
 				r_viewcluster2 = leaf.cluster
-		
+
 		else:
+
 			# look up a bit
 			temp = np.zeros((3,), dtype=np.float32) #vec3_t
 
-			shared.VectorCopy (r_origin, temp)
+			shared.VectorCopy(r_origin, temp)
 			temp[2] += 16
-			leaf = files_models.Mod_PointInLeaf (temp, r_worldmodel.nodes[0])
-			if ( not (leaf.contents & shared.CONTENTS_SOLID) and
-				(leaf.cluster != r_viewcluster2) ):
+			leaf = files_models.Mod_PointInLeaf(temp, r_worldmodel.nodes[0])
+
+			if (not (leaf.contents & shared.CONTENTS_SOLID) and
+				(leaf.cluster != r_viewcluster2)):
+
 				r_viewcluster2 = leaf.cluster
-		
+
 	for i in range(3):
+
 		v_blend[i] = r_newrefdef.blend[i] * gl_state.sw_gamma
+
 	v_blend[3] = r_newrefdef.blend[3]
 
 	c_brush_polys = 0
@@ -787,32 +765,32 @@ def R_SetupFrame ():
 
 	# clear out the portion of the screen that the NOWORLDMODEL defines
 	if r_newrefdef.rdflags & shared.RDF_NOWORLDMODEL:
-	
-		GL.glEnable( GL.GL_SCISSOR_TEST )
-		GL.glClearColor( 0.3, 0.3, 0.3, 1 )
-		GL.glScissor( r_newrefdef.x, vid.height - r_newrefdef.height - r_newrefdef.y, r_newrefdef.width, r_newrefdef.height )
-		GL.glClear( GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT )
-		R_ResetClearColor ()
-		GL.glDisable( GL.GL_SCISSOR_TEST )
-	
 
-def R_SetPerspective( fovy ): # GLdouble
+		GL.glEnable(GL.GL_SCISSOR_TEST)
+		GL.glClearColor(0.3, 0.3, 0.3, 1)
+		GL.glScissor(r_newrefdef.x,
+				vid.height - r_newrefdef.height - r_newrefdef.y,
+				r_newrefdef.width, r_newrefdef.height)
+		GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+		R_ResetClearColor()
+		GL.glDisable(GL.GL_SCISSOR_TEST)
 
-	"""
-	// gluPerspective style parameters
-	"""
-	zNear = shared.Q_max( gl_znear.value, 0.1 ) #GLdouble
-	zFar = 8192.0 if r_farsee.value else 4096.0 #GLdouble
-	aspectratio = float(r_newrefdef.width / r_newrefdef.height) #GLdouble
+def R_SetPerspective(fovy): #GLdouble
 
-	# GLdouble xmin, xmax, ymin, ymax;
+	# gluPerspective style parameters
+	zNear = shared.Q_max(gl_znear.value, 0.1) #const GLdouble
+	zFar = 8192.0 if r_farsee.value else 4096.0 #const GLdouble
+	aspectratio = r_newrefdef.width / r_newrefdef.height #const GLdouble
+
+	#GLdouble xmin, xmax, ymin, ymax;
 
 	# traditional gluPerspective calculations - https://youtu.be/YqSNGcF5nvM?t=644
-	ymax = zNear * math.tan( fovy * math.pi / 360.0 )
+	ymax = zNear * math.tan(fovy * math.pi / 360.0)
 	xmax = ymax * aspectratio
 
 	if (r_newrefdef.rdflags & shared.RDF_UNDERWATER) and gl1_waterwarp.value:
-		warp = math.sin( r_newrefdef.time * 1.5 ) * 0.03 * gl1_waterwarp.value #GLdouble
+
+		warp = math.sin(r_newrefdef.time * 1.5) * 0.03 * gl1_waterwarp.value #const GLdouble
 		ymax *= 1.0 - warp
 		xmax *= 1.0 + warp
 
@@ -820,186 +798,153 @@ def R_SetPerspective( fovy ): # GLdouble
 	xmin = -xmax
 
 	if gl_state.camera_separation:
-		separation = - gl1_stereo_convergence.value * (2 * gl_state.camera_separation) / zNear #GLdouble
+
+		separation = - gl1_stereo_convergence.value * (2 * gl_state.camera_separation) / zNear #const GLdouble
 		xmin += separation
 		xmax += separation
 
-	GL.glFrustum( xmin, xmax, ymin, ymax, zNear, zFar )
+	GL.glFrustum(xmin, xmax, ymin, ymax, zNear, zFar)
 
+def R_SetupGL(): #void
 
+	#int x, x2, y2, y, w, h;
 
-"""
-=============
-R_SetupGL
-=============
-"""
-def R_SetupGL ():
-
-	"""
-	float	screenaspect;
-//	float	yfov;
-	int		x, x2, y2, y, w, h;
-	"""
-
-	#
 	# set up viewport
-	#
-	x = math.floor(r_newrefdef.x * vid.width // vid.width)
-	x2 = math.ceil((r_newrefdef.x + r_newrefdef.width) * vid.width // vid.width)
-	y = math.floor(vid.height - r_newrefdef.y * vid.height // vid.height)
-	y2 = math.ceil(vid.height - (r_newrefdef.y + r_newrefdef.height) * vid.height // vid.height)
+	x = math.floor(r_newrefdef.x * vid.width / vid.width)
+	x2 = math.ceil((r_newrefdef.x + r_newrefdef.width) * vid.width / vid.width)
+	y = math.floor(vid.height - r_newrefdef.y * vid.height / vid.height)
+	y2 = math.ceil(vid.height -
+			  (r_newrefdef.y + r_newrefdef.height) * vid.height / vid.height)
 
 	w = x2 - x
 	h = y - y2
 
-	GL.glViewport (x, y2, w, h)
+	drawing_left_eye = gl_state.camera_separation < 0 #qboolean
+	stereo_split_tb = ((gl_state.stereo_mode == STEREO_SPLIT_VERTICAL) and gl_state.camera_separation) #qboolean
+	stereo_split_lr = ((gl_state.stereo_mode == STEREO_SPLIT_HORIZONTAL) and gl_state.camera_separation) #qboolean
 
-	#
+	if stereo_split_lr:
+		w = int(w / 2)
+		x = int(x / 2) if drawing_left_eye else int((x + vid.width) / 2)
+
+	if stereo_split_tb:
+		h = int(h / 2)
+		y2 = int((y2 + vid.height) / 2) if drawing_left_eye else int(y2 / 2)
+
+	GL.glViewport(x, y2, w, h)
+
 	# set up projection matrix
-	#
-	# yfov = 2*atan((float)r_newrefdef.height/r_newrefdef.width)*180/M_PI;
 	GL.glMatrixMode(GL.GL_PROJECTION)
-	GL.glLoadIdentity ()
-	R_SetPerspective (r_newrefdef.fov_y)
+	GL.glLoadIdentity()
+
+	R_SetPerspective(r_newrefdef.fov_y)
 
 	GL.glCullFace(GL.GL_FRONT)
 
 	GL.glMatrixMode(GL.GL_MODELVIEW)
-	GL.glLoadIdentity ()
+	GL.glLoadIdentity()
 
-	GL.glRotatef (-90,  1, 0, 0)		# put Z going up
-	GL.glRotatef (90,  0, 0, 1)		# put Z going up
-	GL.glRotatef (-r_newrefdef.viewangles[2],  1, 0, 0)
-	GL.glRotatef (-r_newrefdef.viewangles[0],  0, 1, 0)
-	GL.glRotatef (-r_newrefdef.viewangles[1],  0, 0, 1)
-	GL.glTranslatef (-r_newrefdef.vieworg[0],  -r_newrefdef.vieworg[1],  -r_newrefdef.vieworg[2]);
+	GL.glRotatef(-90, 1, 0, 0) # put Z going up
+	GL.glRotatef(90, 0, 0, 1) # put Z going up
+	GL.glRotatef(-r_newrefdef.viewangles[2], 1, 0, 0)
+	GL.glRotatef(-r_newrefdef.viewangles[0], 0, 1, 0)
+	GL.glRotatef(-r_newrefdef.viewangles[1], 0, 0, 1)
+	GL.glTranslatef(-r_newrefdef.vieworg[0], -r_newrefdef.vieworg[1],
+			-r_newrefdef.vieworg[2])
 
-#	if ( gl_state.camera_separation != 0 && gl_state.stereo_enabled )
-#		qglTranslatef ( gl_state.camera_separation, 0, 0 );
+	GL.glGetFloatv(GL.GL_MODELVIEW_MATRIX, r_world_matrix)
 
-	GL.glGetFloatv (GL.GL_MODELVIEW_MATRIX, r_world_matrix)
-
-	#
 	# set drawing parms
-	#
 	if r_cull.value:
+
 		GL.glEnable(GL.GL_CULL_FACE)
+
 	else:
+
 		GL.glDisable(GL.GL_CULL_FACE)
 
 	GL.glDisable(GL.GL_BLEND)
 	GL.glDisable(GL.GL_ALPHA_TEST)
 	GL.glEnable(GL.GL_DEPTH_TEST)
 
-
-"""
-=============
-R_Clear
-=============
-"""
 trickframe = 0 #static int, in R_Clear
 
-def R_Clear ():
+def R_Clear(): #void
 
 	global gldepthmin, gldepthmax, trickframe
 
+	# Define which buffers need clearing
+	clearFlags = 0 #GLbitfield
+	depthFunc = GL.GL_LEQUAL #GLenum
+
+	# This breaks stereo modes, but we'll leave that responsibility to the user
+	if r_clear.value:
+
+		clearFlags |= GL.GL_COLOR_BUFFER_BIT
+
+	# No stencil shadows allowed when using certain stereo modes, otherwise "wallhack" happens
+	if gl_state.stereo_mode >= STEREO_MODE_ROW_INTERLEAVED and gl_state.stereo_mode <= STEREO_MODE_PIXEL_INTERLEAVED:
+
+		GL.glClearStencil(0)
+		clearFlags |= GL.GL_STENCIL_BUFFER_BIT
+
+	elif gl_shadows.value and gl_state.stencil and gl1_stencilshadow.value:
+
+		GL.glClearStencil(1)
+		clearFlags |= GL.GL_STENCIL_BUFFER_BIT
+
 	if gl1_ztrick.value:
-	
+
 		#static int trickframe;
 
-		if r_clear.value:
-			GL.glClear (GL.GL_COLOR_BUFFER_BIT)
+		trickframe += 1
 
-		trickframe+=1
-		if (trickframe & 1):
-		
+		if trickframe & 1:
+
 			gldepthmin = 0
 			gldepthmax = 0.49999
-			GL.glDepthFunc (GL.GL_LEQUAL)
-		
+
 		else:
-		
+
 			gldepthmin = 1
 			gldepthmax = 0.5
-			GL.glDepthFunc (GL.GL_GEQUAL)
-		
+			depthFunc = GL.GL_GEQUAL
+
 	else:
-	
-		if r_clear.value:
-			GL.glClear (GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
-		else:
-			GL.glClear (GL.GL_DEPTH_BUFFER_BIT)
+
+		clearFlags |= GL.GL_DEPTH_BUFFER_BIT
+
 		gldepthmin = 0
 		gldepthmax = 1
-		GL.glDepthFunc (GL.GL_LEQUAL)
-	
-	GL.glDepthRange (gldepthmin, gldepthmax)
 
+	if gl_config.tilerendering:
 
-def R_Flash( ):
+		clearFlags |= GL.GL_STENCIL_BUFFER_BIT
 
-	R_PolyBlend ()
+		if gl_state.stereo_mode == STEREO_MODE_NONE:
 
-"""
-================
-R_RenderView
+			clearFlags |= GL.GL_COLOR_BUFFER_BIT
 
-r_newrefdef must be set before the first call
-================
-"""
-def R_RenderView (fd): #refdef_t *
+	if clearFlags:
 
-	global r_norefresh, r_newrefdef, c_brush_polys, c_alias_polys
+		GL.glClear(clearFlags)
 
-	if r_norefresh.value:
-		return
-	
-	r_newrefdef = fd.copy() # r_newrefdef = *fd
-	
-	if r_worldmodel is None and not ( r_newrefdef.rdflags & shared.RDF_NOWORLDMODEL ):
-		ri.Sys_Error (shared.ERR_DROP, "R_RenderView: NULL worldmodel")
+	GL.glDepthFunc(depthFunc)
+	GL.glDepthRange(gldepthmin, gldepthmax)
 
-	if r_speeds.value:
-	
-		c_brush_polys = 0
-		c_alias_polys = 0
-	
-	gl1_light.R_PushDlights ()
+	if gl_zfix.value:
 
-	if gl_finish.value:
-		GL.glFinish ()
+		if gldepthmax > gldepthmin:
 
-	R_SetupFrame ()
+			GL.glPolygonOffset(0.05, 1)
 
-	R_SetFrustum ()
+		else:
 
-	R_SetupGL ()
+			GL.glPolygonOffset(-0.05, -1)
 
-	gl1_surf.R_MarkLeaves ()	# done here so we know if we're in water
+def R_Flash(): #void
 
-	gl1_surf.R_DrawWorld ()
-
-	R_DrawEntitiesOnList ()
-
-	gl1_light.R_RenderDlights ()
-
-	R_DrawParticles ()
-
-	gl1_surf.R_DrawAlphaSurfaces ()
-
-	R_Flash()
-
-	if r_speeds.value:
-	
-		ri.Con_Printf (shared.PRINT_ALL, "{:4d} wpoly {:4d} epoly {} tex {} lmaps\n".format(
-			c_brush_polys, 
-			c_alias_polys, 
-			gl1_surf.c_visible_textures, 
-			gl1_surf.c_visible_lightmaps))
-	
-
-
-
+	R_PolyBlend()
 
 def R_SetGL2D(): #void
 
@@ -1033,6 +978,182 @@ def R_SetGL2D(): #void
 	GL.glDisable(GL.GL_BLEND)
 	GL.glEnable(GL.GL_ALPHA_TEST)
 	GL.glColor4f(1, 1, 1, 1)
+
+"""
+ * r_newrefdef must be set before the first call
+"""
+def R_RenderView(fd): #refdef_t * (static)
+
+	global r_newrefdef, c_brush_polys, c_alias_polys
+
+	if (gl_state.stereo_mode != STEREO_MODE_NONE) and gl_state.camera_separation:
+
+		drawing_left_eye = gl_state.camera_separation < 0 #qboolean
+
+		if gl_state.stereo_mode == STEREO_MODE_ANAGLYPH:
+
+			# Work out the colour for each eye.
+			anaglyph_colours = [ 0x4, 0x3 ] # Left = red, right = cyan.
+
+			if len(gl1_stereo_anaglyph_colors.string) == 2:
+
+				#int eye, colour, missing_bits;
+				# Decode the colour name from its character.
+				for eye in range(2):
+
+					colour = 0
+					# Q2PORT: the C's switch falls through each case below the
+					# one it enters, so the colour is the number of cases run
+					letter = gl1_stereo_anaglyph_colors.string[eye].upper()
+					if letter in "BGCRMY":
+
+						colour += 6 - "BGCRMY".index(letter)
+						anaglyph_colours[eye] = colour
+
+				# Fill in any missing bits.
+				missing_bits = ~(anaglyph_colours[0] | anaglyph_colours[1]) & 0x3
+				for eye in range(2):
+
+					anaglyph_colours[eye] |= missing_bits
+
+			# Set the current colour.
+			GL.glColorMask(
+				bool(anaglyph_colours[drawing_left_eye] & 0x4),
+				bool(anaglyph_colours[drawing_left_eye] & 0x2),
+				bool(anaglyph_colours[drawing_left_eye] & 0x1),
+				GL.GL_TRUE
+			)
+
+		elif gl_state.stereo_mode in (STEREO_MODE_ROW_INTERLEAVED, STEREO_MODE_COLUMN_INTERLEAVED, STEREO_MODE_PIXEL_INTERLEAVED):
+
+			flip_eyes = True #qboolean
+			#int client_x, client_y;
+
+			screen = np.array([ #GLshort[]
+				0, 0,
+				vid.width, 0,
+				vid.width, vid.height,
+				0, vid.height
+			], dtype=np.int16)
+
+			#GLimp_GetClientAreaOffset(&client_x, &client_y);
+			client_x = 0
+			client_y = 0
+
+			R_SetGL2D()
+
+			GL.glEnable(GL.GL_STENCIL_TEST)
+			GL.glStencilMask(1)
+			GL.glColorMask(GL.GL_FALSE, GL.GL_FALSE, GL.GL_FALSE, GL.GL_FALSE)
+
+			GL.glStencilOp(GL.GL_REPLACE, GL.GL_KEEP, GL.GL_KEEP)
+			GL.glStencilFunc(GL.GL_NEVER, 0, 1)
+
+			GL.glEnableClientState(GL.GL_VERTEX_ARRAY)
+			GL.glVertexPointer(2, GL.GL_SHORT, 0, screen)
+			GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 4)
+			GL.glDisableClientState(GL.GL_VERTEX_ARRAY)
+
+			GL.glStencilOp(GL.GL_INVERT, GL.GL_KEEP, GL.GL_KEEP)
+			GL.glStencilFunc(GL.GL_NEVER, 1, 1)
+
+			gl_buf = gl1_buffer.gl_buf
+
+			if gl_state.stereo_mode == STEREO_MODE_ROW_INTERLEAVED or gl_state.stereo_mode == STEREO_MODE_PIXEL_INTERLEAVED:
+
+				for y in range(0, vid.height + 1, 2):
+
+					gl_buf.vtx[gl_buf.vt    ] = 0
+					gl_buf.vtx[gl_buf.vt + 1] = y - 0.5
+					gl_buf.vtx[gl_buf.vt + 2] = vid.width
+					gl_buf.vtx[gl_buf.vt + 3] = y - 0.5
+					gl_buf.vt += 4
+
+				flip_eyes ^= (client_y & 1)
+
+			if gl_state.stereo_mode == STEREO_MODE_COLUMN_INTERLEAVED or gl_state.stereo_mode == STEREO_MODE_PIXEL_INTERLEAVED:
+
+				for x in range(0, vid.width + 1, 2):
+
+					gl_buf.vtx[gl_buf.vt    ] = x - 0.5
+					gl_buf.vtx[gl_buf.vt + 1] = 0
+					gl_buf.vtx[gl_buf.vt + 2] = x - 0.5
+					gl_buf.vtx[gl_buf.vt + 3] = vid.height
+					gl_buf.vt += 4
+
+				flip_eyes ^= (client_x & 1)
+
+			GL.glEnableClientState(GL.GL_VERTEX_ARRAY)
+			GL.glVertexPointer(2, GL.GL_FLOAT, 0, gl_buf.vtx)
+			GL.glDrawArrays(GL.GL_LINES, 0, gl_buf.vt // 2)
+			GL.glDisableClientState(GL.GL_VERTEX_ARRAY)
+			gl_buf.vt = 0
+
+			GL.glStencilMask(0)
+			GL.glColorMask(GL.GL_TRUE, GL.GL_TRUE, GL.GL_TRUE, GL.GL_TRUE)
+
+			GL.glStencilFunc(GL.GL_EQUAL, int(drawing_left_eye) ^ int(flip_eyes), 1)
+			GL.glStencilOp(GL.GL_KEEP, GL.GL_KEEP, GL.GL_KEEP)
+
+	if r_norefresh.value:
+
+		return
+
+	r_newrefdef = fd.copy() # r_newrefdef = *fd;
+
+	if not r_worldmodel and not (r_newrefdef.rdflags & shared.RDF_NOWORLDMODEL):
+
+		clientserver.Com_Error(shared.ERR_DROP, "{}: NULL worldmodel".format("R_RenderView"))
+
+	if r_speeds.value:
+
+		c_brush_polys = 0
+		c_alias_polys = 0
+
+	gl1_light.R_PushDlights()
+
+	if gl_finish.value:
+
+		GL.glFinish()
+
+	R_SetupFrame()
+
+	files_surf.R_SetFrustum(vup, vpn, vright, r_origin, r_newrefdef.fov_x, r_newrefdef.fov_y,
+		frustum)
+
+	R_SetupGL()
+
+	gl1_surf.R_MarkLeaves() # done here so we know if we're in water
+
+	gl1_surf.R_DrawWorld()
+
+	R_DrawEntitiesOnList()
+
+	gl1_light.R_RenderDlights()
+
+	R_DrawParticles()
+
+	gl1_surf.R_DrawAlphaSurfaces()
+
+	R_Flash()
+
+	if r_speeds.value:
+
+		clientserver.Com_Printf("{:4d} wpoly {:4d} epoly {} tex {} lmaps\n".format(
+				c_brush_polys, c_alias_polys, gl1_surf.c_visible_textures,
+				gl1_surf.c_visible_lightmaps))
+
+	if gl_state.stereo_mode == STEREO_MODE_NONE:
+
+		pass
+
+	elif gl_state.stereo_mode == STEREO_MODE_ANAGLYPH:
+
+		GL.glColorMask(GL.GL_TRUE, GL.GL_TRUE, GL.GL_TRUE, GL.GL_TRUE)
+
+	elif gl_state.stereo_mode in (STEREO_MODE_ROW_INTERLEAVED, STEREO_MODE_COLUMN_INTERLEAVED, STEREO_MODE_PIXEL_INTERLEAVED):
+
+		GL.glDisable(GL.GL_STENCIL_TEST)
 
 def GL_GetSpecialBufferModeForStereoMode(stereo_mode): #enum stereo_modes (returns enum opengl_special_buffer_modes)
 
@@ -1124,7 +1245,7 @@ def R_Register(): #void
 		r_customwidth, r_customheight, gl_msaa_samples, r_retexturing, r_validation, \
 		r_scale8bittextures, gl_nolerp_list, r_lerp_list, r_2D_unfiltered, r_videos_unfiltered, \
 		gl1_stereo, gl1_stereo_separation, gl1_stereo_anaglyph_colors, gl1_stereo_convergence, \
-		gl1_waterwarp, gl_vertex_arrays
+		gl1_waterwarp
 
 	gl_lefthand = ri.Cvar_Get("hand", "0", shared.CVAR_USERINFO | shared.CVAR_ARCHIVE)
 	r_gunfov = ri.Cvar_Get("r_gunfov", "80", shared.CVAR_ARCHIVE)
@@ -1214,9 +1335,6 @@ def R_Register(): #void
 	gl1_stereo_convergence = ri.Cvar_Get( "gl1_stereo_convergence", "1", shared.CVAR_ARCHIVE )
 
 	gl1_waterwarp = ri.Cvar_Get( "gl1_waterwarp", "1.0", shared.CVAR_ARCHIVE )
-
-	# Q2PORT: id's cvar, read by the id-era gl1_mesh until it is ported
-	gl_vertex_arrays = ri.Cvar_Get( "gl_vertex_arrays", "0", shared.CVAR_ARCHIVE )
 
 	ri.Cmd_AddCommand("imagelist", gl1_image.R_ImageList_f)
 	ri.Cmd_AddCommand("screenshot", gl1_misc.R_ScreenShot)

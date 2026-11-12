@@ -24,7 +24,8 @@ import numpy as np
 import OpenGL.GL as GL
 pass
 pass
-from client.refresh.gl1 import gl1_main
+from client.refresh.gl1 import gl1_main, gl1_image, gl1_buffer
+from common import clientserver
 from client.refresh.gl1.header import model
 from client.refresh.files import surf as files_surf
 from common.header import files as files_h
@@ -41,24 +42,6 @@ minlight = bytearray(256) #byte[256]
 DLIGHT_CUTOFF = 64
 
 
-def _lightstyle_values(style_idx):
-    lightstyles = getattr(gl1_main.r_newrefdef, "lightstyles", None)
-    if not lightstyles:
-        return (1.0, 1.0, 1.0), 1.0
-    if style_idx >= len(lightstyles):
-        return (1.0, 1.0, 1.0), 1.0
-    style = lightstyles[style_idx]
-    if style is None:
-        return (1.0, 1.0, 1.0), 1.0
-    if isinstance(style, dict):
-        rgb = tuple(style.get("rgb", (1.0, 1.0, 1.0)))
-        white = style.get("white", max(rgb))
-    else:
-        rgb = tuple(getattr(style, "rgb", (1.0, 1.0, 1.0)))
-        white = getattr(style, "white", max(rgb))
-    return rgb, white
-
-
 """
 =============================================================================
 
@@ -66,79 +49,69 @@ DYNAMIC LIGHTS BLEND RENDERING
 
 =============================================================================
 """
-def R_RenderDlight (light): #dlight_t *
+def R_RenderDlight(light): #dlight_t * (static)
 
-	"""
-	int		i, j;
-	float	a;
-	vec3_t	v;
-	float	rad;
-	"""
-	v = np.zeros((3,), dtype=np.float32)
+	rad = light.intensity * 0.35 #const float
+	#int i, j, clr[3];
+	#float vtx[3], a;
+	clr = [0, 0, 0]
+	vtx = [0.0, 0.0, 0.0]
 
-	rad = light.intensity * 0.35
+	gl1_buffer.R_SetBufferIndices(GL.GL_TRIANGLE_FAN, 18)
 
-	shared.VectorSubtract (light.origin, gl1_main.r_origin, v)
-	"""
-#if 0
-	// FIXME?
-	if (VectorLength (v) < rad)
-	{	// view is inside the dlight
-		V_AddBlend (light->color[0], light->color[1], light->color[2], light->intensity * 0.0003, v_blend);
-		return;
-	}
-#endif
-	"""
-
-	GL.glBegin (GL.GL_TRIANGLE_FAN)
-	GL.glColor3f (light.color[0]*0.2, light.color[1]*0.2, light.color[2]*0.2)
 	for i in range(3):
-		v[i] = light.origin[i] - gl1_main.vpn[i]*rad
-	GL.glVertex3fv (v)
-	GL.glColor3f (0,0,0)
+
+		vtx[i] = light.origin[i] - gl1_main.vpn[i] * rad
+		clr[i] = int(light.color[i] * 51)	# 255 * 0.2 = 51
+
+	gl1_buffer.GLBUFFER_VERTEX( vtx[0], vtx[1], vtx[2] )
+	gl1_buffer.GLBUFFER_COLOR( clr[0], clr[1], clr[2], 255 )
+
 	for i in range(16, -1, -1):
-	
-		a = i/16.0 * math.pi*2
+
+		a = i / 16.0 * math.pi * 2
+
 		for j in range(3):
-			v[j] = light.origin[j] + gl1_main.vright[j]*math.cos(a)*rad \
-				+ gl1_main.vup[j]*math.sin(a)*rad
-		GL.glVertex3fv (v)
-	
-	GL.glEnd ()
 
+			vtx[j] = light.origin[j] + gl1_main.vright[j] * math.cos(a) * rad \
+				+ gl1_main.vup[j] * math.sin(a) * rad
 
-"""
-=============
-R_RenderDlights
-=============
-"""
-def R_RenderDlights ():
+		gl1_buffer.GLBUFFER_VERTEX( vtx[0], vtx[1], vtx[2] )
+		gl1_buffer.GLBUFFER_COLOR( 0, 0, 0, 255 )
+
+def R_RenderDlights(): #void
 
 	global r_dlightframecount
 
-	#int		i;
-	#dlight_t	*l;
+	#int i;
+	#dlight_t *l;
 
 	if not gl1_main.gl1_flashblend.value:
+
 		return
 
-	r_dlightframecount = gl1_main.r_framecount + 1	# because the count hasn't
-											#  advanced yet for this frame
-	GL.glDepthMask (0)
-	GL.glDisable (GL.GL_TEXTURE_2D)
-	GL.glShadeModel (GL.GL_SMOOTH)
-	GL.glEnable (GL.GL_BLEND)
-	GL.glBlendFunc (GL.GL_ONE, GL.GL_ONE)
+	gl1_buffer.R_UpdateGLBuffer(gl1_buffer.buf_flash, 0, 0, 0, 1)
+
+	# because the count hasn't advanced yet for this frame
+	r_dlightframecount = gl1_main.r_framecount + 1
+
+	GL.glDepthMask(GL.GL_FALSE)
+	GL.glDisable(GL.GL_TEXTURE_2D)
+	GL.glShadeModel(GL.GL_SMOOTH)
+	GL.glEnable(GL.GL_BLEND)
+	GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE)
 
 	for i in range(gl1_main.r_newrefdef.num_dlights):
-		R_RenderDlight (gl1_main.r_newrefdef.dlights[i])
 
-	GL.glColor3f (1,1,1)
-	GL.glDisable (GL.GL_BLEND)
-	GL.glEnable (GL.GL_TEXTURE_2D)
-	GL.glBlendFunc (GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
-	GL.glDepthMask (1)
+		R_RenderDlight(gl1_main.r_newrefdef.dlights[i])
 
+	gl1_buffer.R_ApplyGLBuffer()
+
+	GL.glColor4f(1, 1, 1, 1)
+	GL.glDisable(GL.GL_BLEND)
+	GL.glEnable(GL.GL_TEXTURE_2D)
+	GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+	GL.glDepthMask(GL.GL_TRUE)
 
 """
 =============================================================================
@@ -464,138 +437,221 @@ def R_AddDynamicLights (surf): #msurface_t *
 			ftacc += 16
 		
 
+def R_SetCacheState(surf): #msurface_t *
+
+	#int maps;
+
+	maps = 0
+	while maps < files_h.MAXLIGHTMAPS and surf.styles[maps] != 255:
+
+		surf.cached_light[maps] = \
+			gl1_main.r_newrefdef.lightstyles[surf.styles[maps]].white
+
+		maps += 1
+
 """
-** R_SetCacheState
+ * Combine and scale multiple lightmaps into the floating format in blocklights
 """
-def R_SetCacheState (surf): #msurface_t *
-	if not surf or not hasattr(surf, "styles"):
-		return
+def R_BuildLightMap(surf, dest, stride): #msurface_t *, byte *, int
 
-	for maps in range(files_h.MAXLIGHTMAPS):
-		style_idx = surf.styles[maps] if maps < len(surf.styles) else 255
-		if style_idx == 255:
-			break
-		_, white = _lightstyle_values(style_idx)
-		surf.cached_light[maps] = white
+	"""
+	int smax, tmax;
+	int r, g, b, a, max;
+	int i, j, size;
+	byte *lightmap;
+	float scale[4];
+	int nummaps;
+	float *bl;
+	"""
+	scale = [0.0, 0.0, 0.0, 0.0]
 
-def R_BuildLightMap (surf, dest, stride): #msurface_t *, byte *, int
-	if not surf or not surf.texinfo:
-		return
+	if (surf.texinfo.flags &
+		(shared.SURF_SKY | shared.SURF_TRANS33 | shared.SURF_TRANS66 | shared.SURF_WARP)):
 
-	flags = surf.texinfo.flags
-	forbidden = (shared.SURF_SKY | shared.SURF_TRANS33 | shared.SURF_TRANS66 | shared.SURF_WARP)
-	if flags & forbidden:
-		gl1_main.ri.Sys_Error(shared.ERR_DROP, "R_BuildLightMap called for non-lit surface")
+		clientserver.Com_Error(shared.ERR_DROP, "{} called for non-lit surface".format("R_BuildLightMap"))
 
 	smax = (surf.extents[0] >> 4) + 1
 	tmax = (surf.extents[1] >> 4) + 1
 	size = smax * tmax
-	max_size = len(s_blocklights) // 3
-	if size > max_size:
-		gl1_main.ri.Sys_Error(shared.ERR_DROP, "Bad s_blocklights size")
 
-	modulate = gl1_main.r_modulate.value if gl1_main.r_modulate else 1.0
-	lightmap_data = surf.samples
-	if lightmap_data is None:
-		for idx in range(size * 3):
-			s_blocklights[idx] = 255.0
-	else:
-		if isinstance(lightmap_data, (bytes, bytearray)):
-			lightmap_data = memoryview(lightmap_data)
+	if size > ((len(s_blocklights) * 4) >> 4): # (sizeof(s_blocklights) >> 4)
+
+		clientserver.Com_Error(shared.ERR_DROP, "{}: Bad s_blocklights size".format("R_BuildLightMap"))
+
+	store = False # Q2PORT: the C's goto store
+
+	# set to full bright if no light data
+	if surf.samples is None:
+
+		for i in range(size * 3):
+
+			s_blocklights[i] = 255
+
+		store = True # goto store;
+
+	if not store:
+
+		# count the # of maps
 		nummaps = 0
-		while nummaps < files_h.MAXLIGHTMAPS:
-			style_idx = surf.styles[nummaps] if nummaps < len(surf.styles) else 255
-			if style_idx == 255:
-				break
+		while nummaps < files_h.MAXLIGHTMAPS and surf.styles[nummaps] != 255:
+
 			nummaps += 1
 
-		lightmap_offset = 0
+		lightmap = surf.samples
+		lm = 0 # Q2PORT: an offset into lightmap
+
+		# add all the lightmaps
 		if nummaps == 1:
-			for maps in range(files_h.MAXLIGHTMAPS):
-				style_idx = surf.styles[maps] if maps < len(surf.styles) else 255
-				if style_idx == 255:
-					break
-				scale_rgb, _ = _lightstyle_values(style_idx)
-				scale = [modulate * c for c in scale_rgb]
-				all_one = all(abs(scale[i] - 1.0) < 1e-6 for i in range(3))
-				for i in range(size):
-					idx = i * 3
-					if all_one:
-						s_blocklights[idx + 0] = float(lightmap_data[lightmap_offset + idx + 0])
-						s_blocklights[idx + 1] = float(lightmap_data[lightmap_offset + idx + 1])
-						s_blocklights[idx + 2] = float(lightmap_data[lightmap_offset + idx + 2])
-					else:
-						s_blocklights[idx + 0] = lightmap_data[lightmap_offset + idx + 0] * scale[0]
-						s_blocklights[idx + 1] = lightmap_data[lightmap_offset + idx + 1] * scale[1]
-						s_blocklights[idx + 2] = lightmap_data[lightmap_offset + idx + 2] * scale[2]
-				lightmap_offset += size * 3
+
+			#int maps;
+
+			maps = 0
+			while maps < files_h.MAXLIGHTMAPS and surf.styles[maps] != 255:
+
+				bl = 0 # bl = s_blocklights;
+
+				for i in range(3):
+
+					scale[i] = gl1_main.r_modulate.value * \
+							   gl1_main.r_newrefdef.lightstyles[surf.styles[maps]].rgb[i]
+
+				if ((scale[0] == 1.0) and
+					(scale[1] == 1.0) and
+					(scale[2] == 1.0)):
+
+					for i in range(size):
+
+						s_blocklights[bl + 0] = lightmap[lm + i * 3 + 0]
+						s_blocklights[bl + 1] = lightmap[lm + i * 3 + 1]
+						s_blocklights[bl + 2] = lightmap[lm + i * 3 + 2]
+						bl += 3
+
+				else:
+
+					for i in range(size):
+
+						s_blocklights[bl + 0] = lightmap[lm + i * 3 + 0] * scale[0]
+						s_blocklights[bl + 1] = lightmap[lm + i * 3 + 1] * scale[1]
+						s_blocklights[bl + 2] = lightmap[lm + i * 3 + 2] * scale[2]
+						bl += 3
+
+				lm += size * 3 # skip to next lightmap
+				maps += 1
+
 		else:
-			for idx in range(size * 3):
-				s_blocklights[idx] = 0.0
-			for maps in range(files_h.MAXLIGHTMAPS):
-				style_idx = surf.styles[maps] if maps < len(surf.styles) else 255
-				if style_idx == 255:
-					break
-				scale_rgb, _ = _lightstyle_values(style_idx)
-				scale = [modulate * c for c in scale_rgb]
-				all_one = all(abs(scale[i] - 1.0) < 1e-6 for i in range(3))
-				for i in range(size):
-					idx = i * 3
-					if all_one:
-						s_blocklights[idx + 0] += float(lightmap_data[lightmap_offset + idx + 0])
-						s_blocklights[idx + 1] += float(lightmap_data[lightmap_offset + idx + 1])
-						s_blocklights[idx + 2] += float(lightmap_data[lightmap_offset + idx + 2])
-					else:
-						s_blocklights[idx + 0] += lightmap_data[lightmap_offset + idx + 0] * scale[0]
-						s_blocklights[idx + 1] += lightmap_data[lightmap_offset + idx + 1] * scale[1]
-						s_blocklights[idx + 2] += lightmap_data[lightmap_offset + idx + 2] * scale[2]
-				lightmap_offset += size * 3
 
-	if surf.dlightframe == gl1_main.r_framecount:
-		R_AddDynamicLights(surf)
+			#int maps;
 
-	stride = int(stride)
-	dest_view = memoryview(dest)
-	dest_idx = 0	
-	bl_idx = 0
+			for i in range(size * 3): # memset(s_blocklights, 0, sizeof(s_blocklights[0]) * size * 3);
+				s_blocklights[i] = 0
 
-	def _clamp(value):
-		value = int(value)
-		if value < 0:
-			return 0
-		if value > 255:
-			return 255
-		return value
+			maps = 0
+			while maps < files_h.MAXLIGHTMAPS and surf.styles[maps] != 255:
 
-	for _ in range(tmax):
-		row_base = dest_idx
-		for _ in range(smax):
-			r = shared.Q_ftol(s_blocklights[bl_idx])
-			g = shared.Q_ftol(s_blocklights[bl_idx + 1])
-			b = shared.Q_ftol(s_blocklights[bl_idx + 2])
-			if r < 0: r = 0
-			if g < 0: g = 0
-			if b < 0: b = 0
-			maxc = r if r > g else g
-			if b > maxc:
-				maxc = b
-			a = maxc
-			if maxc > 255:
-				t = 255.0 / maxc
-				r *= t
-				g *= t
-				b *= t
-				a *= t
+				bl = 0 # bl = s_blocklights;
 
-			val_r, val_g, val_b, val_a = r, g, b, a
-			val_r = _clamp(val_r)
-			val_g = _clamp(val_g)
-			val_b = _clamp(val_b)
-			val_a = _clamp(val_a)
-			dest_view[row_base + 0] = val_r
-			dest_view[row_base + 1] = val_g
-			dest_view[row_base + 2] = val_b
-			dest_view[row_base + 3] = val_a
-			row_base += 4
-			bl_idx += 3
-		dest_idx += stride
+				for i in range(3):
+
+					scale[i] = gl1_main.r_modulate.value * \
+							   gl1_main.r_newrefdef.lightstyles[surf.styles[maps]].rgb[i]
+
+				if ((scale[0] == 1.0) and
+					(scale[1] == 1.0) and
+					(scale[2] == 1.0)):
+
+					for i in range(size):
+
+						s_blocklights[bl + 0] += lightmap[lm + i * 3 + 0]
+						s_blocklights[bl + 1] += lightmap[lm + i * 3 + 1]
+						s_blocklights[bl + 2] += lightmap[lm + i * 3 + 2]
+						bl += 3
+
+				else:
+
+					for i in range(size):
+
+						s_blocklights[bl + 0] += lightmap[lm + i * 3 + 0] * scale[0]
+						s_blocklights[bl + 1] += lightmap[lm + i * 3 + 1] * scale[1]
+						s_blocklights[bl + 2] += lightmap[lm + i * 3 + 2] * scale[2]
+						bl += 3
+
+				lm += size * 3 # skip to next lightmap
+				maps += 1
+
+		# add all the dynamic lights
+		if surf.dlightframe == gl1_main.r_framecount:
+
+			R_AddDynamicLights(surf)
+
+#store:
+
+	stride -= (smax << 2)
+	bl = 0 # bl = s_blocklights;
+	d = 0 # Q2PORT: an offset into dest
+
+	for i in range(tmax):
+
+		for j in range(smax):
+
+			r = shared.Q_ftol(s_blocklights[bl + 0])
+			g = shared.Q_ftol(s_blocklights[bl + 1])
+			b = shared.Q_ftol(s_blocklights[bl + 2])
+
+			# catch negative lights
+			if r < 0:
+
+				r = 0
+
+			if g < 0:
+
+				g = 0
+
+			if b < 0:
+
+				b = 0
+
+			# determine the brightest of the three color components
+			if r > g:
+
+				max_ = r
+
+			else:
+
+				max_ = g
+
+			if b > max_:
+
+				max_ = b
+
+			# alpha is ONLY used for the mono lightmap case. For this
+			# reason we set it to the brightest of the color components
+			# so that things don't get too dim.
+			a = max_
+
+			# rescale all the color components if the
+			# intensity of the greatest channel exceeds
+			# 1.0
+			if max_ > 255:
+
+				t = 255.0 / max_
+
+				r = int(r * t)
+				g = int(g * t)
+				b = int(b * t)
+				a = int(a * t)
+
+			if gl1_main.gl_state.minlight_set:
+
+				r = minlight[r]
+				g = minlight[g]
+				b = minlight[b]
+
+			dest[d + 0] = gl1_image.gammatable[r]
+			dest[d + 1] = gl1_image.gammatable[g]
+			dest[d + 2] = gl1_image.gammatable[b]
+			dest[d + 3] = a
+
+			bl += 3
+			d += 4
+
+		d += stride # dest += stride

@@ -199,16 +199,17 @@ glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
     `RI_Init` extension probing, `RI_Shutdown`, `RI_BeginFrame`, the particles,
     `R_SetGL2D`, `R_DrawBeam`, `GetRefAPI`. `files/stb.py` gained `ResizeSTB`
     (Pillow) and `SmoothColorImage`, and `R_Convert8to32` uses numpy (Q2PORT).
+    Then `gl1_surf` (all of it: buffered world, `R_RegenAllLightmaps`,
+    `R_GetBrushesLighting`, entity arguments), `gl1_mesh` (all of it: buffered
+    alias models, stencil shadows, overbright, minlight; the `drawtris` Q2PORT is
+    gone), `gl1_lightmap`, gl1_light's `R_BuildLightMap`/`R_SetCacheState`/
+    buffered dlights, gl1_warp's `R_EmitWaterPolys`/`RI_SetSky`, and gl1_main's
+    `R_DrawSpriteModel`/`R_DrawNullModel`/`R_DrawEntitiesOnList`.
   - **Remaining (still id code):** gl1_main's frame code (`R_SetupFrame`,
-    `R_SetupGL`/stereo, `R_Clear` stencil/tile, `R_RenderView` stereo,
-    `R_DrawSpriteModel`/`R_DrawNullModel`/`R_DrawEntitiesOnList` with entity
-    arguments), `gl1_surf` (buffer batching, `R_RegenAllLightmaps`,
-    `R_GetBrushesLighting`), `gl1_mesh` (buffer, stencil shadows, overbright,
-    minlight; strip the `drawtris` Q2PORT), `gl1_light` (buffered dlights,
-    minlight/gammatable in `R_BuildLightMap`), `gl1_warp` (buffered water/sky),
-    `gl1_lightmap` (multitexture buffers), `gl1_model` (`Mod_LoadMD2`/`Mod_LoadSP2`/
-    `Mod_ReLoadSkins`, free-space checks). The id `gl_vertex_arrays` cvar stays
-    registered until gl1_mesh is ported.
+    `R_SetupGL` stereo split, `R_Clear` stencil/tile/zfix, `R_RenderView` stereo
+    and files/surf `R_SetFrustum`, `R_PolyBlend` arrays), gl1_warp's sky
+    (`R_DrawSkyBox` arrays), `gl1_model` (`Mod_LoadMD2`/`Mod_LoadSP2`/
+    `Mod_ReLoadSkins`, free-space checks), gl1_light's `R_LightPoint` details.
 
 ## Group 0: tooling and conventions
 
