@@ -86,6 +86,7 @@ active_buffers = 0 #int
 
 # Locals
 streamPlaying = False #static qboolean
+streamQueued = 0 # Q2PORT: buffers AL_RawSamples() queued since the last AL_StreamUpdate()
 s_srcnums = (qal.ALuint * (sound_local.MAX_CHANNELS - 1))() #static ALuint [MAX_CHANNELS - 1]
 streamSource = qal.ALuint() #static ALuint
 s_framecount = 0 #static int
@@ -103,7 +104,7 @@ snd_is_underwater_enabled = False #static qboolean
 """
 def AL_StreamDie(): #void (static)
 
-	global streamPlaying, active_buffers
+	global streamPlaying, active_buffers, streamQueued
 
 	numBuffers = qal.ALint() #int
 
@@ -127,13 +128,15 @@ def AL_StreamDie(): #void (static)
 		qal.qalDeleteBuffers(1, ctypes.byref(buffer))
 		active_buffers -= 1
 
+	streamQueued = 0 # Q2PORT
+
 """
  * Updates stream sources by removing all played
  * buffers and restarting playback if necessary.
 """
 def AL_StreamUpdate(): #void (static)
 
-	global streamPlaying, active_buffers
+	global streamPlaying, active_buffers, streamQueued
 
 	numBuffers = qal.ALint() #int
 	state = qal.ALint() #ALint
@@ -143,6 +146,23 @@ def AL_StreamUpdate(): #void (static)
 	if state.value == qal_h.AL_STOPPED:
 
 		streamPlaying = False
+
+		# Q2PORT: fix, a source that ran dry (a cinematic paused by the menu or
+		# console) stops with its played buffers still queued, and the
+		# qalSourcePlay() below restarted them, looping the last chunk of sound.
+		# Un-queue them, but keep the ones AL_RawSamples() queued since the last
+		# update: a stopped source counts every buffer as processed.
+		qal.qalGetSourcei(streamSource, qal_h.AL_BUFFERS_QUEUED, ctypes.byref(numBuffers))
+		numBuffers.value -= streamQueued
+
+		while numBuffers.value > 0:
+
+			numBuffers.value -= 1
+
+			buffer = qal.ALuint() #ALuint
+			qal.qalSourceUnqueueBuffers(streamSource, 1, ctypes.byref(buffer))
+			qal.qalDeleteBuffers(1, ctypes.byref(buffer))
+			active_buffers -= 1
 
 	else:
 
@@ -165,6 +185,8 @@ def AL_StreamUpdate(): #void (static)
 
 		qal.qalSourcePlay(streamSource)
 		streamPlaying = True
+
+	streamQueued = 0 # Q2PORT
 
 # -----------------------------------------------------------------
 
@@ -921,7 +943,7 @@ def AL_IssuePlaysounds(): #void (static)
 def AL_RawSamples(samples: int, rate: int, width: int, channels: int,
 		data, volume: float): #int, int, int, int, const byte *, float
 
-	global active_buffers
+	global active_buffers, streamQueued
 
 	buffer = qal.ALuint() #ALuint
 	format = 0 #ALuint
@@ -944,6 +966,7 @@ def AL_RawSamples(samples: int, rate: int, width: int, channels: int,
 
 	# Shove the data onto the streamSource
 	qal.qalSourceQueueBuffers(streamSource, 1, ctypes.byref(buffer))
+	streamQueued += 1 # Q2PORT
 
 	# emulate behavior of S_RawSamples for s_rawend
 	sound_c.s_rawend += samples

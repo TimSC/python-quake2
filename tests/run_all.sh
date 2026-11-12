@@ -12,6 +12,9 @@ mkdir -p "$OUT"
 export PYGAME_HIDE_SUPPORT_PROMPT=1
 export Q2PORT_NOMOUSE=1	# no mouse capture while the tests run
 NOSOUND="+set s_initsound 0"	# don't open the audio device while the tests run
+# own config dir (~/.yq2py-tests), so the runs neither read nor overwrite the
+# player's config and saves; gl1, as the tests hook its frame swap
+CFG="-cfgdir .yq2py-tests +set vid_renderer gl1"
 AUDIO=${AUDIO:-0}		# run the ogg_music (audio) test only when AUDIO=1
 fail=0
 run() {	# name timeout expected-regex args...
@@ -38,25 +41,25 @@ if [ -z "$ONLY" ] || echo " $ONLY " | grep -q " unit "; then
 	for u in tests/unit_*.py; do $PY "$u" > "$OUT/$(basename $u .py).log" 2>&1 || { echo "FAIL $(basename $u .py)  (log: $OUT/$(basename $u .py).log)"; ok=0; fail=1; }; done
 	[ $ok = 1 ] && echo "ok   unit"
 fi
-run state_trace 90 "40s\|30s frame" +set basedir "$Q2DATA" $NOSOUND +map base1
-run monster_all 240 "mon: finished calls .* errors 0" +set basedir "$Q2DATA" $NOSOUND +skill 2 +set g_select_empty 1 +map base1
+run state_trace 90 "40s\|30s frame" +set basedir "$Q2DATA" $CFG $NOSOUND +map base1
+run monster_all 240 "mon: finished calls .* errors 0" +set basedir "$Q2DATA" $CFG $NOSOUND +skill 2 +set g_select_empty 1 +map base1
 # walk into base1's func_wall *9 ledge (the old fall-through-the-floor bug)
-run walk_test 90 "walk: passed" -427.6 108.4 -23.9 -50 200 4 +set basedir "$Q2DATA" $NOSOUND +map base1
-run fire_test 90 "fire: done" +set basedir "$Q2DATA" $NOSOUND +map base1
-run cin_play 60 "cin: finished" +set basedir "$Q2DATA" $NOSOUND +map idlog.cin
+run walk_test 90 "walk: passed" -427.6 108.4 -23.9 -50 200 4 +set basedir "$Q2DATA" $CFG $NOSOUND +map base1
+run fire_test 90 "fire: done" +set basedir "$Q2DATA" $CFG $NOSOUND +map base1
+run cin_play 60 "cin: finished" +set basedir "$Q2DATA" $CFG $NOSOUND +map idlog.cin
 # ogg_music drives the audio subsystem, so it keeps sound on
 if [ "$AUDIO" = 1 ]; then
-	run ogg_music 90 "ogg: done" +set basedir "$Q2DATA" +map base1
+	run ogg_music 90 "ogg: done" +set basedir "$Q2DATA" $CFG +map base1
 fi
-run menu_settings_test 120 "ms: after renderer restart" +set basedir "$Q2DATA" $NOSOUND +map base1
-run vidrestart_shot 60 "vr: t=12 polys [1-9]" +set basedir "$Q2DATA" $NOSOUND +map base1
-run dedicated 60 "dedicated: .* state ss_game, map base1" +set basedir "$Q2DATA" $NOSOUND +set dedicated 1 +map base1
-run save_load 120 "save_load: level contents restored" +set basedir "$Q2DATA" $NOSOUND +map base1
+run menu_settings_test 120 "ms: after renderer restart" +set basedir "$Q2DATA" $CFG $NOSOUND +map base1
+run vidrestart_shot 60 "vr: t=12 polys [1-9]" +set basedir "$Q2DATA" $CFG $NOSOUND +map base1
+run dedicated 60 "dedicated: .* state ss_game, map base1" +set basedir "$Q2DATA" $CFG $NOSOUND +set dedicated 1 +map base1
+run save_load 120 "save_load: level contents restored" +set basedir "$Q2DATA" $CFG $NOSOUND +map base1
 # the map run again with every GL extension off
 NOEXT="+set gl_ext_multitexture 0 +set gl_ext_pointparameters 0 +set gl_ext_palettedtexture 0 +set gl_ext_swapinterval 0 +set gl_ext_compiled_vertex_array 0"
 if [ -z "$ONLY" ] || echo " $ONLY " | grep -q " noext "; then
 	ONLY_SAVE=$ONLY; ONLY=""
-	timeout 90 $PY -u tests/state_trace.py +set basedir "$Q2DATA" $NOSOUND $NOEXT +map base1 > "$OUT/noext.log" 2>&1
+	timeout 90 $PY -u tests/state_trace.py +set basedir "$Q2DATA" $CFG $NOSOUND $NOEXT +map base1 > "$OUT/noext.log" 2>&1
 	if grep -q "Traceback\|Error:" "$OUT/noext.log" || ! grep -q "30s frame" "$OUT/noext.log"; then echo "FAIL noext  (log: $OUT/noext.log)"; fail=1; else echo "ok   noext"; fi
 	ONLY=$ONLY_SAVE
 fi

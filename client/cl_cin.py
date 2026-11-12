@@ -423,7 +423,7 @@ def SCR_RunCinematic ():
 		cl_main.cl.cinematictime = cl_main.cls.realtime - cl_main.cl.cinematicframe*1000//14
 		return
 	
-	frame = (cl_main.cls.realtime - cl_main.cl.cinematictime)*14.0/1000
+	frame = int((cl_main.cls.realtime - cl_main.cl.cinematictime)*14.0/1000)
 	if frame <= cl_main.cl.cinematicframe:
 		return
 	if frame > cl_main.cl.cinematicframe+1:

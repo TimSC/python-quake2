@@ -1,6 +1,8 @@
 # Drive the OGG music subsystem (client/sound/ogg.py, OpenAL stream source backend):
 # track listing, play/pause/stop, save/recover state, volume and shutdown.
-# Music is copied into $Q2DATA/music/ for the run and removed afterwards.
+# Tracks 02 and 03 come from $Q2DATA/music/. Any that are missing are copied in
+# from the repo's music/ (named by CD track, see music/README.md) and removed
+# afterwards; music that was already there is left alone.
 import os, sys, shutil, time, atexit, subprocess
 os.environ.setdefault("Q2PORT_NOMOUSE", "1")  # no mouse capture (tests)
 sys.argv = ["main.py"] + sys.argv[1:]
@@ -8,24 +10,33 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 Q2DATA = os.environ.get("Q2DATA", "/home/tim/dev/quake2data/Data")
 MUSICDIR = os.path.join(Q2DATA, "music")
-SRC = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "soundtrack_ogg")
+SRC = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "music")
 
+created_dir = not os.path.isdir(MUSICDIR)
+staged = [] # files this test copied in, the only ones it removes
 os.makedirs(MUSICDIR, exist_ok=True)
 
 # a 1s mono ogg sample to exercise the S_LoadVorbis (.wav -> .ogg) fallback
 SOUNDDIR = os.path.join(Q2DATA, "baseq2", "sound", "misc")
 OGGSAMPLE = os.path.join(SOUNDDIR, "oggtest.ogg")
 os.makedirs(SOUNDDIR, exist_ok=True)
-subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", os.path.join(SRC, "02-Rage.ogg"), "-t", "1", "-ac", "1", "-c:a", "libvorbis", "-q:a", "5", OGGSAMPLE], check=True)
 
 def cleanup():
-	shutil.rmtree(MUSICDIR, ignore_errors=True)
+	for f in staged:
+		if os.path.exists(f):
+			os.remove(f)
+	if created_dir and not os.listdir(MUSICDIR):
+		os.rmdir(MUSICDIR)
 	if os.path.exists(OGGSAMPLE):
 		os.remove(OGGSAMPLE)
 
 atexit.register(cleanup)
-for i, name in [(2, "02-Rage.ogg"), (3, "03-Kill Ratio.ogg")]:
-	shutil.copy(os.path.join(SRC, name), os.path.join(MUSICDIR, "{:02d}.ogg".format(i)))
+for name in ["02.ogg", "03.ogg"]:
+	dst = os.path.join(MUSICDIR, name)
+	if not os.path.exists(dst):
+		shutil.copy(os.path.join(SRC, name), dst)
+		staged.append(dst)
+subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", os.path.join(MUSICDIR, "02.ogg"), "-t", "1", "-ac", "1", "-c:a", "libvorbis", "-q:a", "5", OGGSAMPLE], check=True)
 print("ogg: music staged in", MUSICDIR)
 
 import ctypes
