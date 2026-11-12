@@ -19,6 +19,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 from __future__ import annotations
 
+import ctypes
+import _ctypes
 import os
 import sys
 import select
@@ -525,6 +527,70 @@ def Sys_Realpath(inpath: str): #const char *, char *, size_t (returns qboolean)
 		return False, ""
 
 	return True, os.path.realpath(inpath)
+
+def Sys_GetProcAddress(handle, sym: str): #void *, const char * (returns void *)
+
+	# Q2PORT: dlsym is an attribute of the ctypes library handle; the result is
+	# a ctypes function (the caller sets its prototype), or None for NULL
+	if handle is None:
+
+		#ifdef RTLD_DEFAULT
+		handle = ctypes.CDLL(None) # dlsym(RTLD_DEFAULT, sym)
+		#endif
+
+	try:
+		return getattr(handle, sym) # dlsym(handle, sym)
+	except AttributeError:
+		return None
+
+def Sys_FreeLibrary(handle): #void *
+
+	if handle:
+
+		try:
+			_ctypes.dlclose(handle._handle)
+		except OSError as err:
+			clientserver.Com_Error(shared.ERR_FATAL, "dlclose failed on {}: {}".format(handle, err))
+
+def Sys_LoadLibrary(path: str, sym: str): #const char *, const char *, void ** (returns void *entry, void *handle)
+
+	#void *module, *entry;
+
+	handle = None
+
+	try:
+		#ifdef USE_SANITIZER
+		#else
+		module = ctypes.CDLL(path, mode=os.RTLD_LAZY) # dlopen(path, RTLD_LAZY)
+		#endif
+	except OSError as err:
+		module = None
+		dlerror = str(err)
+
+	if not module:
+
+		clientserver.Com_Printf("{} failed: {}\n".format("Sys_LoadLibrary", dlerror))
+		return None, None
+
+	if sym:
+
+		entry = Sys_GetProcAddress(module, sym) # dlsym(module, sym)
+
+		if not entry:
+
+			clientserver.Com_Printf("{} failed: {}\n".format("Sys_LoadLibrary", "undefined symbol: {}".format(sym)))
+			Sys_FreeLibrary(module)
+			return None, None
+
+	else:
+
+		entry = None
+
+	clientserver.Com_DPrintf("{} succeeded: {}\n".format("Sys_LoadLibrary", path))
+
+	handle = module
+
+	return entry, handle
 
 _exeDir = "" #static char exeDir[PATH_MAX], in Sys_GetBinaryDir
 

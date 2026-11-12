@@ -28,7 +28,8 @@ from __future__ import annotations
 from client import cl_keyboard
 
 import struct
-from client import snd_dma, cl_cin, cl_parse
+from client import cl_cin, cl_parse
+from client.sound import sound as sound_c
 from backends.unix import system, network
 from client.vid import vid
 from common.header import common as common_h
@@ -362,7 +363,7 @@ def CL_Disconnect(): #void
 
 	cl_main.cls.state = client_h.connstate_t.ca_disconnected
 
-	snd_dma.snd_is_underwater = False
+	sound_c.snd_is_underwater = False
 
 	# save config for old game/mod
 	cl_main.CL_WriteConfiguration()
@@ -472,7 +473,7 @@ def CL_Reconnect_f ():
 	if cl_main.cls.download is not None:
 		return
 
-	snd_dma.S_StopAllSounds ()
+	sound_c.S_StopAllSounds ()
 	if cl_main.cls.state == client_h.connstate_t.ca_connected:
 		clientserver.Com_Printf ("reconnecting...\n")
 		cl_main.cls.state = client_h.connstate_t.ca_connected

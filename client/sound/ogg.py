@@ -45,11 +45,15 @@ from __future__ import annotations
 #define STB_VORBIS_NO_PUSHDATA_API
 #include "header/stb_vorbis.h"
 """
-import io
-import os
-import pygame
 from enum import Enum
-from client import cl_main, snd_dma, snd_loc
+
+import numpy as np
+
+from client import cl_main
+from client.sound import openal
+from client.sound import sound as sound_c
+from client.sound.header import local as sound_local
+from client.sound.header import stb_vorbis
 from client.sound.header import vorbis
 from client.header import client as client_h
 from common.header import common as common_h
@@ -62,21 +66,17 @@ from common import cvar
 from common import filesystem
 from backends.unix import system
 
-# Q2PORT: the C decodes the music with stb_vorbis and injects the samples into the
-# backend's raw sample queue (OGG_Read/S_RawSamples). Here pygame.mixer.music (SDL_mixer)
-# streams the .ogg inside the audio device, so this module only keeps track of the
-# playback state and drives load/play/pause/stop on the music stream.
-
 ogg_pausewithgame = None #cvar_t *, Pause music when the game is paused
 ogg_enabled = None #cvar_t *, Backend is enabled
 ogg_shuffle = None #cvar_t *, Shuffle playback
 ogg_ignoretrack0 = None #cvar_t *, Toggle track 0 playing
 ogg_volume = None #cvar_t *, Music volume.
 ogg_curfile = 0 #int, Index of currently played file.
+ogg_numbufs = 0 #int, Number of buffers for OpenAL
 ogg_numsamples = 0 #int, Number of sambles read from the current file
 ogg_mapcdtrack = 0 #int, Index of current map cdtrack
 ogg_status = vorbis.STOP #ogg_status_t, Status indicator.
-# ogg_file = None #stb_vorbis *, Q2PORT: the C's vorbis handle is pygame's music stream
+ogg_file = None #stb_vorbis *, Ogg Vorbis file.
 ogg_started = False #qboolean, Initialization flag.
 ogg_mutemusic = False #qboolean, Mute music
 
@@ -265,61 +265,113 @@ def OGG_InitTrackList(): #void
 # --------
 
 """
+ * Play a portion of the currently opened file.
+"""
+def OGG_Read(): #void (static)
+
+	global ogg_numsamples, ogg_status, ogg_numbufs
+
+	samples = np.zeros((4096,), dtype=np.int16) #short [4096]
+	volume = 0.0 if (ogg_mutemusic == True) else ogg_volume.value #float
+
+	read_samples = stb_vorbis.stb_vorbis_get_samples_short_interleaved(ogg_file, ogg_file.channels, samples,
+		len(samples)) #int
+
+	if read_samples > 0:
+
+		ogg_numsamples += read_samples
+
+		sound_c.S_RawSamples(read_samples, ogg_file.sample_rate, 2, ogg_file.channels, # sizeof(short)
+			samples.tobytes(), volume) # (byte *)samples
+
+	else:
+
+		# We cannot call OGG_Stop() here. It flushes the OpenAL sample
+		# queue, thus about 12 seconds of music are lost. Instead we
+		# just set the OGG state to stop and open a new file. The new
+		# files content is added to the sample queue after the remaining
+		# samples from the old file.
+		stb_vorbis.stb_vorbis_close(ogg_file)
+		ogg_status = vorbis.STOP
+		ogg_numbufs = 0
+		ogg_numsamples = 0
+
+		OGG_PlayTrack("{}".format(ogg_curfile), False, False)
+
+"""
  * Stream music.
- */
 """
 def OGG_Stream(): #void
 
-	"""
-	// Q2PORT: the C pumps decoded samples into the backend's raw sample queue here
-	// (OGG_Read/S_RawSamples); pygame.mixer.music streams the track inside SDL_mixer,
-	// so only the state handling below is ported, and a finished track is detected
-	// with get_busy() (the C sees stb_vorbis run out of samples).
-	"""
-
-	global ogg_numsamples, ogg_mapcdtrack, ogg_status
+	global ogg_numbufs, ogg_mapcdtrack
 
 	if not ogg_started:
+
 		return
 
 	# OGG playback was disabled since the last package frame.
 	# Shutdown the backend to stop all playing tracks and to
 	# prevend OGG_PLayTrack() from starting new ones.
 	if ogg_enabled.value != 1:
+
 		OGG_Shutdown()
 		return
 
 	if ogg_pausewithgame.modified:
-	
-		if (ogg_pausewithgame.value == 0 and ogg_status == vorbis.PAUSE) or (ogg_pausewithgame.value == 1 and ogg_status == vorbis.PLAY):
+
+		if ((ogg_pausewithgame.value == 0 and ogg_status == vorbis.PAUSE) or
+		    (ogg_pausewithgame.value == 1 and ogg_status == vorbis.PLAY)):
+
 			OGG_TogglePlayback()
-		
+
 		ogg_pausewithgame.modified = False
 
 	if ogg_status == vorbis.PLAY:
-	
-		ogg_numsamples = pygame.mixer.music.get_pos() # Q2PORT: milliseconds, the C counts samples
-		# Q2PORT: the C passes the current volume to S_RawSamples on every OGG_Read
-		# (ogg mute / ogg_volume changes take effect while playing)
-		pygame.mixer.music.set_volume(0.0 if ogg_mutemusic else ogg_volume.value)
-		
-		if not pygame.mixer.music.get_busy():
-			# track finished, start the next one like the C's OGG_Read when the stream runs dry
-			#stb_vorbis_close(ogg_file);
-			ogg_status = vorbis.STOP
-			#ogg_numbufs = 0;
-			ogg_numsamples = 0
 
-			OGG_PlayTrack("{}".format(ogg_curfile), False, False)
+		#ifdef USE_OPENAL
+		if sound_c.sound_started == sound_local.SS_OAL:
+
+			# Calculate the number of buffers used
+			# for storing decoded OGG/Vorbis data.
+			# We take the number of active buffers
+			# and add 256. 256 are about 12 seconds
+			# worth of sound, more than enough to
+			# be resilent against underruns.
+			if ogg_numbufs == 0 or openal.active_buffers < ogg_numbufs - 256:
+
+				ogg_numbufs = openal.active_buffers + 256
+
+			# active_buffers are all active OpenAL buffers,
+			# buffering normal sfx _and_ ogg/vorbis samples.
+			while openal.active_buffers <= ogg_numbufs:
+
+				OGG_Read()
+
+		else: # using SDL
+		#endif
+
+			if sound_c.sound_started == sound_local.SS_SDL:
+
+				# Read that number samples into the buffer, that
+				# were played since the last call to this function.
+				# This keeps the buffer at all times at an "optimal"
+				# fill level.
+				while sound_c.paintedtime + sound_local.MAX_RAW_SAMPLES - 2048 > sound_c.s_rawend:
+
+					OGG_Read()
 
 	if ogg_status == vorbis.PLAY and ogg_shuffle.modified:
+
 		# Shuffle was modified before last track finished.
 		ogg_shuffle.modified = False
+
 	elif ogg_status == vorbis.STOP and ogg_shuffle.modified:
+
 		# If fullscreen console, clear the map cdtrack.
 		if cl_main.cls.state == client_h.connstate_t.ca_disconnected:
-			ogg_mapcdtrack = 0		# Track 0 means "stop music".
-		
+
+			ogg_mapcdtrack = 0 # Track 0 means "stop music".
+
 		# Ogg playback has stopped and shuffle was modified, play the map cdtrack.
 		ogg_shuffle.modified = False
 		OGG_PlayTrack("{}".format(ogg_mapcdtrack), True, True)
@@ -338,9 +390,9 @@ def OGG_PlayTrack(track: str, cdtrack: bool, immediate: bool): #const char *, qb
 	int trackNo;
 	"""
 
-	global ogg_curfile, ogg_numsamples, ogg_status, ogg_mapcdtrack
+	global ogg_curfile, ogg_numsamples, ogg_status, ogg_mapcdtrack, ogg_file
 
-	if not snd_dma.sound_started:
+	if sound_c.sound_started == sound_local.SS_NOT:
 		return	# sound is not initialized
 
 	if ogg_started is False:
@@ -353,33 +405,33 @@ def OGG_PlayTrack(track: str, cdtrack: bool, immediate: bool): #const char *, qb
 		if path is None:
 			break
 		
+		res = [0] #int
+		#FILE* f;
+
 		name = "{}/music/{}".format(path, track)
-		
+
 		# Open ogg vorbis file.
-		# Q2PORT: f = Q_fopen(name, "rb"); if (f == NULL) continue;
-		# (pygame-ce's music.load raises FileNotFoundError for a missing file,
-		# pygame's raises pygame.error, so the file is checked first, as the C does)
-		if not os.path.isfile(name):
+		f = filesystem.Q_fopen(name, "rb")
+		if f is None:
 			continue
-		
+
 		# Check running music.
 		if ogg_status == vorbis.PLAY:
 			OGG_Stop()
-		
-		# Q2PORT: stb_vorbis_open_file is pygame.mixer.music.load(), which
-		# loads and validates the vorbis stream
-		try:
-			pygame.mixer.music.load(name)
-		except pygame.error as err:
+
+		# fclose is not required on error with close_on_free=true
+		ogg_file = stb_vorbis.stb_vorbis_open_file(f, True, res, None)
+
+		if res[0] != 0:
 			clientserver.Com_Printf("{}: '{}' is not a valid Ogg Vorbis file (error {}).\n".format(
-				"OGG_PlayTrack", name, err))
+				"OGG_PlayTrack", name, res[0]))
 			return
-		
+
 		# Play file.
 		ogg_curfile = 0
 		ogg_numsamples = 0
 		ogg_status = vorbis.PLAY
-		pygame.mixer.music.play(loops=0)
+
 		return
 
 	# Q2PORT: the C's strtol stops at the first non-digit and returns 0 on failure
@@ -459,19 +511,31 @@ def OGG_PlayTrack(track: str, cdtrack: bool, immediate: bool): #const char *, qb
 		clientserver.Com_Printf("OGG_PlayTrack: I don't have a file for track %d!\n", trackNo)
 		return
 
-	# Q2PORT: the C's Q_fopen + stb_vorbis_open_file; a bad file leaves the status unchanged.
-	try:
-		pygame.mixer.music.load(ogg_tracks[trackNo])
-	except pygame.error:
-		clientserver.Com_Printf("OGG_PlayTrack: could not open file %s for track %d.\n", ogg_tracks[trackNo], trackNo)
+	# Open ogg vorbis file.
+	f = filesystem.Q_fopen(ogg_tracks[trackNo], "rb") #FILE*
+
+	if f is None:
+		clientserver.Com_Printf("%s: could not open file %s for track %d: %s.\n",
+			"OGG_PlayTrack", ogg_tracks[trackNo], trackNo, "No such file or directory") # strerror(errno)
 		ogg_tracks[trackNo] = None
+
+		return
+
+	res = [0] #int
+
+	# fclose is not required on error with close_on_free=true
+	ogg_file = stb_vorbis.stb_vorbis_open_file(f, True, res, None)
+
+	if res[0] != 0:
+		clientserver.Com_Printf("%s: '%s' is not a valid Ogg Vorbis file (error %i).\n",
+			"OGG_PlayTrack", ogg_tracks[trackNo], res[0])
+
 		return
 
 	# Play file.
 	ogg_curfile = trackNo
 	ogg_numsamples = 0
 	ogg_status = vorbis.PLAY
-	pygame.mixer.music.play(loops=0)
 
 # ----
 
@@ -492,10 +556,11 @@ def OGG_Info(): #void (static)
 	clientserver.Com_Printf("Total: %d Ogg/Vorbis files.\n", ogg_maxfileindex + 1)
 
 	if ogg_status == vorbis.PLAY:
-		# Q2PORT: stb_vorbis_get_sample_offset(ogg_file) in samples, pygame in milliseconds
-		clientserver.Com_Printf("State: Playing file %d (%s) at %i ms.\n", ogg_curfile, ogg_tracks[ogg_curfile], pygame.mixer.music.get_pos())
+		clientserver.Com_Printf("State: Playing file %d (%s) at %i samples.\n",
+			ogg_curfile, ogg_tracks[ogg_curfile], stb_vorbis.stb_vorbis_get_sample_offset(ogg_file))
 	elif ogg_status == vorbis.PAUSE:
-		clientserver.Com_Printf("State: Paused file %d (%s) at %i ms.\n", ogg_curfile, ogg_tracks[ogg_curfile], pygame.mixer.music.get_pos())
+		clientserver.Com_Printf("State: Paused file %d (%s) at %i samples.\n",
+			ogg_curfile, ogg_tracks[ogg_curfile], stb_vorbis.stb_vorbis_get_sample_offset(ogg_file))
 	elif ogg_status == vorbis.STOP:
 		if ogg_curfile == -1:
 			clientserver.Com_Printf("State: Stopped.\n")
@@ -508,14 +573,19 @@ def OGG_Info(): #void (static)
 """
 def OGG_Stop(): #void
 
-	global ogg_status
+	global ogg_status, ogg_numbufs
 
 	if ogg_status == vorbis.STOP:
 		return
 
-	# Q2PORT: the C's AL_UnqueueRawSamples is OpenAL-only; stb_vorbis_close is the music stream stopping
-	pygame.mixer.music.stop()
+	#ifdef USE_OPENAL
+	if sound_c.sound_started == sound_local.SS_OAL:
+		openal.AL_UnqueueRawSamples()
+	#endif
+
+	stb_vorbis.stb_vorbis_close(ogg_file)
 	ogg_status = vorbis.STOP
+	ogg_numbufs = 0
 
 """
  * Pause or resume playback.
@@ -523,14 +593,19 @@ def OGG_Stop(): #void
 """
 def OGG_TogglePlayback(): #void (static)
 
-	global ogg_status
+	global ogg_status, ogg_numbufs
 
 	if ogg_status == vorbis.PLAY:
 		ogg_status = vorbis.PAUSE
-		pygame.mixer.music.pause()
+		ogg_numbufs = 0
+
+		#ifdef USE_OPENAL
+		if sound_c.sound_started == sound_local.SS_OAL:
+			openal.AL_UnqueueRawSamples()
+		#endif
+
 	elif ogg_status == vorbis.PAUSE:
 		ogg_status = vorbis.PLAY
-		pygame.mixer.music.unpause()
 
 """
  * Prints a help message for the 'ogg' cmd.
@@ -611,9 +686,7 @@ def OGG_RecoverState(): #void
 	cvar.Cvar_SetValue("ogg_shuffle", 0)
 
 	OGG_PlayTrack("{}".format(ogg_saved_state.curfile), False, True)
-	# Q2PORT: stb_vorbis_seek_frame(ogg_file, numsamples); ogg_numsamples is
-	# milliseconds here (pygame), so seek with play(start=seconds)
-	pygame.mixer.music.play(loops=0, start=max(0, ogg_saved_state.numsamples) / 1000.0)
+	stb_vorbis.stb_vorbis_seek_frame(ogg_file, ogg_saved_state.numsamples)
 	ogg_numsamples = ogg_saved_state.numsamples
 
 	cvar.Cvar_SetValue("ogg_shuffle", shuffle_state)
@@ -685,46 +758,67 @@ def OGG_Shutdown(): #void
 
 	ogg_started = False
 
-"""
- * Load an Ogg Vorbis file as a wav
- *
- * Q2PORT: stb_vorbis is replaced by pygame, which decodes the file straight to the
- * mixer format, so the "wav" returned has the mixer's rate and channel count instead
- * of the file's. The C fills info and buffer through pointers; the port returns
- * (info, buffer, pygame Sound) or (None, None, None).
- */
-"""
-def OGG_LoadAsWav(filename): #char *, (returns wavinfo_t *info, void **buffer)
+def OGG_LoadAsWav(filename: str)->tuple: #char *, wavinfo_t *, void ** (Q2PORT: returns info, buffer)
 
-	size, temp_buffer = filesystem.FS_LoadFile(filename)
+	info = None #wavinfo_t *
+	buffer = None #void *
+	temp_buffer = None #void *
+	size, temp_buffer = filesystem.FS_LoadFile(filename) #int
+	final_buffer = None #short *
+	ogg2wav_file = None #stb_vorbis *
+	res = [0] #int
 
 	if temp_buffer is None:
+
 		# no such file
-		return None, None, None
+		return info, buffer
 
 	# load vorbis file from memory
-	try:
-		ogg2wav_file = pygame.mixer.Sound(file=io.BytesIO(temp_buffer))
-	except pygame.error:
-		filesystem.FS_FreeFile(temp_buffer)
-		return None, None, None
+	ogg2wav_file = stb_vorbis.stb_vorbis_open_memory(temp_buffer, size, res, None)
+	if not res[0] and ogg2wav_file.channels > 0:
 
-	final_buffer = ogg2wav_file.get_raw()
+		read_samples = 0 #int
 
-	info = snd_loc.wavinfo_t()
-	# fill in wav structure
-	info.rate = snd_dma.dma.speed
-	info.width = 2
-	info.channels = snd_dma.dma.channels
-	info.loopstart = -1
-	# return length * channels
-	info.samples = len(final_buffer) // 2
-	info.dataofs = 0
+		# fill in wav structure
+		info = sound_local.wavinfo_t()
+		info.rate = ogg2wav_file.sample_rate
+		info.width = 2
+		info.channels = ogg2wav_file.channels
+		info.loopstart = -1
+		# return length * channels
+		info.samples = stb_vorbis.stb_vorbis_stream_length_in_samples(ogg2wav_file) * info.channels
+		info.dataofs = 0
+
+		# alloc memory for uncompressed wav
+		final_buffer = np.zeros((info.samples,), dtype=np.int16) # Z_Malloc(info->samples * sizeof(short))
+
+		# load sampleas to buffer
+		read_samples = stb_vorbis.stb_vorbis_get_samples_short_interleaved(
+			ogg2wav_file, info.channels, final_buffer,
+			info.samples)
+
+		if read_samples > 0:
+
+			# fix sample list size
+			if (read_samples * info.channels) != info.samples:
+
+				clientserver.Com_DPrintf("%s: incorrect size: %d != %d\n",
+					filename, info.samples, read_samples * info.channels)
+
+				info.samples = read_samples * info.channels
+
+			# copy to final result
+			buffer = final_buffer[:info.samples].tobytes()
+
+		else:
+
+			# something is going wrong
+			final_buffer = None
+
+	if ogg2wav_file:
+
+		stb_vorbis.stb_vorbis_close(ogg2wav_file)
 
 	filesystem.FS_FreeFile(temp_buffer)
 
-	if info.samples <= 0:
-		# something is going wrong
-		return None, None, None
-
-	return info, final_buffer, ogg2wav_file
+	return info, buffer

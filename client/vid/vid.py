@@ -25,7 +25,8 @@ API between the client and renderers.
 """
 from __future__ import annotations
 
-from client import cl_main, snd_dma
+from client import cl_main
+from client.sound import sound as sound_c
 from client import cl_keyboard
 from client import cl_tempentities
 from client import ref
@@ -383,7 +384,7 @@ def VID_CheckChanges(): #void
 		# stop sound, because the clients blocks while
 		# we're reloading the renderer. The sound system
 		# would screw up its internal timings.
-		snd_dma.S_StopAllSounds()
+		sound_c.S_StopAllSounds()
 
 		# reset the client side of the renderer state.
 		cl_main.cl.refresh_prepped = False

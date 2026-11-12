@@ -31,7 +31,8 @@ from common.shared import rand
 import numpy as np
 import math
 import random
-from client import cl_main, ref, snd_dma
+from client import cl_main, ref
+from client.sound import sound as sound_c
 from common.header import common as common_h
 from common.header import shared
 from common.shared import flash
@@ -121,21 +122,21 @@ def CL_AddMuzzleFlash(): #
 		dl.color[0] = 1
 		dl.color[1] = 1
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/blastf1a.wav"), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/blastf1a.wav"), volume, shared.ATTN_NORM, 0)
 
 	elif weapon == shared.MZ_BLUEHYPERBLASTER:
 
 		dl.color[0] = 0
 		dl.color[1] = 0
 		dl.color[2] = 1
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/hyprbf1a.wav"), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/hyprbf1a.wav"), volume, shared.ATTN_NORM, 0)
 
 	elif weapon == shared.MZ_HYPERBLASTER:
 
 		dl.color[0] = 1
 		dl.color[1] = 1
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/hyprbf1a.wav"), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/hyprbf1a.wav"), volume, shared.ATTN_NORM, 0)
 
 	elif weapon == shared.MZ_MACHINEGUN:
 
@@ -143,22 +144,22 @@ def CL_AddMuzzleFlash(): #
 		dl.color[1] = 1
 		dl.color[2] = 0
 		soundname = "weapons/machgf%db.wav" % ((rand.randk() % 5) + 1,) # Com_sprintf
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound(soundname), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound(soundname), volume, shared.ATTN_NORM, 0)
 
 	elif weapon == shared.MZ_SHOTGUN:
 
 		dl.color[0] = 1
 		dl.color[1] = 1
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/shotgf1b.wav"), volume, shared.ATTN_NORM, 0)
-		snd_dma.S_StartSound(None, i, shared.CHAN_AUTO, snd_dma.S_RegisterSound("weapons/shotgr1b.wav"), volume, shared.ATTN_NORM, 0.1)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/shotgf1b.wav"), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_AUTO, sound_c.S_RegisterSound("weapons/shotgr1b.wav"), volume, shared.ATTN_NORM, 0.1)
 
 	elif weapon == shared.MZ_SSHOTGUN:
 
 		dl.color[0] = 1
 		dl.color[1] = 1
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/sshotf1b.wav"), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/sshotf1b.wav"), volume, shared.ATTN_NORM, 0)
 
 	elif weapon == shared.MZ_CHAINGUN1:
 
@@ -167,7 +168,7 @@ def CL_AddMuzzleFlash(): #
 		dl.color[1] = 0.25
 		dl.color[2] = 0
 		soundname = "weapons/machgf%db.wav" % ((rand.randk() % 5) + 1,) # Com_sprintf
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound(soundname), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound(soundname), volume, shared.ATTN_NORM, 0)
 
 	elif weapon == shared.MZ_CHAINGUN2:
 
@@ -178,9 +179,9 @@ def CL_AddMuzzleFlash(): #
 		dl.die = cl_main.cl.time + 0.1
 		# long delay
 		soundname = "weapons/machgf%db.wav" % ((rand.randk() % 5) + 1,) # Com_sprintf
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound(soundname), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound(soundname), volume, shared.ATTN_NORM, 0)
 		soundname = "weapons/machgf%db.wav" % ((rand.randk() % 5) + 1,) # Com_sprintf
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound(soundname), volume, shared.ATTN_NORM, 0.05)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound(soundname), volume, shared.ATTN_NORM, 0.05)
 
 	elif weapon == shared.MZ_CHAINGUN3:
 
@@ -191,41 +192,41 @@ def CL_AddMuzzleFlash(): #
 		dl.die = cl_main.cl.time + 0.1
 		# long delay
 		soundname = "weapons/machgf%db.wav" % ((rand.randk() % 5) + 1,) # Com_sprintf
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound(soundname), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound(soundname), volume, shared.ATTN_NORM, 0)
 		soundname = "weapons/machgf%db.wav" % ((rand.randk() % 5) + 1,) # Com_sprintf
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound(soundname), volume, shared.ATTN_NORM, 0.033)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound(soundname), volume, shared.ATTN_NORM, 0.033)
 		soundname = "weapons/machgf%db.wav" % ((rand.randk() % 5) + 1,) # Com_sprintf
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound(soundname), volume, shared.ATTN_NORM, 0.066)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound(soundname), volume, shared.ATTN_NORM, 0.066)
 
 	elif weapon == shared.MZ_RAILGUN:
 
 		dl.color[0] = 0.5
 		dl.color[1] = 0.5
 		dl.color[2] = 1.0
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/railgf1a.wav"), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/railgf1a.wav"), volume, shared.ATTN_NORM, 0)
 
 	elif weapon == shared.MZ_ROCKET:
 
 		dl.color[0] = 1
 		dl.color[1] = 0.5
 		dl.color[2] = 0.2
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/rocklf1a.wav"), volume, shared.ATTN_NORM, 0)
-		snd_dma.S_StartSound(None, i, shared.CHAN_AUTO, snd_dma.S_RegisterSound("weapons/rocklr1b.wav"), volume, shared.ATTN_NORM, 0.1)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/rocklf1a.wav"), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_AUTO, sound_c.S_RegisterSound("weapons/rocklr1b.wav"), volume, shared.ATTN_NORM, 0.1)
 
 	elif weapon == shared.MZ_GRENADE:
 
 		dl.color[0] = 1
 		dl.color[1] = 0.5
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/grenlf1a.wav"), volume, shared.ATTN_NORM, 0)
-		snd_dma.S_StartSound(None, i, shared.CHAN_AUTO, snd_dma.S_RegisterSound("weapons/grenlr1b.wav"), volume, shared.ATTN_NORM, 0.1)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/grenlf1a.wav"), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_AUTO, sound_c.S_RegisterSound("weapons/grenlr1b.wav"), volume, shared.ATTN_NORM, 0.1)
 
 	elif weapon == shared.MZ_BFG:
 
 		dl.color[0] = 0
 		dl.color[1] = 1
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/bfg__f1y.wav"), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/bfg__f1y.wav"), volume, shared.ATTN_NORM, 0)
 
 	elif weapon == shared.MZ_LOGIN:
 
@@ -233,7 +234,7 @@ def CL_AddMuzzleFlash(): #
 		dl.color[1] = 1
 		dl.color[2] = 0
 		dl.die = cl_main.cl.time + 1
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/grenlf1a.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/grenlf1a.wav"), 1, shared.ATTN_NORM, 0)
 		CL_LogoutEffect(pl.current.origin, weapon)
 
 	elif weapon == shared.MZ_LOGOUT:
@@ -242,7 +243,7 @@ def CL_AddMuzzleFlash(): #
 		dl.color[1] = 0
 		dl.color[2] = 0
 		dl.die = cl_main.cl.time + 1
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/grenlf1a.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/grenlf1a.wav"), 1, shared.ATTN_NORM, 0)
 		CL_LogoutEffect(pl.current.origin, weapon)
 
 	elif weapon == shared.MZ_RESPAWN:
@@ -251,7 +252,7 @@ def CL_AddMuzzleFlash(): #
 		dl.color[1] = 1
 		dl.color[2] = 0
 		dl.die = cl_main.cl.time + 1.0
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/grenlf1a.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/grenlf1a.wav"), 1, shared.ATTN_NORM, 0)
 		CL_LogoutEffect(pl.current.origin, weapon)
 
 	elif weapon == shared.MZ_PHALANX:
@@ -259,28 +260,28 @@ def CL_AddMuzzleFlash(): #
 		dl.color[0] = 1
 		dl.color[1] = 0.5
 		dl.color[2] = 0.5
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/plasshot.wav"), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/plasshot.wav"), volume, shared.ATTN_NORM, 0)
 
 	elif weapon == shared.MZ_IONRIPPER:
 
 		dl.color[0] = 1
 		dl.color[1] = 0.5
 		dl.color[2] = 0.5
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/rippfire.wav"), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/rippfire.wav"), volume, shared.ATTN_NORM, 0)
 
 	elif weapon == shared.MZ_ETF_RIFLE:
 
 		dl.color[0] = 0.9
 		dl.color[1] = 0.7
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/nail1.wav"), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/nail1.wav"), volume, shared.ATTN_NORM, 0)
 
 	elif weapon == shared.MZ_SHOTGUN2:
 
 		dl.color[0] = 1
 		dl.color[1] = 1
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/shotg2.wav"), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/shotg2.wav"), volume, shared.ATTN_NORM, 0)
 
 	elif weapon == shared.MZ_HEATBEAM:
 
@@ -294,7 +295,7 @@ def CL_AddMuzzleFlash(): #
 		dl.color[0] = 0
 		dl.color[1] = 1
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/blastf1a.wav"), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/blastf1a.wav"), volume, shared.ATTN_NORM, 0)
 
 	elif weapon == shared.MZ_TRACKER:
 
@@ -302,7 +303,7 @@ def CL_AddMuzzleFlash(): #
 		dl.color[0] = -1
 		dl.color[1] = -1
 		dl.color[2] = -1
-		snd_dma.S_StartSound(None, i, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/disint2.wav"), volume, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, i, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/disint2.wav"), volume, shared.ATTN_NORM, 0)
 
 	elif weapon == shared.MZ_NUKE1:
 
@@ -384,7 +385,7 @@ def CL_AddMuzzleFlash2(): #
 		dl.color[2] = 0
 		cl_particles.CL_ParticleEffect(origin, shared_c.vec3_origin, 0, 40)
 		cl_tempentities.CL_SmokeAndFlash(origin)
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("infantry/infatck1.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("infantry/infatck1.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_SOLDIER_MACHINEGUN_1 or flash_number == shared.MZ2_SOLDIER_MACHINEGUN_2 or flash_number == shared.MZ2_SOLDIER_MACHINEGUN_3 or flash_number == shared.MZ2_SOLDIER_MACHINEGUN_4 or flash_number == shared.MZ2_SOLDIER_MACHINEGUN_5 or flash_number == shared.MZ2_SOLDIER_MACHINEGUN_6 or flash_number == shared.MZ2_SOLDIER_MACHINEGUN_7 or flash_number == shared.MZ2_SOLDIER_MACHINEGUN_8:
 
@@ -393,7 +394,7 @@ def CL_AddMuzzleFlash2(): #
 		dl.color[2] = 0
 		cl_particles.CL_ParticleEffect(origin, shared_c.vec3_origin, 0, 40)
 		cl_tempentities.CL_SmokeAndFlash(origin)
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("soldier/solatck3.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("soldier/solatck3.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_GUNNER_MACHINEGUN_1 or flash_number == shared.MZ2_GUNNER_MACHINEGUN_2 or flash_number == shared.MZ2_GUNNER_MACHINEGUN_3 or flash_number == shared.MZ2_GUNNER_MACHINEGUN_4 or flash_number == shared.MZ2_GUNNER_MACHINEGUN_5 or flash_number == shared.MZ2_GUNNER_MACHINEGUN_6 or flash_number == shared.MZ2_GUNNER_MACHINEGUN_7 or flash_number == shared.MZ2_GUNNER_MACHINEGUN_8:
 
@@ -402,7 +403,7 @@ def CL_AddMuzzleFlash2(): #
 		dl.color[2] = 0
 		cl_particles.CL_ParticleEffect(origin, shared_c.vec3_origin, 0, 40)
 		cl_tempentities.CL_SmokeAndFlash(origin)
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("gunner/gunatck2.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("gunner/gunatck2.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_ACTOR_MACHINEGUN_1 or flash_number == shared.MZ2_SUPERTANK_MACHINEGUN_1 or flash_number == shared.MZ2_SUPERTANK_MACHINEGUN_2 or flash_number == shared.MZ2_SUPERTANK_MACHINEGUN_3 or flash_number == shared.MZ2_SUPERTANK_MACHINEGUN_4 or flash_number == shared.MZ2_SUPERTANK_MACHINEGUN_5 or flash_number == shared.MZ2_SUPERTANK_MACHINEGUN_6 or flash_number == shared.MZ2_TURRET_MACHINEGUN:
 
@@ -411,7 +412,7 @@ def CL_AddMuzzleFlash2(): #
 		dl.color[2] = 0
 		cl_particles.CL_ParticleEffect(origin, shared_c.vec3_origin, 0, 40)
 		cl_tempentities.CL_SmokeAndFlash(origin)
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("infantry/infatck1.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("infantry/infatck1.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_BOSS2_MACHINEGUN_L1 or flash_number == shared.MZ2_BOSS2_MACHINEGUN_L2 or flash_number == shared.MZ2_BOSS2_MACHINEGUN_L3 or flash_number == shared.MZ2_BOSS2_MACHINEGUN_L4 or flash_number == shared.MZ2_BOSS2_MACHINEGUN_L5 or flash_number == shared.MZ2_CARRIER_MACHINEGUN_L1 or flash_number == shared.MZ2_CARRIER_MACHINEGUN_L2:
 
@@ -420,42 +421,42 @@ def CL_AddMuzzleFlash2(): #
 		dl.color[2] = 0
 		cl_particles.CL_ParticleEffect(origin, shared_c.vec3_origin, 0, 40)
 		cl_tempentities.CL_SmokeAndFlash(origin)
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("infantry/infatck1.wav"), 1, shared.ATTN_NONE, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("infantry/infatck1.wav"), 1, shared.ATTN_NONE, 0)
 
 	elif flash_number == shared.MZ2_SOLDIER_BLASTER_1 or flash_number == shared.MZ2_SOLDIER_BLASTER_2 or flash_number == shared.MZ2_SOLDIER_BLASTER_3 or flash_number == shared.MZ2_SOLDIER_BLASTER_4 or flash_number == shared.MZ2_SOLDIER_BLASTER_5 or flash_number == shared.MZ2_SOLDIER_BLASTER_6 or flash_number == shared.MZ2_SOLDIER_BLASTER_7 or flash_number == shared.MZ2_SOLDIER_BLASTER_8 or flash_number == shared.MZ2_TURRET_BLASTER:
 
 		dl.color[0] = 1
 		dl.color[1] = 1
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("soldier/solatck2.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("soldier/solatck2.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_FLYER_BLASTER_1 or flash_number == shared.MZ2_FLYER_BLASTER_2:
 
 		dl.color[0] = 1
 		dl.color[1] = 1
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("flyer/flyatck3.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("flyer/flyatck3.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_MEDIC_BLASTER_1:
 
 		dl.color[0] = 1
 		dl.color[1] = 1
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("medic/medatck1.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("medic/medatck1.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_HOVER_BLASTER_1:
 
 		dl.color[0] = 1
 		dl.color[1] = 1
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("hover/hovatck1.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("hover/hovatck1.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_FLOAT_BLASTER_1:
 
 		dl.color[0] = 1
 		dl.color[1] = 1
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("floater/fltatck1.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("floater/fltatck1.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_SOLDIER_SHOTGUN_1 or flash_number == shared.MZ2_SOLDIER_SHOTGUN_2 or flash_number == shared.MZ2_SOLDIER_SHOTGUN_3 or flash_number == shared.MZ2_SOLDIER_SHOTGUN_4 or flash_number == shared.MZ2_SOLDIER_SHOTGUN_5 or flash_number == shared.MZ2_SOLDIER_SHOTGUN_6 or flash_number == shared.MZ2_SOLDIER_SHOTGUN_7 or flash_number == shared.MZ2_SOLDIER_SHOTGUN_8:
 
@@ -463,14 +464,14 @@ def CL_AddMuzzleFlash2(): #
 		dl.color[1] = 1
 		dl.color[2] = 0
 		cl_tempentities.CL_SmokeAndFlash(origin)
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("soldier/solatck1.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("soldier/solatck1.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_TANK_BLASTER_1 or flash_number == shared.MZ2_TANK_BLASTER_2 or flash_number == shared.MZ2_TANK_BLASTER_3:
 
 		dl.color[0] = 1
 		dl.color[1] = 1
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("tank/tnkatck3.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("tank/tnkatck3.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_TANK_MACHINEGUN_1 or flash_number == shared.MZ2_TANK_MACHINEGUN_2 or flash_number == shared.MZ2_TANK_MACHINEGUN_3 or flash_number == shared.MZ2_TANK_MACHINEGUN_4 or flash_number == shared.MZ2_TANK_MACHINEGUN_5 or flash_number == shared.MZ2_TANK_MACHINEGUN_6 or flash_number == shared.MZ2_TANK_MACHINEGUN_7 or flash_number == shared.MZ2_TANK_MACHINEGUN_8 or flash_number == shared.MZ2_TANK_MACHINEGUN_9 or flash_number == shared.MZ2_TANK_MACHINEGUN_10 or flash_number == shared.MZ2_TANK_MACHINEGUN_11 or flash_number == shared.MZ2_TANK_MACHINEGUN_12 or flash_number == shared.MZ2_TANK_MACHINEGUN_13 or flash_number == shared.MZ2_TANK_MACHINEGUN_14 or flash_number == shared.MZ2_TANK_MACHINEGUN_15 or flash_number == shared.MZ2_TANK_MACHINEGUN_16 or flash_number == shared.MZ2_TANK_MACHINEGUN_17 or flash_number == shared.MZ2_TANK_MACHINEGUN_18 or flash_number == shared.MZ2_TANK_MACHINEGUN_19:
 
@@ -480,35 +481,35 @@ def CL_AddMuzzleFlash2(): #
 		cl_particles.CL_ParticleEffect(origin, shared_c.vec3_origin, 0, 40)
 		cl_tempentities.CL_SmokeAndFlash(origin)
 		soundname = "tank/tnkatk2%c.wav" % (97 + (rand.randk() % 5),) # Com_sprintf
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound(soundname), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound(soundname), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_CHICK_ROCKET_1 or flash_number == shared.MZ2_TURRET_ROCKET:
 
 		dl.color[0] = 1
 		dl.color[1] = 0.5
 		dl.color[2] = 0.2
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("chick/chkatck2.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("chick/chkatck2.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_TANK_ROCKET_1 or flash_number == shared.MZ2_TANK_ROCKET_2 or flash_number == shared.MZ2_TANK_ROCKET_3:
 
 		dl.color[0] = 1
 		dl.color[1] = 0.5
 		dl.color[2] = 0.2
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("tank/tnkatck1.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("tank/tnkatck1.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_SUPERTANK_ROCKET_1 or flash_number == shared.MZ2_SUPERTANK_ROCKET_2 or flash_number == shared.MZ2_SUPERTANK_ROCKET_3 or flash_number == shared.MZ2_BOSS2_ROCKET_1 or flash_number == shared.MZ2_BOSS2_ROCKET_2 or flash_number == shared.MZ2_BOSS2_ROCKET_3 or flash_number == shared.MZ2_BOSS2_ROCKET_4 or flash_number == shared.MZ2_CARRIER_ROCKET_1:
 
 		dl.color[0] = 1
 		dl.color[1] = 0.5
 		dl.color[2] = 0.2
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("tank/rocket.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("tank/rocket.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_GUNNER_GRENADE_1 or flash_number == shared.MZ2_GUNNER_GRENADE_2 or flash_number == shared.MZ2_GUNNER_GRENADE_3 or flash_number == shared.MZ2_GUNNER_GRENADE_4:
 
 		dl.color[0] = 1
 		dl.color[1] = 0.5
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("gunner/gunatck3.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("gunner/gunatck3.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_GLADIATOR_RAILGUN_1 or flash_number == shared.MZ2_CARRIER_RAILGUN or flash_number == shared.MZ2_WIDOW_RAIL:
 
@@ -527,7 +528,7 @@ def CL_AddMuzzleFlash2(): #
 		dl.color[0] = 1
 		dl.color[1] = 1
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("makron/blaster.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("makron/blaster.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_JORG_MACHINEGUN_L1 or flash_number == shared.MZ2_JORG_MACHINEGUN_L2 or flash_number == shared.MZ2_JORG_MACHINEGUN_L3 or flash_number == shared.MZ2_JORG_MACHINEGUN_L4 or flash_number == shared.MZ2_JORG_MACHINEGUN_L5 or flash_number == shared.MZ2_JORG_MACHINEGUN_L6:
 
@@ -536,7 +537,7 @@ def CL_AddMuzzleFlash2(): #
 		dl.color[2] = 0
 		cl_particles.CL_ParticleEffect(origin, shared_c.vec3_origin, 0, 40)
 		cl_tempentities.CL_SmokeAndFlash(origin)
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("boss3/xfire.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("boss3/xfire.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_JORG_MACHINEGUN_R1 or flash_number == shared.MZ2_JORG_MACHINEGUN_R2 or flash_number == shared.MZ2_JORG_MACHINEGUN_R3 or flash_number == shared.MZ2_JORG_MACHINEGUN_R4 or flash_number == shared.MZ2_JORG_MACHINEGUN_R5 or flash_number == shared.MZ2_JORG_MACHINEGUN_R6:
 
@@ -565,14 +566,14 @@ def CL_AddMuzzleFlash2(): #
 		dl.color[0] = 0
 		dl.color[1] = 1
 		dl.color[2] = 0
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("tank/tnkatck3.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("tank/tnkatck3.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_WIDOW_DISRUPTOR:
 
 		dl.color[0] = -1
 		dl.color[1] = -1
 		dl.color[2] = -1
-		snd_dma.S_StartSound(None, entnum, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("weapons/disint2.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, entnum, shared.CHAN_WEAPON, sound_c.S_RegisterSound("weapons/disint2.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif flash_number == shared.MZ2_WIDOW_PLASMABEAM or flash_number == shared.MZ2_WIDOW2_BEAMER_1 or flash_number == shared.MZ2_WIDOW2_BEAMER_2 or flash_number == shared.MZ2_WIDOW2_BEAMER_3 or flash_number == shared.MZ2_WIDOW2_BEAMER_4 or flash_number == shared.MZ2_WIDOW2_BEAMER_5 or flash_number == shared.MZ2_WIDOW2_BEAM_SWEEP_1 or flash_number == shared.MZ2_WIDOW2_BEAM_SWEEP_2 or flash_number == shared.MZ2_WIDOW2_BEAM_SWEEP_3 or flash_number == shared.MZ2_WIDOW2_BEAM_SWEEP_4 or flash_number == shared.MZ2_WIDOW2_BEAM_SWEEP_5 or flash_number == shared.MZ2_WIDOW2_BEAM_SWEEP_6 or flash_number == shared.MZ2_WIDOW2_BEAM_SWEEP_7 or flash_number == shared.MZ2_WIDOW2_BEAM_SWEEP_8 or flash_number == shared.MZ2_WIDOW2_BEAM_SWEEP_9 or flash_number == shared.MZ2_WIDOW2_BEAM_SWEEP_10 or flash_number == shared.MZ2_WIDOW2_BEAM_SWEEP_11:
 
@@ -1814,32 +1815,32 @@ def CL_EntityEvent(ent): #entity_state_t *
 
 	if ent.event == shared.entity_event_t.EV_ITEM_RESPAWN.value:
 
-		snd_dma.S_StartSound(None, ent.number, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("items/respawn1.wav"), 1, shared.ATTN_IDLE, 0)
+		sound_c.S_StartSound(None, ent.number, shared.CHAN_WEAPON, sound_c.S_RegisterSound("items/respawn1.wav"), 1, shared.ATTN_IDLE, 0)
 		CL_ItemRespawnParticles(ent.origin)
 
 	elif ent.event == shared.entity_event_t.EV_PLAYER_TELEPORT.value:
 
-		snd_dma.S_StartSound(None, ent.number, shared.CHAN_WEAPON, snd_dma.S_RegisterSound("misc/tele1.wav"), 1, shared.ATTN_IDLE, 0)
+		sound_c.S_StartSound(None, ent.number, shared.CHAN_WEAPON, sound_c.S_RegisterSound("misc/tele1.wav"), 1, shared.ATTN_IDLE, 0)
 		CL_TeleportParticles(ent.origin)
 
 	elif ent.event == shared.entity_event_t.EV_FOOTSTEP.value:
 
 		if cl_main.cl_footsteps.value:
 
-			snd_dma.S_StartSound(None, ent.number, shared.CHAN_BODY, cl_tempentities.CL_RandomFootstepSfx(), 1, shared.ATTN_NORM, 0)
+			sound_c.S_StartSound(None, ent.number, shared.CHAN_BODY, cl_tempentities.CL_RandomFootstepSfx(), 1, shared.ATTN_NORM, 0)
 
 
 	elif ent.event == shared.entity_event_t.EV_FALLSHORT.value:
 
-		snd_dma.S_StartSound(None, ent.number, shared.CHAN_AUTO, snd_dma.S_RegisterSound("player/land1.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, ent.number, shared.CHAN_AUTO, sound_c.S_RegisterSound("player/land1.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif ent.event == shared.entity_event_t.EV_FALL.value:
 
-		snd_dma.S_StartSound(None, ent.number, shared.CHAN_AUTO, snd_dma.S_RegisterSound("*fall2.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, ent.number, shared.CHAN_AUTO, sound_c.S_RegisterSound("*fall2.wav"), 1, shared.ATTN_NORM, 0)
 
 	elif ent.event == shared.entity_event_t.EV_FALLFAR.value:
 
-		snd_dma.S_StartSound(None, ent.number, shared.CHAN_AUTO, snd_dma.S_RegisterSound("*fall1.wav"), 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, ent.number, shared.CHAN_AUTO, sound_c.S_RegisterSound("*fall1.wav"), 1, shared.ATTN_NORM, 0)
 
 
 # ==============

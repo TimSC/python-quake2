@@ -33,7 +33,8 @@ from client.sound.header import vorbis
 
 import os
 import struct
-from client import snd_dma, cl_view, cl_input, cl_cin, cl_parse
+from client import cl_view, cl_input, cl_cin, cl_parse
+from client.sound import sound as sound_c
 from backends.unix import system, network
 from linux import cd_linux
 from client.vid import vid
@@ -440,7 +441,7 @@ def CL_ClearState(): #void
 
 	global cl
 
-	snd_dma.S_StopAllSounds()
+	sound_c.S_StopAllSounds()
 	cl_effects.CL_ClearEffects()
 	cl_tempentities.CL_ClearTEnts()
 
@@ -579,8 +580,8 @@ new parameters and flush all sounds
 def CL_Snd_Restart_f(): #
 
 	ogg.OGG_SaveState()
-	snd_dma.S_Shutdown()
-	snd_dma.S_Init()
+	sound_c.S_Shutdown()
+	sound_c.S_Init()
 	cl_parse.CL_RegisterSounds()
 	ogg.OGG_InitTrackList()
 	ogg.OGG_RecoverState()
@@ -998,7 +999,7 @@ def CL_Frame(packetdelta: int, renderdelta: int, timedelta: int, packetframe: bo
 
 
 		# update audio
-		snd_dma.S_Update(cl.refdef.vieworg, cl.v_forward, cl.v_right, cl.v_up)
+		sound_c.S_Update(cl.refdef.vieworg, cl.v_forward, cl.v_right, cl.v_up)
 
 		# advance local effects for next frame
 		cl_lights.CL_RunDLights()
@@ -1045,7 +1046,7 @@ def CL_Init(): #void
 	# all archived variables will now be loaded
 	cl_console.Con_Init()
 
-	snd_dma.S_Init()
+	sound_c.S_Init()
 
 	cl_screen.SCR_Init()
 
@@ -1099,7 +1100,7 @@ def CL_Shutdown(): #void
 
 	ogg.OGG_Stop()
 
-	snd_dma.S_Shutdown()
+	sound_c.S_Shutdown()
 	sdl2.IN_Shutdown()
 	vid.VID_Shutdown()
 

@@ -1,7 +1,7 @@
 # Porting style guide
 
 This repo is a work-in-progress port of the original Quake II C code to
-Python. The work focuses on the `ref_gl` renderer and a pygame-based
+Python. The work focuses on the `ref_gl` renderer and a pyglet-based
 platform layer for cross-platform use.
 
 This guide describes the style used in the hand-written part of the port
@@ -53,7 +53,13 @@ Quake II (`yquake2/src/`, pinned at git `4e2ad5e7`), one group at a time
   `p_trail`, `p_view` and `p_weapon` (`game/player/*.py`), the monsters
   `m_<id name>` (`game/monster/<name>/<name>.py`, e.g. `m_berserk`,
   `m_soldier`, `m_move`) and their frame headers `<name>_h`.
+  The sound files (`client/sound/`) are `sound_c` (`sound.c`),
+  `sound_local` (`header/local.h`), `openal`, `qal` and `qal_h`, `wave`,
+  `ogg`, `stb_vorbis` and `sound_sdl` (`sdl.c`).
   `scripts/yq_alias.py` renames them.
+- SDL is `backends/sdl.py` (imported as `sdl`): the SDL 2 calls the port
+  uses, with SDL's names and constants, done with pyglet. Port Yamagi's
+  SDL code by calling `sdl.SDL_...` as the C does.
 - The port of a Yamagi file follows Yamagi's C (names, order, globals,
   bug fixes and gameplay changes). `quake2-original/` stays as a
   historical reference only.
@@ -73,9 +79,9 @@ Code not yet moved still follows id's layout (historical rules):
   `qcommon.h` becomes `qcommon/qcommon.py`).
 - Only the Linux platform layer (`linux/`) is ported. `main.py` just
   calls `sys_linux.main()`.
-- The low-level audio code mostly works and probably doesn't need
-  changes. The C sound mixer (`snd_mix`) is deliberately left unported,
-  since pygame does the playback.
+- Sound plays through OpenAL (`client/sound/openal.py` and `qal.py`, with
+  ctypes). The C software mixer (Yamagi's `sdl.c` backend) is deliberately
+  left unported.
 - Keep the id Software GPL header at the top of each file as a `"""`
   docstring. Under it, keep the original file comment and `#include`
   lines as text, for example `cvar.c -- dynamic variable tracking` and
@@ -93,7 +99,7 @@ Code not yet moved still follows id's layout (historical rules):
   (right after the module docstring), so type annotations can reference
   types without being evaluated at import time.
 - Put standard library and third-party imports first (`io`, `math`,
-  `struct`, `numpy as np`, `pygame`, `OpenGL.GL as GL`), then project
+  `struct`, `numpy as np`, `pyglet`, `OpenGL.GL as GL`), then project
   imports, kept close to the C `#include` order.
 - Shared constants and structs come from `common/header/shared.py`
   (Yamagi's `shared.h`, formerly `game/q_shared.py`; the functions of
@@ -311,7 +317,9 @@ Code not yet moved still follows id's layout (historical rules):
 ## Dependencies
 
 - Runtime dependencies are listed in `requirements.txt` (notably
-  `pygame`, `numpy` and `PyOpenGL`).
+  `pyglet`, `numpy` and `PyOpenGL`). Sound needs the OpenAL library
+  (`libopenal.so.1`) and Ogg Vorbis decoding needs FFmpeg's libraries,
+  which pyglet loads.
 
 ## Commits
 

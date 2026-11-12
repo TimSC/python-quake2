@@ -1,4 +1,4 @@
-# Drive the OGG music subsystem (client/sound/ogg.py, pygame.mixer.music backend):
+# Drive the OGG music subsystem (client/sound/ogg.py, OpenAL stream source backend):
 # track listing, play/pause/stop, save/recover state, volume and shutdown.
 # Music is copied into $Q2DATA/music/ for the run and removed afterwards.
 import os, sys, shutil, time, atexit, subprocess
@@ -28,15 +28,19 @@ for i, name in [(2, "02-Rage.ogg"), (3, "03-Kill Ratio.ogg")]:
 	shutil.copy(os.path.join(SRC, name), os.path.join(MUSICDIR, "{:02d}.ogg".format(i)))
 print("ogg: music staged in", MUSICDIR)
 
-import pygame
+import ctypes
 from backends.unix import system
 from client import cl_main
 from client.vid import glimp_sdl2
 from client.refresh.gl1 import gl1_sdl # the gl1 frame swap (Yamagi's RI_EndFrame)
-from client import snd_loc, snd_mem
-from client.sound import ogg
+from client.sound import ogg, openal, qal
+from client.sound import sound as sound_c
+from client.sound.header import local as sound_local
+from client.sound.header import qal as qal_h
 from client.sound.header import vorbis
 from common import cvar
+
+AL_PLAYING = 0x1012 # al.h; Yamagi's code doesn't use it, so header/qal.py hasn't got it
 
 st = {"t0": None, "step": 0}
 
@@ -54,25 +58,31 @@ def EF():
 			assert ogg.ogg_maxfileindex >= 3, "track list empty: {}".format(ogg.ogg_maxfileindex)
 			print("ogg: listed tracks up to", ogg.ogg_maxfileindex)
 			# S_LoadVorbis: the .wav is missing, the .ogg is picked up
-			s = snd_loc.sfx_t()
+			assert sound_c.sound_started == sound_local.SS_OAL, "OpenAL not started: {}".format(sound_c.sound_started)
+			s = sound_local.sfx_t()
 			s.name = "misc/oggtest.wav"
-			sc = snd_mem.S_LoadSound(s)
-			assert sc is not None and isinstance(sc.data, pygame.mixer.Sound), "ogg sample not loaded"
-			print("ogg: sample loaded, length", sc.length)
+			sc = sound_c.S_LoadSound(s)
+			assert sc is not None and sc.bufnum and qal.qalIsBuffer(sc.bufnum), "ogg sample not loaded"
+			print("ogg: sample loaded into OpenAL buffer", sc.bufnum, "length", sc.length, "ms")
 			ogg.OGG_PlayTrack("2", True, True)
 			assert ogg.OGG_Status() == vorbis.PLAY
 			st["step"] = 1
 			st["t0"] = time.time()
 		elif step == 1 and t > 1:
 			assert ogg.ogg_numsamples > 0, "no samples read, pos {}".format(ogg.ogg_numsamples)
-			print("ogg: playing track 2 at", ogg.ogg_numsamples, "ms")
+			state = qal.ALint()
+			qal.qalGetSourcei(openal.streamSource, qal_h.AL_SOURCE_STATE, ctypes.byref(state))
+			assert state.value == AL_PLAYING, "stream source not playing: {:#x}".format(state.value)
+			print("ogg: playing track 2 at", ogg.ogg_numsamples, "samples,", openal.active_buffers, "buffers queued")
 			ogg.OGG_TogglePlayback()
 			assert ogg.OGG_Status() == vorbis.PAUSE
 			ogg.OGG_TogglePlayback()
 			assert ogg.OGG_Status() == vorbis.PLAY
 			cvar.Cvar_SetValue("ogg_volume", 0.5)
-			ogg.OGG_Stream()
-			assert abs(pygame.mixer.music.get_volume() - 0.5) < 0.01, "volume {}".format(pygame.mixer.music.get_volume())
+			ogg.OGG_Read() # the volume goes with the next samples (S_RawSamples)
+			gain = qal.ALfloat()
+			qal.qalGetSourcef(openal.streamSource, qal_h.AL_GAIN, ctypes.byref(gain))
+			assert abs(gain.value - 0.5) < 0.01, "volume {}".format(gain.value)
 			print("ogg: pause/resume ok, volume ok")
 			ogg.OGG_SaveState()
 			assert ogg.ogg_saved_state.saved

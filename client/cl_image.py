@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import io
 
-import pygame
+from PIL import Image
 
 from common.header import files as files_h
 from common.shared import shared as shared_c
@@ -52,7 +52,7 @@ PCX_IDENT	= ((0x05 << 8) + 0x0a)
 # include implementation part of stb_image into this file
 #define STB_IMAGE_IMPLEMENTATION
 #include "refresh/files/stb_image.h"
-# Q2PORT: there is no stb_image; pygame loads the other formats (see SCR_LoadImageWithPalette)
+# Q2PORT: there is no stb_image; Pillow loads the other formats (see SCR_LoadImageWithPalette)
 
 PCX_HEADER_SIZE	= 128 # Q2PORT: the offset of pcx_t's data, (const byte *)&pcx->data - raw
 
@@ -421,15 +421,15 @@ def SCR_LoadImageWithPalette(filename: str):
 		palette = None
 
 		# Q2PORT: *pic = stbi_load_from_memory(raw, len, width, height,
-		#	&sourcebitsPerPixel, STBI_rgb_alpha); pygame's image loader instead
-		width, height = None, None
+		#	&sourcebitsPerPixel, STBI_rgb_alpha); Pillow's image loader instead
+		pic, width, height = None, None, None
 		try:
 
-			surf = pygame.image.load(io.BytesIO(bytes(raw[:len_])), filename)
-			width, height = surf.get_size()
-			pic = bytearray(pygame.image.tobytes(surf, "RGBA"))
+			img = Image.open(io.BytesIO(bytes(raw[:len_]))).convert("RGBA")
+			width, height = img.size
+			pic = bytearray(img.tobytes())
 
-		except pygame.error as e:
+		except (OSError, ValueError) as e: # Pillow can't read it
 
 			clientserver.Com_DPrintf("%s couldn't load data from %s: %s!\n",
 				"SCR_LoadImageWithPalette", filename, str(e))

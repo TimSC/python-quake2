@@ -26,7 +26,7 @@ bitmap decoder. .cin files are just a bunch of .pcx images.
 """
 from __future__ import annotations
 
-from client import snd_dma
+from client.sound import sound as sound_c
 from backends.unix import system
 from client.vid import vid
 from common.header import common as common_h
@@ -383,7 +383,7 @@ def SCR_ReadNextFrame(): # (returns static byte *)
 		pass # Q2PORT: the samples stay little-endian bytes, which is what S_RawSamples takes
 
 
-	snd_dma.S_RawSamples(count, cin.s_rate, cin.s_width, cin.s_channels,
+	sound_c.S_RawSamples(count, cin.s_rate, cin.s_width, cin.s_channels,
 			samples, cvar.Cvar_VariableValue("s_volume"))
 
 	in_data = compressed # in.data = compressed;

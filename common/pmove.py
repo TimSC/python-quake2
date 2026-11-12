@@ -921,27 +921,28 @@ def PM_UpdateUnderwaterSfx(): #void
 
 	global _underwater
 
-	from client import snd_dma	# Q2PORT: imported here; snd_is_underwater is in the client's sound code
+	from client.sound import sound as sound_c	# Q2PORT: imported here; snd_is_underwater is in the client's sound code
+	from client.sound import openal
 
 	#static int underwater;
 
 	if (pm.waterlevel == 3) and not _underwater:
 
 		_underwater = 1
-		snd_dma.snd_is_underwater = True
+		sound_c.snd_is_underwater = True
 
 		#ifdef USE_OPENAL
-		#AL_Underwater();
+		openal.AL_Underwater()
 		#endif
 
 
 	if (pm.waterlevel < 3) and _underwater:
 
 		_underwater = 0
-		snd_dma.snd_is_underwater = False
+		sound_c.snd_is_underwater = False
 
 		#ifdef USE_OPENAL
-		#AL_Overwater();
+		openal.AL_Overwater()
 		#endif
 
 """

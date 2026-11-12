@@ -55,7 +55,7 @@ from client import cl_keyboard
 from client import cl_network
 from client import cl_screen
 from client import cl_view
-from client import snd_dma
+from client.sound import sound as sound_c
 from client.header import client as client_h
 from client.header import keyboard as keyboard_h
 from client.input import sdl2
@@ -215,7 +215,7 @@ def M_PopMenu(silent): #qboolean (static)
 		return
 
 
-	snd_dma.S_StartLocalSound(qmenu.menu_out_sound)
+	sound_c.S_StartLocalSound(qmenu.menu_out_sound)
 	if not m_menudepth:
 
 		M_ForceMenuOff()
@@ -5399,7 +5399,7 @@ def M_Draw(): #
 	# caching images
 	if m_entersound:
 
-		snd_dma.S_StartLocalSound(qmenu.menu_in_sound)
+		sound_c.S_StartLocalSound(qmenu.menu_in_sound)
 		m_entersound = False
 
 def M_Keydown(key): #int
@@ -5415,7 +5415,7 @@ def M_Keydown(key): #int
 		s = menu.key(menu, key)
 		if s:
 
-			snd_dma.S_StartLocalSound(s)
+			sound_c.S_StartLocalSound(s)
 
 def M_Free(): #
 

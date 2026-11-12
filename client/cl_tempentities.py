@@ -32,7 +32,8 @@ import math
 import random
 import numpy as np
 from enum import Enum
-from client import snd_dma, ref, cl_main, cl_view
+from client import ref, cl_main, cl_view
+from client.sound import sound as sound_c
 from client.vid import vid
 from common.header import common as common_h
 from common.header import shared
@@ -289,28 +290,28 @@ def CL_RegisterTEntSounds(): #
 	"""
 	name = [None] * shared.MAX_QPATH
 
-	cl_sfx_ric1 = snd_dma.S_RegisterSound("world/ric1.wav")
-	cl_sfx_ric2 = snd_dma.S_RegisterSound("world/ric2.wav")
-	cl_sfx_ric3 = snd_dma.S_RegisterSound("world/ric3.wav")
-	cl_sfx_lashit = snd_dma.S_RegisterSound("weapons/lashit.wav")
-	cl_sfx_spark5 = snd_dma.S_RegisterSound("world/spark5.wav")
-	cl_sfx_spark6 = snd_dma.S_RegisterSound("world/spark6.wav")
-	cl_sfx_spark7 = snd_dma.S_RegisterSound("world/spark7.wav")
-	cl_sfx_railg = snd_dma.S_RegisterSound("weapons/railgf1a.wav")
-	cl_sfx_rockexp = snd_dma.S_RegisterSound("weapons/rocklx1a.wav")
-	cl_sfx_grenexp = snd_dma.S_RegisterSound("weapons/grenlx1a.wav")
-	cl_sfx_watrexp = snd_dma.S_RegisterSound("weapons/xpld_wat.wav")
-	snd_dma.S_RegisterSound("player/land1.wav")
-	snd_dma.S_RegisterSound("player/fall2.wav")
-	snd_dma.S_RegisterSound("player/fall1.wav")
+	cl_sfx_ric1 = sound_c.S_RegisterSound("world/ric1.wav")
+	cl_sfx_ric2 = sound_c.S_RegisterSound("world/ric2.wav")
+	cl_sfx_ric3 = sound_c.S_RegisterSound("world/ric3.wav")
+	cl_sfx_lashit = sound_c.S_RegisterSound("weapons/lashit.wav")
+	cl_sfx_spark5 = sound_c.S_RegisterSound("world/spark5.wav")
+	cl_sfx_spark6 = sound_c.S_RegisterSound("world/spark6.wav")
+	cl_sfx_spark7 = sound_c.S_RegisterSound("world/spark7.wav")
+	cl_sfx_railg = sound_c.S_RegisterSound("weapons/railgf1a.wav")
+	cl_sfx_rockexp = sound_c.S_RegisterSound("weapons/rocklx1a.wav")
+	cl_sfx_grenexp = sound_c.S_RegisterSound("weapons/grenlx1a.wav")
+	cl_sfx_watrexp = sound_c.S_RegisterSound("weapons/xpld_wat.wav")
+	sound_c.S_RegisterSound("player/land1.wav")
+	sound_c.S_RegisterSound("player/fall2.wav")
+	sound_c.S_RegisterSound("player/fall1.wav")
 	for i in range(NUM_FOOTSTEP_SFX):
 
 		name = "player/step%i.wav" % (i + 1,) # Com_sprintf
-		cl_sfx_footsteps[i] = snd_dma.S_RegisterSound(name)
+		cl_sfx_footsteps[i] = sound_c.S_RegisterSound(name)
 
 
-	cl_sfx_lightning = snd_dma.S_RegisterSound("weapons/tesla.wav")
-	cl_sfx_disrexp = snd_dma.S_RegisterSound("weapons/disrupthit.wav")
+	cl_sfx_lightning = sound_c.S_RegisterSound("weapons/tesla.wav")
+	cl_sfx_disrexp = sound_c.S_RegisterSound("weapons/disrupthit.wav")
 	# version stuff
 #	sprintf (name, "weapons/sound%d.wav", ROGUE_VERSION_ID);
 #	if (name[0] == 'w')
@@ -817,15 +818,15 @@ def CL_ParseTEnt(): #
 			# impact sound
 			if rand.randk() & 15 == 1:
 
-				snd_dma.S_StartSound(pos, 0, 0, cl_sfx_ric1, 1, shared.ATTN_NORM, 0)
+				sound_c.S_StartSound(pos, 0, 0, cl_sfx_ric1, 1, shared.ATTN_NORM, 0)
 
 			elif rand.randk() & 15 == 2:
 
-				snd_dma.S_StartSound(pos, 0, 0, cl_sfx_ric2, 1, shared.ATTN_NORM, 0)
+				sound_c.S_StartSound(pos, 0, 0, cl_sfx_ric2, 1, shared.ATTN_NORM, 0)
 
 			elif rand.randk() & 15 == 3:
 
-				snd_dma.S_StartSound(pos, 0, 0, cl_sfx_ric3, 1, shared.ATTN_NORM, 0)
+				sound_c.S_StartSound(pos, 0, 0, cl_sfx_ric3, 1, shared.ATTN_NORM, 0)
 
 
 	elif type_ == shared.temp_event_t.TE_SCREEN_SPARKS.value or type_ == shared.temp_event_t.TE_SHIELD_SPARKS.value:
@@ -861,12 +862,12 @@ def CL_ParseTEnt(): #
 			# player may like the changed behavior.
 			if cl_main.num_power_sounds < 16:
 
-				snd_dma.S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
+				sound_c.S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
 
 
 		else:
 
-			snd_dma.S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
+			sound_c.S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
 
 
 	elif type_ == shared.temp_event_t.TE_SHOTGUN.value:
@@ -898,15 +899,15 @@ def CL_ParseTEnt(): #
 
 			if rand.randk() & 3 == 0:
 
-				snd_dma.S_StartSound(pos, 0, 0, cl_sfx_spark5, 1, shared.ATTN_STATIC, 0)
+				sound_c.S_StartSound(pos, 0, 0, cl_sfx_spark5, 1, shared.ATTN_STATIC, 0)
 
 			elif rand.randk() & 3 == 1:
 
-				snd_dma.S_StartSound(pos, 0, 0, cl_sfx_spark6, 1, shared.ATTN_STATIC, 0)
+				sound_c.S_StartSound(pos, 0, 0, cl_sfx_spark6, 1, shared.ATTN_STATIC, 0)
 
 			else:
 
-				snd_dma.S_StartSound(pos, 0, 0, cl_sfx_spark7, 1, shared.ATTN_STATIC, 0)
+				sound_c.S_StartSound(pos, 0, 0, cl_sfx_spark7, 1, shared.ATTN_STATIC, 0)
 
 
 	elif type_ == shared.temp_event_t.TE_LASER_SPARKS.value:
@@ -957,7 +958,7 @@ def CL_ParseTEnt(): #
 		ex.lightcolor[1] = 1
 		ex.ent.model = cl_mod_explode
 		ex.frames = 4
-		snd_dma.S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
 
 	elif type_ == shared.temp_event_t.TE_RAILTRAIL.value:
 
@@ -965,7 +966,7 @@ def CL_ParseTEnt(): #
 		movemsg.MSG_ReadPos(netchan.net_message, pos)
 		movemsg.MSG_ReadPos(netchan.net_message, pos2)
 		cl_effects.CL_RailTrail(pos, pos2)
-		snd_dma.S_StartSound(pos2, 0, 0, cl_sfx_railg, 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(pos2, 0, 0, cl_sfx_railg, 1, shared.ATTN_NORM, 0)
 
 	elif type_ == shared.temp_event_t.TE_EXPLOSION2.value or type_ == shared.temp_event_t.TE_GRENADE_EXPLOSION.value or type_ == shared.temp_event_t.TE_GRENADE_EXPLOSION_WATER.value:
 
@@ -986,11 +987,11 @@ def CL_ParseTEnt(): #
 		EXPLOSION_PARTICLES(pos)
 		if type_ == shared.temp_event_t.TE_GRENADE_EXPLOSION_WATER.value:
 
-			snd_dma.S_StartSound(pos, 0, 0, cl_sfx_watrexp, 1, shared.ATTN_NORM, 0)
+			sound_c.S_StartSound(pos, 0, 0, cl_sfx_watrexp, 1, shared.ATTN_NORM, 0)
 
 		else:
 
-			snd_dma.S_StartSound(pos, 0, 0, cl_sfx_grenexp, 1, shared.ATTN_NORM, 0)
+			sound_c.S_StartSound(pos, 0, 0, cl_sfx_grenexp, 1, shared.ATTN_NORM, 0)
 
 
 	elif type_ == shared.temp_event_t.TE_EXPLOSION1_BIG.value or type_ == shared.temp_event_t.TE_EXPLOSION1_NP.value or type_ == shared.temp_event_t.TE_EXPLOSION1.value or type_ == shared.temp_event_t.TE_ROCKET_EXPLOSION.value or type_ == shared.temp_event_t.TE_ROCKET_EXPLOSION_WATER.value or type_ == shared.temp_event_t.TE_PLASMA_EXPLOSION.value:
@@ -1028,11 +1029,11 @@ def CL_ParseTEnt(): #
 
 		if type_ == shared.temp_event_t.TE_ROCKET_EXPLOSION_WATER.value:
 
-			snd_dma.S_StartSound(pos, 0, 0, cl_sfx_watrexp, 1, shared.ATTN_NORM, 0)
+			sound_c.S_StartSound(pos, 0, 0, cl_sfx_watrexp, 1, shared.ATTN_NORM, 0)
 
 		else:
 
-			snd_dma.S_StartSound(pos, 0, 0, cl_sfx_rockexp, 1, shared.ATTN_NORM, 0)
+			sound_c.S_StartSound(pos, 0, 0, cl_sfx_rockexp, 1, shared.ATTN_NORM, 0)
 
 
 	elif type_ == shared.temp_event_t.TE_BFG_EXPLOSION.value:
@@ -1076,7 +1077,7 @@ def CL_ParseTEnt(): #
 		# boss teleporting to station
 		movemsg.MSG_ReadPos(netchan.net_message, pos)
 		cl_effects.CL_BigTeleportParticles(pos)
-		snd_dma.S_StartSound(pos, 0, 0, snd_dma.S_RegisterSound("misc/bigtele.wav"), 1, shared.ATTN_NONE, 0)
+		sound_c.S_StartSound(pos, 0, 0, sound_c.S_RegisterSound("misc/bigtele.wav"), 1, shared.ATTN_NONE, 0)
 
 	elif type_ == shared.temp_event_t.TE_GRAPPLE_CABLE.value:
 
@@ -1176,12 +1177,12 @@ def CL_ParseTEnt(): #
 
 		ex.ent.model = cl_mod_explode
 		ex.frames = 4
-		snd_dma.S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
 
 	elif type_ == shared.temp_event_t.TE_LIGHTNING.value:
 
 		ent = CL_ParseLightning(cl_mod_lightning)
-		snd_dma.S_StartSound(None, ent, shared.CHAN_WEAPON, cl_sfx_lightning, 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(None, ent, shared.CHAN_WEAPON, cl_sfx_lightning, 1, shared.ATTN_NORM, 0)
 
 	elif type_ == shared.temp_event_t.TE_DEBUGTRAIL.value:
 
@@ -1209,7 +1210,7 @@ def CL_ParseTEnt(): #
 
 
 		ex.frames = 15
-		snd_dma.S_StartSound(pos, 0, 0, cl_sfx_rockexp, 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(pos, 0, 0, cl_sfx_rockexp, 1, shared.ATTN_NORM, 0)
 
 	elif type_ == shared.temp_event_t.TE_FLASHLIGHT.value:
 
@@ -1241,7 +1242,7 @@ def CL_ParseTEnt(): #
 		magnitude = 60
 		color = r & 0xff
 		cl_effects.CL_ParticleSteamEffect(pos, dir, color, cnt, magnitude)
-		snd_dma.S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
 
 	elif type_ == shared.temp_event_t.TE_HEATBEAM_STEAM.value:
 
@@ -1251,7 +1252,7 @@ def CL_ParseTEnt(): #
 		color = 0xe0
 		magnitude = 60
 		cl_effects.CL_ParticleSteamEffect(pos, dir, color, cnt, magnitude)
-		snd_dma.S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
 
 	elif type_ == shared.temp_event_t.TE_STEAM.value:
 
@@ -1262,7 +1263,7 @@ def CL_ParseTEnt(): #
 		movemsg.MSG_ReadPos(netchan.net_message, pos)
 		movemsg.MSG_ReadPos(netchan.net_message, pos2)
 		cl_effects.CL_BubbleTrail2(pos, pos2, 8)
-		snd_dma.S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
 
 	elif type_ == shared.temp_event_t.TE_MOREBLOOD.value:
 
@@ -1283,14 +1284,14 @@ def CL_ParseTEnt(): #
 		movemsg.MSG_ReadPos(netchan.net_message, pos)
 		movemsg.MSG_ReadDir(netchan.net_message, dir)
 		cl_particles.CL_ParticleEffect(pos, dir, 0x75, 40)
-		snd_dma.S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, shared.ATTN_NORM, 0)
 
 	elif type_ == shared.temp_event_t.TE_TRACKER_EXPLOSION.value:
 
 		movemsg.MSG_ReadPos(netchan.net_message, pos)
 		cl_effects.CL_ColorFlash(pos, 0, 150, -1, -1, -1)
 		cl_effects.CL_ColorExplosionParticles(pos, 0, 1)
-		snd_dma.S_StartSound(pos, 0, 0, cl_sfx_disrexp, 1, shared.ATTN_NORM, 0)
+		sound_c.S_StartSound(pos, 0, 0, cl_sfx_disrexp, 1, shared.ATTN_NORM, 0)
 
 	elif type_ == shared.temp_event_t.TE_TELEPORT_EFFECT.value or type_ == shared.temp_event_t.TE_DBALL_GOAL.value:
 

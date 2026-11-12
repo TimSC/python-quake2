@@ -24,7 +24,8 @@ from enum import Enum
 pass
 pass
 from client.refresh.gl1 import gl1_image as gl_image
-from client import snd_loc, ref
+from client import ref
+from client.sound.header import local as sound_local
 from common.header import common as common_h
 from common.header import shared
 """

@@ -29,19 +29,16 @@
 
 from __future__ import annotations
 
-import pygame
 import OpenGL.GL as GL
 
+from backends import sdl
 from common import clientserver
 from common.header import common as common_h
 from common.header import shared
 from client.refresh.gl3 import gl3_main
 
 #include "header/local.h"
-
-# Q2PORT: the platform is pygame (SDL 2 underneath). pygame owns the window
-# and makes the GL context in pygame.display.set_mode(), so the window is the
-# pygame display surface and "context" only records that it exists.
+# Q2PORT: SDL is backends/sdl.py, the SDL calls done with pyglet
 
 window = None #static SDL_Window*
 context = None #static SDL_GLContext
@@ -69,7 +66,7 @@ DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei le
 
 def GL3_SwapWindow(): #void
 
-	pygame.display.flip() # SDL_GL_SwapWindow(window)
+	sdl.SDL_GL_SwapWindow(window)
 
 """
  * Returns whether the vsync is enabled.
@@ -97,10 +94,16 @@ def GL3_SetVsync(): #void
 
 		vsync = -1
 
-	# Q2PORT: pygame has no SDL_GL_SetSwapInterval(); it only takes vsync when
-	# the window is made (set_mode(..., vsync=1)). So nothing is changed here
-	# and the state is what was asked for.
-	vsyncActive = vsync != 0
+	if sdl.SDL_GL_SetSwapInterval(vsync) == -1:
+
+		if vsync == -1:
+
+			# Not every system supports adaptive
+			# vsync, fallback to normal vsync.
+			clientserver.Com_Printf("Failed to set adaptive vsync, reverting to normal vsync.\n")
+			sdl.SDL_GL_SetSwapInterval(1)
+
+	vsyncActive = sdl.SDL_GL_GetSwapInterval() != 0
 
 """
  * This function returns the flags used at the SDL window
@@ -110,40 +113,46 @@ def GL3_SetVsync(): #void
 def GL3_PrepareForWindow(): #void (returns int)
 
 	# Mkay, let's try to load the libGL,
-	# Q2PORT: SDL_GL_LoadLibrary is done by pygame; gl3_libgl is registered
+	# Q2PORT: pyglet loads libGL (SDL_GL_LoadLibrary); gl3_libgl is registered
 	# but not used
 	gl3_libgl = gl3_main.ri.Cvar_Get("gl3_libgl", "", shared.CVAR_ARCHIVE)
 
 	# Set GL context attributs bound to the window.
-	pygame.display.gl_set_attribute(pygame.GL_RED_SIZE, 8)
-	pygame.display.gl_set_attribute(pygame.GL_GREEN_SIZE, 8)
-	pygame.display.gl_set_attribute(pygame.GL_BLUE_SIZE, 8)
-	pygame.display.gl_set_attribute(pygame.GL_DEPTH_SIZE, 24)
-	pygame.display.gl_set_attribute(pygame.GL_DOUBLEBUFFER, 1)
+	sdl.SDL_GL_SetAttribute(sdl.SDL_GL_RED_SIZE, 8)
+	sdl.SDL_GL_SetAttribute(sdl.SDL_GL_GREEN_SIZE, 8)
+	sdl.SDL_GL_SetAttribute(sdl.SDL_GL_BLUE_SIZE, 8)
+	sdl.SDL_GL_SetAttribute(sdl.SDL_GL_DEPTH_SIZE, 24)
+	sdl.SDL_GL_SetAttribute(sdl.SDL_GL_DOUBLEBUFFER, 1)
 
-	# Q2PORT: pygame's gl_set_attribute returns nothing; the C checks the
-	# result of SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8)
-	pygame.display.gl_set_attribute(pygame.GL_STENCIL_SIZE, 8)
-	gl3_main.gl3config.stencil = True
+	if sdl.SDL_GL_SetAttribute(sdl.SDL_GL_STENCIL_SIZE, 8) == 0:
 
-	# Desktop GL
-	pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MAJOR_VERSION, 3)
-	pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MINOR_VERSION, 2)
-	pygame.display.gl_set_attribute(pygame.GL_CONTEXT_PROFILE_MASK, pygame.GL_CONTEXT_PROFILE_CORE)
+		gl3_main.gl3config.stencil = True
+
+	else:
+
+		gl3_main.gl3config.stencil = False
+
+	#ifdef YQ2_GL3_GLES3
+	#else // Desktop GL
+	sdl.SDL_GL_SetAttribute(sdl.SDL_GL_CONTEXT_MAJOR_VERSION, 3)
+	sdl.SDL_GL_SetAttribute(sdl.SDL_GL_CONTEXT_MINOR_VERSION, 2)
+	sdl.SDL_GL_SetAttribute(sdl.SDL_GL_CONTEXT_PROFILE_MASK, sdl.SDL_GL_CONTEXT_PROFILE_CORE)
+	#endif
 
 	# Set GL context flags.
 	contextFlags = 0
 
-	# Desktop GL (at least RPi4 doesn't like this for GLES3)
-	contextFlags |= pygame.GL_CONTEXT_FORWARD_COMPATIBLE_FLAG
+	#ifndef YQ2_GL3_GLES // Desktop GL (at least RPi4 doesn't like this for GLES3)
+	contextFlags |= sdl.SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG
+	#endif
 
 	if gl3_main.gl3_debugcontext is not None and gl3_main.gl3_debugcontext.value:
 
-		contextFlags |= pygame.GL_CONTEXT_DEBUG_FLAG
+		contextFlags |= sdl.SDL_GL_CONTEXT_DEBUG_FLAG
 
 	if contextFlags != 0:
 
-		pygame.display.gl_set_attribute(pygame.GL_CONTEXT_FLAGS, contextFlags)
+		sdl.SDL_GL_SetAttribute(sdl.SDL_GL_CONTEXT_FLAGS, contextFlags)
 
 	# Let's see if the driver supports MSAA.
 	msaa_samples = 0
@@ -152,17 +161,26 @@ def GL3_PrepareForWindow(): #void (returns int)
 
 		msaa_samples = int(gl3_main.gl_msaa_samples.value)
 
-		# Q2PORT: the C checks the results to detect unsupported MSAA; pygame
-		# doesn't report them here (set_mode fails instead)
-		pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLEBUFFERS, 1)
-		pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLESAMPLES, msaa_samples)
+		if sdl.SDL_GL_SetAttribute(sdl.SDL_GL_MULTISAMPLEBUFFERS, 1) < 0:
+
+			clientserver.Com_Printf("MSAA is unsupported: {}\n".format(sdl.SDL_GetError()))
+			gl3_main.ri.Cvar_SetValue ("r_msaa_samples", 0)
+			sdl.SDL_GL_SetAttribute(sdl.SDL_GL_MULTISAMPLEBUFFERS, 0)
+			sdl.SDL_GL_SetAttribute(sdl.SDL_GL_MULTISAMPLESAMPLES, 0)
+
+		elif sdl.SDL_GL_SetAttribute(sdl.SDL_GL_MULTISAMPLESAMPLES, msaa_samples) < 0:
+
+			clientserver.Com_Printf("MSAA {}x is unsupported: {}\n".format(msaa_samples, sdl.SDL_GetError()))
+			gl3_main.ri.Cvar_SetValue("r_msaa_samples", 0)
+			sdl.SDL_GL_SetAttribute(sdl.SDL_GL_MULTISAMPLEBUFFERS, 0)
+			sdl.SDL_GL_SetAttribute(sdl.SDL_GL_MULTISAMPLESAMPLES, 0)
 
 	else:
 
-		pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLEBUFFERS, 0)
-		pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLESAMPLES, 0)
+		sdl.SDL_GL_SetAttribute(sdl.SDL_GL_MULTISAMPLEBUFFERS, 0)
+		sdl.SDL_GL_SetAttribute(sdl.SDL_GL_MULTISAMPLESAMPLES, 0)
 
-	return pygame.OPENGL | pygame.DOUBLEBUF # SDL_WINDOW_OPENGL, Q2PORT: pygame needs DOUBLEBUF too
+	return sdl.SDL_WINDOW_OPENGL
 
 """
  * Initializes the OpenGL context. Returns true at
@@ -170,7 +188,7 @@ def GL3_PrepareForWindow(): #void (returns int)
 """
 def GL3_InitContext(win): #void* (returns int)
 
-	global window, context
+	global window, context, IsHighDPIaware
 
 	# Coders are stupid.
 	if win is None:
@@ -182,24 +200,33 @@ def GL3_InitContext(win): #void* (returns int)
 	window = win
 
 	# Initialize GL context.
-	# Q2PORT: pygame made the context in set_mode()
-	context = window
+	context = sdl.SDL_GL_CreateContext(window)
+
+	if context is None:
+
+		clientserver.Com_Printf("GL3_InitContext(): Creating OpenGL Context failed: {}\n".format(sdl.SDL_GetError()))
+
+		window = None
+
+		return False
 
 	# Check if we've got the requested MSAA.
 	msaa_samples = 0
 
 	if gl3_main.gl_msaa_samples.value:
 
-		msaa_samples = pygame.display.gl_get_attribute(pygame.GL_MULTISAMPLESAMPLES)
-		gl3_main.ri.Cvar_SetValue("r_msaa_samples", msaa_samples)
+		ret, msaa_samples = sdl.SDL_GL_GetAttribute(sdl.SDL_GL_MULTISAMPLESAMPLES)
+		if ret == 0:
+
+			gl3_main.ri.Cvar_SetValue("r_msaa_samples", msaa_samples)
 
 	# Check if we've got at least 8 stencil bits
 	stencil_bits = 0
 
 	if gl3_main.gl3config.stencil:
 
-		stencil_bits = pygame.display.gl_get_attribute(pygame.GL_STENCIL_SIZE)
-		if stencil_bits < 8:
+		ret, stencil_bits = sdl.SDL_GL_GetAttribute(sdl.SDL_GL_STENCIL_SIZE)
+		if ret < 0 or stencil_bits < 8:
 
 			gl3_main.gl3config.stencil = False
 
@@ -237,10 +264,13 @@ def GL3_InitContext(win): #void* (returns int)
 
 	# Window title - set here so we can display renderer name in it.
 	title = "{} {} - OpenGL 3.2".format(common_h.APPNAME, common_h.YQ2VERSION) # Q2PORT: APPNAME, the C has "Yamagi Quake II"
-	pygame.display.set_caption(title)
+	sdl.SDL_SetWindowTitle(window, title)
 
+	#if SDL_VERSION_ATLEAST(2, 26, 0)
 	# Figure out if we are high dpi aware.
-	# Q2PORT: the platform never asks for SDL_WINDOW_ALLOW_HIGHDPI, so false
+	flags = sdl.SDL_GetWindowFlags(win)
+	IsHighDPIaware = True if (flags & sdl.SDL_WINDOW_ALLOW_HIGHDPI) else False
+	#endif
 
 	return True
 
@@ -249,7 +279,7 @@ def GL3_InitContext(win): #void* (returns int)
 """
 def GL3_GetDrawableSize(): #int*, int* (returns width, height)
 
-	return pygame.display.get_surface().get_size() # SDL_GL_GetDrawableSize(window, width, height)
+	return sdl.SDL_GL_GetDrawableSize(window)
 
 """
  * Shuts the GL context down.
@@ -262,7 +292,7 @@ def GL3_ShutdownContext(): #void
 
 		if context is not None:
 
-			# Q2PORT: the context goes with the pygame window
+			sdl.SDL_GL_DeleteContext(context)
 			context = None
 
 """
@@ -272,4 +302,6 @@ def GL3_ShutdownContext(): #void
 """
 def GL3_GetSDLVersion(): #void (returns int)
 
-	return pygame.get_sdl_version()[0]
+	#SDL_version ver;
+	#SDL_VERSION(&ver);
+	return sdl.SDL_MAJOR_VERSION

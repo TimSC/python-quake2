@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import math
 
-import pygame
+from backends import sdl
 
 import os
 
@@ -46,7 +46,7 @@ from client import cl_input
 from client import cl_main
 from client.sound import ogg
 from client.sound.header import vorbis
-from client import snd_dma
+from client.sound import sound as sound_c
 
 joy_current_lbls = client_h.gamepad_labels_t.LBL_SDL #gamepad_labels_t
 
@@ -241,7 +241,7 @@ def IN_Init(): #void
 	#Cmd_AddCommand("+gyroaction", IN_GyroActionDown);
 	#Cmd_AddCommand("-gyroaction", IN_GyroActionUp);
 
-	#SDL_StartTextInput(); Q2PORT: pygame starts text input with the window
+	sdl.SDL_StartTextInput()
 
 	#IN_Controller_Init(false);
 
@@ -259,251 +259,251 @@ def IN_TranslateSDLtoQ2Key(keysym: int)->int: #unsigned int (returns static int)
 	key = 0
 
 	# These must be translated
-	if keysym == pygame.K_TAB:
+	if keysym == sdl.SDLK_TAB:
 
 		key = keyboard_h.K_TAB
 
-	elif keysym == pygame.K_RETURN:
+	elif keysym == sdl.SDLK_RETURN:
 
 		key = keyboard_h.K_ENTER
 
-	elif keysym == pygame.K_ESCAPE:
+	elif keysym == sdl.SDLK_ESCAPE:
 
 		key = keyboard_h.K_ESCAPE
 
-	elif keysym == pygame.K_BACKSPACE:
+	elif keysym == sdl.SDLK_BACKSPACE:
 
 		key = keyboard_h.K_BACKSPACE
 
-	elif keysym == pygame.K_RGUI or keysym == pygame.K_LGUI:
+	elif keysym == sdl.SDLK_RGUI or keysym == sdl.SDLK_LGUI:
 
 		key = keyboard_h.K_SUPER
 
-	elif keysym == pygame.K_CAPSLOCK:
+	elif keysym == sdl.SDLK_CAPSLOCK:
 
 		key = keyboard_h.K_CAPSLOCK
 
-	elif keysym == pygame.K_POWER:
+	elif keysym == sdl.SDLK_POWER:
 
 		key = keyboard_h.K_POWER
 
-	elif keysym == pygame.K_PAUSE:
+	elif keysym == sdl.SDLK_PAUSE:
 
 		key = keyboard_h.K_PAUSE
 
-	elif keysym == pygame.K_UP:
+	elif keysym == sdl.SDLK_UP:
 
 		key = keyboard_h.K_UPARROW
 
-	elif keysym == pygame.K_DOWN:
+	elif keysym == sdl.SDLK_DOWN:
 
 		key = keyboard_h.K_DOWNARROW
 
-	elif keysym == pygame.K_LEFT:
+	elif keysym == sdl.SDLK_LEFT:
 
 		key = keyboard_h.K_LEFTARROW
 
-	elif keysym == pygame.K_RIGHT:
+	elif keysym == sdl.SDLK_RIGHT:
 
 		key = keyboard_h.K_RIGHTARROW
 
-	elif keysym == pygame.K_RALT or keysym == pygame.K_LALT:
+	elif keysym == sdl.SDLK_RALT or keysym == sdl.SDLK_LALT:
 
 		key = keyboard_h.K_ALT
 
-	elif keysym == pygame.K_LCTRL or keysym == pygame.K_RCTRL:
+	elif keysym == sdl.SDLK_LCTRL or keysym == sdl.SDLK_RCTRL:
 
 		key = keyboard_h.K_CTRL
 
-	elif keysym == pygame.K_LSHIFT or keysym == pygame.K_RSHIFT:
+	elif keysym == sdl.SDLK_LSHIFT or keysym == sdl.SDLK_RSHIFT:
 
 		key = keyboard_h.K_SHIFT
 
-	elif keysym == pygame.K_INSERT:
+	elif keysym == sdl.SDLK_INSERT:
 
 		key = keyboard_h.K_INS
 
-	elif keysym == pygame.K_DELETE:
+	elif keysym == sdl.SDLK_DELETE:
 
 		key = keyboard_h.K_DEL
 
-	elif keysym == pygame.K_PAGEDOWN:
+	elif keysym == sdl.SDLK_PAGEDOWN:
 
 		key = keyboard_h.K_PGDN
 
-	elif keysym == pygame.K_PAGEUP:
+	elif keysym == sdl.SDLK_PAGEUP:
 
 		key = keyboard_h.K_PGUP
 
-	elif keysym == pygame.K_HOME:
+	elif keysym == sdl.SDLK_HOME:
 
 		key = keyboard_h.K_HOME
 
-	elif keysym == pygame.K_END:
+	elif keysym == sdl.SDLK_END:
 
 		key = keyboard_h.K_END
 
-	elif keysym == pygame.K_F1:
+	elif keysym == sdl.SDLK_F1:
 
 		key = keyboard_h.K_F1
 
-	elif keysym == pygame.K_F2:
+	elif keysym == sdl.SDLK_F2:
 
 		key = keyboard_h.K_F2
 
-	elif keysym == pygame.K_F3:
+	elif keysym == sdl.SDLK_F3:
 
 		key = keyboard_h.K_F3
 
-	elif keysym == pygame.K_F4:
+	elif keysym == sdl.SDLK_F4:
 
 		key = keyboard_h.K_F4
 
-	elif keysym == pygame.K_F5:
+	elif keysym == sdl.SDLK_F5:
 
 		key = keyboard_h.K_F5
 
-	elif keysym == pygame.K_F6:
+	elif keysym == sdl.SDLK_F6:
 
 		key = keyboard_h.K_F6
 
-	elif keysym == pygame.K_F7:
+	elif keysym == sdl.SDLK_F7:
 
 		key = keyboard_h.K_F7
 
-	elif keysym == pygame.K_F8:
+	elif keysym == sdl.SDLK_F8:
 
 		key = keyboard_h.K_F8
 
-	elif keysym == pygame.K_F9:
+	elif keysym == sdl.SDLK_F9:
 
 		key = keyboard_h.K_F9
 
-	elif keysym == pygame.K_F10:
+	elif keysym == sdl.SDLK_F10:
 
 		key = keyboard_h.K_F10
 
-	elif keysym == pygame.K_F11:
+	elif keysym == sdl.SDLK_F11:
 
 		key = keyboard_h.K_F11
 
-	elif keysym == pygame.K_F12:
+	elif keysym == sdl.SDLK_F12:
 
 		key = keyboard_h.K_F12
 
-	elif keysym == pygame.K_F13:
+	elif keysym == sdl.SDLK_F13:
 
 		key = keyboard_h.K_F13
 
-	elif keysym == pygame.K_F14:
+	elif keysym == sdl.SDLK_F14:
 
 		key = keyboard_h.K_F14
 
-	elif keysym == pygame.K_F15:
+	elif keysym == sdl.SDLK_F15:
 
 		key = keyboard_h.K_F15
 
-	elif keysym == pygame.K_KP_7:
+	elif keysym == sdl.SDLK_KP_7:
 
 		key = keyboard_h.K_KP_HOME
 
-	elif keysym == pygame.K_KP_8:
+	elif keysym == sdl.SDLK_KP_8:
 
 		key = keyboard_h.K_KP_UPARROW
 
-	elif keysym == pygame.K_KP_9:
+	elif keysym == sdl.SDLK_KP_9:
 
 		key = keyboard_h.K_KP_PGUP
 
-	elif keysym == pygame.K_KP_4:
+	elif keysym == sdl.SDLK_KP_4:
 
 		key = keyboard_h.K_KP_LEFTARROW
 
-	elif keysym == pygame.K_KP_5:
+	elif keysym == sdl.SDLK_KP_5:
 
 		key = keyboard_h.K_KP_5
 
-	elif keysym == pygame.K_KP_6:
+	elif keysym == sdl.SDLK_KP_6:
 
 		key = keyboard_h.K_KP_RIGHTARROW
 
-	elif keysym == pygame.K_KP_1:
+	elif keysym == sdl.SDLK_KP_1:
 
 		key = keyboard_h.K_KP_END
 
-	elif keysym == pygame.K_KP_2:
+	elif keysym == sdl.SDLK_KP_2:
 
 		key = keyboard_h.K_KP_DOWNARROW
 
-	elif keysym == pygame.K_KP_3:
+	elif keysym == sdl.SDLK_KP_3:
 
 		key = keyboard_h.K_KP_PGDN
 
-	elif keysym == pygame.K_KP_ENTER:
+	elif keysym == sdl.SDLK_KP_ENTER:
 
 		key = keyboard_h.K_KP_ENTER
 
-	elif keysym == pygame.K_KP_0:
+	elif keysym == sdl.SDLK_KP_0:
 
 		key = keyboard_h.K_KP_INS
 
-	elif keysym == pygame.K_KP_PERIOD:
+	elif keysym == sdl.SDLK_KP_PERIOD:
 
 		key = keyboard_h.K_KP_DEL
 
-	elif keysym == pygame.K_KP_DIVIDE:
+	elif keysym == sdl.SDLK_KP_DIVIDE:
 
 		key = keyboard_h.K_KP_SLASH
 
-	elif keysym == pygame.K_KP_MINUS:
+	elif keysym == sdl.SDLK_KP_MINUS:
 
 		key = keyboard_h.K_KP_MINUS
 
-	elif keysym == pygame.K_KP_PLUS:
+	elif keysym == sdl.SDLK_KP_PLUS:
 
 		key = keyboard_h.K_KP_PLUS
 
-	elif keysym == pygame.K_NUMLOCKCLEAR:
+	elif keysym == sdl.SDLK_NUMLOCKCLEAR:
 
 		key = keyboard_h.K_KP_NUMLOCK
 
-	elif keysym == pygame.K_KP_MULTIPLY:
+	elif keysym == sdl.SDLK_KP_MULTIPLY:
 
 		key = keyboard_h.K_KP_STAR
 
-	elif keysym == pygame.K_KP_EQUALS:
+	elif keysym == sdl.SDLK_KP_EQUALS:
 
 		key = keyboard_h.K_KP_EQUALS
 
-	elif keysym == 0x40000065: # SDLK_APPLICATION
+	elif keysym == sdl.SDLK_APPLICATION:
 
 		key = keyboard_h.K_COMPOSE
 
-	elif keysym == pygame.K_MODE:
+	elif keysym == sdl.SDLK_MODE:
 
 		key = keyboard_h.K_MODE
 
-	elif keysym == pygame.K_HELP:
+	elif keysym == sdl.SDLK_HELP:
 
 		key = keyboard_h.K_HELP
 
-	elif keysym == pygame.K_PRINTSCREEN:
+	elif keysym == sdl.SDLK_PRINTSCREEN:
 
 		key = keyboard_h.K_PRINT
 
-	elif keysym == pygame.K_SYSREQ:
+	elif keysym == sdl.SDLK_SYSREQ:
 
 		key = keyboard_h.K_SYSREQ
 
-	elif keysym == pygame.K_SCROLLLOCK:
+	elif keysym == sdl.SDLK_SCROLLLOCK:
 
 		key = keyboard_h.K_SCROLLOCK
 
-	elif keysym == pygame.K_MENU:
+	elif keysym == sdl.SDLK_MENU:
 
 		key = keyboard_h.K_MENU
 
-	elif keysym == 0x4000007A: # SDLK_UNDO
+	elif keysym == sdl.SDLK_UNDO:
 
 		key = keyboard_h.K_UNDO
 
@@ -512,59 +512,59 @@ def IN_TranslateSDLtoQ2Key(keysym: int)->int: #unsigned int (returns static int)
 # #define MY_SC_CASE(X) case SDL_SCANCODE_ ## X : return K_SC_ ## X;
 # Q2PORT: the cases MY_SC_CASE makes, as a table from scancode to key
 _sc_cases = { #SDL_Scancode -> int
-	pygame.KSCAN_X: keyboard_h.K_SC_X,
-	pygame.KSCAN_A: keyboard_h.K_SC_A,
-	pygame.KSCAN_B: keyboard_h.K_SC_B,
-	pygame.KSCAN_C: keyboard_h.K_SC_C,
-	pygame.KSCAN_D: keyboard_h.K_SC_D,
-	pygame.KSCAN_E: keyboard_h.K_SC_E,
-	pygame.KSCAN_F: keyboard_h.K_SC_F,
-	pygame.KSCAN_G: keyboard_h.K_SC_G,
-	pygame.KSCAN_H: keyboard_h.K_SC_H,
-	pygame.KSCAN_I: keyboard_h.K_SC_I,
-	pygame.KSCAN_J: keyboard_h.K_SC_J,
-	pygame.KSCAN_K: keyboard_h.K_SC_K,
-	pygame.KSCAN_L: keyboard_h.K_SC_L,
-	pygame.KSCAN_M: keyboard_h.K_SC_M,
-	pygame.KSCAN_N: keyboard_h.K_SC_N,
-	pygame.KSCAN_O: keyboard_h.K_SC_O,
-	pygame.KSCAN_P: keyboard_h.K_SC_P,
-	pygame.KSCAN_Q: keyboard_h.K_SC_Q,
-	pygame.KSCAN_R: keyboard_h.K_SC_R,
-	pygame.KSCAN_S: keyboard_h.K_SC_S,
-	pygame.KSCAN_T: keyboard_h.K_SC_T,
-	pygame.KSCAN_U: keyboard_h.K_SC_U,
-	pygame.KSCAN_V: keyboard_h.K_SC_V,
-	pygame.KSCAN_W: keyboard_h.K_SC_W,
-	pygame.KSCAN_X: keyboard_h.K_SC_X,
-	pygame.KSCAN_Y: keyboard_h.K_SC_Y,
-	pygame.KSCAN_Z: keyboard_h.K_SC_Z,
-	pygame.KSCAN_MINUS: keyboard_h.K_SC_MINUS,
-	pygame.KSCAN_EQUALS: keyboard_h.K_SC_EQUALS,
-	pygame.KSCAN_LEFTBRACKET: keyboard_h.K_SC_LEFTBRACKET,
-	pygame.KSCAN_RIGHTBRACKET: keyboard_h.K_SC_RIGHTBRACKET,
-	pygame.KSCAN_BACKSLASH: keyboard_h.K_SC_BACKSLASH,
-	pygame.KSCAN_NONUSHASH: keyboard_h.K_SC_NONUSHASH,
-	pygame.KSCAN_SEMICOLON: keyboard_h.K_SC_SEMICOLON,
-	pygame.KSCAN_APOSTROPHE: keyboard_h.K_SC_APOSTROPHE,
-	pygame.KSCAN_GRAVE: keyboard_h.K_SC_GRAVE,
-	pygame.KSCAN_COMMA: keyboard_h.K_SC_COMMA,
-	pygame.KSCAN_PERIOD: keyboard_h.K_SC_PERIOD,
-	pygame.KSCAN_SLASH: keyboard_h.K_SC_SLASH,
-	pygame.KSCAN_NONUSBACKSLASH: keyboard_h.K_SC_NONUSBACKSLASH,
-	pygame.KSCAN_INTERNATIONAL1: keyboard_h.K_SC_INTERNATIONAL1,
-	pygame.KSCAN_INTERNATIONAL2: keyboard_h.K_SC_INTERNATIONAL2,
-	pygame.KSCAN_INTERNATIONAL3: keyboard_h.K_SC_INTERNATIONAL3,
-	pygame.KSCAN_INTERNATIONAL4: keyboard_h.K_SC_INTERNATIONAL4,
-	pygame.KSCAN_INTERNATIONAL5: keyboard_h.K_SC_INTERNATIONAL5,
-	pygame.KSCAN_INTERNATIONAL6: keyboard_h.K_SC_INTERNATIONAL6,
-	pygame.KSCAN_INTERNATIONAL7: keyboard_h.K_SC_INTERNATIONAL7,
-	pygame.KSCAN_INTERNATIONAL8: keyboard_h.K_SC_INTERNATIONAL8,
-	pygame.KSCAN_INTERNATIONAL9: keyboard_h.K_SC_INTERNATIONAL9,
-	178: keyboard_h.K_SC_THOUSANDSSEPARATOR, # SDL_SCANCODE_THOUSANDSSEPARATOR
-	179: keyboard_h.K_SC_DECIMALSEPARATOR, # SDL_SCANCODE_DECIMALSEPARATOR
-	pygame.KSCAN_CURRENCYUNIT: keyboard_h.K_SC_CURRENCYUNIT,
-	pygame.KSCAN_CURRENCYSUBUNIT: keyboard_h.K_SC_CURRENCYSUBUNIT,
+	sdl.SDL_SCANCODE_X: keyboard_h.K_SC_X,
+	sdl.SDL_SCANCODE_A: keyboard_h.K_SC_A,
+	sdl.SDL_SCANCODE_B: keyboard_h.K_SC_B,
+	sdl.SDL_SCANCODE_C: keyboard_h.K_SC_C,
+	sdl.SDL_SCANCODE_D: keyboard_h.K_SC_D,
+	sdl.SDL_SCANCODE_E: keyboard_h.K_SC_E,
+	sdl.SDL_SCANCODE_F: keyboard_h.K_SC_F,
+	sdl.SDL_SCANCODE_G: keyboard_h.K_SC_G,
+	sdl.SDL_SCANCODE_H: keyboard_h.K_SC_H,
+	sdl.SDL_SCANCODE_I: keyboard_h.K_SC_I,
+	sdl.SDL_SCANCODE_J: keyboard_h.K_SC_J,
+	sdl.SDL_SCANCODE_K: keyboard_h.K_SC_K,
+	sdl.SDL_SCANCODE_L: keyboard_h.K_SC_L,
+	sdl.SDL_SCANCODE_M: keyboard_h.K_SC_M,
+	sdl.SDL_SCANCODE_N: keyboard_h.K_SC_N,
+	sdl.SDL_SCANCODE_O: keyboard_h.K_SC_O,
+	sdl.SDL_SCANCODE_P: keyboard_h.K_SC_P,
+	sdl.SDL_SCANCODE_Q: keyboard_h.K_SC_Q,
+	sdl.SDL_SCANCODE_R: keyboard_h.K_SC_R,
+	sdl.SDL_SCANCODE_S: keyboard_h.K_SC_S,
+	sdl.SDL_SCANCODE_T: keyboard_h.K_SC_T,
+	sdl.SDL_SCANCODE_U: keyboard_h.K_SC_U,
+	sdl.SDL_SCANCODE_V: keyboard_h.K_SC_V,
+	sdl.SDL_SCANCODE_W: keyboard_h.K_SC_W,
+	sdl.SDL_SCANCODE_X: keyboard_h.K_SC_X,
+	sdl.SDL_SCANCODE_Y: keyboard_h.K_SC_Y,
+	sdl.SDL_SCANCODE_Z: keyboard_h.K_SC_Z,
+	sdl.SDL_SCANCODE_MINUS: keyboard_h.K_SC_MINUS,
+	sdl.SDL_SCANCODE_EQUALS: keyboard_h.K_SC_EQUALS,
+	sdl.SDL_SCANCODE_LEFTBRACKET: keyboard_h.K_SC_LEFTBRACKET,
+	sdl.SDL_SCANCODE_RIGHTBRACKET: keyboard_h.K_SC_RIGHTBRACKET,
+	sdl.SDL_SCANCODE_BACKSLASH: keyboard_h.K_SC_BACKSLASH,
+	sdl.SDL_SCANCODE_NONUSHASH: keyboard_h.K_SC_NONUSHASH,
+	sdl.SDL_SCANCODE_SEMICOLON: keyboard_h.K_SC_SEMICOLON,
+	sdl.SDL_SCANCODE_APOSTROPHE: keyboard_h.K_SC_APOSTROPHE,
+	sdl.SDL_SCANCODE_GRAVE: keyboard_h.K_SC_GRAVE,
+	sdl.SDL_SCANCODE_COMMA: keyboard_h.K_SC_COMMA,
+	sdl.SDL_SCANCODE_PERIOD: keyboard_h.K_SC_PERIOD,
+	sdl.SDL_SCANCODE_SLASH: keyboard_h.K_SC_SLASH,
+	sdl.SDL_SCANCODE_NONUSBACKSLASH: keyboard_h.K_SC_NONUSBACKSLASH,
+	sdl.SDL_SCANCODE_INTERNATIONAL1: keyboard_h.K_SC_INTERNATIONAL1,
+	sdl.SDL_SCANCODE_INTERNATIONAL2: keyboard_h.K_SC_INTERNATIONAL2,
+	sdl.SDL_SCANCODE_INTERNATIONAL3: keyboard_h.K_SC_INTERNATIONAL3,
+	sdl.SDL_SCANCODE_INTERNATIONAL4: keyboard_h.K_SC_INTERNATIONAL4,
+	sdl.SDL_SCANCODE_INTERNATIONAL5: keyboard_h.K_SC_INTERNATIONAL5,
+	sdl.SDL_SCANCODE_INTERNATIONAL6: keyboard_h.K_SC_INTERNATIONAL6,
+	sdl.SDL_SCANCODE_INTERNATIONAL7: keyboard_h.K_SC_INTERNATIONAL7,
+	sdl.SDL_SCANCODE_INTERNATIONAL8: keyboard_h.K_SC_INTERNATIONAL8,
+	sdl.SDL_SCANCODE_INTERNATIONAL9: keyboard_h.K_SC_INTERNATIONAL9,
+	sdl.SDL_SCANCODE_THOUSANDSSEPARATOR: keyboard_h.K_SC_THOUSANDSSEPARATOR,
+	sdl.SDL_SCANCODE_DECIMALSEPARATOR: keyboard_h.K_SC_DECIMALSEPARATOR,
+	sdl.SDL_SCANCODE_CURRENCYUNIT: keyboard_h.K_SC_CURRENCYUNIT,
+	sdl.SDL_SCANCODE_CURRENCYSUBUNIT: keyboard_h.K_SC_CURRENCYSUBUNIT,
 }
 
 def IN_TranslateScancodeToQ2Key(sc: int)->int: #SDL_Scancode (returns static int)
@@ -577,6 +577,8 @@ def IN_TranslateScancodeToQ2Key(sc: int)->int: #SDL_Scancode (returns static int
 
 	return 0
 
+consoleKeyCode = 0 #static int, IN_Update
+
 """
  * Updates the input queue state. Called every
  * frame by the client and does nearly all the
@@ -587,140 +589,186 @@ def IN_Update(): #void
 
 	global sys_frame_time, mouse_x, mouse_y
 
-	# Q2PORT: the C's SDL event pump is the port's pygame event queue (linux/gl_glx.py's
-	# HandleEvents did the same); mouse buttons, keys and text go straight to the client
-
 	#qboolean want_grab;
-	#SDL_Event event;
+	event = sdl.SDL_Event() #SDL_Event
 	#unsigned int key;
 
 	#static qboolean left_trigger = false;
 	#static qboolean right_trigger = false;
 	#static qboolean left_stick[4] = {false, false, false, false};   // left, right, up, down virtual keys
 
-	static_consoleKeyCode = 0 #static int consoleKeyCode
+	global consoleKeyCode #static int
 
-	# get and process an event
-	for event in pygame.event.get(): # while (SDL_PollEvent(&event))
+	# Get and process an event
+	while sdl.SDL_PollEvent(event):
 
-		if event.type == pygame.MOUSEWHEEL: # SDL_MOUSEWHEEL
-			cl_keyboard.Key_Event(keyboard_h.K_MWHEELUP if event.wheel > 0 else keyboard_h.K_MWHEELDOWN, True, True)
-			cl_keyboard.Key_Event(keyboard_h.K_MWHEELUP if event.wheel > 0 else keyboard_h.K_MWHEELDOWN, False, True)
+		if event.type == sdl.SDL_MOUSEWHEEL:
 
-		elif event.type == pygame.MOUSEBUTTONDOWN or event.type == pygame.MOUSEBUTTONUP:
-			key = 0
-			if event.button == 1: # SDL_BUTTON_LEFT
+			cl_keyboard.Key_Event((keyboard_h.K_MWHEELUP if event.wheel.y > 0 else keyboard_h.K_MWHEELDOWN), True, True)
+			cl_keyboard.Key_Event((keyboard_h.K_MWHEELUP if event.wheel.y > 0 else keyboard_h.K_MWHEELDOWN), False, True)
+
+		elif event.type == sdl.SDL_MOUSEBUTTONDOWN or event.type == sdl.SDL_MOUSEBUTTONUP:
+
+			if event.button.button == sdl.SDL_BUTTON_LEFT:
+
 				key = keyboard_h.K_MOUSE1
-			elif event.button == 2: # SDL_BUTTON_MIDDLE
+
+			elif event.button.button == sdl.SDL_BUTTON_MIDDLE:
+
 				key = keyboard_h.K_MOUSE3
-			elif event.button == 3: # SDL_BUTTON_RIGHT
+
+			elif event.button.button == sdl.SDL_BUTTON_RIGHT:
+
 				key = keyboard_h.K_MOUSE2
-			elif event.button == 4: # SDL_BUTTON_X1
+
+			elif event.button.button == sdl.SDL_BUTTON_X1:
+
 				key = keyboard_h.K_MOUSE4
-			elif event.button == 5: # SDL_BUTTON_X2
+
+			elif event.button.button == sdl.SDL_BUTTON_X2:
+
 				key = keyboard_h.K_MOUSE5
+
 			else:
-				continue # return;
 
-			cl_keyboard.Key_Event(key, event.type == pygame.MOUSEBUTTONDOWN, True)
+				return
 
-		elif event.type == pygame.MOUSEMOTION:
-			if cl_main.cls.key_dest == client_h.keydest_t.key_game and not cl_main.cl_paused.value:
-				mouse_x += event.rel[0]
-				mouse_y += event.rel[1]
+			cl_keyboard.Key_Event(key, (event.type == sdl.SDL_MOUSEBUTTONDOWN), True)
 
-		elif event.type == pygame.TEXTINPUT: # SDL_TEXTINPUT
-			if event.text:
-				c = ord(event.text[0])
-				# also make sure we don't get the char that corresponds to the
-				# "console key" (like "^" or "`") as text input
-				if c >= ord(' ') and c <= ord('~') and c != static_consoleKeyCode:
-					cl_keyboard.Char_Event(c)
+		elif event.type == sdl.SDL_MOUSEMOTION:
 
-		elif event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
-			down = event.type == pygame.KEYDOWN
-			sc = event.scancode # SDL_Scancode sc = event.key.keysym.scancode;
-			if sc >= pygame.KSCAN_1 and sc <= pygame.KSCAN_0:
-				# workaround for AZERTY-keyboards, which don't have 1, 2, ..., 9, 0 in first row:
-				# always map those physical keys (scancodes) to those keycodes anyway
-				# see also https://bugzilla.libsdl.org/show_bug.cgi?id=3188
+			if cl_main.cls.key_dest == client_h.keydest_t.key_game and int(cl_main.cl_paused.value) == 0:
+
+				mouse_x += event.motion.xrel
+				mouse_y += event.motion.yrel
+
+		elif event.type == sdl.SDL_TEXTINPUT:
+
+			c = ord(event.text.text[0]) if event.text.text else 0 #int
+			# also make sure we don't get the char that corresponds to the
+			# "console key" (like "^" or "`") as text input
+			if (c >= ord(' ')) and (c <= ord('~')) and c != consoleKeyCode:
+
+				cl_keyboard.Char_Event(c)
+
+		elif event.type == sdl.SDL_KEYDOWN or event.type == sdl.SDL_KEYUP:
+
+			down = (event.type == sdl.SDL_KEYDOWN) #qboolean
+
+			# workaround for AZERTY-keyboards, which don't have 1, 2, ..., 9, 0 in first row:
+			# always map those physical keys (scancodes) to those keycodes anyway
+			# see also https://bugzilla.libsdl.org/show_bug.cgi?id=3188
+			sc = event.key.keysym.scancode #SDL_Scancode
+
+			if sc >= sdl.SDL_SCANCODE_1 and sc <= sdl.SDL_SCANCODE_0:
+
+				# Note that the SDL_SCANCODEs are SDL_SCANCODE_1, _2, ..., _9, SDL_SCANCODE_0
+				# while in ASCII it's '0', '1', ..., '9' => handle 0 and 1-9 separately
+				# (quake2 uses the ASCII values for those keys)
 				key = ord('0') # implicitly handles SDL_SCANCODE_0
-				if sc <= pygame.KSCAN_9:
-					key = ord('1') + (sc - pygame.KSCAN_1)
+
+				if sc <= sdl.SDL_SCANCODE_9:
+
+					key = ord('1') + (sc - sdl.SDL_SCANCODE_1)
 
 				cl_keyboard.Key_Event(key, down, False)
+
 			else:
-				kc = event.key # SDL_Keycode kc = event.key.keysym.sym;
-				if sc == pygame.KSCAN_GRAVE and kc != ord('\'') and kc != ord('"'):
+
+				kc = event.key.keysym.sym #SDL_Keycode
+				if sc == sdl.SDL_SCANCODE_GRAVE and kc != ord('\'') and kc != ord('"'):
+
 					# special case/hack: open the console with the "console key"
 					# (beneath Esc, left of 1, above Tab)
 					# but not if the keycode for this is a quote (like on Brazilian
 					# keyboards) - otherwise you couldn't type them in the console
-					if (event.mod & (pygame.KMOD_CAPS|pygame.KMOD_SHIFT|pygame.KMOD_ALT|pygame.KMOD_CTRL|pygame.KMOD_GUI)) == 0:
+					if (event.key.keysym.mod & (sdl.KMOD_CAPS|sdl.KMOD_SHIFT|sdl.KMOD_ALT|sdl.KMOD_CTRL|sdl.KMOD_GUI)) == 0:
+
 						# also, only do this if no modifiers like shift or AltGr or whatever are pressed
 						# so kc will most likely be the ascii char generated by this and can be ignored
 						# in case SDL_TEXTINPUT above (so we don't get ^ or whatever as text in console)
 						# (can't just check for mod == 0 because numlock is a KMOD too)
 						cl_keyboard.Key_Event(keyboard_h.K_CONSOLE, down, True)
-						static_consoleKeyCode = kc
-				elif kc >= pygame.K_SPACE and kc < pygame.K_DELETE:
+						consoleKeyCode = kc
+
+				elif (kc >= sdl.SDLK_SPACE) and (kc < sdl.SDLK_DELETE):
+
 					cl_keyboard.Key_Event(kc, down, False)
+
 				else:
+
 					key = IN_TranslateSDLtoQ2Key(kc)
 					if key == 0:
+
 						# fallback to scancodes if we don't know the keycode
 						key = IN_TranslateScancodeToQ2Key(sc)
+
 					if key != 0:
+
 						cl_keyboard.Key_Event(key, down, True)
+
 					else:
-						clientserver.Com_DPrintf("Pressed unknown key with SDL_Keycode {}, SDL_Scancode {}.\n".format(kc, sc))
 
-		# Q2PORT: the C's single SDL_WINDOWEVENT (with an event.window_event subcode) is
-		# several pygame event types, each carrying the subcode as the type itself
-		elif event.type == pygame.WINDOWFOCUSLOST:
+						clientserver.Com_DPrintf("Pressed unknown key with SDL_Keycode {}, SDL_Scancode {}.\n".format(kc, int(sc)))
 
-			cl_keyboard.Key_MarkAllUp()
+		elif event.type == sdl.SDL_WINDOWEVENT:
 
-			if windowed_pauseonfocuslost.value != 1:
-				cvar.Cvar_SetValue("paused", 1)
+			if event.window.event == sdl.SDL_WINDOWEVENT_FOCUS_LOST:
 
-			if cvar.Cvar_VariableValue("ogg_pausewithgame") == 1 and \
-				ogg.OGG_Status() == vorbis.PLAY and \
-				cl_main.cl.attractloop is False:
-				cmdparser.Cbuf_AddText("ogg toggle\n")
+				cl_keyboard.Key_MarkAllUp()
 
-			if s_muteonfocusloss.value == 1:
-				snd_dma.S_Activate(False)
+				if windowed_pauseonfocuslost.value != 1:
 
-		elif event.type == pygame.WINDOWFOCUSGAINED:
+					cvar.Cvar_SetValue("paused", 1)
 
-			if windowed_pauseonfocuslost.value == 2:
-				cvar.Cvar_SetValue("paused", 0)
+				if cvar.Cvar_VariableValue("ogg_pausewithgame") == 1 and \
+					ogg.OGG_Status() == vorbis.PLAY and cl_main.cl.attractloop == False:
 
-			if cvar.Cvar_VariableValue("ogg_pausewithgame") == 1 and \
-				ogg.OGG_Status() == vorbis.PAUSE and \
-				cl_main.cl.attractloop is False and \
-				cl_main.cl_paused.value == 0:
-				cmdparser.Cbuf_AddText("ogg toggle\n")
+					cmdparser.Cbuf_AddText("ogg toggle\n")
 
-			if s_muteonfocusloss.value == 1:
-				snd_dma.S_Activate(True)
+				if s_muteonfocusloss.value == 1:
 
-		elif event.type == pygame.WINDOWMOVED:
-			# make sure GLimp_GetRefreshRate() will query from SDL again - the window might
-			# be on another display now!
-			vid.glimp_sdl2.glimp_refreshRate = -1.0
+					sound_c.S_Activate(False)
 
-		elif event.type == pygame.WINDOWSHOWN:
+			elif event.window.event == sdl.SDL_WINDOWEVENT_FOCUS_GAINED:
 
-			if cl_main.cl_unpaused_scvis.value > 0:
-				cvar.Cvar_SetValue("paused", 0)
+				if windowed_pauseonfocuslost.value == 2:
 
-			# the C toggles the ogg music here (ogg_pausewithgame), Q2PORT: music is group 13
+					cvar.Cvar_SetValue("paused", 0)
+
+				if cvar.Cvar_VariableValue("ogg_pausewithgame") == 1 and \
+					ogg.OGG_Status() == vorbis.PAUSE and cl_main.cl.attractloop == False and \
+					cl_main.cl_paused.value == 0:
+
+					cmdparser.Cbuf_AddText("ogg toggle\n")
+
+				if s_muteonfocusloss.value == 1:
+
+					sound_c.S_Activate(True)
+
+			elif event.window.event == sdl.SDL_WINDOWEVENT_MOVED:
+
+				# make sure GLimp_GetRefreshRate() will query from SDL again - the window might
+				# be on another display now!
+				vid.glimp_sdl2.glimp_refreshRate = -1.0
+
+			elif event.window.event == sdl.SDL_WINDOWEVENT_SHOWN:
+
+				if cl_main.cl_unpaused_scvis.value > 0:
+
+					cvar.Cvar_SetValue("paused", 0)
+
+				# play music
+				if cvar.Cvar_VariableValue("ogg_pausewithgame") == 1 and \
+					ogg.OGG_Status() == vorbis.PAUSE and cl_main.cl.attractloop == False and \
+					cl_main.cl_paused.value == 0:
+
+					cmdparser.Cbuf_AddText("ogg toggle\n")
 
 		# the C's SDL_CONTROLLERBUTTON/AXIS/SENSOR/DEVICE/JOY events aren't ported (group 14)
 
-		elif event.type == pygame.QUIT: # SDL_QUIT
+		elif event.type == sdl.SDL_QUIT:
+
 			clientserver.Com_Quit()
 
 	# grab and ungrab the mouse if the console or the menu is opened
@@ -851,47 +899,25 @@ def IN_Shutdown(): #void
 
 	# IN_Controller_Shutdown(false), Q2PORT: no gamepads (group 14)
 
-def IN_GetClipboardText(n: int)->str: #char *, size_t
+def IN_GetClipboardText(n: int)->str: #char *, size_t (Q2PORT: returns out)
 
-	# Q2PORT: returns the text; pygame's scrap module in place of SDL_GetClipboardText
-	try:
+	s = sdl.SDL_GetClipboardText()
 
-		if not pygame.scrap.get_init():
+	if not s or s[0] == '\0':
 
-			pygame.scrap.init()
+		return "" # *out = '\0';
 
-
-		data = pygame.scrap.get(pygame.SCRAP_TEXT)
-
-	except (pygame.error, NotImplementedError): # no clipboard support
-
-		data = None
-
-
-	if not data:
-
-		return ""
-
-
-	s = data.decode("utf-8", "replace").rstrip("\0")
 	return s[:n - 1 - 1] # Q_strlcpy(out, s, n - 1);
 
+	#SDL_free(s);
+
+"""
+Copy string s to the clipboard.
+Returns 0 on success, 1 otherwise.
+"""
 def IN_SetClipboardText(s: str)->int: #const char * (returns int)
 
-	# Q2PORT: pygame's scrap module in place of SDL_SetClipboardText
-	try:
-
-		if not pygame.scrap.get_init():
-
-			pygame.scrap.init()
-
-
-		pygame.scrap.put(pygame.SCRAP_TEXT, s.encode("utf-8"))
-		return 0
-
-	except (pygame.error, NotImplementedError): # no clipboard support
-
-		return 1
+	return int(sdl.SDL_SetClipboardText(s) != 0)
 
 def IN_JoyAltSelectorDown(): # (static)
 
@@ -906,15 +932,15 @@ def IN_JoyAltSelectorUp(): # (static)
 """
 def In_FlushQueue(): #void
 
-	pygame.event.clear() # SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
+	sdl.SDL_FlushEvents(sdl.SDL_FIRSTEVENT, sdl.SDL_LASTEVENT)
 	cl_keyboard.Key_MarkAllUp()
 	IN_JoyAltSelectorUp()
 
 def IN_NumpadIsOn()->bool: #void (returns qboolean)
 
-	mod = pygame.key.get_mods() # SDL_Keymod mod = SDL_GetModState();
+	mod = sdl.SDL_GetModState() #SDL_Keymod
 
-	if (mod & pygame.KMOD_NUM) == pygame.KMOD_NUM:
+	if (mod & sdl.KMOD_NUM) == sdl.KMOD_NUM:
 
 		return True
 

@@ -54,6 +54,7 @@ def declared(m):
 	"""Names a module defines, including globals first assigned inside functions (cvars set by a register function)."""
 	f = getattr(m, "__file__", None)
 	if not f: return set()
+	if not f.endswith(".py"): return set(vars(m))	# a compiled extension (e.g. _ctypes): no source to scan
 	if f not in _DECLARED:
 		names = set(vars(m))
 		for n in ast.walk(ast.parse(open(f).read())):

@@ -32,7 +32,6 @@ pass
 from backends.unix import system, network
 pass
 from client import cl_main
-import pygame
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
@@ -311,10 +310,6 @@ def Qcommon_Init(): #int argc, char **argv
 
 	# Print the build and version string
 	Qcommon_Buildstring()
-
-	# Q2PORT: pygame stands in for SDL, which Yamagi starts in the backends
-	pygame.mixer.pre_init(44100//2)
-	pygame.init()
 
 	# Seed PRNG
 	rand.randk_seed()

@@ -26,11 +26,11 @@ and tracks the work group by group.
 - `src/client/`: the client, menus and sound.
 - `src/client/refresh/gl1/` and `src/client/refresh/files/`: the OpenGL 1 renderer and its shared loaders.
 - `src/client/refresh/gl3/`: the modern OpenGL 3 renderer (group 16).
-- The SDL 2 platform code, with pygame (which is built on SDL 2) standing in for SDL.
-  Pygame stays the back end; there is no move to raw SDL. The port already
-  runs on pygame today (`linux/gl_glx.py`, `linux/in_linux.py`), so the work
-  is wrapping Yamagi's C structure around the existing pygame code, not
-  rewriting the platform from scratch:
+- The SDL 2 platform code. There is no SDL: `backends/sdl.py` provides the
+  SDL 2 calls the port uses (windows, GL contexts, events, display modes,
+  gamma, clipboard), done with pyglet, so the ports of Yamagi's SDL files call
+  `sdl.SDL_...` line by line as the C does (pygame was the back end until the
+  switch to pyglet):
   - `src/client/vid/vid.c`, `src/client/vid/glimp_sdl2.c`;
   - `src/client/input/sdl2.c` (mostly done in groups 10 and 12);
   - `src/backends/unix/` and `src/backends/generic/` (mostly `sys_linux` today).
@@ -40,9 +40,9 @@ and tracks the work group by group.
 | Yamagi code | Why |
 |---|---|
 | `client/refresh/soft/`, Vulkan | Other renderers. |
-| `glimp_sdl3.c`, `input/sdl3.c` | pygame uses SDL 2. |
+| `glimp_sdl3.c`, `input/sdl3.c` | `backends/sdl.py` follows SDL 2. |
 | `backends/windows/` | Linux only, as before. |
-| `client/sound/openal.c`, `qal.c` | OpenAL back end. pygame does the playback. |
+| `client/sound/sdl.c` | SDL audio and the C software mixer; OpenAL (`openal.c`) is the back end. |
 | The `curl` HTTP downloader | Optional; later if needed. |
 | Gyro and gamepad extras in `client/input/` | Later. |
 
@@ -64,7 +64,7 @@ run and pass the tests at the end of each one.
    why each change was made.
 3. **Port.** Bring each function to Yamagi's version. Keep the port's own
    changes, marked `Q2PORT`:
-   - the pygame and numpy code;
+   - the pyglet and numpy code;
    - the Pillow PCX decoding;
    - the speed-ups;
    - fixes for bugs that only exist in the port.
@@ -93,8 +93,8 @@ The order follows dependencies: each group only depends on groups above it.
 | 10 | Client core | `client/cl_main.c`, `cl_network.c`, `cl_download.c`, `cl_parse.c`, `cl_entities.c`, `cl_prediction.c`, `cl_input.c`, `cl_keyboard.c`, `cl_console.c`, `cl_screen.c`, `cl_view.c`, `cl_inventory.c`, `cl_cin.c`, `client/header/*.h` | `client/cl_*.py`, `keys.py`, `console.py`, `client.py` | Several splits and renames | Connect, play, demos, cinematics, `timedemo` |
 | 11 | Client effects | `cl_effects.c`, `cl_lights.c`, `cl_particles.c`, `cl_tempentities.c` | `cl_fx.py`, `cl_newfx.py`, `cl_tent.py` | Split differently | Screenshots of effects |
 | 12 | Menus | `client/menu/menu.c`, `qmenu.c`, `videomenu.c` | `client/menu.py`, `qmenu.py`, `linux/vid_menu.py` | Moves to `client/menu/` | Every menu opens; settings apply |
-| 13 | Sound | `client/sound/sound.c`, `wave.c`, `ogg.c`, `sdl.c` (structure only) | `client/snd_*.py`, `linux/snd_linux.py` | pygame stays the back end. **OGG done** (`client/sound/ogg.py` replaced the stub; music streams in `pygame.mixer.music`, `.ogg` sample fallback via `S_LoadVorbis` in `snd_dma.py`, test `tests/ogg_music.py`) | Sounds, loops, sexed sounds, cinematic sound, music |
-| 14 | Platform layer | `client/vid/vid.c`, `glimp_sdl2.c`, `client/input/sdl2.c`, `backends/unix/*.c`, `backends/generic/misc.c` | `linux/*.py` | Restructure: Yamagi's `vid`/`glimp`/`backends` around the existing pygame code (pygame stays, no move to raw SDL) | Window, video modes, input, mouse grab, quit |
+| 13 | Sound | `client/sound/sound.c`, `wave.c`, `ogg.c`, `openal.c`, `qal.c` | `client/snd_*.py`, `linux/snd_linux.py` | **Moved** to `client/sound/` (`sound.py`, `openal.py`, `qal.py`, `wave.py`, `ogg.py`, `header/local.py`, `header/qal.py`); OpenAL is the back end (ctypes on `libopenal.so.1`), `sdl.c` is not ported (`SDL_BackendInit` fails). Music is decoded by `header/stb_vorbis.py` (pyglet's FFmpeg decoder in place of stb_vorbis) and queued through `S_RawSamples`, as the C does. Test `tests/ogg_music.py` | Sounds, loops, sexed sounds, cinematic sound, music |
+| 14 | Platform layer | `client/vid/vid.c`, `glimp_sdl2.c`, `client/input/sdl2.c`, `backends/unix/*.c`, `backends/generic/misc.c` | `linux/*.py` | Restructure: Yamagi's `vid`/`glimp`/`backends`. The SDL calls go to `backends/sdl.py` (SDL 2 on pyglet; pygame before) | Window, video modes, input, mouse grab, quit |
 | 15 | Renderer: gl1 (OpenGL 1) | `client/refresh/gl1/*.c`, `client/refresh/files/*.c`, `client/refresh/ref_shared.h`, `client/vid/header/ref.h` | `ref_gl/*.py` | Faithful re-port of Yamagi's `gl1/`, replacing `ref_gl/`; Yamagi's approach as written, no `Q2PORT` speed-ups carried over (performance is a later pass) | Screenshots match; `timedemo`; extensions off |
 | 16 | Renderer: gl3 (modern OpenGL) | `client/refresh/gl3/*.c` | none (new) | New: Yamagi's gl3 renderer with GLSL shaders, selected at start up alongside gl1 | Screenshots look right on base maps; `timedemo`; renderer switch at start up |
 
@@ -118,10 +118,10 @@ gl3 renderer is a separate step (group 16).
   its per-pixel loops. Performance (numpy texture passes, unrolled
 glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
   pass once the faithful port runs.
-- **`qgl.c`** is replaced by PyOpenGL and pygame, as the old `ref_gl/`
-  already does; `gl1_sdl.c` (context, swap, mode changes) uses the same
-  pygame code the existing `linux/gl_glx.py` uses, coordinated with group
-  14.
+- **`qgl.c`** is replaced by PyOpenGL, as the old `ref_gl/` already did;
+  `gl1_sdl.c` (context, swap, mode changes) calls `backends/sdl.py`
+  (pyglet), like `glimp_sdl2.py`. gl1 gets a compatibility context (no
+  profile is asked for), gl3 a 3.2 core one.
 - **Interface:** the port's client calls the renderer through the
   `refexport`-style `re.` attributes. The current `ref_gl/` already
   exposes the few extra exports the ported client uses (`DrawCharScaled`,
@@ -214,9 +214,9 @@ glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
     `header/model.py` (`modtype_t`/`mleaf_t` from `ref_shared`, no `mmodel_t`).
   - **Remaining:** none of the gl1 modules are id code now. Known Q2PORT
     differences: `R_ScreenShot` (TGA writer), numpy speed-ups (`R_Convert8to32`,
-    `R_LightScaleTexture`, `R_MipMap`, particles, `R_LerpVerts`), `ResizeSTB` via
-    Pillow, and `RI_SetVsync` only records the state (pygame can't change the
-    swap interval).
+    `R_LightScaleTexture`, `R_MipMap`, particles, `R_LerpVerts`), and `ResizeSTB`
+    via Pillow. Adaptive vsync (`r_vsync 2`) falls back to normal vsync, as the
+    C does when the driver refuses it (pyglet only switches vsync on or off).
 
 ## Group 0: tooling and conventions
 

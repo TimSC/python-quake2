@@ -40,7 +40,8 @@ import numpy as np
 from client.vid import vid
 
 import copy
-from client import cl_main, cl_cin, snd_dma, cl_view
+from client import cl_main, cl_cin, cl_view
+from client.sound import sound as sound_c
 from backends.unix import system
 from linux import cd_linux
 from client.vid import vid
@@ -681,7 +682,7 @@ SCR_BeginLoadingPlaque
 def SCR_BeginLoadingPlaque(): #
 	global scr_draw_loading
 
-	snd_dma.S_StopAllSounds()
+	sound_c.S_StopAllSounds()
 	cl_main.cl.sound_prepped = False
 	# don't play ambients
 	ogg.OGG_Stop()

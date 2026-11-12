@@ -25,10 +25,9 @@
 """
 from __future__ import annotations
 
-import warnings
-import pygame
 import OpenGL.GL as GL
 
+from backends import sdl
 from common import clientserver
 from common.header import common as common_h
 from common.header import shared
@@ -37,12 +36,14 @@ from client.refresh.gl1 import gl1_main, gl1_buffer
 """
 #include "header/local.h"
 
+#ifdef USE_SDL3
+#include <SDL3/SDL.h>
+#else
 #include <SDL2/SDL.h>
-"""
+#endif
 
-# Q2PORT: the platform is pygame (SDL 2 underneath). pygame owns the window
-# and makes the GL context in pygame.display.set_mode(), so the window is the
-# pygame display surface and "context" only records that it exists.
+Q2PORT: SDL is backends/sdl.py, the SDL calls done with pyglet
+"""
 
 window = None #static SDL_Window*
 context = None #static SDL_GLContext
@@ -62,12 +63,12 @@ def RI_EndFrame(): #void
 	# (GLES only)
 	#endif
 
-	pygame.display.flip() # SDL_GL_SwapWindow(window)
+	sdl.SDL_GL_SwapWindow(window)
 
 """
  * Returns the adress of a GL function
 """
-def RI_GetProcAddress(proc): #const char* (returns void *)
+def RI_GetProcAddress(proc: str): #const char* (returns void *)
 
 	# Q2PORT: PyOpenGL resolves the GL functions; this returns PyOpenGL's
 	# function when the driver has it (SDL_GL_GetProcAddress)
@@ -79,7 +80,7 @@ def RI_GetProcAddress(proc): #const char* (returns void *)
 """
  * Returns whether the vsync is enabled.
 """
-def RI_IsVSyncActive(): #void (returns qboolean)
+def RI_IsVSyncActive()->bool: #void (returns qboolean)
 
 	return vsyncActive
 
@@ -88,21 +89,23 @@ def RI_IsVSyncActive(): #void (returns qboolean)
  * creation by GLimp_InitGraphics(). In case of error -1
  * is returned.
 """
-def RI_PrepareForWindow(): #void (returns int)
+def RI_PrepareForWindow()->int: #void (returns int)
 
 	# Set GL context attributs bound to the window.
-	pygame.display.gl_set_attribute(pygame.GL_RED_SIZE, 8)
-	pygame.display.gl_set_attribute(pygame.GL_GREEN_SIZE, 8)
-	pygame.display.gl_set_attribute(pygame.GL_BLUE_SIZE, 8)
-	pygame.display.gl_set_attribute(pygame.GL_DEPTH_SIZE, 24)
-	pygame.display.gl_set_attribute(pygame.GL_DOUBLEBUFFER, 1)
-	pygame.display.gl_set_attribute(pygame.GL_ACCELERATED_VISUAL, 1)
+	sdl.SDL_GL_SetAttribute(sdl.SDL_GL_RED_SIZE, 8)
+	sdl.SDL_GL_SetAttribute(sdl.SDL_GL_GREEN_SIZE, 8)
+	sdl.SDL_GL_SetAttribute(sdl.SDL_GL_BLUE_SIZE, 8)
+	sdl.SDL_GL_SetAttribute(sdl.SDL_GL_DEPTH_SIZE, 24)
+	sdl.SDL_GL_SetAttribute(sdl.SDL_GL_DOUBLEBUFFER, 1)
+	sdl.SDL_GL_SetAttribute(sdl.SDL_GL_ACCELERATED_VISUAL, 1)
 
-	# Q2PORT: pygame's gl_set_attribute returns nothing; the C checks the
-	# result of SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8). RI_InitContext
-	# checks the bits we got.
-	pygame.display.gl_set_attribute(pygame.GL_STENCIL_SIZE, 8)
-	gl1_main.gl_state.stencil = True
+	if sdl.SDL_GL_SetAttribute(sdl.SDL_GL_STENCIL_SIZE, 8) == 0:
+
+		gl1_main.gl_state.stencil = True
+
+	else:
+
+		gl1_main.gl_state.stencil = False
 
 	#ifdef YQ2_GL1_GLES
 	# (GLES only)
@@ -115,18 +118,26 @@ def RI_PrepareForWindow(): #void (returns int)
 
 		msaa_samples = int(gl1_main.gl_msaa_samples.value)
 
-		# Q2PORT: the C checks the results to detect unsupported MSAA; pygame
-		# doesn't report them here (set_mode fails instead, and R_SetMode
-		# then retries with r_msaa_samples 0)
-		pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLEBUFFERS, 1)
-		pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLESAMPLES, msaa_samples)
+		if sdl.SDL_GL_SetAttribute(sdl.SDL_GL_MULTISAMPLEBUFFERS, 1) < 0:
+
+			clientserver.Com_Printf("MSAA is unsupported: {}\n".format(sdl.SDL_GetError()))
+			gl1_main.ri.Cvar_SetValue ("r_msaa_samples", 0)
+			sdl.SDL_GL_SetAttribute(sdl.SDL_GL_MULTISAMPLEBUFFERS, 0)
+			sdl.SDL_GL_SetAttribute(sdl.SDL_GL_MULTISAMPLESAMPLES, 0)
+
+		elif sdl.SDL_GL_SetAttribute(sdl.SDL_GL_MULTISAMPLESAMPLES, msaa_samples) < 0:
+
+			clientserver.Com_Printf("MSAA {}x is unsupported: {}\n".format(msaa_samples, sdl.SDL_GetError()))
+			gl1_main.ri.Cvar_SetValue("r_msaa_samples", 0)
+			sdl.SDL_GL_SetAttribute(sdl.SDL_GL_MULTISAMPLEBUFFERS, 0)
+			sdl.SDL_GL_SetAttribute(sdl.SDL_GL_MULTISAMPLESAMPLES, 0)
 
 	else:
 
-		pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLEBUFFERS, 0)
-		pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLESAMPLES, 0)
+		sdl.SDL_GL_SetAttribute(sdl.SDL_GL_MULTISAMPLEBUFFERS, 0)
+		sdl.SDL_GL_SetAttribute(sdl.SDL_GL_MULTISAMPLESAMPLES, 0)
 
-	return pygame.OPENGL | pygame.DOUBLEBUF # SDL_WINDOW_OPENGL, Q2PORT: pygame needs DOUBLEBUF too
+	return sdl.SDL_WINDOW_OPENGL
 
 """
  * Enables or disables the vsync.
@@ -147,10 +158,16 @@ def RI_SetVsync(): #void
 
 		vsync = -1
 
-	# Q2PORT: pygame has no SDL_GL_SetSwapInterval() / SDL_GL_GetSwapInterval();
-	# it only takes vsync when the window is made (set_mode(..., vsync=1)). So
-	# nothing is changed here and the state is what was asked for (as gl3_sdl).
-	vsyncActive = vsync != 0
+	if sdl.SDL_GL_SetSwapInterval(vsync) == -1:
+
+		if vsync == -1:
+
+			# Not every system supports adaptive
+			# vsync, fallback to normal vsync.
+			clientserver.Com_Printf("Failed to set adaptive vsync, reverting to normal vsync.\n")
+			sdl.SDL_GL_SetSwapInterval(1)
+
+	vsyncActive = sdl.SDL_GL_GetSwapInterval() != 0
 
 """
  * Updates the gamma ramp. Only used with SDL2.
@@ -163,23 +180,19 @@ def RI_UpdateGamma(): #void
 	# Gamma works with a lookup table when using SDL3 (or GLES1).
 	#ifndef GL1_GAMMATABLE
 	gamma = gl1_main.vid_gamma.value
+	ramp = [0] * 256 #Uint16 [256]
 
-	# Q2PORT: pygame's set_gamma is SDL_CalculateGammaRamp + SDL_SetWindowGammaRamp
-	# (it is deprecated, so its warning is silenced)
-	with warnings.catch_warnings():
-		warnings.simplefilter("ignore", DeprecationWarning)
-		ok = pygame.display.set_gamma(gamma)
+	sdl.SDL_CalculateGammaRamp(gamma, ramp)
+	if sdl.SDL_SetWindowGammaRamp(window, ramp, ramp, ramp) != 0:
 
-	if not ok:
-
-		clientserver.Com_Printf("Setting gamma failed: {}\n".format(pygame.get_error()))
+		clientserver.Com_Printf("Setting gamma failed: {}\n".format(sdl.SDL_GetError()))
 	#endif
 
 """
  * Initializes the OpenGL context. Returns true at
  * success and false at failure.
 """
-def RI_InitContext(win): #void* (returns int)
+def RI_InitContext(win)->bool: #void* (returns int)
 
 	global window, context, IsHighDPIaware
 
@@ -193,8 +206,15 @@ def RI_InitContext(win): #void* (returns int)
 	window = win
 
 	# Initialize GL context.
-	# Q2PORT: pygame made the context in set_mode()
-	context = window
+	context = sdl.SDL_GL_CreateContext(window)
+
+	if context is None:
+
+		clientserver.Com_Printf("{}: Creating OpenGL Context failed: {}\n".format("RI_InitContext", sdl.SDL_GetError()))
+
+		window = None
+
+		return False
 
 	#ifdef YQ2_GL1_GLES
 	# (GLES only)
@@ -221,8 +241,10 @@ def RI_InitContext(win): #void* (returns int)
 
 	if gl1_main.gl_msaa_samples.value:
 
-		msaa_samples = pygame.display.gl_get_attribute(pygame.GL_MULTISAMPLESAMPLES)
-		gl1_main.ri.Cvar_SetValue("r_msaa_samples", msaa_samples)
+		ret, msaa_samples = sdl.SDL_GL_GetAttribute(sdl.SDL_GL_MULTISAMPLESAMPLES)
+		if ret == 0:
+
+			gl1_main.ri.Cvar_SetValue("r_msaa_samples", msaa_samples)
 
 	# Enable vsync if requested.
 	RI_SetVsync()
@@ -232,8 +254,8 @@ def RI_InitContext(win): #void* (returns int)
 
 	if gl1_main.gl_state.stencil:
 
-		stencil_bits = pygame.display.gl_get_attribute(pygame.GL_STENCIL_SIZE)
-		if stencil_bits < 8:
+		ret, stencil_bits = sdl.SDL_GL_GetAttribute(sdl.SDL_GL_STENCIL_SIZE)
+		if ret < 0 or stencil_bits < 8:
 
 			gl1_main.gl_state.stencil = False
 
@@ -245,20 +267,22 @@ def RI_InitContext(win): #void* (returns int)
 	#else
 	title = "{} {} - OpenGL 1.4".format(common_h.APPNAME, common_h.YQ2VERSION) # Q2PORT: APPNAME, the C has "Yamagi Quake II"
 	#endif
-	pygame.display.set_caption(title)
+	sdl.SDL_SetWindowTitle(window, title)
 
+	#if SDL_VERSION_ATLEAST(2, 26, 0)
 	# Figure out if we are high dpi aware.
-	# Q2PORT: the platform never asks for SDL_WINDOW_ALLOW_HIGHDPI, so false
-	IsHighDPIaware = False
+	flags = sdl.SDL_GetWindowFlags(win)
+	IsHighDPIaware = True if (flags & sdl.SDL_WINDOW_ALLOW_HIGHDPI) else False
+	#endif
 
 	return True
 
 """
  * Fills the actual size of the drawable into width and height.
 """
-def RI_GetDrawableSize(): #int*, int* (returns width, height)
+def RI_GetDrawableSize()->tuple: #int*, int* (returns width, height)
 
-	return pygame.display.get_surface().get_size() # SDL_GL_GetDrawableSize(window, width, height)
+	return sdl.SDL_GL_GetDrawableSize(window)
 
 """
  * Shuts the GL context down.
@@ -267,11 +291,11 @@ def RI_ShutdownContext(): #void
 
 	global context
 
-	if window is not None:
+	if window:
 
-		if context is not None:
+		if context:
 
-			# Q2PORT: the context goes with the pygame window
+			sdl.SDL_GL_DeleteContext(context)
 			context = None
 
 """
@@ -279,6 +303,8 @@ def RI_ShutdownContext(): #void
  * here to not polute gl1_main.c with the SDL
  * headers.
 """
-def RI_GetSDLVersion(): #void (returns int)
+def RI_GetSDLVersion()->int: #void (returns int)
 
-	return pygame.get_sdl_version()[0]
+	#SDL_version ver;
+	#SDL_VERSION(&ver);
+	return sdl.SDL_MAJOR_VERSION

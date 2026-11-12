@@ -49,7 +49,8 @@ from client.header import client as client_h
 
 vidref_val = shared.VIDREF_GL # int
 
-from client import cl_main, cl_view, cl_cin, snd_dma
+from client import cl_main, cl_view, cl_cin
+from client.sound import sound as sound_c
 from backends.unix import system
 from linux import cd_linux
 from client.vid import vid
@@ -123,7 +124,7 @@ def CL_RegisterSounds(): #
 	int i;
 	"""
 
-	snd_dma.S_BeginRegistration()
+	sound_c.S_BeginRegistration()
 	cl_tempentities.CL_RegisterTEntSounds()
 	for i in range(1, shared.MAX_SOUNDS):
 
@@ -132,11 +133,11 @@ def CL_RegisterSounds(): #
 			break
 
 
-		cl_main.cl.sound_precache[i] = snd_dma.S_RegisterSound(cl_main.cl.configstrings[shared.CS_SOUNDS + i])
+		cl_main.cl.sound_precache[i] = sound_c.S_RegisterSound(cl_main.cl.configstrings[shared.CS_SOUNDS + i])
 		sdl2.IN_Update()
 
 
-	snd_dma.S_EndRegistration()
+	sound_c.S_EndRegistration()
 
 
 bitcounts = [] #int[32], just for protocol profilingf
@@ -1147,7 +1148,7 @@ def CL_ParseConfigString(): #void
 		if cl_main.cl.refresh_prepped:
 
 			cl_main.cl.sound_precache[i - shared.CS_SOUNDS] = \
-				snd_dma.S_RegisterSound(cl_main.cl.configstrings[i])
+				sound_c.S_RegisterSound(cl_main.cl.configstrings[i])
 
 
 	elif (i >= shared.CS_IMAGES) and (i < shared.CS_IMAGES + shared.MAX_MODELS):
@@ -1262,7 +1263,7 @@ def CL_ParseStartSoundPacket(): # (static)
 		return
 
 
-	snd_dma.S_StartSound(pos, ent, channel, cl_main.cl.sound_precache[sound_num], volume, attenuation, ofs)
+	sound_c.S_StartSound(pos, ent, channel, cl_main.cl.sound_precache[sound_num], volume, attenuation, ofs)
 	   
 
 
@@ -1339,7 +1340,7 @@ def CL_ParseServerMessage(): #void
 
 				if i == shared.PRINT_CHAT:
 
-					snd_dma.S_StartLocalSound("misc/talk.wav")
+					sound_c.S_StartLocalSound("misc/talk.wav")
 					cl_console.con.ormask = 128
 
 
