@@ -26,9 +26,9 @@
 from __future__ import annotations
 
 import numpy as np
-from enum import Enum
 from common.header import files as files_h
 from common.header import shared
+from client.refresh import ref_shared
 
 
 VERTEXSIZE = 7
@@ -40,12 +40,8 @@ SURF_DRAWTURB = 0x10
 SURF_DRAWBACKGROUND = 0x40
 SURF_UNDERWATER = 0x80
 
-class modtype_t(Enum):
-
-	mod_bad = 0
-	mod_brush = 1
-	mod_sprite = 2
-	mod_alias = 3
+# Q2PORT: modtype_t is ref_shared.h's, as in the C (the shared loaders in files/ set it)
+modtype_t = ref_shared.modtype_t
 
 class glpoly_t(object):
 
@@ -81,30 +77,6 @@ class msurface_t(object):
 		self.cached_light = [0.0] * files_h.MAXLIGHTMAPS #float, values currently used in lightmap
 		self.samples = None #byte *, [numstyles*surfsize]
 
-class mmodel_t(object):
-
-	def __init__(self):
-		self.mins = np.zeros((3,), dtype=np.float32) # vec3_t
-		self.maxs = np.zeros((3,), dtype=np.float32) # vec3_t
-		self.origin = np.zeros((3,), dtype=np.float32) # vec3_t, for sounds or lights
-		self.radius = 0.0 # float
-		self.headnode = 0 # int
-		self.visleafs = 0 # int, not including the solid leaf 0
-		self.firstface = 0 # int
-		self.numfaces = 0 # int
-
-class mleaf_t(object):
-
-	def __init__(self):
-		self.contents = 0 #int, wil be a negative contents number
-		self.visframe = 0 #int, node needs to be traversed if current
-		self.minmaxs = [0.0] * 6 #float, for bounding box culling
-		self.parent = None #struct mnode_s *
-		self.cluster = -1 #int
-		self.area = 0 #int
-		self.firstmarksurface = [] #msurface_t list
-		self.nummarksurfaces = 0 #int
-
 class model_t(object):
 
 	def __init__(self):
@@ -127,11 +99,11 @@ class model_t(object):
 		self.nummodelsurfaces = 0 #int
 		self.lightmap = 0 #int, only for submodels
 		self.numsubmodels = 0 #int
-		self.submodels = [] #model_t *
+		self.submodels = [] #struct model_s *
 		self.numplanes = 0 #int
 		self.planes = [] #cplane_t *
 		self.numleafs = 0 #int, number of visible leafs, not counting 0
-		self.leafs = [] #mleaf_t *
+		self.leafs = [] #mleaf_t *, ref_shared.mleaf_t
 		self.numvertexes = 0 #int
 		self.vertexes = None #mvertex_t *
 		self.numedges = 0 #int

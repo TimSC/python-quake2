@@ -26,6 +26,7 @@ import OpenGL.GL as GL
 from client import ref
 from client.refresh.gl1 import gl1_image, gl1_light, gl1_main, gl1_surf
 from client.refresh.gl1.header import model
+from common import clientserver
 from common.header import files as files_h
 from common.header import shared
 
@@ -72,7 +73,7 @@ def LM_AllocLightmapBuffer(buffer, clean): #int, qboolean
 
 	if not gl1_surf.gl_lms.lightmap_buffer[buffer]:
 
-		gl1_main.ri.Sys_Error (shared.ERR_FATAL, "{}: Could not allocate lightmap buffer {}\n".format("LM_AllocLightmapBuffer", buffer) )
+		clientserver.Com_Error(shared.ERR_FATAL, "{}: Could not allocate lightmap buffer {}\n".format("LM_AllocLightmapBuffer", buffer) )
 
 	if clean:
 
@@ -146,7 +147,7 @@ def LM_UploadBlock(dynamic): #qboolean
 		gl1_surf.gl_lms.current_lightmap_texture += 1
 		if gl1_surf.gl_lms.current_lightmap_texture == MAX_LIGHTMAPS:
 
-			gl1_main.ri.Sys_Error (shared.ERR_DROP, "{}: MAX_LIGHTMAPS exceeded\n".format("LM_UploadBlock") )
+			clientserver.Com_Error(shared.ERR_DROP, "{}: MAX_LIGHTMAPS exceeded\n".format("LM_UploadBlock") )
 
 
 """
@@ -290,7 +291,7 @@ def LM_CreateSurfaceLightmap (surf): #msurface_t *
 		ok, surf.light_s, surf.light_t = LM_AllocBlock( smax, tmax )
 		if not ok:
 
-			gl1_main.ri.Sys_Error( shared.ERR_FATAL, "{}: Consecutive calls to LM_AllocBlock({},{}) failed\n".format("LM_CreateSurfaceLightmap", smax, tmax) )
+			clientserver.Com_Error(shared.ERR_FATAL, "{}: Consecutive calls to LM_AllocBlock({},{}) failed\n".format("LM_CreateSurfaceLightmap", smax, tmax) )
 
 	surf.lightmaptexturenum = gl1_surf.gl_lms.current_lightmap_texture
 	buffer = surf.lightmaptexturenum if gl1_main.gl_config.multitexture else 0

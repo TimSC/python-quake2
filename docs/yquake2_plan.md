@@ -204,12 +204,19 @@ glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
     alias models, stencil shadows, overbright, minlight; the `drawtris` Q2PORT is
     gone), `gl1_lightmap`, gl1_light's `R_BuildLightMap`/`R_SetCacheState`/
     buffered dlights, gl1_warp's `R_EmitWaterPolys`/`RI_SetSky`, and gl1_main's
-    `R_DrawSpriteModel`/`R_DrawNullModel`/`R_DrawEntitiesOnList`.
-  - **Remaining (still id code):** gl1_main's frame code (`R_SetupFrame`,
-    `R_SetupGL` stereo split, `R_Clear` stencil/tile/zfix, `R_RenderView` stereo
-    and files/surf `R_SetFrustum`, `R_PolyBlend` arrays), gl1_warp's sky
-    (`R_DrawSkyBox` arrays), `gl1_model` (`Mod_LoadMD2`/`Mod_LoadSP2`/
-    `Mod_ReLoadSkins`, free-space checks), gl1_light's `R_LightPoint` details.
+    `R_DrawSpriteModel`/`R_DrawNullModel`/`R_DrawEntitiesOnList`. Then gl1_main's
+    frame code (`R_SetupFrame`, `R_SetupGL` stereo split, `R_Clear`
+    stencil/tile/zfix, `R_RenderView` stereo with files/surf `R_SetFrustum`,
+    `R_PolyBlend` arrays), `gl1_model` (all of it: files/models `Mod_LoadMD2`/
+    `Mod_LoadSP2`/`Mod_ReLoadSkins`, `parent_model` inline models as `model_t`
+    submodels, free-space checks, `r_fixsurfsky`), `gl1_warp` (all of it: the sky
+    box drawn with vertex arrays, `r_farsee`), `gl1_light` (all of it), and
+    `header/model.py` (`modtype_t`/`mleaf_t` from `ref_shared`, no `mmodel_t`).
+  - **Remaining:** none of the gl1 modules are id code now. Known Q2PORT
+    differences: `R_ScreenShot` (TGA writer), numpy speed-ups (`R_Convert8to32`,
+    `R_LightScaleTexture`, `R_MipMap`, particles, `R_LerpVerts`), `ResizeSTB` via
+    Pillow, and `RI_SetVsync` only records the state (pygame can't change the
+    swap interval).
 
 ## Group 0: tooling and conventions
 

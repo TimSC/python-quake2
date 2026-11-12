@@ -1,54 +1,52 @@
 """
-Copyright (C) 1997-2001 Id Software, Inc.
-
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
-
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
+ * Copyright (C) 1997-2001 Id Software, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or (at
+ * your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
+ *
+ * =======================================================================
+ *
+ * Lightmaps and dynamic lighting
+ *
+ * =======================================================================
 """
 from __future__ import annotations
 
 import math
 import numpy as np
 import OpenGL.GL as GL
-pass
-pass
 from client.refresh.gl1 import gl1_main, gl1_image, gl1_buffer
 from common import clientserver
+from client.refresh import ref_shared
 from client.refresh.gl1.header import model
 from client.refresh.files import surf as files_surf
 from common.header import files as files_h
 from common.header import shared
 from common.shared import shared as shared_c
-"""
-// r_light.c
 
-#include "gl_local.h"
-"""
-r_dlightframecount = None #int
-minlight = bytearray(256) #byte[256]
+#include "header/local.h"
 
-DLIGHT_CUTOFF = 64
+r_dlightframecount = 0 #int
+pointcolor = np.zeros((3,), dtype=np.float32) #vec3_t
+lightplane = None #cplane_t *, used as shadow plane
+lightspot = np.zeros((3,), dtype=np.float32) #vec3_t
+s_blocklights = [0.0] * (34 * 34 * 3) #static float [34 * 34 * 3]
 
+minlight = bytearray(256) #byte [256]
 
-"""
-=============================================================================
-
-DYNAMIC LIGHTS BLEND RENDERING
-
-=============================================================================
-"""
 def R_RenderDlight(light): #dlight_t * (static)
 
 	rad = light.intensity * 0.35 #const float
@@ -113,19 +111,6 @@ def R_RenderDlights(): #void
 	GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
 	GL.glDepthMask(GL.GL_TRUE)
 
-"""
-=============================================================================
-
-DYNAMIC LIGHTS
-
-=============================================================================
-"""
-
-"""
-=============
-R_MarkSurfaceLights
-=============
-"""
 def R_MarkSurfaceLights (light, bit, node, lightframecount): #dlight_t *, int, mnode_t *, int
 
 	"""
@@ -153,11 +138,6 @@ def R_MarkSurfaceLights (light, bit, node, lightframecount): #dlight_t *, int, m
 		surf.dlightbits |= bit
 
 
-"""
-=============
-R_PushDlights
-=============
-"""
 def R_PushDlights ():
 
 	global r_dlightframecount
@@ -174,17 +154,6 @@ def R_PushDlights ():
 		files_surf.R_MarkLights ( gl1_main.r_newrefdef.dlights[i], 1<<i,
 			gl1_main.r_worldmodel.nodes[0], r_dlightframecount, R_MarkSurfaceLights )
 
-
-"""
-=============================================================================
-
-LIGHT SAMPLING
-
-=============================================================================
-"""
-pointcolor = np.zeros((3,), dtype=np.float32)
-lightplane = None #cplane_t *, used as shadow plane
-lightspot = np.zeros((3,), dtype=np.float32)
 
 
 def R_RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (returns int)
@@ -205,97 +174,108 @@ def R_RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (return
 	int			r;
 	"""
 
-	if node.contents != -1:
-		return -1		# didn't hit anything
-	
-	# calculate mid point
+	if node.contents != ref_shared.CONTENTS_NODE:
 
-	# FIXME: optimize for axial
+		return -1 # didn't hit anything
+
+	# calculate mid point
 	plane = node.plane
-	front = shared.DotProduct (start, plane.normal) - plane.dist
-	back = shared.DotProduct (end, plane.normal) - plane.dist
+	front = shared.DotProduct(start, plane.normal) - plane.dist
+	back = shared.DotProduct(end, plane.normal) - plane.dist
 	side = 1 if front < 0 else 0
-	
+
 	if (back < 0) == side:
-		return R_RecursiveLightPoint (node.children[side], start, end)
-	
-	frac = front / (front-back)
+
+		return R_RecursiveLightPoint(node.children[side], start, end)
+
+	frac = front / (front - back)
 	mid = np.zeros((3,), dtype=np.float32)
-	mid[0] = start[0] + (end[0] - start[0])*frac
-	mid[1] = start[1] + (end[1] - start[1])*frac
-	mid[2] = start[2] + (end[2] - start[2])*frac
-	
-	# go down front side	
-	r = R_RecursiveLightPoint (node.children[side], start, mid)
+	mid[0] = start[0] + (end[0] - start[0]) * frac
+	mid[1] = start[1] + (end[1] - start[1]) * frac
+	mid[2] = start[2] + (end[2] - start[2]) * frac
+
+	# go down front side
+	r = R_RecursiveLightPoint(node.children[side], start, mid)
+
 	if r >= 0:
-		return r		# hit something
-		
+
+		return r # hit something
+
 	if (back < 0) == side:
-		return -1		# didn't hit anuthing
-		
+
+		return -1 # didn't hit anuthing
+
 	# check for impact on this node
-	shared.VectorCopy (mid, lightspot)
+	shared.VectorCopy(mid, lightspot)
 	lightplane = plane
 
-	surfaces = gl1_main.r_worldmodel.surfaces
+	surfaces = gl1_main.r_worldmodel.surfaces # r_worldmodel->surfaces + node->firstsurface
+
 	for i in range(node.numsurfaces):
-	
+
 		surf = surfaces[node.firstsurface + i]
-		if surf.flags&(model.SURF_DRAWTURB|model.SURF_DRAWSKY):
-			continue	# no lightmaps
+
+		if surf.flags & (model.SURF_DRAWTURB | model.SURF_DRAWSKY):
+
+			continue # no lightmaps
 
 		tex = surf.texinfo
-		
-		s = int(shared.DotProduct (mid, tex.vecs[0]) + tex.vecs[0][3])
-		t = int(shared.DotProduct (mid, tex.vecs[1]) + tex.vecs[1][3])
 
-		if s < surf.texturemins[0] or t < surf.texturemins[1]:
+		s = int(shared.DotProduct(mid, tex.vecs[0]) + tex.vecs[0][3])
+		t = int(shared.DotProduct(mid, tex.vecs[1]) + tex.vecs[1][3])
+
+		if ((s < surf.texturemins[0]) or
+			(t < surf.texturemins[1])):
+
 			continue
-		
+
 		ds = s - surf.texturemins[0]
 		dt = t - surf.texturemins[1]
-		
-		if ds > surf.extents[0] or dt > surf.extents[1]:
+
+		if (ds > surf.extents[0]) or (dt > surf.extents[1]):
+
 			continue
 
 		if surf.samples is None:
+
 			return 0
 
 		ds >>= 4
 		dt >>= 4
 
 		lightmap = surf.samples
-		shared.VectorClear (pointcolor) # VectorCopy (vec3_origin, pointcolor)
-		if lightmap is not None:
-		
-			scale = [0.0, 0.0, 0.0] #vec3_t
+		lightmap_p = 0 # Q2PORT: index into lightmap
+		shared.VectorClear(pointcolor) # VectorCopy(vec3_origin, pointcolor);
 
-			lightmap_p = 3*(dt * ((surf.extents[0]>>4)+1) + ds)
+		lightmap_p += 3 * (dt * ((surf.extents[0] >> 4) + 1) + ds)
 
-			maps = 0
-			while maps < files_h.MAXLIGHTMAPS and surf.styles[maps] != 255:
-			
-				for j in range(3):
-					scale[j] = gl1_main.r_modulate.value*gl1_main.r_newrefdef.lightstyles[surf.styles[maps]].rgb[j]
+		maps = 0
+		while maps < files_h.MAXLIGHTMAPS and surf.styles[maps] != 255:
 
-				pointcolor[0] += lightmap[lightmap_p+0] * scale[0] * (1.0/255)
-				pointcolor[1] += lightmap[lightmap_p+1] * scale[1] * (1.0/255)
-				pointcolor[2] += lightmap[lightmap_p+2] * scale[2] * (1.0/255)
-				lightmap_p += 3*((surf.extents[0]>>4)+1) * \
-						((surf.extents[1]>>4)+1)
-				maps += 1
-			
+			#const float *rgb;
+			#int j;
+
+			rgb = gl1_main.r_newrefdef.lightstyles[surf.styles[maps]].rgb
+
+			# Apply light level to models
+			for j in range(3):
+
+				#float	scale;
+
+				scale = rgb[j] * gl1_main.r_modulate.value
+				pointcolor[j] += lightmap[lightmap_p + j] * scale * (1.0 / 255)
+
+			lightmap_p += 3 * ((surf.extents[0] >> 4) + 1) * \
+						((surf.extents[1] >> 4) + 1)
+
+			maps += 1
+
 		return 1
-	
+
 	# go down back side
 	return R_RecursiveLightPoint (node.children[1 - side], mid, end)
 
 
-"""
-===============
-R_LightPoint
-===============
-"""
 def R_LightPoint (currententity, p, color): #entity_t *, vec3_t, vec3_t
 
 	"""
@@ -303,7 +283,6 @@ def R_LightPoint (currententity, p, color): #entity_t *, vec3_t, vec3_t
 	float		r;
 	int			lnum;
 	dlight_t	*dl;
-	float		light;
 	vec3_t		dist;
 	float		add;
 	"""
@@ -344,19 +323,6 @@ def R_LightPoint (currententity, p, color): #entity_t *, vec3_t, vec3_t
 	shared_c.VectorScale (color, gl1_main.r_modulate.value, color)
 
 
-"""
-//===================================================================
-
-static float s_blocklights[34*34*3];
-"""
-s_blocklights = [0.0] * (34 * 34 * 3)
-
-
-"""
-===============
-R_AddDynamicLights
-===============
-"""
 def R_AddDynamicLights (surf): #msurface_t *
 
 	"""
@@ -391,7 +357,7 @@ def R_AddDynamicLights (surf): #msurface_t *
 		frad -= abs(fdist)
 		# rad is now the highest intensity on the plane
 
-		fminlight = DLIGHT_CUTOFF	# FIXME: make configurable?
+		fminlight = ref_shared.DLIGHT_CUTOFF
 		if frad < fminlight:
 			continue
 		fminlight = frad - fminlight
