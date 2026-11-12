@@ -209,7 +209,7 @@ def CL_Beams_Set(b, src, dest, model, start, end, ofs, tm): #beam_t *, int, int,
 	b.model = model
 	shared.VectorCopy(start, b.start)
 	shared.VectorCopy(end, b.end)
-	if ofs:
+	if ofs is not None: # if (ofs), a pointer test
 
 		shared.VectorCopy(ofs, b.offset)
 

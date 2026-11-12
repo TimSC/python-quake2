@@ -674,6 +674,21 @@ def GL3_Shutdown(): #void
 	# shutdown OS specific OpenGL stuff like contexts, etc.
 	gl3_sdl.GL3_ShutdownContext()
 
+	# Q2PORT: the C unloads the renderer library after this, so gl3state is zero
+	# again when it's next loaded. The python module stays loaded: reset what
+	# gl3state caches about the GL context's bindings, as the new context has
+	# nothing bound. Otherwise GL3_BindVBO() etc. skip binding the new context's
+	# objects that got the same ids as the old ones (a GLError on vid_restart).
+	fresh = local.gl3state_t()
+	gl3state.currenttexture = fresh.currenttexture
+	gl3state.currentlightmap = fresh.currentlightmap
+	gl3state.currenttmu = fresh.currenttmu
+	gl3state.currentVAO = fresh.currentVAO
+	gl3state.currentVBO = fresh.currentVBO
+	gl3state.currentEBO = fresh.currentEBO
+	gl3state.currentShaderProgram = fresh.currentShaderProgram
+	gl3state.currentUBO = fresh.currentUBO
+
 def colorsEqual(c1, c2): #const byte [3], const byte [3] (returns qboolean)
 
 	return c1[0] == c2[0] and c1[1] == c2[1] and c1[2] == c2[2]
