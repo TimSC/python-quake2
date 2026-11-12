@@ -110,7 +110,9 @@ def GLBUFFER_MULTITEX(CS, CT, LS, LT):
 
 def GLBUFFER_COLOR(R, G, B, A):
 	gl_buf.clr[gl_buf.cl] = gl1_image.gammatable[R]; gl_buf.clr[gl_buf.cl+1] = gl1_image.gammatable[G]
-	gl_buf.clr[gl_buf.cl+2] = gl1_image.gammatable[B]; gl_buf.clr[gl_buf.cl+3] = A; gl_buf.cl += 4
+	gl_buf.clr[gl_buf.cl+2] = gl1_image.gammatable[B]; gl_buf.clr[gl_buf.cl+3] = A & 0xff; gl_buf.cl += 4
+	# Q2PORT: & 0xff, the C stores A into a GLubyte, keeping the low byte (an
+	# ex_poly explosion past frame 16 has a negative alpha, -15 is stored as 241)
 
 
 def R_ResetGLBuffer(): #void
