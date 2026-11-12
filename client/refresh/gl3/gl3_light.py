@@ -129,7 +129,7 @@ def RecursiveLightPoint(node, start, end): #mnode_t *, vec3_t, vec3_t (returns i
 	#float front, back, frac;
 	#int side;
 	#cplane_t *plane;
-	mid = np.zeros(3, dtype=np.float32) #vec3_t
+	mid = [0.0, 0.0, 0.0] #vec3_t, Q2PORT: python floats
 	#msurface_t *surf;
 	#int s, t, ds, dt;
 	#int i;
@@ -142,10 +142,21 @@ def RecursiveLightPoint(node, start, end): #mnode_t *, vec3_t, vec3_t (returns i
 
 		return -1 # didn't hit anything
 
+	# Q2PORT: start, end, mid and the plane normal as python floats, as numpy
+	# scalar arithmetic is slow (this recurses down the BSP for each model's
+	# light). The sums are in doubles rather than the C's floats, so now and
+	# then (about 1 in 500 in the demos) the lightmap texel picked below is the
+	# neighbour of the C's.
+	if type(start) is np.ndarray:
+		start = start.tolist()
+	if type(end) is np.ndarray:
+		end = end.tolist()
+
 	# calculate mid point
 	plane = node.plane
-	front = shared.DotProduct(start, plane.normal) - plane.dist
-	back = shared.DotProduct(end, plane.normal) - plane.dist
+	normal = plane.normal.tolist() # Q2PORT
+	front = shared.DotProduct(start, normal) - plane.dist
+	back = shared.DotProduct(end, normal) - plane.dist
 	side = int(front < 0)
 
 	if int(back < 0) == side:

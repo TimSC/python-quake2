@@ -451,6 +451,7 @@ class SDL_DisplayMode(object):
 _error = "" # SDL_GetError
 _init_flags = 0 # SDL_WasInit
 _display = None # pyglet display
+_screen_list = None # _screens(), until the video subsystem is quit
 _gl_attributes = {} # SDL_GL_SetAttribute
 _gl_window = None # the window whose context is current
 _events = [] # the event queue (SDL_PollEvent)
@@ -507,19 +508,21 @@ def SDL_WasInit(flags: int)->int:
 
 def SDL_QuitSubSystem(flags: int):
 
-	global _init_flags
+	global _init_flags, _screen_list
 
 	if flags & SDL_INIT_VIDEO:
 		flags |= SDL_INIT_EVENTS
+		_screen_list = None # _screens()
 	_init_flags &= ~flags
 
 def SDL_Quit():
 
-	global _init_flags
+	global _init_flags, _screen_list
 
 	for window in list(_windows):
 		SDL_DestroyWindow(window)
 	_init_flags = 0
+	_screen_list = None # _screens()
 
 def SDL_GetVersion()->tuple:
 
@@ -537,9 +540,16 @@ def SDL_GetCurrentVideoDriver()->str:
 #
 def _screens()->list:
 
+	# the screens are asked for again only after the video subsystem is quit
+	# (vid_restart), as each get_screens() is a slow XRandR query and the video
+	# setup calls this dozens of times
+	global _screen_list
+
 	if _display is None:
 		return []
-	return _display.get_screens()
+	if _screen_list is None:
+		_screen_list = _display.get_screens()
+	return _screen_list
 
 def SDL_GetNumVideoDisplays()->int:
 

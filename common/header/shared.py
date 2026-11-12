@@ -462,6 +462,7 @@ class cplane_t(object):
 		self.type = 0 # byte, for fast side tests
 		self.signbits = None # byte, signx + (signy<<1) + (signz<<1)
 		self.pad = [None, None] #byte [2]
+		self.normal_l = None # Q2PORT: the normal as a list of python floats, for BoxOnPlaneSide(); only R_SetFrustum() sets it (None means use normal)
 
 # structure offset for asm code
 CPLANE_NORMAL_X			= 0

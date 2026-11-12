@@ -148,3 +148,4 @@ def R_SetFrustum(vup, vpn, vright, r_origin, fov_x, fov_y, frustum): #vec3_t, ve
 		frustum[i].type = files_h.PLANE_ANYZ
 		frustum[i].dist = shared.DotProduct(r_origin, frustum[i].normal)
 		frustum[i].signbits = R_SignbitsForPlane(frustum[i])
+		frustum[i].normal_l = frustum[i].normal.tolist() # Q2PORT: for BoxOnPlaneSide(), once per frame rather than per call

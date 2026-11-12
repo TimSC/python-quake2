@@ -43,7 +43,8 @@ r_dlightframecount = 0 #int
 pointcolor = np.zeros((3,), dtype=np.float32) #vec3_t
 lightplane = None #cplane_t *, used as shadow plane
 lightspot = np.zeros((3,), dtype=np.float32) #vec3_t
-s_blocklights = [0.0] * (34 * 34 * 3) #static float [34 * 34 * 3]
+s_blocklights = np.zeros((34 * 34 * 3,), dtype=np.float32) #static float [34 * 34 * 3]
+TEXEL_ACC = np.arange(34, dtype=np.float32) * 16 # Q2PORT: the ftacc/fsacc of each texel row/column, for R_AddDynamicLights()
 
 minlight = bytearray(256) #byte [256]
 
@@ -178,10 +179,21 @@ def R_RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (return
 
 		return -1 # didn't hit anything
 
+	# Q2PORT: start, end, mid and the plane normal as python floats, as numpy
+	# scalar arithmetic is slow (this recurses down the BSP for each model's
+	# light). The sums are in doubles rather than the C's floats, so now and
+	# then (about 1 in 500 in the demos) the lightmap texel picked below is the
+	# neighbour of the C's.
+	if type(start) is np.ndarray:
+		start = start.tolist()
+	if type(end) is np.ndarray:
+		end = end.tolist()
+
 	# calculate mid point
 	plane = node.plane
-	front = shared.DotProduct(start, plane.normal) - plane.dist
-	back = shared.DotProduct(end, plane.normal) - plane.dist
+	normal = plane.normal.tolist() # Q2PORT
+	front = shared.DotProduct(start, normal) - plane.dist
+	back = shared.DotProduct(end, normal) - plane.dist
 	side = 1 if front < 0 else 0
 
 	if (back < 0) == side:
@@ -189,7 +201,7 @@ def R_RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (return
 		return R_RecursiveLightPoint(node.children[side], start, end)
 
 	frac = front / (front - back)
-	mid = np.zeros((3,), dtype=np.float32)
+	mid = [0.0, 0.0, 0.0] # Q2PORT: python floats
 	mid[0] = start[0] + (end[0] - start[0]) * frac
 	mid[1] = start[1] + (end[1] - start[1]) * frac
 	mid[2] = start[2] + (end[2] - start[2]) * frac
@@ -370,37 +382,24 @@ def R_AddDynamicLights (surf): #msurface_t *
 		local[0] = shared.DotProduct (impact, tex.vecs[0]) + tex.vecs[0][3] - surf.texturemins[0]
 		local[1] = shared.DotProduct (impact, tex.vecs[1]) + tex.vecs[1][3] - surf.texturemins[1]
 
-		pfBL = 0 # index into s_blocklights
-		ftacc = 0
-		for t in range(tmax):
-		
-			td = int(local[1] - ftacc)
-			if td < 0:
-				td = -td
+		# Q2PORT: the C's loops over t and s, done for all the texels at once with
+		# numpy (the per texel python loop was slow):
+		#	for (t = 0, ftacc = 0; t < tmax; t++, ftacc += 16)
+		#		td = abs((int)(local[1] - ftacc));
+		#		for (s = 0, fsacc = 0; s < smax; s++, fsacc += 16, pfBL += 3)
+		#			sd = abs(Q_ftol(local[0] - fsacc));
+		#			fdist = sd > td ? sd + (td >> 1) : td + (sd >> 1);
+		#			if (fdist < fminlight)
+		#				pfBL[0..2] += (frad - fdist) * dl->color[0..2];
+		td = np.abs((np.float32(local[1]) - TEXEL_ACC[:tmax]).astype(np.int32))[:, None]
+		sd = np.abs((np.float32(local[0]) - TEXEL_ACC[:smax]).astype(np.int32))
 
-			fsacc = 0
-			for s in range(smax):
-			
-				sd = shared.Q_ftol( local[0] - fsacc )
+		fdist = np.where(sd > td, sd + (td >> 1), td + (sd >> 1)) # (tmax, smax)
+		add = np.float32(frad) - fdist # frad - fdist
+		add[fdist >= fminlight] = 0 # only where fdist < fminlight
 
-				if sd < 0:
-					sd = -sd
-
-				if sd > td:
-					fdist = sd + (td>>1)
-				else:
-					fdist = td + (sd>>1)
-
-				if fdist < fminlight:
-				
-					s_blocklights[pfBL+0] += ( frad - fdist ) * dl.color[0]
-					s_blocklights[pfBL+1] += ( frad - fdist ) * dl.color[1]
-					s_blocklights[pfBL+2] += ( frad - fdist ) * dl.color[2]
-				
-				fsacc += 16
-				pfBL += 3
-			
-			ftacc += 16
+		pfBL = s_blocklights[:tmax * smax * 3].reshape((tmax, smax, 3))
+		pfBL += add[:, :, None] * np.asarray(dl.color, dtype=np.float32)
 		
 
 def R_SetCacheState(surf): #msurface_t *
@@ -446,12 +445,14 @@ def R_BuildLightMap(surf, dest, stride): #msurface_t *, byte *, int
 
 	store = False # Q2PORT: the C's goto store
 
+	# Q2PORT: the loops over the texels below are done with numpy on the
+	# (size, 3) part of s_blocklights in use, rather than texel by texel (slow)
+	bl = s_blocklights[:size * 3].reshape((size, 3)) # bl = s_blocklights;
+
 	# set to full bright if no light data
 	if surf.samples is None:
 
-		for i in range(size * 3):
-
-			s_blocklights[i] = 255
+		bl[:] = 255 # for (i = 0; i < size * 3; i++) s_blocklights[i] = 255;
 
 		store = True # goto store;
 
@@ -474,32 +475,23 @@ def R_BuildLightMap(surf, dest, stride): #msurface_t *, byte *, int
 			maps = 0
 			while maps < files_h.MAXLIGHTMAPS and surf.styles[maps] != 255:
 
-				bl = 0 # bl = s_blocklights;
-
 				for i in range(3):
 
 					scale[i] = gl1_main.r_modulate.value * \
 							   gl1_main.r_newrefdef.lightstyles[surf.styles[maps]].rgb[i]
 
+				# Q2PORT: the lightmap's size texels, 3 bytes each
+				texels = np.frombuffer(lightmap, dtype=np.uint8, count=size * 3, offset=lm).reshape((size, 3))
+
 				if ((scale[0] == 1.0) and
 					(scale[1] == 1.0) and
 					(scale[2] == 1.0)):
 
-					for i in range(size):
-
-						s_blocklights[bl + 0] = lightmap[lm + i * 3 + 0]
-						s_blocklights[bl + 1] = lightmap[lm + i * 3 + 1]
-						s_blocklights[bl + 2] = lightmap[lm + i * 3 + 2]
-						bl += 3
+					bl[:] = texels # bl[0..2] = lightmap[i * 3 + 0..2], for each texel i
 
 				else:
 
-					for i in range(size):
-
-						s_blocklights[bl + 0] = lightmap[lm + i * 3 + 0] * scale[0]
-						s_blocklights[bl + 1] = lightmap[lm + i * 3 + 1] * scale[1]
-						s_blocklights[bl + 2] = lightmap[lm + i * 3 + 2] * scale[2]
-						bl += 3
+					bl[:] = texels * np.array(scale[0:3], dtype=np.float32) # bl[0..2] = lightmap[i * 3 + 0..2] * scale[0..2]
 
 				lm += size * 3 # skip to next lightmap
 				maps += 1
@@ -508,38 +500,28 @@ def R_BuildLightMap(surf, dest, stride): #msurface_t *, byte *, int
 
 			#int maps;
 
-			for i in range(size * 3): # memset(s_blocklights, 0, sizeof(s_blocklights[0]) * size * 3);
-				s_blocklights[i] = 0
+			bl[:] = 0 # memset(s_blocklights, 0, sizeof(s_blocklights[0]) * size * 3);
 
 			maps = 0
 			while maps < files_h.MAXLIGHTMAPS and surf.styles[maps] != 255:
-
-				bl = 0 # bl = s_blocklights;
 
 				for i in range(3):
 
 					scale[i] = gl1_main.r_modulate.value * \
 							   gl1_main.r_newrefdef.lightstyles[surf.styles[maps]].rgb[i]
 
+				# Q2PORT: the lightmap's size texels, 3 bytes each
+				texels = np.frombuffer(lightmap, dtype=np.uint8, count=size * 3, offset=lm).reshape((size, 3))
+
 				if ((scale[0] == 1.0) and
 					(scale[1] == 1.0) and
 					(scale[2] == 1.0)):
 
-					for i in range(size):
-
-						s_blocklights[bl + 0] += lightmap[lm + i * 3 + 0]
-						s_blocklights[bl + 1] += lightmap[lm + i * 3 + 1]
-						s_blocklights[bl + 2] += lightmap[lm + i * 3 + 2]
-						bl += 3
+					bl += texels # bl[0..2] += lightmap[i * 3 + 0..2], for each texel i
 
 				else:
 
-					for i in range(size):
-
-						s_blocklights[bl + 0] += lightmap[lm + i * 3 + 0] * scale[0]
-						s_blocklights[bl + 1] += lightmap[lm + i * 3 + 1] * scale[1]
-						s_blocklights[bl + 2] += lightmap[lm + i * 3 + 2] * scale[2]
-						bl += 3
+					bl += texels * np.array(scale[0:3], dtype=np.float32) # bl[0..2] += lightmap[i * 3 + 0..2] * scale[0..2]
 
 				lm += size * 3 # skip to next lightmap
 				maps += 1
@@ -551,73 +533,38 @@ def R_BuildLightMap(surf, dest, stride): #msurface_t *, byte *, int
 
 #store:
 
-	stride -= (smax << 2)
-	bl = 0 # bl = s_blocklights;
-	d = 0 # Q2PORT: an offset into dest
+	# Q2PORT: the C's loop over the rows and columns, for all the texels at once:
+	#	r, g, b = Q_ftol(bl[0..2]), each at least 0 (catch negative lights)
+	#	a = max = the brightest of r, g and b (alpha is ONLY used for the mono
+	#	    lightmap case, so that things don't get too dim)
+	#	if (max > 255) { t = 255.0F / max; r, g, b, a = (int)(r, g, b, a * t); }
+	#	then minlight[] (if set) and gammatable[] for r, g and b
+	#	dest[0..3] = r, g, b, a; dest += 4, and dest += stride after each row
+	rgb = bl.astype(np.int32)
+	np.maximum(rgb, 0, out=rgb) # catch negative lights
 
-	for i in range(tmax):
+	# determine the brightest of the three color components
+	max_ = rgb.max(axis=1)
+	a = max_
 
-		for j in range(smax):
+	# rescale all the color components if the
+	# intensity of the greatest channel exceeds
+	# 1.0
+	over = max_ > 255
 
-			r = shared.Q_ftol(s_blocklights[bl + 0])
-			g = shared.Q_ftol(s_blocklights[bl + 1])
-			b = shared.Q_ftol(s_blocklights[bl + 2])
+	if over.any():
 
-			# catch negative lights
-			if r < 0:
+		t = np.float32(255.0) / max_[over].astype(np.float32)
 
-				r = 0
+		rgb[over] = (rgb[over].astype(np.float32) * t[:, None]).astype(np.int32)
+		a = max_.copy()
+		a[over] = (max_[over].astype(np.float32) * t).astype(np.int32)
 
-			if g < 0:
+	if gl1_main.gl_state.minlight_set:
 
-				g = 0
+		rgb = np.frombuffer(minlight, dtype=np.uint8)[rgb]
 
-			if b < 0:
-
-				b = 0
-
-			# determine the brightest of the three color components
-			if r > g:
-
-				max_ = r
-
-			else:
-
-				max_ = g
-
-			if b > max_:
-
-				max_ = b
-
-			# alpha is ONLY used for the mono lightmap case. For this
-			# reason we set it to the brightest of the color components
-			# so that things don't get too dim.
-			a = max_
-
-			# rescale all the color components if the
-			# intensity of the greatest channel exceeds
-			# 1.0
-			if max_ > 255:
-
-				t = 255.0 / max_
-
-				r = int(r * t)
-				g = int(g * t)
-				b = int(b * t)
-				a = int(a * t)
-
-			if gl1_main.gl_state.minlight_set:
-
-				r = minlight[r]
-				g = minlight[g]
-				b = minlight[b]
-
-			dest[d + 0] = gl1_image.gammatable[r]
-			dest[d + 1] = gl1_image.gammatable[g]
-			dest[d + 2] = gl1_image.gammatable[b]
-			dest[d + 3] = a
-
-			bl += 3
-			d += 4
-
-		d += stride # dest += stride
+	# Q2PORT: dest as rows of (smax, 4) bytes, stride bytes apart
+	out = np.ndarray((tmax, smax, 4), dtype=np.uint8, buffer=dest, strides=(stride, 4, 1))
+	out[:, :, 0:3] = np.frombuffer(gl1_image.gammatable, dtype=np.uint8)[rgb].reshape((tmax, smax, 3))
+	out[:, :, 3] = a.reshape((tmax, smax))

@@ -358,7 +358,7 @@ def BoxOnPlaneSide(emins, emaxs, plane):
 	# Q2PORT: the normal and the box as python floats, as numpy scalar arithmetic
 	# is slow (this is called over a million times per demo, from R_CullBox and
 	# CM_BoxLeafnums_r). The sums are in doubles rather than the C's floats.
-	n = plane.normal.tolist()
+	n = plane.normal.tolist() if plane.normal_l is None else plane.normal_l
 	if type(emins) is np.ndarray:
 		emins = emins.tolist()
 	if type(emaxs) is np.ndarray:

@@ -212,6 +212,23 @@ class gl3drawCmd_t(object):
 		self.idxBufOffset = 0 #int
 		self.numElements = 0 #int, in index buffer
 
+	def copy(self, obj):
+
+		# Q2PORT: struct assignment, so the arrays are copied by value (copy.copy()
+		# with list() of the arrays did the same, much more slowly)
+		self.texnum = obj.texnum
+		self.lmtexnum = obj.lmtexnum
+		self.shaderIdx = obj.shaderIdx
+		self.transModelMatIdx = obj.transModelMatIdx
+		self.scroll = obj.scroll
+		self.lightScaleForTurb = obj.lightScaleForTurb
+		self.alpha = obj.alpha
+		self.color = list(obj.color)
+		self.flags = obj.flags
+		self.styles = list(obj.styles)
+		self.idxBufOffset = obj.idxBufOffset
+		self.numElements = obj.numElements
+
 def GL3_CreateDrawCmd(): #void (returns gl3drawCmd_t)
 
 	ret = gl3drawCmd_t() # = {0}

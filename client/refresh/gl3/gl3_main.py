@@ -914,9 +914,10 @@ def GL3_Add3DdrawCmdToBatch(verts, numVerts, drawMode, drawCmd): #const gl3_3D_v
 
 		GL3_Draw3DBatchesNow()
 
-	drawCmd = copy.copy(drawCmd) # Q2PORT: the C gets the drawCmd by value
-	drawCmd.styles = list(drawCmd.styles)
-	drawCmd.color = list(drawCmd.color)
+	# Q2PORT: the C gets the drawCmd by value
+	byValue = local.gl3drawCmd_t()
+	byValue.copy(drawCmd)
+	drawCmd = byValue
 
 	nextVtxIdx = vtxBufCount
 	drawCmd.idxBufOffset = len(idxBuf)

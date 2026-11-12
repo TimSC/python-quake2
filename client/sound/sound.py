@@ -282,47 +282,84 @@ def S_GetStatistics(data, sound_length: int, width: int, channels: int,
 
 	begin_length = end_length = attack_length = fade_length = 0
 
-	# Q2PORT: both widths as a list of shorts (the width 1 samples << 8, as the
-	# C normalizes them); the pointers become indices
+	# Q2PORT: both widths as an array of shorts (the width 1 samples << 8, as the
+	# C normalizes them); the pointers become indices. The loops over the
+	# samples are numpy searches (the python loops made each map load slow).
 	if width == 2:
-		sound_samples = np.frombuffer(data, dtype="<i2", count=min(sound_length, builtins.len(data) // 2)).tolist() # LittleShort
+		sound_samples = np.frombuffer(data, dtype="<i2", count=min(sound_length, builtins.len(data) // 2)).astype(np.int32) # LittleShort
 	elif width == 1:
-		sound_samples = (np.frombuffer(data, dtype=np.uint8, count=min(sound_length, builtins.len(data))).astype(np.int32) << 8).astype(np.int16).tolist()
+		sound_samples = (np.frombuffer(data, dtype=np.uint8, count=min(sound_length, builtins.len(data))).astype(np.int32) << 8).astype(np.int16).astype(np.int32)
 	else:
 		return begin_length, end_length, attack_length, fade_length
-	sound_samples += [0] * (sound_length - builtins.len(sound_samples)) # Q2PORT: a truncated file reads as silence
+	sound_samples = np.concatenate((sound_samples, np.zeros(sound_length - builtins.len(sound_samples), dtype=np.int32))) # Q2PORT: a truncated file reads as silence
+	sound_abs = np.abs(sound_samples) # abs(sound_sample) of each sample
 
 	# attack length
 	sound_max = 0 #short
 	# calculate max value
-	for sound_sample in sound_samples:
+	# Q2PORT: for each sample: if (sound_max < abs(sound_sample)) sound_max = abs(sound_sample);
+	# A -32768 sample stores 32768 into the short sound_max as -32768, after which
+	# the next sample always replaces it; so the max is of the samples after the
+	# last -32768 one.
+	wrapped = np.flatnonzero(sound_samples == -32768)
+	if builtins.len(wrapped):
 
-		if sound_max < abs(sound_sample):
+		if wrapped[-1] + 1 < sound_length:
 
-			sound_max = short(abs(sound_sample))
+			sound_max = short(sound_abs[wrapped[-1] + 1:].max())
+
+		else:
+
+			sound_max = -32768
+
+	elif sound_length:
+
+		sound_max = short(sound_abs.max())
 
 	# use something in middle
 	sound_max = short((sound_max + sound_volume) / 2)
 
+	# Q2PORT: where the do/while loops below stop. Forwards:
+	# do { sound_sample = *sound_data; sound_data++; } while (sound_data < sound_end && abs(sound_sample) < limit);
+	def forwards(sound_data, sound_end, limit):
+
+		if sound_data >= sound_end:
+
+			return sound_data + 1
+
+		found = np.flatnonzero(sound_abs[sound_data:sound_end - 1] >= limit)
+
+		if builtins.len(found):
+
+			return sound_data + int(found[0]) + 1
+
+		return sound_end
+
+	# Q2PORT: backwards:
+	# do { sound_data--; sound_sample = *sound_data; } while (sound_data > fade_data && abs(sound_sample) < limit);
+	def backwards(sound_data, fade_data, limit):
+
+		if sound_data - 1 <= fade_data:
+
+			return sound_data - 1
+
+		found = np.flatnonzero(sound_abs[fade_data + 1:sound_data] >= limit)
+
+		if builtins.len(found):
+
+			return fade_data + 1 + int(found[-1])
+
+		return fade_data
+
 	# calculate attack/fade length
-	# Q2PORT: the do/while loops read one sample past the ends of a (near) empty
-	# sound; the zero appended here stands in for those reads (index sound_length, and -1)
-	sound_samples.append(0)
 	sound_data = 0
 	delay_data = sound_data
 	fade_data = sound_data
 	sound_end = sound_data + sound_length
-	sound_sample = 0 #short
 	sound_treshold = short(int(sound_max / 2)) #short
 
 	# delay calculate
-	while True:
-
-		sound_sample = sound_samples[sound_data]
-		sound_data += 1
-
-		if not (sound_data < sound_end and abs(sound_sample) < sound_treshold):
-			break
+	sound_data = forwards(sound_data, sound_end, sound_treshold)
 
 	# delay_data == (short *)(data + info.dataofs)
 	begin_length = int((sound_data - delay_data) / channels)
@@ -330,39 +367,20 @@ def S_GetStatistics(data, sound_length: int, width: int, channels: int,
 	fade_data = sound_data
 
 	# attack calculate
-	while True:
-
-		sound_sample = sound_samples[sound_data]
-		sound_data += 1
-
-		if not (sound_data < sound_end and abs(sound_sample) < sound_max):
-			break
+	sound_data = forwards(sound_data, sound_end, sound_max)
 
 	# fade_data == delay_data
 	attack_length = int((sound_data - delay_data) / channels)
 	fade_data = sound_data
 
 	# end calculate
-	sound_data = sound_end
-	while True:
-
-		sound_data -= 1
-		sound_sample = sound_samples[sound_data]
-
-		if not (sound_data > fade_data and abs(sound_sample) < sound_treshold):
-			break
+	sound_data = backwards(sound_end, fade_data, sound_treshold)
 
 	end_length = int((sound_end - sound_data) / channels)
 	sound_end = sound_data
 
 	# fade calculate
-	while True:
-
-		sound_data -= 1
-		sound_sample = sound_samples[sound_data]
-
-		if not (sound_data > fade_data and abs(sound_sample) < sound_max):
-			break
+	sound_data = backwards(sound_data, fade_data, sound_max)
 
 	fade_length = int((sound_end - sound_data) / channels)
 

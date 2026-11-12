@@ -312,7 +312,8 @@ def CL_DeltaEntity (frame, newnum, old, bits): #frame_t *, int, const entity_sta
 		# wasn't in last update, so initialize some things
 		ent.trailcount = 1024		# for diminishing rocket / grenade trails
 		# duplicate the current state so lerping doesn't hurt anything
-		ent.prev = copy.deepcopy(state) # ent->prev = *state;
+		ent.prev = shared.entity_state_t() # ent->prev = *state;
+		ent.prev.copy(state) # Q2PORT: the struct copy, rather than copy.deepcopy() (slow)
 
 		ent.serverframe_created = cl_main.cl.frame.serverframe
 
@@ -333,7 +334,8 @@ def CL_DeltaEntity (frame, newnum, old, bits): #frame_t *, int, const entity_sta
 	
 
 	ent.serverframe = cl_main.cl.frame.serverframe
-	ent.current = copy.deepcopy(state) # ent->current = *state;
+	ent.current = shared.entity_state_t() # ent->current = *state;
+	ent.current.copy(state) # Q2PORT: the struct copy, rather than copy.deepcopy() (slow)
 
 
 	# ==================
