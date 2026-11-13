@@ -486,6 +486,22 @@ def Sys_Rename(from_: str, to: str)->int: #const char *, const char * (returns i
 
 		return -1
 
+def Sys_Remove(path: str): #const char *
+
+	# Q2PORT: Yamagi's backends/unix/system.c, until group 14
+	try:
+
+		os.remove(path)
+
+	except FileNotFoundError: # errno == ENOENT
+
+		pass
+
+	except OSError as err:
+
+		clientserver.Com_Printf("%s: remove %s: %s\n",
+			"Sys_Remove", path, err.strerror)
+
 def Sys_RemoveDir(path: str): #const char *
 
 	# Q2PORT: Yamagi's backends/unix/system.c, until group 14

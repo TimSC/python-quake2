@@ -4339,6 +4339,12 @@ def DownloadCallback(self): #void * (static)
 
 		cvar.Cvar_SetValue("allow_download", float(f.curvalue))
 
+	# #ifdef USE_CURL
+	elif f == s_allow_download_http_box:
+
+		cvar.Cvar_SetValue("cl_http_downloads", f.curvalue)
+
+	# #endif
 	elif f == s_allow_download_maps_box:
 
 		cvar.Cvar_SetValue("allow_download_maps", float(f.curvalue))
@@ -4379,8 +4385,15 @@ def DownloadOptions_MenuInit(): # (static)
 	s_allow_download_box.itemnames = yes_no_names
 	s_allow_download_box.curvalue = (cvar.Cvar_VariableValue("allow_download") != 0)
 	# #ifdef USE_CURL
+	s_allow_download_http_box.generic.type = qmenu_h.MTYPE_SPINCONTROL
+	s_allow_download_http_box.generic.x = 0
+	y += 20; s_allow_download_http_box.generic.y = y
+	s_allow_download_http_box.generic.name = "http downloading"
+	s_allow_download_http_box.generic.callback = DownloadCallback
+	s_allow_download_http_box.itemnames = yes_no_names
+	s_allow_download_http_box.curvalue = (cvar.Cvar_VariableValue("cl_http_downloads") != 0)
 	# #else
-	y += 10
+	#y += 10;
 	# #endif
 	s_allow_download_maps_box.generic.type = qmenu_h.MTYPE_SPINCONTROL
 	s_allow_download_maps_box.generic.x = 0
@@ -4413,6 +4426,7 @@ def DownloadOptions_MenuInit(): # (static)
 	qmenu.Menu_AddItem(s_downloadoptions_menu, s_download_title)
 	qmenu.Menu_AddItem(s_downloadoptions_menu, s_allow_download_box)
 	# #ifdef USE_CURL
+	qmenu.Menu_AddItem(s_downloadoptions_menu, s_allow_download_http_box)
 	# #endif
 	qmenu.Menu_AddItem(s_downloadoptions_menu, s_allow_download_maps_box)
 	qmenu.Menu_AddItem(s_downloadoptions_menu, s_allow_download_players_box)

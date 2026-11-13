@@ -141,7 +141,7 @@ def Qcommon_Buildstring(): #void
 	print("Client build options:")
 
 	#ifdef USE_CURL
-	print(" - cURL HTTP downloads")
+	print(" + cURL HTTP downloads")
 	#endif
 
 	#ifdef USE_OPENAL

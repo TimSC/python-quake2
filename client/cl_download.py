@@ -36,6 +36,7 @@ from common import clientserver
 from common import filesystem
 from common import movemsg
 from common import collision
+from client.curl import download
 from common import cvar
 from server import sv_main
 from client import cl_main
@@ -93,14 +94,27 @@ def CL_RequestNextDownload(): #void
 
 	if precacherIteration == 0:
 
-		pass
 		# #if USE_CURL
+		# r1q2-style URLs.
+		download.dlquirks.gamedir = cl_main.cl.gamedir[:shared.MAX_QPATH - 1]
 		# #endif
 
 	elif precacherIteration == 1:
 
-		pass
 		# #if USE_CURL
+		# q2pro-style URLs.
+		if cl_main.cl.gamedir == "":
+
+			download.dlquirks.gamedir = common_h.BASEDIRNAME
+
+		else:
+
+			download.dlquirks.gamedir = cl_main.cl.gamedir[:shared.MAX_QPATH - 1]
+
+
+		# Force another try with the filelist.
+		download.dlquirks.filelist = True
+		gamedirForFilelist = True
 		# #endif
 
 	elif precacherIteration == 2:
@@ -141,7 +155,15 @@ def CL_RequestNextDownload(): #void
 						return # started a download
 					
 					cl_main.precache_model_skin = 1
-				
+
+				# #ifdef USE_CURL
+				# Wait for the models to download before checking * skins.
+				if download.CL_PendingHTTPDownloads():
+
+					return
+
+				# #endif
+
 				# checking for skins in the model
 				if cl_main.precache_model is None:
 
@@ -294,6 +316,22 @@ def CL_RequestNextDownload(): #void
 					cl_main.precache_check = shared.CS_PLAYERSKINS + (i + 1) * PLAYER_MULT
 				
 	# #ifdef USE_CURL
+	# Wait for pending downloads.
+	if download.CL_PendingHTTPDownloads():
+
+		return
+
+
+	if download.dlquirks.error:
+
+		download.dlquirks.error = False
+
+		# Mkay, there were download errors. Let's start over.
+		precacherIteration += 1
+		cl_main.CL_ResetPrecacheCheck()
+		CL_RequestNextDownload()
+		return
+
 	# #endif
 
 	# precache phase completed
@@ -349,6 +387,11 @@ def CL_RequestNextDownload(): #void
 		cl_main.precache_check = TEXTURE_CNT+999
 	
 	# #ifdef USE_CURL
+	# Wait for pending downloads.
+	if download.CL_PendingHTTPDownloads():
+
+		return
+
 	# #endif
 
 	# This map is done, start over for next map.
@@ -359,6 +402,7 @@ def CL_RequestNextDownload(): #void
 	dont_restart_texture_stage = False
 
 	# #ifdef USE_CURL
+	download.dlquirks.filelist = True
 	# #endif
 
 	cl_parse.CL_RegisterSounds ()
@@ -463,6 +507,8 @@ to start a download from the server.
 """
 def CL_CheckOrDownloadFile (filename): #const char * (returns qboolean)
 
+	global forceudp, precacherIteration, httpSecondChance
+
 	#FILE *fp;
 	#char	name[MAX_OSPATH];
 	#char *ptr;
@@ -476,7 +522,49 @@ def CL_CheckOrDownloadFile (filename): #const char * (returns qboolean)
 
 
 	#ifdef USE_CURL
-	# Q2PORT: the HTTP downloads (cURL) aren't ported
+	if not forceudp:
+
+		if download.CL_QueueHTTPDownload(filename, gamedirForFilelist):
+
+			# We return true so that the precache check
+			# keeps feeding us more files. Since we have
+			# multiple HTTP connections we want to
+			# minimize latency and be constantly sending
+			# requests, not one at a time.
+			return True
+
+
+	else:
+
+		# There're 2 cases:
+		#	- forceudp was set after a 404. In this case we
+		#	  want to retry that single file over UDP and
+		#	  all later files over HTTP.
+		#	- forceudp was set after another error code.
+		#	  In that case the HTTP code aborts all HTTP
+		#	  downloads and CL_QueueHTTPDownload() returns
+		#	  false.
+		forceudp = False
+
+		# This is one of the nasty special cases. A r1q2
+		# server might miss only one file. This missing
+		# file may lead to a fallthrough to q2pro URLs,
+		# since it isn't a q2pro server all files would
+		# yield error 404 and we're falling back to UDP
+		# downloads. To work around this we need to start
+		# over with the r1q2 case and see what happens.
+		# But we can't do that unconditionally, because
+		# we would run in endless loops r1q2 -> q2pro ->
+		# UDP -> r1q2. So hack in a variable that allows
+		# for one and only one second chance. If the r1q2
+		# server is missing more than file we've lost and
+		# we're doing unnecessary UDP downloads.
+		if httpSecondChance:
+
+			precacherIteration = 0
+			httpSecondChance = False
+
+
 	#endif
 
 	cl_main.cls.downloadname = filename

@@ -65,6 +65,7 @@ from client import cl_effects
 from client import cl_lights
 from client import cl_tempentities
 from client.menu import menu
+from client.curl import download
 
 """
 #include <errno.h>
@@ -715,6 +716,14 @@ def CL_InitLocal(): # (static)
 	cvar.Cvar_Get("spectator", "0", shared.CVAR_USERINFO)
 	cl_vwep = cvar.Cvar_Get("cl_vwep", "1", shared.CVAR_ARCHIVE)
 	# #ifdef USE_CURL
+	download.cl_http_verifypeer = cvar.Cvar_Get("cl_http_verifypeer", "1", shared.CVAR_ARCHIVE)
+	download.cl_http_proxy = cvar.Cvar_Get("cl_http_proxy", "", shared.CVAR_ARCHIVE)
+	download.cl_http_filelists = cvar.Cvar_Get("cl_http_filelists", "1", 0)
+	download.cl_http_downloads = cvar.Cvar_Get("cl_http_downloads", "1", shared.CVAR_ARCHIVE)
+	download.cl_http_max_connections = cvar.Cvar_Get("cl_http_max_connections", "4", 0)
+	download.cl_http_show_dw_progress = cvar.Cvar_Get("cl_http_show_dw_progress", "0", 0)
+	download.cl_http_bw_limit_rate = cvar.Cvar_Get("cl_http_bw_limit_rate", "0", 0)
+	download.cl_http_bw_limit_tmout = cvar.Cvar_Get("cl_http_bw_limit_tmout", "0", 0)
 	# #endif
 	# register our commands
 	cmdparser.Cmd_AddCommand("cmd", cl_network.CL_ForwardToServer_f)
@@ -945,6 +954,10 @@ def CL_Frame(packetdelta: int, renderdelta: int, timedelta: int, packetframe: bo
 
 	# Run HTTP downloads more often while connecting.
 	# #ifdef USE_CURL
+	if cls.state == client_h.connstate_t.ca_connected:
+
+		download.CL_RunHTTPDownloads()
+
 	# #endif
 
 	# Update input stuff.
@@ -979,6 +992,7 @@ def CL_Frame(packetdelta: int, renderdelta: int, timedelta: int, packetframe: bo
 
 		# Run HTTP downloads during game.
 		# #ifdef USE_CURL
+		download.CL_RunHTTPDownloads()
 		# #endif
 
 
@@ -1070,6 +1084,7 @@ def CL_Init(): #void
 	menu.M_Init()
 
 	# #ifdef USE_CURL
+	download.CL_InitHTTPDownloads()
 	# #endif
 
 	cls.disable_screen = True # don't draw yet
@@ -1099,6 +1114,7 @@ def CL_Shutdown(): #void
 	isdown = True
 
 	# #ifdef USE_CURL
+	download.CL_HTTP_Cleanup(True)
 	# #endif
 
 	CL_WriteConfiguration()

@@ -46,6 +46,7 @@ from common import netchan
 from server import sv_main
 from client import cl_main
 from client import cl_parse
+from client.curl import download
 from client import cl_screen
 from client.header import client as client_h
 from client.sound import ogg
@@ -360,6 +361,10 @@ def CL_Disconnect(): #void
 
 
 	# #ifdef USE_CURL
+	download.CL_CancelHTTPDownloads(True)
+	cl_main.cls.downloadReferer = ""
+	cl_main.cls.downloadname = ""
+	cl_main.cls.downloadposition = 0
 	# #endif
 
 	cl_main.cls.state = client_h.connstate_t.ca_disconnected
@@ -458,6 +463,10 @@ def CL_Changing_f(): #
 	cl_keyboard.anykeydown = 0
 	clientserver.Com_Printf("\nChanging map...\n")
 	# #ifdef USE_CURL
+	if cl_main.cls.downloadServerRetry != "":
+
+		download.CL_SetHTTPServer(cl_main.cls.downloadServerRetry)
+
 	# #endif
 
 """
@@ -591,6 +600,7 @@ def CL_ConnectionlessPacket ():
 		
 		netchan.Netchan_Setup (common_h.netsrc_t.NS_CLIENT, cl_main.cls.netchan, netchan.net_from, cl_main.cls.quakePort)
 		# #ifdef USE_CURL
+		buff = network.NET_AdrToString(cl_main.cls.netchan.remote_address)
 		# #endif
 
 		for i in range(1, cmdparser.Cmd_Argc()):
@@ -600,8 +610,16 @@ def CL_ConnectionlessPacket ():
 			if p[:9] == "dlserver=": # !strncmp(p, "dlserver=", 9)
 
 				# #ifdef USE_CURL
+				p = p[9:]
+				cl_main.cls.downloadReferer = "quake2://{}".format(buff)[:32 - 1]
+				download.CL_SetHTTPServer (p)
+
+				if cl_main.cls.downloadServer:
+
+					clientserver.Com_Printf("HTTP downloading enabled, URL: %s\n", cl_main.cls.downloadServer)
+
 				# #else
-				clientserver.Com_Printf("HTTP downloading supported by server but not the client.\n")
+				#Com_Printf("HTTP downloading supported by server but not the client.\n");
 				# #endif
 
 

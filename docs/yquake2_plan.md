@@ -43,7 +43,6 @@ and tracks the work group by group.
 | `glimp_sdl3.c`, `input/sdl3.c` | `backends/sdl.py` follows SDL 2. |
 | `backends/windows/` | Linux only, as before. |
 | `client/sound/sdl.c` | SDL audio and the C software mixer; OpenAL (`openal.c`) is the back end. |
-| The `curl` HTTP downloader | Optional; later if needed. |
 | Gyro and gamepad extras in `client/input/` | Later. |
 
 Yamagi builds the game as a separate library and loads it with

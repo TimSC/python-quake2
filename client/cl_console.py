@@ -759,7 +759,9 @@ def Con_DrawConsole(frac: float): #float
 
 
 	# draw the download bar, figure out width
-	if cl_main.cls.download: # (no USE_CURL)
+	# #ifdef USE_CURL
+	if cl_main.cls.downloadname and (cl_main.cls.download or cl_main.cls.downloadposition):
+	# #endif
 
 		text = cl_main.cls.downloadname
 		if "/" in text: # strrchr(cls.downloadname, '/')

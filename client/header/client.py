@@ -26,6 +26,7 @@ pass
 from client.refresh.gl1 import gl1_image as gl_image
 from client import ref
 from client.sound.header import local as sound_local
+from client.curl.header import download as download_h
 from common.header import common as common_h
 from common.header import shared
 """
@@ -327,6 +328,17 @@ class client_static_t(object):
 		self.demorecording = False # qboolean	
 		self.demowaiting = False # qboolean, don't record until a non-delta message is received
 		self.demofile = None
+
+		# #ifdef USE_CURL
+		# http downloading
+		self.downloadQueue = [] #dlqueue_t, queues with files to download. (a list)
+		self.HTTPHandles = [] #dlhandle_t [MAX_HTTP_HANDLES], download handles.
+		for i in range(download_h.MAX_HTTP_HANDLES):
+			self.HTTPHandles.append(download_h.dlhandle_t())
+		self.downloadServer = "" #char [512], URL prefix to dowload from .
+		self.downloadServerRetry = "" #char [512], retry count.
+		self.downloadReferer = "" #char [32], referer string.
+		# #endif
 
 
 
