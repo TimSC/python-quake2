@@ -531,11 +531,10 @@ def CL_PingServers_f ():
 		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
 		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
 
-		# Q2PORT: id's network code has no IPv6 multicast (NA_MULTICAST6) until group 14
-		#Com_Printf("pinging multicast...\n");
-		#adr.type = NA_MULTICAST6;
-		#adr.port = BigShort(PORT_SERVER);
-		#Netchan_OutOfBandPrint(NS_CLIENT, adr, va("info %i", PROTOCOL_VERSION));
+		clientserver.Com_Printf("pinging multicast...\n")
+		adr.type = common_h.netadrtype_t.NA_MULTICAST6
+		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
+		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
 	
 	noipx = cvar.Cvar_Get ("noipx", "0", shared.CVAR_NOSET)
 	if not noipx.value:

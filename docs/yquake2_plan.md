@@ -99,6 +99,93 @@ The order follows dependencies: each group only depends on groups above it.
 
 The current `ref_gl/` keeps the game running until group 15 replaces it.
 
+## Network (groups 4, 10 and 14)
+
+### Status (done)
+
+- **Done:**
+  - **Functions:** every function in Yamagi's `netchan.c` (8),
+    `movemsg.c` (32), `szone.c` (5), `backends/unix/network.c` (20),
+    `server/*.c`, `cl_network.c`, `cl_parse.c`, `cl_download.c` and
+    `curl/*.c` has its Python `def`.
+  - **Behaviour:** the netchan, message and buffer code carry Yamagi's
+    behaviour.
+  - **HTTP downloads:** ported, using pycurl.
+  - **Hardening:**
+    - the rcon check is Yamagi's `Rcon_Validate`;
+    - packets under 4 bytes are dropped;
+    - safety nets in `SV_ReadPackets`/`CL_ReadPackets`;
+    - `CL_DownloadFilter`;
+    - `..` checks in `condump` and `record`.
+  - **Fuzzing:** the server was fuzzed with no crashes left.
+- **IPv6 (done 2026-11-13):** `backends/unix/network.py` was id's IPv4
+  `net_udp.c` and is now re-ported from Yamagi's `network.c`, function by
+  function.
+  - **Header:** `common/header/common.py` has `NA_IP6`/`NA_MULTICAST6`,
+    the 16-byte `netadr_t.ip` and `scope_id`.
+  - **Sockets:** `NET_OpenIP` opens an AF_INET6 and an AF_INET socket for
+    the server and for the client (`NET_Socket` takes the family, uses
+    `getaddrinfo`, and sets `SO_REUSEADDR`).
+  - **Addresses:**
+    - `NET_StringToSockaddr` reads `[addr]:port`;
+    - `NET_AdrToString` prints `[addr]:port`, as Yamagi's does, also for
+      IPv4;
+    - IPv4-mapped addresses become `NA_IP`.
+  - **Multicast:** `+set multicast <ifname>` sets the outgoing interface;
+    a server joins `ff12::666`, and `CL_PingServers` pings it ("pinging
+    multicast...").
+  - **Q2PORT:** a `sockaddr_storage` is a `(family, address)` tuple in
+    Python's socket form. `NET_OpenIPX` (id's) is gone, as in Yamagi.
+  - **Fixed along the way:**
+    - `NET_CompareAdr` didn't compare the address types.
+    - `SVC_Info` compared `client_state_t` members with `>=`, which raises
+      `TypeError` on an `Enum`. So no server answered a LAN search, over
+      IPv4 broadcast too.
+  - **Checked:**
+    - a client connects to a dedicated server over `[::1]` and over IPv4;
+    - `pingservers` gets the broadcast and the IPv6 multicast replies (on
+      `enp4s0`; `lo` doesn't do multicast);
+    - the test suite and harnesses pass;
+    - 4 server fuzz runs of 2 minutes had no crashes.
+  - **Same as the C:** an unbracketed IPv6 address (`::1`) doesn't parse,
+    and a link-local address prints its scope twice
+    (`fe80::...%enp4s0%2`), as `getnameinfo` adds the interface name.
+
+## Group 13: sound
+
+### Status (done)
+
+- **Audit (2026-11-13):**
+  - **Functions:** every function in Yamagi's `sound.c` (33), `openal.c`
+    (28), `ogg.c` (14), `wave.c` (5) and `qal.c` (3) has its Python `def`.
+  - **Cvars and commands:** the 25 cvars and the 5 commands (`play`,
+    `stopsound`, `soundlist`, `soundinfo`, `ogg`) match the C.
+  - **`sdl.c`:** not ported (decision). `client/sound/sdl.py` only has
+    `SDL_BackendInit` failing, so `s_openal 0` (or OpenAL failing to start)
+    means no sound. That leaves out the C software mixer (`SDL_PaintChannels`, `lpf_*`,
+    `SDL_Callback`, ...).
+- **Gap:** `S_StartSound`'s controller feedback (`Haptic_Feedback` when
+  `s_feedback_kind 1`, `Controller_Rumble` when 0) stays as C text.
+  - **Why:** it calls into `input/sdl2.c`'s game controller code, which the
+    port doesn't have yet (no `IN_Controller_Init` or `IN_Haptic_*`; see
+    group 14).
+  - **When:** port it together with gamepad support.
+- **Same as Yamagi (not fixed):** with `s_initsound 0` (or no sound
+  backend), `OGG_Init` never runs.
+  - **Effect:** `ogg_enabled` stays NULL, so `CL_Snd_Restart_f`'s
+    `OGG_SaveState` crashes, e.g. on a game change (`game` cvar).
+  - **The C:** it has the same NULL dereference.
+- **Known Q2PORT differences:**
+  - OpenAL is called through ctypes on `libopenal.so.1`. `QAL_Shutdown`
+    checks that `qalDeleteFilters` is set, as it is NULL without
+    `ALC_EXT_EFX`.
+  - Ogg Vorbis is decoded by pyglet's FFmpeg decoder behind
+    `header/stb_vorbis.py`'s stb_vorbis API.
+  - `S_GetVolume`/`S_GetStatistics` use numpy for their sample loops.
+  - `AL_StreamUpdate` counts the buffers it queued (`streamQueued`), so
+    a stream source that ran dry (a cinematic paused by the menu)
+    starts again.
+
 ## Group 15: the gl1 renderer re-port
 
 `ref_gl/` is replaced, not patched: each of Yamagi's `gl1/gl1_*.c` and
@@ -503,7 +590,7 @@ glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
 - [x] 10. Client core
 - [x] 11. Client effects
 - [x] 12. Menus
-- [ ] 13. Sound
+- [x] 13. Sound
 - [x] 14. Platform layer
 - [ ] 15. Renderer: gl1 (OpenGL 1)
 - [x] 16. Renderer: gl3 (modern OpenGL)

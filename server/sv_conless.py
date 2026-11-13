@@ -81,7 +81,7 @@ def SVC_Info ():
 	else:
 		count = 0
 		for i in range(int(sv_main.maxclients.value)):
-			if sv_init.svs.clients[i].state >= server_h.client_state_t.cs_connected:
+			if sv_init.svs.clients[i].state.value >= server_h.client_state_t.cs_connected.value:
 				count += 1
 
 		string = "{:16s} {:8s} {}/{}\n".format(sv_main.hostname.string, sv_init.sv.name, count, int(sv_main.maxclients.value))

@@ -525,6 +525,8 @@ class netadrtype_t(Enum):
 	NA_IP = 2
 	NA_IPX = 3
 	NA_BROADCAST_IPX = 4
+	NA_IP6 = 5
+	NA_MULTICAST6 = 6
 
 class netsrc_t(Enum):
 	NS_CLIENT = 0
@@ -536,7 +538,8 @@ class netadr_t(object):
 
 		self.type = netadrtype_t.NA_LOOPBACK
 
-		self.ip = bytes(4) #byte	[4]
+		self.ip = bytes(16) #byte	[16], an IPv4 address is the first 4
+		self.scope_id = 0 #unsigned int
 		self.ipx = bytes(10) #byte	[10]
 
 		self.port = 0 #unsigned short, network byte order as in C
@@ -546,6 +549,7 @@ class netadr_t(object):
 		out = netadr_t()
 		out.type = self.type
 		out.ip = self.ip
+		out.scope_id = self.scope_id
 		out.ipx = self.ipx
 		out.port = self.port
 		return out
