@@ -30,6 +30,7 @@ import time
 from backends.unix import network, system
 from common.header import common as common_h
 from common.header import shared
+from common import net_channel
 from common import clientserver
 from common import frame
 from common import cvar
@@ -118,239 +119,76 @@ def Netchan_OutOfBandPrint (net_socket: int, adr: common_h.netadr_t, format: str
 
 """
 ==============
-Netchan_Setup
+Netchan_Setup ... Netchan_Process
 
-called to open a channel to a remote system
+The channel itself is common/net_channel.py's NetChannel; these add the
+sending, the clock and the showpackets / showdrop output.
 ==============
 """
-def Netchan_Setup (sock: common_h.netsrc_t, chan: common_h.netchan_t, adr: common_h.netadr_t, qport: int)->None: #netsrc_t, netchan_t *, netadr_t, int
-	
-	chan.clear()
-	
-	chan.sock = sock
-	chan.remote_address = adr
-	chan.qport = qport
-	chan.last_received = frame.curtime
-	chan.incoming_sequence = 0
-	chan.outgoing_sequence = 1
+def Netchan_Setup (sock: common_h.netsrc_t, chan: net_channel.NetChannel, adr: common_h.netadr_t, qport: int)->None:
 
-	szone.SZ_Init (chan.message, common_h.MAX_MSGLEN)
-	chan.message.allowoverflow = True
+	chan.setup(sock, adr, qport, frame.curtime)
 
+def Netchan_CanReliable (chan: net_channel.NetChannel)->bool:
 
-"""
-===============
-Netchan_CanReliable
+	return chan.can_reliable()
 
-Returns true if the last reliable message has acked
-================
-"""
-def Netchan_CanReliable (chan: common_h.netchan_t)->bool: #netchan_t * (returns qboolean)
+def Netchan_NeedReliable (chan: net_channel.NetChannel)->bool:
 
-	if chan.reliable_length:
-		return False			# waiting for ack
-	return True
+	return chan.need_reliable()
 
-def Netchan_NeedReliable (chan: common_h.netchan_t)->bool: #netchan_t *
-
-	# qboolean	send_reliable;
-
-	# if the remote side dropped the last reliable message, resend it
-	send_reliable = False
-
-	if chan.incoming_acknowledged > chan.last_reliable_sequence \
-		and chan.incoming_reliable_acknowledged != chan.reliable_sequence:
-
-		send_reliable = True
-
-	# if the reliable transmit buffer is empty, copy the current message out
-	if not chan.reliable_length and chan.message.cursize:
-	
-		send_reliable = True
-	
-	return send_reliable
-
-
-"""
-===============
-Netchan_Transmit
-
-tries to send an unreliable message to a connection, and handles the
-transmition / retransmition of the reliable messages.
-
-A 0 length will still generate a packet and deal with the reliable messages.
-================
-"""
-def Netchan_Transmit (chan: common_h.netchan_t, data: bytes | bytearray)->None: #netchan_t *
+def Netchan_Transmit (chan: net_channel.NetChannel, data: bytes | bytearray)->None:
 
 	assert isinstance(data, bytes) or isinstance(data, bytearray)
 
-	send = common_h.sizebuf_t()
-	#byte		send_buf[qcommon.MAX_MSGLEN];
-	#qboolean	send_reliable;
-	#unsigned	w1, w2;
+	packet = chan.build_packet(data, frame.curtime, int(qport.value))
 
+	if packet is None:
 
-	# check for message overflow
-	if chan.message.overflowed:
-	
-		chan.fatal_error = True
 		clientserver.Com_Printf ("{}:Outgoing message overflow\n".format(
 			network.NET_AdrToString (chan.remote_address)))
 		return
-	
-	send_reliable = Netchan_NeedReliable (chan)
 
-	if not chan.reliable_length and chan.message.cursize:
-		chan.reliable_buf = chan.message.data
-		chan.reliable_length = len(chan.message.data)
-		chan.message.data = bytearray()
-		chan.message.cursize = 0
-		chan.reliable_sequence ^= 1
-	
-	# write the packet header
-	szone.SZ_Init (send, common_h.MAX_MSGLEN)
-
-	w1 = ( chan.outgoing_sequence & ~(1<<31) ) | (send_reliable<<31)
-	w2 = ( chan.incoming_sequence & ~(1<<31) ) | (chan.incoming_reliable_sequence<<31)
-
-	chan.outgoing_sequence+=1
-	chan.last_sent = frame.curtime
-
-
-	movemsg.MSG_WriteLong(send, w1)
-	movemsg.MSG_WriteLong(send, w2)
-
-	# send the qport if we are a client
-	if chan.sock == common_h.netsrc_t.NS_CLIENT:
-		movemsg.MSG_WriteShort(send, int(qport.value))
-
-	# copy the reliable message to the packet first
-	if send_reliable:
-	
-		szone.SZ_Write(send, chan.reliable_buf)
-		chan.last_reliable_sequence = chan.outgoing_sequence
-	
-	# add the unreliable part if space is available
-	if send.maxsize - send.cursize >= len(data):
-		szone.SZ_Write(send, data)
-	else:
+	if packet.dumped_unreliable:
 		clientserver.Com_Printf ("Netchan_Transmit: dumped unreliable\n")
 
-	# send the datagram
-	network.NET_SendPacket (chan.sock, send.data, chan.remote_address)
+	network.NET_SendPacket (chan.sock, packet.data, chan.remote_address)
 
 	if showpackets.value != 0:
-	
-		if send_reliable:
+
+		if packet.reliable:
 			clientserver.Com_Printf ("send {:4d} : s={:d} reliable={:d} ack={:d} rack={:d}\n".format(
-				send.cursize
-				, chan.outgoing_sequence - 1
-				, chan.reliable_sequence
-				, chan.incoming_sequence
-				, chan.incoming_reliable_sequence))
+				len(packet.data), chan.outgoing_sequence - 1, chan.reliable_sequence,
+				chan.incoming_sequence, chan.incoming_reliable_sequence))
 		else:
 			clientserver.Com_Printf ("send {:4d} : s={:d} ack={:d} rack={:d}\n".format(
-				send.cursize
-				, chan.outgoing_sequence - 1
-				, chan.incoming_sequence
-				, chan.incoming_reliable_sequence))
-	
+				len(packet.data), chan.outgoing_sequence - 1,
+				chan.incoming_sequence, chan.incoming_reliable_sequence))
 
+def Netchan_Process (chan: net_channel.NetChannel, msg: common_h.sizebuf_t)->bool:
 
-"""
-=================
-Netchan_Process
-
-called when the current net_message is from remote_address
-modifies net_message so that it points to the packet payload
-=================
-"""
-def Netchan_Process (chan: common_h.netchan_t, msg: common_h.sizebuf_t)->bool: #netchan_t *, sizebuf_t * (returns qboolean)
-
-	#unsigned	sequence, sequence_ack;
-	#unsigned	reliable_ack, reliable_message;
-	#int			qport;
-
-	# get sequence numbers
-	movemsg.MSG_BeginReading (msg)
-	sequence = movemsg.MSG_ReadLong (msg)
-	sequence_ack = movemsg.MSG_ReadLong (msg)
-	
-	# read the qport if we are a server
-	if chan.sock == common_h.netsrc_t.NS_SERVER:
-		qport = movemsg.MSG_ReadShort(msg)
-
-	reliable_message = sequence >> 31
-	reliable_ack = sequence_ack >> 31
-
-	sequence &= ~(1<<31)
-	sequence_ack &= ~(1<<31)
+	# the reliable bit shown is the one this packet will set, as in the C
+	reliable_shown = chan.incoming_reliable_sequence ^ 1
+	header = chan.accept(msg, frame.curtime)
 
 	if showpackets.value:
-	
-		if reliable_message:
+
+		if header.reliable_message:
 			clientserver.Com_Printf ("recv {:4d} : s={:d} reliable={:d} ack={:d} rack={:d}\n".format(
-				msg.cursize
-				, sequence
-				, chan.incoming_reliable_sequence ^ 1
-				, sequence_ack
-				, reliable_ack))
+				header.size, header.sequence, reliable_shown, header.sequence_ack, header.reliable_ack))
 		else:
 			clientserver.Com_Printf ("recv {:4d} : s={:d} ack={:d} rack={:d}\n".format(
-				msg.cursize
-				, sequence
-				, sequence_ack
-				, reliable_ack))
-	
+				header.size, header.sequence, header.sequence_ack, header.reliable_ack))
 
-	#
-	# discard stale or duplicated packets
-	#
-	if sequence <= chan.incoming_sequence:
-	
+	if not header.accepted:
+
 		if showdrop.value:
 			clientserver.Com_Printf ("{}:Out of order packet {:d} at {:d}\n".format(
-				network.NET_AdrToString (chan.remote_address)
-				,  sequence
-				, chan.incoming_sequence))
+				network.NET_AdrToString (chan.remote_address), header.sequence, chan.incoming_sequence))
 		return False
-	
 
-	#
-	# dropped packets don't keep the message from being used
-	#
-	chan.dropped = sequence - (chan.incoming_sequence+1)
-	if chan.dropped > 0:
-	
-		if showdrop.value:
-			clientserver.Com_Printf ("{}:Dropped {:d} packets at {:d}\n".format(
-			network.NET_AdrToString (chan.remote_address)
-			, chan.dropped
-			, sequence))
-	
-
-	#
-	# if the current outgoing reliable message has been acknowledged
-	# clear the buffer to make way for the next
-	#
-	if reliable_ack == chan.reliable_sequence:
-		chan.reliable_length = 0	# it has been received
-	
-	#
-	# if this message contains a reliable message, bump incoming_reliable_sequence 
-	#
-	chan.incoming_sequence = sequence
-	chan.incoming_acknowledged = sequence_ack
-	chan.incoming_reliable_acknowledged = reliable_ack
-	if reliable_message:
-	
-		chan.incoming_reliable_sequence ^= 1
-	
-
-	#
-	# the message can now be read from the current message pointer
-	#
-	chan.last_received = frame.curtime
+	if header.dropped > 0 and showdrop.value:
+		clientserver.Com_Printf ("{}:Dropped {:d} packets at {:d}\n".format(
+			network.NET_AdrToString (chan.remote_address), header.dropped, header.sequence))
 
 	return True

@@ -351,13 +351,31 @@ should land together.
     - **For now:** `engine.engine` is the process's one engine, which
       `cvar.registry` and `cmdparser.commands` point at.
     - **Unit tests:** they make their own engines.
+  - **Done, the network channel:** `common/net_channel.py` has
+    `NetChannel`.
+    - **What it is:** the C's `netchan_t` as a class. It holds the
+      sequencing state, and its `build_packet` and `accept` are pure
+      packet logic.
+    - **What stays in `netchan.py`:** `Netchan_Setup`/`Transmit`/`Process`
+      are thin layers that add the sending, the clock and the
+      `showpackets`/`showdrop` output. The client and server state create
+      a `NetChannel`, and `netchan_t` is gone from
+      `common/header/common.py`.
+    - **Checked against the old functions:** 300 runs of random traffic
+      over a channel pair (reliable and unreliable data, overflowing
+      payloads, lost, repeated and reordered packets) gave identical
+      packets, read positions and channel state.
+    - **Unit tests:** 8 new ones.
+    - **Played against the C (Yamagi 8.30) build:** a Python client on
+      `q2ded` (entered the game; `kill` came back as "Player killed
+      himself."), and the C client on a Python dedicated server (entered
+      the game).
   - **Left:**
     - the console and the frame loop into the `Engine`;
     - the module globals' callers taking the engine (or its subsystems)
       directly;
     - errors as exceptions;
-    - the engine file system on `q2data.filesystem`;
-    - netchan.
+    - the engine file system on `q2data.filesystem`.
 - [ ] 4. Renderers
 - [ ] 5. Sound
 - [ ] 6. Server

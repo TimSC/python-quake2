@@ -26,6 +26,7 @@ Main header file for the client
 from __future__ import annotations
 
 from enum import Enum
+from common import net_channel
 from common.header import common as common_h
 from q2data import bsp as q2bsp
 from common.header import shared
@@ -171,7 +172,7 @@ class client_t(object):
 
 		self.challenge = 0 #int, challenge of this user, randomly generated
 
-		self.netchan = common_h.netchan_t() #netchan_t
+		self.netchan = net_channel.NetChannel() #netchan_t
 
 		# per-frame caches for SV_Multicast fanout
 		self.cached_origin = [0.0, 0.0, 0.0] #vec3_t

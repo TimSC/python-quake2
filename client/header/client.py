@@ -27,6 +27,7 @@ from client.refresh.gl1 import gl1_image as gl_image
 from client import ref
 from client.sound.header import local as sound_local
 from client.curl.header import download as download_h
+from common import net_channel
 from common.header import common as common_h
 from common.header import shared
 """
@@ -310,7 +311,7 @@ class client_static_t(object):
 		self.quakePort = 0 # int, a 16 bit value that allows quake servers
 										# to work around address translating routers
 
-		self.netchan = common_h.netchan_t()
+		self.netchan = net_channel.NetChannel()
 		self.serverProtocol = 0 #int, in case we are doing some kind of version hack
 
 		self.challenge = 0 #int, from the server to use for connecting

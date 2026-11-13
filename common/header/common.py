@@ -576,42 +576,7 @@ void		NET_Sleep(int msec);
 OLD_AVG = 0.99
 MAX_LATENT = 32
 
-class netchan_t(object):
-
-	def __init__(self):
-		self.clear()
-
-	def clear(self):
-		self.fatal_error = False # qboolean
-
-		self.sock = netsrc_t.NS_CLIENT # netsrc_t
-
-		self.dropped = 0 #int, between last packet and previous
-
-		self.last_received = 0		# int, for timeouts
-		self.last_sent = 0			# int, for retransmits
-
-		self.remote_address = netadr_t()
-		self.qport = 0 				# int, qport value to write when transmitting
-
-		# sequencing variables
-		self.incoming_sequence = 0 # int
-		self.incoming_acknowledged = 0 # int
-		self.incoming_reliable_acknowledged = 0	# int, single bit
-
-		self.incoming_reliable_sequence = 0		# int, single bit, maintained local
-
-		self.outgoing_sequence = 0			# int
-		self.reliable_sequence = 0			# int, single bit
-		self.last_reliable_sequence = 0		# int, sequence number of last send
-
-		# reliable staging and holding areas
-		self.message = sizebuf_t()		# sizebuf_t, writing buffer to send to server
-		self.message_buf = None #byte[MAX_MSGLEN-16]		# leave space for header
-
-		# message is copied to this buffer when it is first transfered
-		self.reliable_length = 0 # int
-		self.reliable_buf = bytearray(MAX_MSGLEN-16) #byte[MAX_MSGLEN-16]	# unacked reliable message
+# netchan_t is common/net_channel.py's NetChannel
 
 """
 extern	netadr_t	net_from;
