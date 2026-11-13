@@ -288,9 +288,34 @@ glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
   PIL) and fixes to `files/pcx.c`/`wal.c`, which gl1 doesn't use yet.
   Checked by screenshot against gl1: console, menus, cinematics, base1/base2,
   test entities/particles/dlights, the underwater FBO and a level change.
-  Not ported: the stereo code (`#if 0` in the C), `gl3_debugcontext`'s
-  callback, and `GL3_ScreenShot`'s file writing (the client's
-  `VID_WriteScreenshot` isn't ported).
+  **Audit (2026-11-13), done:**
+  - Every one of the 133 functions in Yamagi's `gl3/*.c` has its Python
+    `def`. The exported `re.*` functions match `GetRefAPI`, apart from
+    `framework_version` and the id-era `re.RegisterPic`/`re.AppActivate`,
+    as in gl1.
+  - All 28 GLSL shader sources are the same as the C's (compared with
+    whitespace and comments removed).
+  - The 4 commands match. The 53 live cvars match; the other 20 that the C
+    names (`gl1_*`, `gl_farsee`, `gl_modulate`, `r_lerpmodels`) are in the
+    C's `#if 0 // TODO!` block and stay disabled.
+  - `calcTexinfoAndFacesSize` stays as a C block: it sizes the C's hunk,
+    and the port has none (as in gl1).
+  - Gaps closed:
+    - `GL3_ScreenShot` writes through `ri.Vid_WriteScreenshot` (see group
+      15).
+    - `DebugCallback` is ported, using PyOpenGL's
+      `glDebugMessageCallbackARB` with a ctypes callback kept in
+      `gl3_sdl.DebugCallbackPtr`. With `gl3_debugcontext 1` the driver's
+      messages print as `GLDBG Source: ... Type: ... Severity: ...`.
+  - Not ported, as in the C: the stereo code (`#if 0`) and the
+    `YQ2_GL3_GLES` branches (GLES isn't the desktop build).
+  - Known Q2PORT differences:
+    - numpy for the per-texel and per-vertex loops (lightmaps, particles,
+      alias frames, `CullAliasModel`);
+    - Pillow for tga/png/jpg;
+    - PyOpenGL in place of glad;
+    - `GL3_Draw_StretchRaw`'s `bits` defaults to 8, as the port's
+      `refexport_t` passes none.
 - **SDL 2 vs 3:** Yamagi's default is now SDL 3. The port follows the SDL 2
   files, which Yamagi still supports.
 - **Tests depend on game data:** the tests need the Quake II data in
@@ -481,4 +506,4 @@ glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
 - [ ] 13. Sound
 - [x] 14. Platform layer
 - [ ] 15. Renderer: gl1 (OpenGL 1)
-- [ ] 16. Renderer: gl3 (modern OpenGL)
+- [x] 16. Renderer: gl3 (modern OpenGL)

@@ -29,7 +29,10 @@
 
 from __future__ import annotations
 
+import ctypes
+
 import OpenGL.GL as GL
+from OpenGL.GL.ARB import debug_output
 
 from backends import sdl
 from common import clientserver
@@ -53,14 +56,45 @@ QGL_DEBUG_SEVERITY_NOTIFICATION = 0x826B
 
 """
  * Callback function for debug output.
-static void APIENTRY
-DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
-              const GLchar *message, const void *userParam)
-{
-	(not ported: gl3_debugcontext needs glDebugMessageCallbackARB with a ctypes
-	 callback)
-}
 """
+def DebugCallback(source, type_, id_, severity, length, message, userParam): #GLenum, GLenum, GLuint, GLenum, GLsizei, const GLchar *, const void *
+
+	sourceStr = "Source: Unknown" #const char*
+	typeStr = "Type: Unknown" #const char*
+	severityStr = "Severity: Unknown" #const char*
+
+	#ifdef YQ2_GL3_GLES ... #else // Desktop GL
+	#define SVRCASE(X, STR)  case GL_DEBUG_SEVERITY_ ## X ## _ARB : severityStr = STR; break;
+	if severity == QGL_DEBUG_SEVERITY_NOTIFICATION: return
+	elif severity == debug_output.GL_DEBUG_SEVERITY_HIGH_ARB: severityStr = "Severity: High"
+	elif severity == debug_output.GL_DEBUG_SEVERITY_MEDIUM_ARB: severityStr = "Severity: Medium"
+	elif severity == debug_output.GL_DEBUG_SEVERITY_LOW_ARB: severityStr = "Severity: Low"
+
+	#define SRCCASE(X)  case GL_DEBUG_SOURCE_ ## X ## _ARB: sourceStr = "Source: " #X; break;
+	for X in ("API", "WINDOW_SYSTEM", "SHADER_COMPILER", "THIRD_PARTY", "APPLICATION", "OTHER"):
+
+		if source == getattr(debug_output, "GL_DEBUG_SOURCE_" + X + "_ARB"):
+
+			sourceStr = "Source: " + X
+			break
+
+	#define TYPECASE(X)  case GL_DEBUG_TYPE_ ## X ## _ARB: typeStr = "Type: " #X; break;
+	for X in ("ERROR", "DEPRECATED_BEHAVIOR", "UNDEFINED_BEHAVIOR", "PORTABILITY", "PERFORMANCE", "OTHER"):
+
+		if type_ == getattr(debug_output, "GL_DEBUG_TYPE_" + X + "_ARB"):
+
+			typeStr = "Type: " + X
+			break
+
+	# Q2PORT: ctypes gives the message as a pointer
+	message = ctypes.string_at(message, length).decode("latin-1")
+
+	# use PRINT_ALL - this is only called with gl3_debugcontext != 0 anyway.
+	clientserver.Com_Printf("GLDBG {} {} {}: {}\n".format(sourceStr, typeStr, severityStr, message))
+
+# Q2PORT: the ctypes function pointer to DebugCallback given to the driver;
+# kept here so it isn't garbage collected while the driver can call it
+DebugCallbackPtr = None #GLDEBUGPROCARB
 
 # ---------
 
@@ -188,7 +222,7 @@ def GL3_PrepareForWindow(): #void (returns int)
 """
 def GL3_InitContext(win): #void* (returns int)
 
-	global window, context, IsHighDPIaware
+	global window, context, IsHighDPIaware, DebugCallbackPtr
 
 	# Coders are stupid.
 	if win is None:
@@ -259,8 +293,11 @@ def GL3_InitContext(win): #void* (returns int)
 	# Debug context setup.
 	if gl3_main.gl3_debugcontext is not None and gl3_main.gl3_debugcontext.value and gl3_main.gl3config.debug_output:
 
-		# Q2PORT: glDebugMessageCallbackARB(DebugCallback, NULL) is not ported
-		pass
+		#ifdef YQ2_GL3_GLES ... #else // Desktop GL
+		DebugCallbackPtr = debug_output.GLDEBUGPROCARB(DebugCallback)
+		debug_output.glDebugMessageCallbackARB(DebugCallbackPtr, None)
+		GL.glEnable(debug_output.GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB)
+		#endif
 
 	# Window title - set here so we can display renderer name in it.
 	title = "{} {} - OpenGL 3.2".format(common_h.APPNAME, common_h.YQ2VERSION) # Q2PORT: APPNAME, the C has "Yamagi Quake II"
