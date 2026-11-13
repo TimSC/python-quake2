@@ -31,6 +31,7 @@ import numpy as np
 import OpenGL.GL as GL
 from OpenGL.GL import glGetString
 from client import ref
+from client.vid.header import ref as ref_h
 from client.refresh.gl1 import gl1_draw, gl1_image, gl1_misc, gl1_model, gl1_warp, gl1_surf, gl1_mesh, gl1_light, \
 	gl1_scrap, gl1_buffer, gl1_sdl, gl1_lightmap, qgl
 from client.refresh.gl1.header import model, qgl as qgl_h
@@ -2153,7 +2154,7 @@ def GetRefAPI(imp): #refimport_t (returns refexport_t)
 
 	# Tell the client that we're unsing the
 	# new renderer restart API.
-	#ri.Vid_RequestRestart(RESTART_NO); Q2PORT: the port's refimport_t has no Vid_RequestRestart
+	ri.Vid_RequestRestart(ref_h.ref_restart_t.RESTART_NO)
 
 	return re
 

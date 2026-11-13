@@ -25,11 +25,16 @@ API between the client and renderers.
 """
 from __future__ import annotations
 
+import os
+
+from PIL import Image
+
 from client import cl_main
 from client.sound import sound as sound_c
 from client import cl_keyboard
 from client import cl_tempentities
 from client import ref
+from client.vid.header import ref as ref_h
 from client.vid import glimp_sdl2
 from backends.generic import misc
 from common import cvar
@@ -37,6 +42,7 @@ from common import clientserver
 from common import cmdparser
 from common import filesystem
 from common.header import shared
+from common.shared import shared as shared_c
 """
 #include <assert.h>
 #include <errno.h>
@@ -50,9 +56,148 @@ from common.header import shared
 # Screenshots
 # -----------
 
-# Q2PORT: VID_WriteScreenshot (stb_image_write) is ported with the gl1 renderer (group 15),
-# the old renderer has its own "screenshot" command (ref_gl/gl_rmisc.py)
+#ifdef USE_ZLIB
+#include <zlib.h>
+#else
+#include "../../common/unzip/miniz/miniz.h"
+#endif
 """
+# Q2PORT: stb_image_write (and compress_for_stbiw, its zlib hook for PNGs) is
+# Pillow, which writes the same four formats
+
+"""
+ * Writes a screenshot. This function is called with raw image data of
+ * width*height pixels, each pixel has comp bytes. Must be 3 or 4, for
+ * RGB or RGBA. The pixels must be given row-wise, stating at the top
+ * left.
+"""
+def VID_WriteScreenshot(width: int, height: int, comp: int, data): #int, int, int, const void *
+
+	#char picname[80];
+	#char checkname[MAX_OSPATH];
+	success = 0 #int i, success = 0;
+	supportedFormats = [ "tga", "bmp", "png", "jpg" ] #static const char* supportedFormats[]
+	numFormats = len(supportedFormats) #static const int numFormats = ARRLEN(supportedFormats);
+	format_ = 0 # 0=tga, 1=bmp, 2=png, 3=jpg
+	quality = 85
+	argc = cmdparser.Cmd_Argc()
+	gameDir = filesystem.FS_Gamedir()
+
+	# FS_InitFilesystem() made sure the screenshots dir exists./
+
+	if argc > 1:
+
+		maybeFormat = cmdparser.Cmd_Argv(1)
+
+		for i in range(numFormats):
+
+			if maybeFormat.lower() == supportedFormats[i]: # Q_stricmp
+
+				format_ = i
+				break
+
+
+		else: # if (i == numFormats)
+
+			clientserver.Com_Printf("the (optional) second argument to 'screenshot' is the format, one of \"tga\", \"bmp\", \"png\", \"jpg\"\n")
+			return
+
+
+		if argc > 2:
+
+			q = cmdparser.Cmd_Argv(2)
+
+			for c in q:
+
+				if c < '0' or c > '9':
+
+					clientserver.Com_Printf("The (optional!) third argument to 'screenshot' is jpg quality, a number between 1 and 100\n")
+					clientserver.Com_Printf("  or png compression level, between 0 and 9!\n")
+
+					return
+
+
+
+			quality = shared_c.atoi(q)
+
+			if format_ == 2: # png
+
+				if quality < 0:
+
+					quality = 0
+
+				elif quality > 9:
+
+					quality = 9
+
+
+			elif format_ == 3: # jpg
+
+				if quality < 1:
+
+					quality = 1
+
+				elif quality > 100:
+
+					quality = 100
+
+
+
+
+
+	# find a file name to save it to
+	for i in range(10000): # for (i = 0; i <= 9999; i++)
+
+		checkname = "{}/scrnshot/q2_{:04d}.{}".format(gameDir, i, supportedFormats[format_])
+
+		if not os.path.exists(checkname): # f = Q_fopen(checkname, "rb"); if (!f)
+
+			picname = "q2_{:04d}.{}".format(i, supportedFormats[format_])
+			break # file doesn't exist
+
+
+	else: # if (i == 10000)
+
+		clientserver.Com_Printf("SCR_ScreenShot_f: Couldn't create a file\n")
+		return
+
+
+	img = Image.frombytes("RGB" if comp == 3 else "RGBA", (width, height), bytes(data))
+
+	try: # Q2PORT: Pillow raises where stbi_write_*() returns 0
+
+		if format_ == 0:
+
+			img.save(checkname, "TGA", compression="tga_rle") # stbi_write_tga(), RLE by default
+
+		elif format_ == 1:
+
+			img.save(checkname, "BMP") # stbi_write_bmp()
+
+		elif format_ == 2:
+
+			img.save(checkname, "PNG", compress_level=quality if quality < 10 else 7) # stbi_write_png()
+
+		elif format_ == 3:
+
+			img.convert("RGB").save(checkname, "JPEG", quality=quality) # stbi_write_jpg()
+
+
+		success = 1
+
+	except (OSError, ValueError):
+
+		success = 0
+
+
+	if success:
+
+		clientserver.Com_Printf("Wrote %s\n", picname)
+
+	else:
+
+		clientserver.Com_Printf("SCR_ScreenShot_f: Couldn't write %s\n", picname)
+
 
 # --------
 
@@ -160,7 +305,7 @@ reflib_handle = None #void *, the renderer is a python module
 ref_active = False #qboolean
 
 # Renderer restart type requested.
-restart_state = 0 #ref_restart_t, RESTART_UNDEF
+restart_state = ref_h.ref_restart_t.RESTART_UNDEF #ref_restart_t
 
 # Renderer lib extension.
 lib_ext = "so" #const char *
@@ -200,12 +345,12 @@ def VID_Restart_f(): #void
 
 	global restart_state
 
-	if restart_state == 0: # RESTART_UNDEF
+	if restart_state == ref_h.ref_restart_t.RESTART_UNDEF:
 
 		vid_fullscreen.modified = True
 	else:
 
-		restart_state = 2 # RESTART_FULL
+		restart_state = ref_h.ref_restart_t.RESTART_FULL
 
 """
  * Shuts the renderer down and unloads it.
@@ -284,6 +429,8 @@ def VID_LoadRenderer(): #void (returns qboolean)
 	ri.Vid_GetModeInfo = VID_GetModeInfo
 	from client.menu import videomenu as vid_menu # imported here, vid_menu needs client.menu fully loaded
 	ri.Vid_MenuInit = vid_menu.VID_MenuInit
+	ri.Vid_WriteScreenshot = VID_WriteScreenshot
+	ri.Vid_RequestRestart = VID_RequestRestart
 	# Q2PORT: id's refimport fields, the old renderer (ref_gl) reads them
 	def VID_Printf (print_level, msg):
 
@@ -363,23 +510,22 @@ def VID_CheckChanges(): #void
 	# hack around renderers that still abuse vid_fullscreen
 	# to communicate restart requests to the client.
 	#ref_restart_t rs;
-	rs = 0
 
-	if restart_state == 0: # RESTART_UNDEF
+	if restart_state == ref_h.ref_restart_t.RESTART_UNDEF:
 
 		if vid_fullscreen.modified:
 
-			rs = 2 # RESTART_FULL
+			rs = ref_h.ref_restart_t.RESTART_FULL
 			vid_fullscreen.modified = False
 		else:
 
-			rs = 0 # RESTART_NO
+			rs = ref_h.ref_restart_t.RESTART_NO
 	else:
 
 		rs = restart_state
-		restart_state = 0 # RESTART_NO
+		restart_state = ref_h.ref_restart_t.RESTART_NO
 
-	if rs == 2: # RESTART_FULL
+	if rs == ref_h.ref_restart_t.RESTART_FULL:
 
 		# stop sound, because the clients blocks while
 		# we're reloading the renderer. The sound system
@@ -416,7 +562,7 @@ def VID_CheckChanges(): #void
 		# unblock the client.
 		cl_main.cls.disable_screen = False
 
-	elif rs == 1: # RESTART_PARTIAL
+	elif rs == ref_h.ref_restart_t.RESTART_PARTIAL:
 
 		cl_main.cl.refresh_prepped = False
 

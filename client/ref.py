@@ -291,6 +291,8 @@ class refimport_t(object):
 		# Q2PORT: from Yamagi's refimport_t (vid/header/ref.h)
 		self.GLimp_InitGraphics = None #qboolean (*) (int fullscreen, int *pwidth, int *pheight)
 		self.GLimp_GetDesktopMode = None #qboolean (*) (int *pwidth, int *pheight)
+		self.Vid_WriteScreenshot = None #void (*) (int width, int height, int comp, const void* data)
+		self.Vid_RequestRestart = None #void (*) (ref_restart_t rs)
 
 """
 // this is the only function actually exported at the linker level

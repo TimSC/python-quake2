@@ -40,6 +40,7 @@ from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
 from client import ref
+from client.vid.header import ref as ref_h
 from client.refresh import ref_shared
 from client.refresh.files import pcx as files_pcx
 from client.refresh.files import models as files_models
@@ -1947,6 +1948,6 @@ def GetRefAPI(imp): #refimport_t (returns refexport_t)
 
 	# Tell the client that we're unsing the
 	# new renderer restart API.
-	#ri.Vid_RequestRestart(RESTART_NO); Q2PORT: the port's refimport_t has no Vid_RequestRestart
+	ri.Vid_RequestRestart(ref_h.ref_restart_t.RESTART_NO)
 
 	return re

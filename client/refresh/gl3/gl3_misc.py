@@ -30,7 +30,6 @@ from __future__ import annotations
 import numpy as np
 import OpenGL.GL as GL
 
-from common import clientserver
 from client.refresh import ref_shared
 from client.refresh.gl3 import gl3_main, gl3_image
 
@@ -132,7 +131,4 @@ def GL3_ScreenShot(): #void
 	# Q2PORT: the C's row swapping loop is a numpy flip
 	buffer = np.frombuffer(buffer, dtype=np.uint8).reshape(h, w * comps)[::-1].tobytes()
 
-	# ri.Vid_WriteScreenshot(w, h, comps, buffer);
-	# Q2PORT: the port's refimport_t has no Vid_WriteScreenshot yet (the
-	# client's VID_WriteScreenshot isn't ported)
-	clientserver.Com_Printf("GL3_ScreenShot: Vid_WriteScreenshot is not ported yet, {}x{} screenshot not written\n".format(w, h))
+	gl3_main.ri.Vid_WriteScreenshot(w, h, comps, buffer)

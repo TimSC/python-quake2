@@ -25,11 +25,9 @@
 """
 from __future__ import annotations
 
-import os
 import OpenGL.GL as GL
 from client.refresh.gl1 import gl1_image, gl1_main, qgl
 from client.refresh.gl1.header import qgl as qgl_h
-from backends.unix import system
 from common import clientserver
 
 """
@@ -126,6 +124,7 @@ def R_ScreenShot(): #void
 
 	w = gl1_main.vid.width
 	h = gl1_main.vid.height
+	#byte *buffer = malloc(w*h*3);
 
 	GL.glPixelStorei(GL.GL_PACK_ALIGNMENT, 1)
 	buffer = bytearray(GL.glReadPixels(0, 0, w, h, GL.GL_RGB, GL.GL_UNSIGNED_BYTE))
@@ -133,44 +132,24 @@ def R_ScreenShot(): #void
 	# the pixels are now row-wise left to right, bottom to top,
 	# but we need them row-wise left to right, top to bottom.
 	# so swap bottom rows with top rows
-	"""
-	(row swap: not needed for the TGA below, which is stored bottom to top)
-	"""
 
-	# ri.Vid_WriteScreenshot(w, h, 3, buffer);
-	# Q2PORT: the port's refimport_t has no Vid_WriteScreenshot yet (the
-	# client's VID_WriteScreenshot isn't ported), so the screenshot is
-	# written as id's quakeNN.tga in scrnshot/ until it is
-	checkname = "{}/scrnshot".format(gl1_main.ri.FS_Gamedir())
-	system.Sys_Mkdir(checkname)
+	bytesPerRow = 3*w #size_t
+	curRowL = 0 # first byte of first row
+	curRowH = bytesPerRow*(h-1) # first byte of last row
+	while curRowL < curRowH:
 
-	for i in range(100):
+		rowBuffer = buffer[curRowL:curRowL + bytesPerRow] # memcpy(rowBuffer, curRowL, bytesPerRow);
+		buffer[curRowL:curRowL + bytesPerRow] = buffer[curRowH:curRowH + bytesPerRow]
+		buffer[curRowH:curRowH + bytesPerRow] = rowBuffer
 
-		picname = "quake{:02d}.tga".format(i)
-		checkname = "{}/scrnshot/{}".format(gl1_main.ri.FS_Gamedir(), picname)
-		if not os.path.exists(checkname):
-			break
+		curRowL += bytesPerRow
+		curRowH -= bytesPerRow
 
-	else:
 
-		clientserver.Com_Printf("SCR_ScreenShot_f: Couldn't create a file\n")
-		return
 
-	header = bytearray(18)
-	header[2] = 2		# uncompressed type
-	header[12] = w & 255
-	header[13] = w >> 8
-	header[14] = h & 255
-	header[15] = h >> 8
-	header[16] = 24	# pixel size
+	gl1_main.ri.Vid_WriteScreenshot(w, h, 3, buffer)
 
-	# swap rgb to bgr
-	buffer[0::3], buffer[2::3] = buffer[2::3], buffer[0::3]
-
-	with open(checkname, "wb") as f:
-		f.write(header + buffer)
-
-	clientserver.Com_Printf("Wrote {}\n".format(picname))
+	#free(buffer);
 
 def R_Strings(show_ext): #qboolean
 

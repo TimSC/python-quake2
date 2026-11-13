@@ -132,7 +132,7 @@ glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
   the tests: screenshots match the old renderer, `timedemo` runs, and it
   works with the extensions off.
 
-### Status (cutover done, faithful reconciliation in progress)
+### Status (done)
 
 - **Done:** `client/refresh/files/` (models, pcx, pvs, surf, wal) is a
   faithful port of Yamagi's shared loaders. `client/vid/header/ref.py`
@@ -143,8 +143,8 @@ glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
   the old `ref_gl/` is deleted. All deterministic tests and the movement
   harness pass, and the real-time tests pass in isolation (they are
   timing-flaky when the whole suite runs back-to-back, which is pre-existing).
-- **Faithful reconciliation (in progress):** the `gl1/*.py` bodies are the id
-  version moved into the new package; they are being reconciled to Yamagi's C
+- **Faithful reconciliation (done):** the `gl1/*.py` bodies started as the id
+  version moved into the new package and were reconciled to Yamagi's C
   file by file. Verification runs against the live X display (RTX 3090, GL 4.6)
   via `glReadPixels` screenshots diffed pixel-for-pixel against a reference frame
   of the current renderer (no Xvfb needed).
@@ -211,11 +211,37 @@ glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
     submodels, free-space checks, `r_fixsurfsky`), `gl1_warp` (all of it: the sky
     box drawn with vertex arrays, `r_farsee`), `gl1_light` (all of it), and
     `header/model.py` (`modtype_t`/`mleaf_t` from `ref_shared`, no `mmodel_t`).
-  - **Remaining:** none of the gl1 modules are id code now. Known Q2PORT
-    differences: `R_ScreenShot` (TGA writer), numpy speed-ups (`R_Convert8to32`,
-    `R_LightScaleTexture`, `R_MipMap`, particles, `R_LerpVerts`), and `ResizeSTB`
-    via Pillow. Adaptive vsync (`r_vsync 2`) falls back to normal vsync, as the
-    C does when the driver refuses it (pyglet only switches vsync on or off).
+  - **Audit (2026-11-13):** every function in Yamagi's `gl1/*.c` and
+    `files/*.c` has its Python `def`, and the 64 cvars and 4 commands
+    (`gl_strings`, `imagelist`, `modellist`, `screenshot`) match the C. The
+    functions without a `def` are not needed: `files/common.c` (`R_Printf`,
+    `Com_Printf`, ... - the renderer library's links back to the engine; the
+    port calls the engine directly), `glCheckError_` (`#ifdef DEBUG` only) and
+    `calcTexinfoAndFacesSize` (sizes the C's hunk; the port has none).
+    `PCX_Decode`/`PCX_RLE_Decode` are replaced by Pillow (Q2PORT).
+  - **Gaps closed (2026-11-13):**
+    1. **Screenshots:** the client's `VID_WriteScreenshot` (`vid.c`) is
+       ported, with Pillow in place of `stb_image_write` (Q2PORT); it writes
+       `scrnshot/q2_NNNN.tga/bmp/png/jpg` (`screenshot [format] [quality]`).
+       gl1's `R_ScreenShot` and gl3's `GL3_ScreenShot` pass it the pixels
+       through `ri.Vid_WriteScreenshot`, as in the C; id's TGA writer is gone.
+    2. **Quit screen fix:** `files/pcx.py` has `fixQuitScreen`, applied to
+       baseq2's `pics/quit.pcx` (`Com_BlockChecksum` 3329419434) after the
+       Pillow decode.
+    3. **`ri.Vid_RequestRestart`:** set in `VID_LoadRenderer`, and both
+       renderers' `GetRefAPI` call `ri.Vid_RequestRestart(RESTART_NO)`, so the
+       client uses Yamagi's restart API. `VID_CheckChanges`/`VID_Restart_f`
+       now use `ref_restart_t` (they had `RESTART_NO` as 0, `RESTART_UNDEF`'s
+       value, and `RESTART_PARTIAL` as 1).
+  - **Known Q2PORT differences:** numpy speed-ups (`R_Convert8to32`,
+    `R_LightScaleTexture`, `R_MipMap`, particles, `R_LerpVerts`, lightmaps,
+    model culling), `ResizeSTB` via Pillow, and id-era `refexport_t` entries
+    the client still uses (`re.Init(hinstance, wndproc)`, `re.RegisterPic`,
+    `re.AppActivate`; no `framework_version`). The paletted-texture branch of
+    `RDraw_StretchRaw` raises `NotImplementedError`, as
+    `gl_config.palettedtexture` is never set. Adaptive vsync (`r_vsync 2`)
+    falls back to normal vsync, as the C does when the driver refuses it
+    (pyglet only switches vsync on or off).
 
 ## Group 0: tooling and conventions
 
