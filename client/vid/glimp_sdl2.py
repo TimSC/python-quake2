@@ -26,6 +26,7 @@ from common import clientserver
 from common.header import common as common_h
 from common.header import shared
 from client.vid import vid
+from client.vid.icon import q2icon64 as q2icon64_h
 # Q2PORT: the C glimp calls the active renderer via the re.* / ri.* globals, not a fixed
 # module. The port resolves the active renderer (gl1 or gl3) lazily, per vid_renderer.
 def _renderer():
@@ -300,8 +301,32 @@ def PrintDisplayModes(): #void
 def SetSDLIcon(): #void
 
 	#include "icon/q2icon64.h" // 64x64 32 Bit
-	# Q2PORT: icon/q2icon64.h isn't ported, the window keeps the default icon
-	pass
+	q2icon64 = q2icon64_h.q2icon64
+
+	# these masks are needed to tell SDL_CreateRGBSurface(From)
+	# to assume the data it gets is byte-wise RGB(A) data
+	#Uint32 rmask, gmask, bmask, amask;
+
+	if sdl.SDL_BYTEORDER == sdl.SDL_BIG_ENDIAN:
+
+		shift = 8 if q2icon64.bytes_per_pixel == 3 else 0
+		rmask = 0xff000000 >> shift
+		gmask = 0x00ff0000 >> shift
+		bmask = 0x0000ff00 >> shift
+		amask = 0x000000ff >> shift
+
+	else: # little endian, like x86
+
+		rmask = 0x000000ff
+		gmask = 0x0000ff00
+		bmask = 0x00ff0000
+		amask = 0 if q2icon64.bytes_per_pixel == 3 else 0xff000000
+
+	icon = sdl.SDL_CreateRGBSurfaceFrom(q2icon64.pixel_data, q2icon64.width,
+		q2icon64.height, q2icon64.bytes_per_pixel*8, q2icon64.bytes_per_pixel*q2icon64.width,
+		rmask, gmask, bmask, amask) #SDL_Surface*
+	sdl.SDL_SetWindowIcon(window, icon)
+	sdl.SDL_FreeSurface(icon)
 
 """
 // FIXME: We need a header for this.

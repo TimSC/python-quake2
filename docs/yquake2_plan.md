@@ -49,6 +49,62 @@ Yamagi builds the game as a separate library and loads it with
 `GetGameAPI`. The port keeps importing the game module directly, marked
 `Q2PORT`.
 
+## Overall status (audit 2026-11-13)
+
+All 17 groups (0–16) are done. Each Yamagi `.c` file in scope was compared
+with the port: its functions with the Python `def`s, and its cvars and
+commands (after removing `#if 0` blocks and comments) with the Python's.
+
+- **Functions:** of the in-scope C functions, those without a `def` either
+  belong to the out-of-scope code in the table above (gamepad and gyro in
+  `input/sdl2.c` and `gyro.c`, the `sdl.c` mixer) or are not needed in
+  Python:
+  - **memory:** `hunk.c`, `Z_Realloc`/`Z_TagRealloc`/`Z_BlockSize`,
+    `calcTexinfoAndFacesSize`, `Q_realloc0`, `Com_PageInMemory`;
+  - **C string and byte-order helpers:** `Q_strlcpy`, `Com_sprintf`, `va`,
+    `ShortSwap`, ... The callers use Python strings and `struct`;
+    `Q_replacebackslash` is `str.replace`.
+  - **`StringList_*`:** a Python list (`sv.configstrings_overflow`).
+  - **Replaced by libraries:** minizip (`common/unzip/`; `.pk3` uses
+    `zipfile`), `compress_for_stbiw` (Pillow), and `DoMD4`/`PerformMD4`
+    (the vendored `md4.py`).
+  - **`Sys_GetWorkDir`/`Sys_SetWorkDir`:** `SV_WriteLevelFile` passes full
+    paths instead (Q2PORT).
+  - **`signalhandler.c`:** Python prints its own tracebacks.
+  - **`files/common.c`:** the renderer library's links back to the engine.
+  - **Debug only:** `glCheckError_`, `CheckBlock`/`PrintPmove`.
+  - **No callers in the port:** the `shared.c` maths helpers only
+    `gyro.c` uses (`QuatMultiply`, `RotateVectorByUnitQuat`, ...), and
+    others no ported code calls (`COM_FilePath`, `R_ConcatTransforms`,
+    `Q_log2`, ...).
+- **Cvars and commands:** all 135 commands and 312 of the 314 cvars match.
+  The two missing are `cl_libcurl` (pycurl needs no library path) and
+  `in_initjoy` (gamepad).
+- **Closed since the audit:**
+  - **Window icon:** `SetSDLIcon` is ported. `icon/q2icon64.h` is
+    `client/vid/icon/q2icon64.py`, and `backends/sdl.py` gained
+    `SDL_CreateRGBSurfaceFrom` (a pyglet image), `SDL_FreeSurface` and
+    `SDL_BYTEORDER`.
+  - **Sound off crash:** `OGG_SaveState`/`OGG_RecoverState` check for a
+    NULL `ogg_enabled` (Q2PORT fix; see group 13).
+- **Small gaps left in scope:**
+  - **Shutdown:** `Qcommon_Shutdown` doesn't call `FS_ShutdownFilesystem`,
+    `Cvar_Fini`, `Key_Shutdown` and `Cmd_Shutdown` (there is no
+    `Cmd_Shutdown` `def`). The process exits right after, so nothing is
+    leaked.
+  - **Paletted textures:** gl1's `RDraw_StretchRaw` raises
+    `NotImplementedError` (never reached; see group 15).
+- **id leftovers:** `linux/` still holds id's platform files.
+  - `client/cl_main.py`, `cl_parse.py`, `cl_screen.py` and `cl_view.py`
+    still import `linux.cd_linux` but don't call it (Yamagi has no CD
+    audio).
+  - `glimp_sdl2.py` only mentions `qgl_linux` in a comment.
+  - These can go in a cleanup pass.
+- **Biggest out-of-scope feature:** gamepad support (`input/sdl2.c`
+  controller code, `gyro.c`, rumble and haptics, `in_initjoy`). The other
+  out-of-scope items are other platforms or renderers (software, Vulkan,
+  SDL 3, Windows) and the C mixer.
+
 ## How each group is done
 
 Each group in the table below goes through the same steps, and the game must
@@ -170,11 +226,13 @@ The current `ref_gl/` keeps the game running until group 15 replaces it.
     port doesn't have yet (no `IN_Controller_Init` or `IN_Haptic_*`; see
     group 14).
   - **When:** port it together with gamepad support.
-- **Same as Yamagi (not fixed):** with `s_initsound 0` (or no sound
-  backend), `OGG_Init` never runs.
-  - **Effect:** `ogg_enabled` stays NULL, so `CL_Snd_Restart_f`'s
-    `OGG_SaveState` crashes, e.g. on a game change (`game` cvar).
-  - **The C:** it has the same NULL dereference.
+- **Fixed, Q2PORT (Yamagi has the bug):** with `s_initsound 0` (or no
+  sound backend), `OGG_Init` never runs.
+  - **Effect:** `ogg_enabled` stayed NULL, so `CL_Snd_Restart_f`
+    (`snd_restart`, or a game change) crashed in `OGG_SaveState`, and
+    then in `OGG_RecoverState`. The C has the same NULL dereference.
+  - **Fix:** both functions return early when `ogg_enabled` is None,
+    marked `Q2PORT: fix`.
 - **Known Q2PORT differences:**
   - OpenAL is called through ctypes on `libopenal.so.1`. `QAL_Shutdown`
     checks that `qalDeleteFilters` is set, as it is NULL without
@@ -592,5 +650,5 @@ glcmds, inlined frustum culling, the `Q2DBG` trace) is a separate later
 - [x] 12. Menus
 - [x] 13. Sound
 - [x] 14. Platform layer
-- [ ] 15. Renderer: gl1 (OpenGL 1)
+- [x] 15. Renderer: gl1 (OpenGL 1)
 - [x] 16. Renderer: gl3 (modern OpenGL)

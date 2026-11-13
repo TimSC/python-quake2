@@ -660,7 +660,9 @@ def OGG_Cmd(): #void (static)
 """
 def OGG_SaveState(): #void
 
-	if ogg_enabled.value != 1 or ogg_status != vorbis.PLAY:
+	# Q2PORT: fix, ogg_enabled is NULL when OGG_Init() never ran (s_initsound 0
+	# or no sound backend), and the C dereferences it here
+	if ogg_enabled is None or ogg_enabled.value != 1 or ogg_status != vorbis.PLAY:
 		ogg_saved_state.saved = False
 		return
 
@@ -676,7 +678,8 @@ def OGG_RecoverState(): #void
 
 	global ogg_numsamples
 
-	if ogg_enabled.value != 1 or ogg_saved_state.saved is not True:
+	# Q2PORT: fix, ogg_enabled is NULL when OGG_Init() never ran (see OGG_SaveState())
+	if ogg_enabled is None or ogg_enabled.value != 1 or ogg_saved_state.saved is not True:
 		return
 
 	# Mkay, ultra evil hack to recover the state in case of

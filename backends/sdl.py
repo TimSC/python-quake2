@@ -19,6 +19,7 @@ Sound is not here: it is OpenAL (client/sound/qal.py, openal.py).
 from __future__ import annotations
 
 import ctypes
+import sys
 
 import pyglet
 
@@ -51,6 +52,10 @@ SDL_INIT_EVERYTHING = (SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_IN
 # SDL_video.h
 #
 SDL_WINDOW_FULLSCREEN = 0x00000001
+SDL_LIL_ENDIAN = 1234
+SDL_BIG_ENDIAN = 4321
+SDL_BYTEORDER = SDL_BIG_ENDIAN if sys.byteorder == "big" else SDL_LIL_ENDIAN
+
 SDL_WINDOW_OPENGL = 0x00000002
 SDL_WINDOW_SHOWN = 0x00000004
 SDL_WINDOW_FULLSCREEN_DESKTOP = (SDL_WINDOW_FULLSCREEN | 0x00001000)
@@ -933,10 +938,33 @@ def SDL_SetWindowTitle(window: SDL_Window, title: str):
 
 	window.set_caption(title)
 
+def SDL_CreateRGBSurfaceFrom(pixels: bytes, width: int, height: int, depth: int, pitch: int,
+	Rmask: int, Gmask: int, Bmask: int, Amask: int):
+
+	# The surface is a pyglet image of the pixels. Only byte-wise RGB(A) data
+	# (the masks of the bytes in memory order) is supported, which is what the
+	# callers pass.
+	if depth == 32 and Amask != 0:
+		fmt = "RGBA"
+	elif depth == 24 and Amask == 0:
+		fmt = "RGB"
+	else:
+		SDL_SetError("Unsupported surface format")
+		return None
+
+	# SDL surfaces are top-down, pyglet images bottom-up: a negative pitch
+	# makes pyglet read the rows from the top
+	return pyglet.image.ImageData(width, height, fmt, bytes(pixels[:pitch * height]), pitch=-pitch)
+
+def SDL_FreeSurface(surface):
+
+	pass
+
 def SDL_SetWindowIcon(window: SDL_Window, icon):
 
-	# icon is a pyglet image
-	window.set_icon(icon)
+	# icon is a pyglet image (from SDL_CreateRGBSurfaceFrom)
+	if icon is not None:
+		window.set_icon(icon)
 
 def SDL_SetWindowGrab(window: SDL_Window, grabbed: bool):
 
