@@ -319,7 +319,8 @@ Code not yet moved still follows id's layout (historical rules):
 - Runtime dependencies are listed in `requirements.txt` (notably
   `pyglet`, `numpy` and `PyOpenGL`). Sound needs the OpenAL library
   (`libopenal.so.1`) and Ogg Vorbis decoding needs FFmpeg's libraries,
-  which pyglet loads.
+  which pyglet loads. HTTP downloads (`client/curl/`) use `pycurl`, whose
+  wheels include libcurl.
 
 ## Commits
 

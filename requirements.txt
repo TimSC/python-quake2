@@ -2,3 +2,4 @@ pyglet
 pyopengl
 numpy
 pillow
+pycurl

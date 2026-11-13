@@ -26,17 +26,17 @@
 """
 from __future__ import annotations
 
-import ctypes
+import functools
 import math
-from ctypes import c_char_p, c_int, c_long, c_void_p
 from enum import Enum
+
+import pycurl
 
 from backends.unix import system
 from client import cl_download
 from client import cl_main
 from client.curl import qcurl
 from client.curl.header import download as download_h
-from client.curl.header import qcurl as qcurl_h
 from client.header import client as client_h
 from common import clientserver
 from common import cvar
@@ -77,43 +77,37 @@ downloadingPak = False #static qboolean
 httpDown = False #static qboolean
 
 #if defined(CURLOPT_XFERINFODATA)
-CL_Progresstype = qcurl_h.curl_off_t #typedef curl_off_t CL_Progresstype;
-PROGRESSDATA = qcurl_h.CURLOPT_XFERINFODATA
-PROGRESSFUNCTION = qcurl_h.CURLOPT_XFERINFOFUNCTION
+#typedef curl_off_t CL_Progresstype;
+#define PROGRESSDATA CURLOPT_XFERINFODATA
+PROGRESSFUNCTION = pycurl.XFERINFOFUNCTION
 #endif
+
+# Q2PORT: pycurl calls the callbacks with the data only, so the dlhandle_t
+# the C passes with CURLOPT_WRITEDATA and PROGRESSDATA is bound to them with
+# functools.partial. The write callbacks get the data as bytes.
 
 # --------
 
 # CURL callback functions
 # -----------------------
 
-def _CL_DLHandle(ptr: int)->download_h.dlhandle_t: # Q2PORT: (dlhandle_t *)ptr
-
-	# Q2PORT: the void * given to cURL with CURLOPT_WRITEDATA and PROGRESSDATA
-	# is id() of the dlhandle_t in cls.HTTPHandles
-	for dl in cl_main.cls.HTTPHandles:
-
-		if id(dl) == ptr:
-
-			return dl
-
-	return None
-
 """
  * In memory buffer for receiving files. Used
  * as special CURL callback for filelists.
 """
-def CL_HTTP_Recv(ptr: int, size: int, nmemb: int, stream: int)->int: #void *, size_t, size_t, void * (returns static size_t)
+def CL_HTTP_Recv(dl: download_h.dlhandle_t, ptr: bytes)->int: #void *, size_t, size_t, void * (returns static size_t)
 
-	dl = _CL_DLHandle(stream) #dlhandle_t *dl = (dlhandle_t *)stream;
-	bytes_ = size * nmemb #size_t bytes
+	#dlhandle_t *dl = (dlhandle_t *)stream;
+	bytes_ = len(ptr) #size_t bytes = size * nmemb;
 
 	if not dl.fileSize:
 
-		length = qcurl_h.curl_off_t(0) #curl_off_t length = 0;
+		#curl_off_t length = 0;
 
-		qcurl.qcurl_easy_getinfo(dl.curl, qcurl_h.CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, ctypes.byref(length))
-		length = length.value
+		# Q2PORT: pycurl refuses getinfo() while the transfer runs, so the length
+		# is unknown (-1, as for a chunked reply) and the buffer starts at 256k;
+		# it grows below if the list is longer
+		length = -1 # qcurl_easy_getinfo(dl->curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &length);
 
 		# Mkay, the remote file should be at least one byte long.
 		# Since this is used for paclists only we assume that the
@@ -136,30 +130,25 @@ def CL_HTTP_Recv(ptr: int, size: int, nmemb: int, stream: int)->int: #void *, si
 		dl.tempBuffer.extend(bytearray(dl.fileSize - len(dl.tempBuffer))) # realloc(dl->tempBuffer, dl->fileSize)
 
 
-	dl.tempBuffer[dl.position:dl.position + bytes_] = ctypes.string_at(ptr, bytes_) # memcpy (dl->tempBuffer + dl->position, ptr, bytes);
+	dl.tempBuffer[dl.position:dl.position + bytes_] = ptr # memcpy (dl->tempBuffer + dl->position, ptr, bytes);
 	dl.position += bytes_
 	dl.tempBuffer[dl.position] = 0
 
 	return bytes_
 
-def CL_HTTP_CurlWriteCB(data: int, size: int, nmemb: int, userdata: int)->int: #char *, size_t, size_t, void * (returns static size_t)
+def CL_HTTP_CurlWriteCB(dl: download_h.dlhandle_t, data: bytes)->int: #char *, size_t, size_t, void * (returns static size_t)
 
-	dl = _CL_DLHandle(userdata) #dlhandle_t *dl = (dlhandle_t *)userdata;
-	return dl.file.write(ctypes.string_at(data, size * nmemb)) # fwrite(data, size, nmemb, dl->file) * size
+	#dlhandle_t *dl = (dlhandle_t *)userdata;
+	return dl.file.write(data) # fwrite(data, size, nmemb, dl->file) * size
 
-def CL_HTTP_CurlProgressCB(ptr: int, total: int, now: int, uptotal: int, upnow: int)->int: #void *, CL_Progresstype x4 (returns static int)
+def CL_HTTP_CurlProgressCB(dl: download_h.dlhandle_t, total: int, now: int, uptotal: int, upnow: int)->int: #void *, CL_Progresstype x4 (returns static int)
 
-	dl = _CL_DLHandle(ptr) #dlhandle_t *dl = (dlhandle_t *)ptr;
+	#dlhandle_t *dl = (dlhandle_t *)ptr;
 	if now:
 		dl.fileDownloadedSize = now
 		clientserver.Com_DPrintf("CL_HTTP_CurlProgressCB: Downloaded %d/%d\n", dl.fileDownloadedSize, dl.fileSize)
 
 	return 0
-
-# Q2PORT: the callbacks as C function pointers for cURL, kept alive here
-_CL_HTTP_Recv_cb = qcurl_h.curl_write_callback(CL_HTTP_Recv)
-_CL_HTTP_CurlWriteCB_cb = qcurl_h.curl_write_callback(CL_HTTP_CurlWriteCB)
-_CL_HTTP_CurlProgressCB_cb = qcurl_h.curl_xferinfo_callback(CL_HTTP_CurlProgressCB)
 
 # --------
 
@@ -210,6 +199,15 @@ def CL_EscapeHTTPPath(filePath: str)->str: #const char *, char *escaped (returns
 
 
 	return escaped
+
+def qcurl_multi_remove_handle(multi_handle: pycurl.CurlMulti, curl_handle: pycurl.Curl): #CURLM *, CURL * (returns CURLMcode)
+
+	# Q2PORT: libcurl ignores removing a handle that isn't in the multi handle
+	# (the C does it twice for a finished download), pycurl raises an error
+	try:
+		multi_handle.remove_handle(curl_handle)
+	except pycurl.error:
+		pass
 
 """
  * Removes an entry from the download queue.
@@ -295,50 +293,52 @@ def CL_StartHTTPDownload (entry: download_h.dlqueue_t, dl: download_h.dlhandle_t
 	# Setup and configure the CURL part of our download handle.
 	if not dl.curl:
 
-		dl.curl = qcurl.qcurl_easy_init()
+		dl.curl = pycurl.Curl() # qcurl_easy_init()
 
 
 	dl.URL = "{}{}".format(cl_main.cls.downloadServer, escapedFilePath)[:576 - 1]
 
-	setopt = qcurl.qcurl_easy_setopt # Q2PORT: the variadic arguments as their C types
-	setopt(dl.curl, qcurl_h.CURLOPT_ENCODING, c_char_p(b""))
-	setopt(dl.curl, qcurl_h.CURLOPT_WRITEDATA, c_void_p(id(dl)))
+	dl.curl.setopt(pycurl.ENCODING, b"")
+	#qcurl_easy_setopt(dl->curl, CURLOPT_WRITEDATA, dl);
 
 	if dl.file:
 
-		setopt(dl.curl, qcurl_h.CURLOPT_WRITEFUNCTION, _CL_HTTP_CurlWriteCB_cb)
+		dl.curl.setopt(pycurl.WRITEFUNCTION, functools.partial(CL_HTTP_CurlWriteCB, dl))
 
 	else:
 
-		setopt(dl.curl, qcurl_h.CURLOPT_WRITEFUNCTION, _CL_HTTP_Recv_cb)
+		dl.curl.setopt(pycurl.WRITEFUNCTION, functools.partial(CL_HTTP_Recv, dl))
 
 
-	setopt(dl.curl, qcurl_h.CURLOPT_SSL_VERIFYPEER, c_long(int(cl_http_verifypeer.value)))
-	setopt(dl.curl, qcurl_h.CURLOPT_PROXY_SSL_VERIFYPEER, c_long(int(cl_http_verifypeer.value)))
-	setopt(dl.curl, qcurl_h.CURLOPT_PROXY, c_char_p(cl_http_proxy.string.encode("latin-1")))
-	setopt(dl.curl, qcurl_h.CURLOPT_LOW_SPEED_TIME, c_long(int(cl_http_bw_limit_tmout.value)))
-	setopt(dl.curl, qcurl_h.CURLOPT_LOW_SPEED_LIMIT, c_long(int(cl_http_bw_limit_rate.value)))
-	setopt(dl.curl, qcurl_h.CURLOPT_CONNECTTIMEOUT, c_long(30))
-	setopt(dl.curl, qcurl_h.CURLOPT_FOLLOWLOCATION, c_long(1))
-	setopt(dl.curl, qcurl_h.CURLOPT_MAXREDIRS, c_long(5))
-	setopt(dl.curl, qcurl_h.CURLOPT_NOPROGRESS, c_long(cl_http_show_dw_progress.value != 1.0))
-	setopt(dl.curl, PROGRESSDATA, c_void_p(id(dl)))
-	setopt(dl.curl, PROGRESSFUNCTION, _CL_HTTP_CurlProgressCB_cb)
-	setopt(dl.curl, qcurl_h.CURLOPT_USERAGENT, c_char_p(cvar.Cvar_VariableString ("version").encode("latin-1")))
-	setopt(dl.curl, qcurl_h.CURLOPT_REFERER, c_char_p(cl_main.cls.downloadReferer.encode("latin-1")))
-	setopt(dl.curl, qcurl_h.CURLOPT_URL, c_char_p(dl.URL.encode("latin-1")))
+	dl.curl.setopt(pycurl.SSL_VERIFYPEER, int(cl_http_verifypeer.value))
+	dl.curl.setopt(pycurl.PROXY_SSL_VERIFYPEER, int(cl_http_verifypeer.value))
+	dl.curl.setopt(pycurl.PROXY, cl_http_proxy.string.encode("latin-1"))
+	dl.curl.setopt(pycurl.LOW_SPEED_TIME, int(cl_http_bw_limit_tmout.value))
+	dl.curl.setopt(pycurl.LOW_SPEED_LIMIT, int(cl_http_bw_limit_rate.value))
+	dl.curl.setopt(pycurl.CONNECTTIMEOUT, 30)
+	dl.curl.setopt(pycurl.FOLLOWLOCATION, 1)
+	dl.curl.setopt(pycurl.MAXREDIRS, 5)
+	dl.curl.setopt(pycurl.NOPROGRESS, int(cl_http_show_dw_progress.value != 1.0))
+	#qcurl_easy_setopt(dl->curl, PROGRESSDATA, dl);
+	dl.curl.setopt(PROGRESSFUNCTION, functools.partial(CL_HTTP_CurlProgressCB, dl))
+	dl.curl.setopt(pycurl.USERAGENT, cvar.Cvar_VariableString ("version").encode("latin-1"))
+	dl.curl.setopt(pycurl.REFERER, cl_main.cls.downloadReferer.encode("latin-1"))
+	dl.curl.setopt(pycurl.URL, dl.URL.encode("latin-1"))
 
 	# Q2PORT: fix, the server chooses the URL (dlserver=), so only HTTP and HTTPS,
-	# also after a redirect: no file://, smb://, ... (libcurl 7.85, an older one
-	# ignores the options)
-	setopt(dl.curl, qcurl_h.CURLOPT_PROTOCOLS_STR, c_char_p(b"http,https"))
-	setopt(dl.curl, qcurl_h.CURLOPT_REDIR_PROTOCOLS_STR, c_char_p(b"http,https"))
+	# also after a redirect: no file://, smb://, ...
+	dl.curl.setopt(pycurl.PROTOCOLS, pycurl.PROTO_HTTP | pycurl.PROTO_HTTPS)
+	dl.curl.setopt(pycurl.REDIR_PROTOCOLS, pycurl.PROTO_HTTP | pycurl.PROTO_HTTPS)
 
-	ret = qcurl.qcurl_multi_add_handle(multi, dl.curl) #size_t ret;
+	#size_t ret;
 
-	if ret != qcurl_h.CURLM_OK:
+	try: # Q2PORT: pycurl raises the error in place of returning it
 
-		clientserver.Com_Printf("HTTP download: cURL error - %s\n", qcurl.qcurl_easy_strerror(ret).decode("latin-1"))
+		multi.add_handle(dl.curl) # ret = qcurl_multi_add_handle(multi, dl->curl)
+
+	except pycurl.error as err: # (ret != CURLM_OK)
+
+		clientserver.Com_Printf("HTTP download: cURL error - %s\n", err.args[-1])
 		CL_RemoveFromQueue(entry)
 		dl.queueEntry = None
 
@@ -596,209 +596,203 @@ def CL_FinishHTTPDownload(): #void (static)
 	size_t i;
 	"""
 	dl = None
-	msgs_in_queue = c_int(0)
 
 	while True: # do
 
 		# Get a message from CURL.
-		msg = qcurl.qcurl_multi_info_read(multi, ctypes.byref(msgs_in_queue))
+		# Q2PORT: pycurl's info_read() returns all the messages at once: the
+		# (CURLMSG_DONE) handles that succeeded, and (handle, CURLcode, error
+		# message) for those that failed
+		msgs_in_queue, ok_list, err_list = multi.info_read()
+		msgs = [(curl, pycurl.E_OK, "") for curl in ok_list] + err_list
 
-		if not msg:
+		if not msgs: # if (!msg)
 
 			return
 
 
-		msg = msg.contents
+		for curl, result, errmsg in msgs:
 
-		if msg.msg != qcurl_h.CURLMSG_DONE:
+			# Find the download handle for the message.
+			#curl = msg->easy_handle;
 
-			if msgs_in_queue.value > 0: # Q2PORT: a continue in a do while tests the condition
+			for i in range(download_h.MAX_HTTP_HANDLES):
 
-				continue
+				if cl_main.cls.HTTPHandles[i].curl is curl:
 
-			break
+					dl = cl_main.cls.HTTPHandles[i]
+					break
 
+			else:
 
-		# Find the download handle for the message.
-		curl = msg.easy_handle
-
-		for i in range(download_h.MAX_HTTP_HANDLES):
-
-			if cl_main.cls.HTTPHandles[i].curl == curl:
-
-				dl = cl_main.cls.HTTPHandles[i]
-				break
-
-		else:
-
-			clientserver.Com_Error(shared.ERR_DROP, "CL_FinishHTTPDownload: Handle not found")
+				clientserver.Com_Error(shared.ERR_DROP, "CL_FinishHTTPDownload: Handle not found")
 
 
-		# Some files aren't saved but read
-		# into memory buffers. This is used
-		# for filelists only.
-		if dl.file:
+			# Some files aren't saved but read
+			# into memory buffers. This is used
+			# for filelists only.
+			if dl.file:
 
-			isFile = True
+				isFile = True
 
-			# Mkay, it's a file. Let's
-			# close it's handle.
-			dl.file.close()
-			dl.file = None
+				# Mkay, it's a file. Let's
+				# close it's handle.
+				dl.file.close()
+				dl.file = None
 
-		else:
+			else:
 
-			isFile = False
-
-
-		# All downloads might have been aborted.
-		# This is the case if the backend (or the
-		# whole client) shuts down.
-		if pendingCount:
-
-			pendingCount -= 1
+				isFile = False
 
 
-		# The file finished downloading, it's
-		# handle it's now empty and ready for
-		# reuse.
-		handleCount -= 1
+			# All downloads might have been aborted.
+			# This is the case if the backend (or the
+			# whole client) shuts down.
+			if pendingCount:
 
-		# Get the download result (success, some
-		# error, etc.) from CURL and process it.
-		result = msg.data.result #CURLcode
-		responseCode = c_long(0)
+				pendingCount -= 1
 
-		# Q2PORT: the switch; the 200/404 case falls through to the fatal one
-		fallthrough = False
 
-		if result == qcurl_h.CURLE_HTTP_RETURNED_ERROR or result == qcurl_h.CURLE_OK:
+			# The file finished downloading, it's
+			# handle it's now empty and ready for
+			# reuse.
+			handleCount -= 1
 
-			qcurl.qcurl_easy_getinfo(curl, qcurl_h.CURLINFO_RESPONSE_CODE, ctypes.byref(responseCode))
+			# Get the download result (success, some
+			# error, etc.) from CURL and process it.
+			#CURLcode result = msg->data.result;
+			#long responseCode = 0;
 
-			if responseCode.value == 404:
+			# Q2PORT: the switch; the 200/404 case falls through to the fatal one
+			fallthrough = False
 
-				clientserver.Com_Printf("HTTP download: %s - File Not Found\n", dl.queueEntry.quakePath)
+			if result == pycurl.E_HTTP_RETURNED_ERROR or result == pycurl.E_OK:
 
-				# We got a 404, reset pak downloading state...
+				responseCode = curl.getinfo(pycurl.RESPONSE_CODE) # qcurl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &responseCode);
+
+				if responseCode == 404:
+
+					clientserver.Com_Printf("HTTP download: %s - File Not Found\n", dl.queueEntry.quakePath)
+
+					# We got a 404, reset pak downloading state...
+					if _CL_IsPak(dl.queueEntry.quakePath):
+
+						downloadingPak = False
+
+
+					# ...remove the target file...
+					if isFile:
+
+						system.Sys_Remove(dl.filePath)
+
+
+					# ...remove it from the CURL multihandle...
+					qcurl_multi_remove_handle(multi, dl.curl)
+					CL_RemoveFromQueue(dl.queueEntry)
+					dl.queueEntry = None
+
+					# ...and communicate the error.
+					if isFile:
+
+						dlquirks.error = True
+						isFile = False
+
+				elif responseCode == 200:
+
+					clientserver.Com_Printf("HTTP download: %s - OK\n", dl.queueEntry.quakePath)
+
+					# This wasn't a file, so it must be a filelist.
+					if not isFile and not abortDownloads:
+
+						CL_ParseFileList(dl)
+						CL_RemoveFromQueue(dl.queueEntry)
+						dl.queueEntry = None
+
+				else:
+
+					# Everything that's not 200 and 404 is fatal, fall through.
+					fallthrough = True
+
+
+			# Q2PORT: and CURLE_UNSUPPORTED_PROTOCOL, a redirect to something other
+			# than HTTP(S), which CURLOPT_REDIR_PROTOCOLS_STR refuses
+			if fallthrough or result == pycurl.E_COULDNT_RESOLVE_HOST or \
+				result == pycurl.E_COULDNT_CONNECT or result == pycurl.E_COULDNT_RESOLVE_PROXY or \
+				result == pycurl.E_UNSUPPORTED_PROTOCOL:
+
+				clientserver.Com_Printf("HTTP download: %s - Server broken, aborting\n", dl.queueEntry.quakePath)
+
+				# The download failed. Reset pak downloading state...
 				if _CL_IsPak(dl.queueEntry.quakePath):
 
 					downloadingPak = False
 
 
-				# ...remove the target file...
+				# remove the temporary file...
 				if isFile:
 
 					system.Sys_Remove(dl.filePath)
-
-
-				# ...remove it from the CURL multihandle...
-				qcurl.qcurl_multi_remove_handle(multi, dl.curl)
-				CL_RemoveFromQueue(dl.queueEntry)
-				dl.queueEntry = None
-
-				# ...and communicate the error.
-				if isFile:
-
-					dlquirks.error = True
 					isFile = False
 
-			elif responseCode.value == 200:
 
-				clientserver.Com_Printf("HTTP download: %s - OK\n", dl.queueEntry.quakePath)
+				# ...and the handle from CURLs mutihandle.
+				qcurl_multi_remove_handle(multi, dl.curl)
 
-				# This wasn't a file, so it must be a filelist.
-				if not isFile and not abortDownloads:
+				# Special case: We're already aborting HTTP downloading,
+				# so we can't just kill everything. Otherwise we'll get
+				# stuck.
+				if abortDownloads:
 
-					CL_ParseFileList(dl)
 					CL_RemoveFromQueue(dl.queueEntry)
 					dl.queueEntry = None
 
-			else:
 
-				# Everything that's not 200 and 404 is fatal, fall through.
-				fallthrough = True
+				# Abort all HTTP downloads.
+				CL_CancelHTTPDownloads (True)
+				CL_RemoveFromQueue(dl.queueEntry)
+				dl.queueEntry = None
 
+			elif result != pycurl.E_HTTP_RETURNED_ERROR and result != pycurl.E_OK: # default:
 
-		# Q2PORT: and CURLE_UNSUPPORTED_PROTOCOL, a redirect to something other
-		# than HTTP(S), which CURLOPT_REDIR_PROTOCOLS_STR refuses
-		if fallthrough or result == qcurl_h.CURLE_COULDNT_RESOLVE_HOST or \
-			result == qcurl_h.CURLE_COULDNT_CONNECT or result == qcurl_h.CURLE_COULDNT_RESOLVE_PROXY or \
-			result == qcurl_h.CURLE_UNSUPPORTED_PROTOCOL:
+				clientserver.Com_Printf ("HTTP download: cURL error - %s\n", errmsg) # qcurl_easy_strerror(result)
 
-			clientserver.Com_Printf("HTTP download: %s - Server broken, aborting\n", dl.queueEntry.quakePath)
+				# The download failed. Clear the Remove the temporary file...
+				if isFile:
 
-			# The download failed. Reset pak downloading state...
-			if _CL_IsPak(dl.queueEntry.quakePath):
-
-				downloadingPak = False
+					system.Sys_Remove(dl.filePath)
+					isFile = False
 
 
-			# remove the temporary file...
+				# ...and the handle from CURLs mutihandle.
+				qcurl_multi_remove_handle(multi, dl.curl)
+				CL_RemoveFromQueue(dl.queueEntry)
+				dl.queueEntry = None
+
+
 			if isFile:
 
-				system.Sys_Remove(dl.filePath)
-				isFile = False
+				# Rename the temporary file to it's final location
+				tempName = "{}/{}".format(filesystem.FS_Gamedir(), dl.queueEntry.quakePath)
+				system.Sys_Rename(dl.filePath, tempName)
 
+				# Pak files are special because they contain
+				# other files that we may be downloading...
+				# The list of file types must be consistent with fs_packtypes in filesystem.c.
+				if _CL_IsPak(tempName):
 
-			# ...and the handle from CURLs mutihandle.
-			qcurl.qcurl_multi_remove_handle(multi, dl.curl)
+					filesystem.FS_AddPAKFromGamedir(dl.queueEntry.quakePath)
+					CL_ReVerifyHTTPQueue ()
+					downloadingPak = False
 
-			# Special case: We're already aborting HTTP downloading,
-			# so we can't just kill everything. Otherwise we'll get
-			# stuck.
-			if abortDownloads:
 
 				CL_RemoveFromQueue(dl.queueEntry)
 				dl.queueEntry = None
 
 
-			# Abort all HTTP downloads.
-			CL_CancelHTTPDownloads (True)
-			CL_RemoveFromQueue(dl.queueEntry)
-			dl.queueEntry = None
+			# Remove the file fo CURLs multihandle.
+			qcurl_multi_remove_handle(multi, dl.curl)
 
-		elif result != qcurl_h.CURLE_HTTP_RETURNED_ERROR and result != qcurl_h.CURLE_OK: # default:
-
-			clientserver.Com_Printf ("HTTP download: cURL error - %s\n", qcurl.qcurl_easy_strerror(result).decode("latin-1"))
-
-			# The download failed. Clear the Remove the temporary file...
-			if isFile:
-
-				system.Sys_Remove(dl.filePath)
-				isFile = False
-
-
-			# ...and the handle from CURLs mutihandle.
-			qcurl.qcurl_multi_remove_handle (multi, dl.curl)
-			CL_RemoveFromQueue(dl.queueEntry)
-			dl.queueEntry = None
-
-
-		if isFile:
-
-			# Rename the temporary file to it's final location
-			tempName = "{}/{}".format(filesystem.FS_Gamedir(), dl.queueEntry.quakePath)
-			system.Sys_Rename(dl.filePath, tempName)
-
-			# Pak files are special because they contain
-			# other files that we may be downloading...
-			# The list of file types must be consistent with fs_packtypes in filesystem.c.
-			if _CL_IsPak(tempName):
-
-				filesystem.FS_AddPAKFromGamedir(dl.queueEntry.quakePath)
-				CL_ReVerifyHTTPQueue ()
-				downloadingPak = False
-
-
-			CL_RemoveFromQueue(dl.queueEntry)
-			dl.queueEntry = None
-
-
-		# Remove the file fo CURLs multihandle.
-		qcurl.qcurl_multi_remove_handle (multi, dl.curl)
-
-		if not (msgs_in_queue.value > 0): # while (msgs_in_queue > 0);
+		if not (msgs_in_queue > 0): # while (msgs_in_queue > 0);
 
 			break
 
@@ -921,10 +915,10 @@ def CL_HTTP_Cleanup(fullShutdown: bool): #qboolean
 
 			if multi:
 
-				qcurl.qcurl_multi_remove_handle(multi, dl.curl)
+				qcurl_multi_remove_handle(multi, dl.curl)
 
 
-			qcurl.qcurl_easy_cleanup(dl.curl)
+			dl.curl.close() # qcurl_easy_cleanup(dl->curl)
 			dl.curl = None
 
 
@@ -937,7 +931,7 @@ def CL_HTTP_Cleanup(fullShutdown: bool): #qboolean
 	# Cleanup CURL multihandle.
 	if multi:
 
-		qcurl.qcurl_multi_cleanup(multi)
+		multi.close() # qcurl_multi_cleanup(multi)
 		multi = None
 
 
@@ -1010,7 +1004,7 @@ def CL_SetHTTPServer (URL: str): #const char *
 		clientserver.Com_Error(shared.ERR_DROP, "HTTP download: Still have old handle?!")
 
 
-	multi = qcurl.qcurl_multi_init()
+	multi = pycurl.CurlMulti() # qcurl_multi_init()
 
 """
  * Cancels all downloads and clears the queue.
@@ -1162,7 +1156,6 @@ def CL_RunHTTPDownloads(): #void
 
 	#int	newHandleCount;
 	#CURLMcode ret;
-	newHandleCount = c_int(0)
 
 	# No HTTP server given or not initialized.
 	if not cl_main.cls.downloadServer:
@@ -1173,22 +1166,30 @@ def CL_RunHTTPDownloads(): #void
 	# Kick CURL into action.
 	while True: # do
 
-		ret = qcurl.qcurl_multi_perform(multi, ctypes.byref(newHandleCount))
+		try: # Q2PORT: pycurl raises the error in place of returning it
 
-		if newHandleCount.value < handleCount:
+			ret, newHandleCount = multi.perform() # ret = qcurl_multi_perform(multi, &newHandleCount);
+
+		except pycurl.error as err:
+
+			ret, newHandleCount = err.args[0], handleCount
+			errmsg = err.args[-1] # qcurl_multi_strerror(ret)
+
+
+		if newHandleCount < handleCount:
 
 			CL_FinishHTTPDownload()
-			handleCount = newHandleCount.value
+			handleCount = newHandleCount
 
 
-		if ret != qcurl_h.CURLM_CALL_MULTI_PERFORM:
+		if ret != pycurl.E_CALL_MULTI_PERFORM:
 			break
 
 
 	# Somethings gone very wrong.
-	if ret != qcurl_h.CURLM_OK:
+	if ret != pycurl.E_MULTI_OK:
 
-		clientserver.Com_Printf("HTTP download: cURL error - %s\n", qcurl.qcurl_multi_strerror(ret).decode("latin-1"))
+		clientserver.Com_Printf("HTTP download: cURL error - %s\n", errmsg)
 		CL_CancelHTTPDownloads(True)
 
 
