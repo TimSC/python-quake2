@@ -446,6 +446,10 @@ def SV_BeginDownload_f(): #void
 
 		offset = shared_c.atoi(cmdparser.Cmd_Argv(2)) # downloaded offset
 
+		if offset < 0: # Q2PORT: fix, the C reads before the start of the file for a negative offset
+
+			offset = 0
+
 
 	# hacked by zoid to allow more conrol over download
 	# first off, no .. or global allow check
@@ -689,7 +693,7 @@ def SV_ExecuteClientMessage(cl: server_h.client_t): #client_t *
 			move_issued = True
 			checksumIndex = netchan.net_message.readcount
 			checksum = movemsg.MSG_ReadByte(netchan.net_message)
-			lastframe = movemsg.MSG_ReadLong(netchan.net_message)
+			lastframe = movemsg.MSG_ReadSLong(netchan.net_message) # Q2PORT: signed, as the C's int MSG_ReadLong() (-1 is no frame yet)
 
 			if lastframe != cl.lastframe:
 

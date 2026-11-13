@@ -200,6 +200,14 @@ def Con_Dump_f(): #void
 		return
 
 
+	# Q2PORT: fix, the name could leave the game directory (a server can stuff
+	# this command)
+	if ".." in cmdparser.Cmd_Argv(1):
+
+		clientserver.Com_Printf("Refusing to dump to a path with ..\n")
+		return
+
+
 	name = "%s/%s.txt" % (filesystem.FS_Gamedir(), cmdparser.Cmd_Argv(1))
 
 	clientserver.Com_Printf("Dumped console text to %s.\n", name)

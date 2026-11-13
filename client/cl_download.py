@@ -461,20 +461,24 @@ Returns true if the file exists, otherwise it attempts
 to start a download from the server.
 ===============
 """
-def CL_CheckOrDownloadFile (filename): #char * (returns qboolean)
+def CL_CheckOrDownloadFile (filename): #const char * (returns qboolean)
 
 	#FILE *fp;
 	#char	name[MAX_OSPATH];
+	#char *ptr;
 
-	if ".." in filename:
-	
-		clientserver.Com_Printf ("Refusing to download a path with ..\n")
+	# fix backslashes - this is mostly für UNIX comaptiblity
+	filename = filename.replace("\\", "/") # while ((ptr = (char *)strchr(filename, '\\'))) *ptr = '/';
+
+	if CL_DownloadFilter(filename):
+
 		return True
-	
-	if filesystem.FS_LoadFile (filename)[0] != -1:
-		# it exists, no need to download
-		return True
-	
+
+
+	#ifdef USE_CURL
+	# Q2PORT: the HTTP downloads (cURL) aren't ported
+	#endif
+
 	cl_main.cls.downloadname = filename
 
 	# download to a temp name, and only rename
@@ -483,18 +487,19 @@ def CL_CheckOrDownloadFile (filename): #char * (returns qboolean)
 	cl_main.cls.downloadtempname = shared_c.COM_StripExtension (cl_main.cls.downloadname)
 	cl_main.cls.downloadtempname += ".tmp"
 
-#ZOID
-	# check to see if we already have a tmp for this file, if so, try to resume
-	# open the file if not opened yet
+	# check to see if we already have a tmp for this
+	# file, if so, try to resume and open the file if
+	# not opened yet
 	name = CL_DownloadFileName(cl_main.cls.downloadtempname)
 
-#	FS_CreatePath (name);
-
 	try:
-		fp = open (name, "r+b")
+		fp = open (name, "r+b") # Q_fopen(name, "r+b")
 	except OSError:
 		fp = None
-	if fp is not None: # it exists
+
+	if fp is not None:
+
+		# it exists
 		#int len;
 		fp.seek(0, os.SEEK_END)
 		length = fp.tell()
@@ -504,15 +509,17 @@ def CL_CheckOrDownloadFile (filename): #char * (returns qboolean)
 		# give the server an offset to start the download
 		clientserver.Com_Printf ("Resuming {}\n".format(cl_main.cls.downloadname))
 		movemsg.MSG_WriteByte (cl_main.cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value)
-		movemsg.MSG_WriteString (cl_main.cls.netchan.message,
-			"download {} {}".format(cl_main.cls.downloadname, length).encode('ascii'))
+		movemsg.MSG_WriteString (cl_main.cls.netchan.message, "download {} {}".format(cl_main.cls.downloadname, length))
+
 	else:
+
 		clientserver.Com_Printf ("Downloading {}\n".format(cl_main.cls.downloadname))
 		movemsg.MSG_WriteByte (cl_main.cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value)
-		movemsg.MSG_WriteString (cl_main.cls.netchan.message,
-			"download {}".format(cl_main.cls.downloadname).encode('ascii'))
-	
+		movemsg.MSG_WriteString (cl_main.cls.netchan.message, "download {}".format(cl_main.cls.downloadname))
+
+
 	cl_main.cls.downloadnumber += 1
+	cl_main.cls.forcePacket = True
 
 	return False
 

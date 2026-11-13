@@ -833,14 +833,16 @@ def MSG_ReadDeltaUsercmd (msg_read: common_h.sizebuf_t, from_cmd, move):
 	if bits & common_h.CM_UP:
 		move.upmove = MSG_ReadShort (msg_read)
 
+	# Q2PORT: & 0xff, these are bytes in the C's usercmd_t; MSG_ReadByte() past
+	# the end of the message returns -1, which the C stores as 255
 	if bits & common_h.CM_BUTTONS:
-		move.buttons = MSG_ReadByte (msg_read)
+		move.buttons = MSG_ReadByte (msg_read) & 0xff
 
 	if bits & common_h.CM_IMPULSE:
-		move.impulse = MSG_ReadByte (msg_read)
+		move.impulse = MSG_ReadByte (msg_read) & 0xff
 
-	move.msec = MSG_ReadByte (msg_read)
-	move.lightlevel = MSG_ReadByte (msg_read)
+	move.msec = MSG_ReadByte (msg_read) & 0xff
+	move.lightlevel = MSG_ReadByte (msg_read) & 0xff
 
 def MSG_ReadData (msg_read, length: int): #sizebuf_t *, void *, int
 

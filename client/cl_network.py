@@ -28,6 +28,7 @@ from __future__ import annotations
 from client import cl_keyboard
 
 import struct
+import traceback
 from client import cl_cin, cl_parse
 from client.sound import sound as sound_c
 from backends.unix import system, network
@@ -695,6 +696,25 @@ def CL_ConnectionlessPacket ():
 
 	
 
+def CL_UntrustedDataError(err: Exception, what: str, drop: bool): # Q2PORT: Exception, char *, qboolean
+
+	# Q2PORT: not in the C. A packet from the network is untrusted data, and a
+	# python exception while parsing it (a bug the bad data reached, where the
+	# C would read garbage) would otherwise end the program. CL_ReadPackets()
+	# catches it instead: a message from the server drops the connection, as
+	# the C's ERR_DROP for an illegible message; a connectionless packet, which
+	# anyone can send, is ignored. The traceback is printed for developer 1.
+	clientserver.Com_DPrintf("{}".format("".join(traceback.format_exception(err))))
+
+	if drop:
+
+		clientserver.Com_Error(shared.ERR_DROP, "CL_ParseServerMessage: {} in {} from {}".format(
+			type(err).__name__, what, network.NET_AdrToString(netchan.net_from)))
+
+
+	clientserver.Com_Printf("{}: {} in {} from {}, ignored\n".format("CL_ReadPackets",
+		type(err).__name__, what, network.NET_AdrToString(netchan.net_from)))
+
 """
 =================
 CL_ReadPackets
@@ -711,9 +731,23 @@ def CL_ReadPackets ():
 			# remote command packet
 			#
 
-			header = struct.unpack("<l", netchan.net_message.data[:4])[0] # *(int *)net_message.data
-			if header == -1:
-				CL_ConnectionlessPacket ()
+			# Q2PORT: and the packet has those 4 bytes; net_message.data is only as
+			# long as the packet (the C reads its fixed size buffer)
+			if netchan.net_message.cursize >= 4 and \
+				struct.unpack("<l", netchan.net_message.data[:4])[0] == -1: # *(int *)net_message.data == -1
+
+				try: # Q2PORT: see CL_UntrustedDataError()
+
+					CL_ConnectionlessPacket ()
+
+				except clientserver.abortframe:
+
+					raise
+
+				except Exception as err:
+
+					CL_UntrustedDataError(err, "connectionless packet", False)
+
 				continue
 			
 
@@ -737,7 +771,17 @@ def CL_ReadPackets ():
 			
 			if not netchan.Netchan_Process(cl_main.cls.netchan, netchan.net_message):
 				continue		# wasn't accepted for some reason
-			cl_parse.CL_ParseServerMessage ()
+			try: # Q2PORT: see CL_UntrustedDataError()
+
+				cl_parse.CL_ParseServerMessage ()
+
+			except clientserver.abortframe:
+
+				raise
+
+			except Exception as err:
+
+				CL_UntrustedDataError(err, "server message", True)
 
 		finally:
 			rx, netchan.net_from = network.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, netchan.net_from, netchan.net_message)

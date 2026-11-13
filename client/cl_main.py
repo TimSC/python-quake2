@@ -274,6 +274,13 @@ def CL_Record_f ():
 	
 		clientserver.Com_Printf ("Already recording.\n")
 		return
+
+	# Q2PORT: fix, the name could leave the game directory (a server can stuff
+	# this command)
+	if ".." in cmdparser.Cmd_Argv(1):
+
+		clientserver.Com_Printf ("Refusing to record to a path with ..\n")
+		return
 	
 	if cls.state != client_h.connstate_t.ca_active:
 	
