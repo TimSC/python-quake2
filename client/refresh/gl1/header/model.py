@@ -26,7 +26,8 @@
 from __future__ import annotations
 
 import numpy as np
-from common.header import files as files_h
+from q2data import bsp as q2bsp
+from q2data import md2 as q2md2
 from common.header import shared
 from client.refresh import ref_shared
 
@@ -73,8 +74,8 @@ class msurface_t(object):
 		self.dlightbits = 0 #int
 		self.dirty_lightmap = False #qboolean, lightmap has dynamic lights from previous frame (mtex only)
 		self.lightmaptexturenum = 0 #int
-		self.styles = [0] * files_h.MAXLIGHTMAPS #byte
-		self.cached_light = [0.0] * files_h.MAXLIGHTMAPS #float, values currently used in lightmap
+		self.styles = [0] * q2bsp.MAX_LIGHTMAPS #byte
+		self.cached_light = [0.0] * q2bsp.MAX_LIGHTMAPS #float, values currently used in lightmap
 		self.samples = None #byte *, [numstyles*surfsize]
 
 class model_t(object):
@@ -121,7 +122,7 @@ class model_t(object):
 		self.marksurfaces = [] #msurface_t **
 		self.vis = None #dvis_t *
 		self.lightdata = None #byte *
-		self.skins = [None] * files_h.MAX_MD2SKINS #image_t *, for alias models and skins
+		self.skins = [None] * q2md2.MAX_SKINS #image_t *, for alias models and skins
 		self.extradatasize = 0 #int
 		self.extradata = None #void *
 		self.origin = np.zeros((3,), dtype=np.float32) #vec3_t, submodules, for sounds or lights

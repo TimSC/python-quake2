@@ -29,7 +29,8 @@ from backends.unix import system
 
 from client import cl_view, cl_parse
 from common.header import common as common_h
-from common.header import files as files_h
+from q2data import md2 as q2md2
+from q2data import FormatError
 from common.header import shared
 from common.shared import shared as shared_c
 from common import clientserver
@@ -173,7 +174,7 @@ def CL_RequestNextDownload(): #void
 						cl_main.precache_check += 1
 						continue # couldn't load it
 					
-					if shared_c.LittleLong(cl_main.precache_model[:4]) != files_h.IDALIASHEADER:
+					if bytes(cl_main.precache_model[:4]) != q2md2.MD2_IDENT:
 						# not an alias model
 						filesystem.FS_FreeFile(cl_main.precache_model)
 						cl_main.precache_model = None
@@ -181,19 +182,25 @@ def CL_RequestNextDownload(): #void
 						cl_main.precache_check += 1
 						continue
 					
-					pheader = files_h.dmdl_t() # (dmdl_t *)precache_model
-					pheader.load(cl_main.precache_model)
-					if pheader.version != files_h.ALIAS_VERSION: # LittleLong (pheader->version)
+					try:
+						q2md2.read_header(bytes(cl_main.precache_model)) # the version and size
+					except FormatError:
 						cl_main.precache_check += 1
 						cl_main.precache_model_skin = 0
 						continue # couldn't load it
 					
-				pheader = files_h.dmdl_t() # (dmdl_t *)precache_model
-				pheader.load(cl_main.precache_model)
+				try:
+					pheader = q2md2.read_header(bytes(cl_main.precache_model))
+				except FormatError:
+					filesystem.FS_FreeFile(cl_main.precache_model)
+					cl_main.precache_model = None
+					cl_main.precache_model_skin = 0
+					cl_main.precache_check += 1
+					continue # couldn't load it
 
 				while cl_main.precache_model_skin - 1 < pheader.num_skins: # LittleLong(pheader->num_skins)
-					skin_ofs = pheader.ofs_skins + (cl_main.precache_model_skin - 1)*files_h.MAX_SKINNAME # (char *)precache_model + LittleLong(pheader->ofs_skins) + (precache_model_skin - 1)*MAX_SKINNAME
-					skinname = bytes(cl_main.precache_model[skin_ofs:skin_ofs+files_h.MAX_SKINNAME]).split(b"\0")[0].decode('latin-1')
+					skin_ofs = pheader.ofs_skins + (cl_main.precache_model_skin - 1)*q2md2.SKIN_NAME_SIZE # (char *)precache_model + LittleLong(pheader->ofs_skins) + (precache_model_skin - 1)*MAX_SKINNAME
+					skinname = bytes(cl_main.precache_model[skin_ofs:skin_ofs+q2md2.SKIN_NAME_SIZE]).split(b"\0")[0].decode('latin-1')
 					if not CL_CheckOrDownloadFile(skinname):
 						cl_main.precache_model_skin += 1
 						return # started a download
@@ -410,7 +417,7 @@ def CL_RequestNextDownload(): #void
 
 	# ensure ClientUserinfoChanged is called on reconnect
 	# and player skin config string gets broadcasted
-	cvar.userinfo_modified = True
+	cvar.registry.userinfo_modified = True
 
 	movemsg.MSG_WriteByte (cl_main.cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value)
 	movemsg.MSG_WriteString (cl_main.cls.netchan.message, "begin {}\n".format(cl_main.precache_spawncount).encode('ascii') )

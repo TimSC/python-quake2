@@ -38,6 +38,7 @@ from common import cmdparser
 from common import crc
 from common import cvar
 from common import movemsg
+from common import usercmd_delta
 from common import szone
 from common import netchan
 from client import cl_cin
@@ -607,10 +608,10 @@ def CL_SendCmd(): #void
 
 
 	# send a userinfo update if needed
-	if cvar.userinfo_modified:
+	if cvar.registry.userinfo_modified:
 
 		cl_main.CL_FixUpGender()
-		cvar.userinfo_modified = False
+		cvar.registry.userinfo_modified = False
 		movemsg.MSG_WriteByte(cl_main.cls.netchan.message, common_h.clc_ops_e.clc_userinfo.value)
 		movemsg.MSG_WriteString(cl_main.cls.netchan.message, cvar.Cvar_Userinfo().encode('ascii'))
 
@@ -649,17 +650,17 @@ def CL_SendCmd(): #void
 	i = (cl_main.cls.netchan.outgoing_sequence - 2) & (client_h.CMD_BACKUP - 1)
 	cmd = cl_main.cl.cmds[i]
 	nullcmd = shared.usercmd_t() # memset(&nullcmd, 0, sizeof(nullcmd));
-	movemsg.MSG_WriteDeltaUsercmd(buf, nullcmd, cmd)
+	usercmd_delta.write_delta(buf, nullcmd, cmd)
 	oldcmd = cmd
 
 	i = (cl_main.cls.netchan.outgoing_sequence - 1) & (client_h.CMD_BACKUP - 1)
 	cmd = cl_main.cl.cmds[i]
-	movemsg.MSG_WriteDeltaUsercmd(buf, oldcmd, cmd)
+	usercmd_delta.write_delta(buf, oldcmd, cmd)
 	oldcmd = cmd
 
 	i = (cl_main.cls.netchan.outgoing_sequence) & (client_h.CMD_BACKUP - 1)
 	cmd = cl_main.cl.cmds[i]
-	movemsg.MSG_WriteDeltaUsercmd(buf, oldcmd, cmd)
+	usercmd_delta.write_delta(buf, oldcmd, cmd)
 
 	# calculate a checksum over the move commands
 	buf.data[checksumIndex] = crc.COM_BlockSequenceCRCByte(

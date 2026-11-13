@@ -30,7 +30,7 @@ from __future__ import annotations
 import numpy as np
 from enum import Enum
 from OpenGL import GL
-from common.header import files as files_h
+from q2data import bsp as q2bsp
 from common.header import shared
 from client.refresh.gl3.header import hmm
 
@@ -111,7 +111,7 @@ BLOCK_WIDTH = 1024
 BLOCK_HEIGHT = 512
 LIGHTMAP_BYTES = 4
 MAX_LIGHTMAPS = 4
-MAX_LIGHTMAPS_PER_SURFACE = files_h.MAXLIGHTMAPS # 4
+MAX_LIGHTMAPS_PER_SURFACE = q2bsp.MAX_LIGHTMAPS # 4
 
 class gl3state_t(object):
 
@@ -207,7 +207,7 @@ class gl3drawCmd_t(object):
 		self.alpha = 0.0 #float, either part of color or for gl3state.uni3DData.alpha
 		self.color = [0, 0, 0] #byte [3], for uniCommonData.color; its alpha chan is in .alpha
 		self.flags = 0 #byte, gl3drawCmd_Flags
-		self.styles = [0] * files_h.MAXLIGHTMAPS #byte, indexes into r_newrefdef.lightstyles[]; 255 means "ignore"
+		self.styles = [0] * q2bsp.MAX_LIGHTMAPS #byte, indexes into r_newrefdef.lightstyles[]; 255 means "ignore"
 		# the following are set in GL3_BufferAndDraw3D()
 		self.idxBufOffset = 0 #int
 		self.numElements = 0 #int, in index buffer

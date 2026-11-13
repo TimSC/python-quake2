@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from enum import Enum
 from common.header import common as common_h
-from common.header import files as files_h
+from q2data import bsp as q2bsp
 from common.header import shared
 
 """
@@ -126,7 +126,7 @@ class client_frame_t(object):
 	def __init__(self):
 
 		self.areabytes = 0 #int
-		self.areabits = bytearray(files_h.MAX_MAP_AREAS // 8) #byte [MAX_MAP_AREAS / 8], portalarea visibility bits
+		self.areabits = bytearray(q2bsp.MAX_MAP_AREAS // 8) #byte [MAX_MAP_AREAS / 8], portalarea visibility bits
 		self.ps = shared.player_state_t() #player_state_t
 		self.num_entities = 0 #int
 		self.first_entity = 0 #int, into the circular sv_packet_entities[]

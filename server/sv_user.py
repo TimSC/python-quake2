@@ -35,6 +35,8 @@ from common import crc
 from common import cvar
 from common import filesystem
 from common import movemsg
+from common import usercmd_delta
+from common import entity_delta
 from common import szone
 from common import netchan
 from server.header import server as server_h
@@ -205,13 +207,13 @@ def SV_AddBaselines(start: int, allow_zero: bool): #int, qboolean
 		if base.modelindex or base.sound or base.effects:
 
 			if not _EnoughSpaceInBuffer(msg,
-				movemsg.MSG_DeltaEntity_Size(None, base, True, True), is_opt):
+				entity_delta.delta_size(None, base, True, True), is_opt):
 
 				break
 
 
 			movemsg.MSG_WriteByte(msg, common_h.svc_ops_e.svc_spawnbaseline.value)
-			movemsg.MSG_WriteDeltaEntity(None, base, msg, True, True)
+			entity_delta.write_delta(None, base, msg, True, True)
 
 		i += 1
 
@@ -710,9 +712,9 @@ def SV_ExecuteClientMessage(cl: server_h.client_t): #client_t *
 			oldest = shared.usercmd_t()
 			oldcmd = shared.usercmd_t()
 			newcmd = shared.usercmd_t()
-			movemsg.MSG_ReadDeltaUsercmd(netchan.net_message, nullcmd, oldest)
-			movemsg.MSG_ReadDeltaUsercmd(netchan.net_message, oldest, oldcmd)
-			movemsg.MSG_ReadDeltaUsercmd(netchan.net_message, oldcmd, newcmd)
+			usercmd_delta.read_delta(netchan.net_message, nullcmd, oldest)
+			usercmd_delta.read_delta(netchan.net_message, oldest, oldcmd)
+			usercmd_delta.read_delta(netchan.net_message, oldcmd, newcmd)
 
 			if cl.state != server_h.client_state_t.cs_spawned:
 

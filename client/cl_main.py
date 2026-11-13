@@ -36,7 +36,6 @@ import struct
 from client import cl_view, cl_input, cl_cin, cl_parse
 from client.sound import sound as sound_c
 from backends.unix import system, network
-from linux import cd_linux
 from client.vid import vid
 from common.header import common as common_h
 from common.header import shared
@@ -48,6 +47,7 @@ from common import cvar
 from common import filesystem
 from common import frame
 from common import movemsg
+from common import entity_delta
 from common import szone
 from common import collision
 from common import netchan
@@ -352,7 +352,7 @@ def CL_Record_f ():
 			buf.cursize = 0
 		
 		movemsg.MSG_WriteByte (buf, common_h.svc_ops_e.svc_spawnbaseline.value)		
-		movemsg.MSG_WriteDeltaEntity (None, cl_entities[i].baseline, buf, True, True)
+		entity_delta.write_delta (None, cl_entities[i].baseline, buf, True, True)
 	
 	movemsg.MSG_WriteByte (buf, common_h.svc_ops_e.svc_stufftext.value)
 	movemsg.MSG_WriteString (buf, b"precache\n")
@@ -979,7 +979,7 @@ def CL_Frame(packetdelta: int, renderdelta: int, timedelta: int, packetframe: bo
 
 
 
-	if cls.forcePacket or cvar.userinfo_modified:
+	if cls.forcePacket or cvar.registry.userinfo_modified:
 
 		packetframe = True
 		cls.forcePacket = False

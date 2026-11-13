@@ -9,6 +9,10 @@ PY=${PY:-env/bin/python}
 OUT=${OUT:-/tmp/q2tests/harness}
 Y=yquake2/src
 mkdir -p "$OUT"
+# the inputs come from a map in the (proprietary) game data; skip without it
+if [ ! -d "${Q2DATA:-/home/tim/dev/quake2data/Data}/baseq2" ]; then
+	echo "skip cmharness, pmharness, rand  (no game data)"; exit 0
+fi
 $PY tests/harness/gen_inputs.py "$OUT" ${MAP:-base1} ${SEED:-1}
 if [ "$C" = id ]; then
 	Q=quake2-original

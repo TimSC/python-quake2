@@ -33,7 +33,7 @@ from client.refresh import ref_shared
 from client.refresh.gl1.header import model
 from client.refresh.files import surf as files_surf
 from common import clientserver
-from common.header import files as files_h
+from q2data import bsp as q2bsp
 from common.header import shared
 from common.shared import shared as shared_c
 
@@ -395,7 +395,7 @@ def R_RenderBrushPoly(fa): #msurface_t * (static)
 	# check for lightmap modification
 	dynamic = False # Q2PORT: the C's goto dynamic
 	maps = 0
-	while maps < files_h.MAXLIGHTMAPS and fa.styles[maps] != 255:
+	while maps < q2bsp.MAX_LIGHTMAPS and fa.styles[maps] != 255:
 
 		if (gl1_main.r_newrefdef.lightstyles[fa.styles[maps]].white !=
 			fa.cached_light[maps]):
@@ -420,7 +420,7 @@ def R_RenderBrushPoly(fa): #msurface_t * (static)
 
 	if is_dynamic:
 
-		if (maps < files_h.MAXLIGHTMAPS and
+		if (maps < q2bsp.MAX_LIGHTMAPS and
 			((fa.styles[maps] >= 32) or
 			 (fa.styles[maps] == 0)) and
 			  (fa.dlightframe != gl1_main.r_framecount)):
@@ -602,7 +602,7 @@ def R_RegenAllLightmaps(): #void (static)
 			# Any dynamic lights on this surface?
 			dynamic_surf = False # Q2PORT: the C's goto dynamic_surf
 			map = 0
-			while map < files_h.MAXLIGHTMAPS and surf.styles[map] != 255:
+			while map < q2bsp.MAX_LIGHTMAPS and surf.styles[map] != 255:
 
 				if gl1_main.r_newrefdef.lightstyles[surf.styles[map]].white != surf.cached_light[map]:
 
@@ -632,7 +632,7 @@ def R_RegenAllLightmaps(): #void (static)
 			if not surf.dirty_lightmap or gl1_main.gl_config.tilerendering:
 
 				map = 0
-				while map < files_h.MAXLIGHTMAPS and surf.styles[map] != 255:
+				while map < q2bsp.MAX_LIGHTMAPS and surf.styles[map] != 255:
 
 					if (surf.styles[map] >= 32) or (surf.styles[map] == 0):
 
@@ -964,15 +964,15 @@ def R_RecursiveWorldNode(currententity, node): #entity_t *, mnode_t * (static)
 	# sides find which side of the node we are on
 	plane = node.plane
 
-	if plane.type == files_h.PLANE_X:
+	if plane.type == q2bsp.PlaneType.X:
 
 		dot = modelorg[0] - plane.dist
 
-	elif plane.type == files_h.PLANE_Y:
+	elif plane.type == q2bsp.PlaneType.Y:
 
 		dot = modelorg[1] - plane.dist
 
-	elif plane.type == files_h.PLANE_Z:
+	elif plane.type == q2bsp.PlaneType.Z:
 
 		dot = modelorg[2] - plane.dist
 
@@ -1188,7 +1188,7 @@ def R_MarkLeaves(): #void
 	# may have to combine two clusters because of solid water boundaries
 	if gl1_main.r_viewcluster2 != gl1_main.r_viewcluster:
 
-		fatvis = bytearray(files_h.MAX_MAP_LEAFS // 8)
+		fatvis = bytearray(q2bsp.MAX_MAP_LEAFS // 8)
 		n = (r_worldmodel.numleafs + 7) // 8
 		fatvis[:n] = vis[:n] # memcpy(fatvis, vis, (r_worldmodel->numleafs + 7) / 8);
 		vis = gl1_model.Mod_ClusterPVS(gl1_main.r_viewcluster2, r_worldmodel)

@@ -26,7 +26,9 @@
 from __future__ import annotations
 
 import struct
-from common.header import files as files_h
+
+from q2data import FormatError
+from q2data import images as q2images
 from common.header import shared
 from common.shared import shared as shared_c
 from common import clientserver, filesystem
@@ -155,35 +157,40 @@ def fixQuitScreen(px: bytearray): #byte* (static)
 LoadPCX
 ==============
 """
-def LoadPCX(origname): #char *, byte **, byte **, int *, int * (returns qboolean)
+def LoadPCX(origname): #char * (returns pic, palette, width, height)
 
-	# Q2PORT: Yamagi's LoadPCX takes the name without extension (it is
-	# FixFileExt'ed, so a name with ".pcx" works too) and also returns
-	# bitsPerPixel; the port only reads 8 bit PCX, so that is always 8.
+	# The name may come with or without ".pcx". The pixels are 8 bit palette
+	# indices (q2data.images.load_pcx); true colour PCX files aren't used by
+	# the renderers' callers, so they are refused as before.
 	filename = FixFileExt(origname, "pcx", None)
 
-	#
-	# load the file
-	#
 	length, raw = filesystem.FS_LoadFile(filename)
 	if raw is None:
 		clientserver.Com_Printf("Bad pcx file {}\n".format(filename))
 		return None, None, None, None
 
-	pcx = files_h.pcx_t()
-
+	raw = bytes(raw)
 	try:
-		pic, palette, width, height = pcx.Decompress(raw)
-	except IndexError:
-		pic = None
-		clientserver.Com_Printf("PCX file {} was malformed".format(filename))
+		image = q2images.load_pcx(raw)
+	except FormatError as err:
+		clientserver.Com_Printf("{}: {} {}\n".format("PCX_Decode", filename, err))
+		return None, None, None, None
 
-	if pic is None:
+	for warning in image.warnings:
+
+		if warning == "possible size issues":
+			clientserver.Com_Printf("{}: {} file has {}.\n".format("PCX_Decode", filename, warning))
+		else:
+			clientserver.Com_DPrintf("{}: {} {}\n".format("PCX_Decode", filename, warning))
+
+	if not image.indexed or image.palette is None:
 		clientserver.Com_Printf("Bad pcx file {}\n".format(filename))
 		return None, None, None, None
 
-	if pic and width and height \
-		and width == 320 and height == 240 \
+	pic = bytearray(image.pixels.tobytes())
+	width, height = image.width, image.height
+
+	if width == 320 and height == 240 \
 		and filename.lower() == "pics/quit.pcx" \
 		and md4.Com_BlockChecksum(raw, len(raw)) == 3329419434:
 
@@ -191,25 +198,25 @@ def LoadPCX(origname): #char *, byte **, byte **, int *, int * (returns qboolean
 		# so fix it
 		fixQuitScreen(pic)
 
-
-	return pic, palette, width, height
+	return pic, image.palette.tobytes(), width, height
 
 """
 ==============
 GetPCXInfo
 ==============
 """
-def GetPCXInfo(filename): #char *, int *, int * (returns qboolean)
+def GetPCXInfo(filename): #char * (returns width, height, or None, None)
 
 	length, raw = filesystem.FS_LoadFile(filename)
 	if raw is None:
 		return None, None
 
-	pcx = files_h.pcx_t()
-	if not pcx.Read(raw):
+	try:
+		header = q2images.read_pcx_header(bytes(raw))
+	except FormatError:
 		return None, None
 
-	return pcx.xmax + 1, pcx.ymax + 1
+	return header.width, header.height
 
 """
 ==============

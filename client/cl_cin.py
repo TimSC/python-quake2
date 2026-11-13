@@ -28,6 +28,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from q2data import cinematic as q2cinematic
+
 from client.sound import sound as sound_c
 from backends.unix import system
 from client.vid import vid
@@ -71,13 +73,7 @@ class cinematics_t(object):
 		self.pic_pending = None #byte *
 
 		# order 1 huffman stuff
-		self.hnodes1 = None #int * // [256][256][2]
-		self.numhnodes1 = None #int[256]
-
-		self.h_used = None #int[512]
-		self.h_count = None #int[512]
-
-		self.hdecode1 = None # Q2PORT: the lookup table of Huff1DecodeTableInit()
+		self.huffman = None # q2data.cinematic.HuffmanTables
 
 
 cin = cinematics_t()
@@ -117,10 +113,7 @@ def SCR_StopCinematic(): #void
 		cl_main.cl.cinematic_file = 0
 
 
-	if cin.hnodes1:
-
-		cin.hnodes1 = None # Z_Free(cin.hnodes1);
-		cin.hdecode1 = None # Q2PORT
+	cin.huffman = None
 
 
 	# switch back down to 11 khz sound if necessary
@@ -147,144 +140,16 @@ def SCR_FinishCinematic ():
 
 
 """
-//==========================================================================
-
-/*
-==================
-SmallestNode1
-==================
-"""
-def	SmallestNode1 (numhnodes): #int
-
-	#int		i;
-	#int		best, bestnode;
-
-	best = 99999999
-	bestnode = -1
-	for i in range(numhnodes):
-	
-		if cin.h_used[i]:
-			continue
-		if not cin.h_count[i]:
-			continue
-		if cin.h_count[i] < best:
-		
-			best = cin.h_count[i]
-			bestnode = i
-
-	if bestnode == -1:
-		return -1
-
-	cin.h_used[bestnode] = True
-	return bestnode
-
-
-"""
 ==================
 Huff1TableInit
 
-Reads the 64k counts table and initializes the node trees
+Reads the 64k counts table and builds the Huffman trees (q2data.cinematic)
 ==================
 """
 def Huff1TableInit ():
 
-	global cin
-	"""
-	int		prev;
-	int		j;
-	int		*node, *nodebase;
-	byte	counts[256];
-	int		numhnodes;
-	"""
-
-	cin.hnodes1 = [0] * (256*256*2) # Z_Malloc (256*256*2*4); memset (cin.hnodes1, 0, 256*256*2*4);
-	cin.numhnodes1 = [0] * 256 #int[256]
-
-
-	for prev in range(256):
-	
-		cin.h_count = [0]*512
-		cin.h_used = [0]*512
-
-		# read a row of counts
-		counts = filesystem.FS_Read (256, cl_main.cl.cinematic_file)
-		for j in range(256):
-			cin.h_count[j] = counts[j]
-
-		# build the nodes
-		numhnodes = 256
-		nodebase = prev * 256 * 2
-
-		while numhnodes != 511:
-		
-			node = nodebase + (numhnodes - 256) * 2
-
-			# pick two lowest counts
-			v1 = SmallestNode1(numhnodes)
-			cin.hnodes1[node+0] = v1
-			if v1 == -1:
-				break	# no more
-
-			v2 = SmallestNode1(numhnodes)
-			cin.hnodes1[node+1] = v2
-			if v2 == -1:
-				break
-
-			cin.h_count[numhnodes] = cin.h_count[v1] + cin.h_count[v2]
-			numhnodes+=1
-		
-
-		cin.numhnodes1[prev] = numhnodes-1
-
-	Huff1DecodeTableInit() # Q2PORT
-
-"""
-==================
-Huff1DecodeTableInit
-
-Q2PORT: not in the C. Huff1Decompress() walks the trees one bit at a time,
-which is slow in python. This makes a lookup table from the trees: for each
-of the 256 trees (the previous symbol), and each value of the next
-HUFF_LOOKUP_BITS bits of input (the first bit lowest, as the C reads them),
-the symbol they start with and its code length, as symbol | (length << 8).
-Codes longer than HUFF_LOOKUP_BITS bits are HUFF_LOOKUP_LONG; the bits are
-walked for those, as the C does.
-==================
-"""
-HUFF_LOOKUP_BITS = 12 # Q2PORT: 4096 entries per tree
-HUFF_LOOKUP_LONG = -1 # Q2PORT
-
-def Huff1DecodeTableInit():
-
-	table = np.zeros((256, 1 << HUFF_LOOKUP_BITS), dtype=np.int32)
-
-	for prev in range(256):
-
-		row = table[prev]
-		nodebase = prev * 256 * 2 - 256 * 2 # nodes 0-255 aren't stored
-
-		# each node with the bits that lead to it from the root
-		stack = [(cin.numhnodes1[prev], 0, 0)] # nodenum, bits, length
-
-		while stack:
-
-			nodenum, bits, length = stack.pop()
-
-			if nodenum < 256:
-
-				# every entry that starts with these bits
-				row[bits::1 << length] = nodenum | (length << 8)
-				continue
-
-			if length == HUFF_LOOKUP_BITS:
-
-				row[bits] = HUFF_LOOKUP_LONG
-				continue
-
-			stack.append((cin.hnodes1[nodebase + nodenum * 2 + 0], bits, length + 1))
-			stack.append((cin.hnodes1[nodebase + nodenum * 2 + 1], bits | (1 << length), length + 1))
-
-	cin.hdecode1 = table.ravel().tolist()
+	counts = filesystem.FS_Read (q2cinematic.COUNTS_SIZE, cl_main.cl.cinematic_file)
+	cin.huffman = q2cinematic.HuffmanTables(np.frombuffer(bytes(counts).ljust(q2cinematic.COUNTS_SIZE, b"\0"), dtype=np.uint8))
 
 
 """
@@ -292,98 +157,15 @@ def Huff1DecodeTableInit():
 Huff1Decompress
 ==================
 """
-def Huff1Decompress(in_: bytes, in_count: int)->bytes: #cblock_t (returns static cblock_t)
+def Huff1Decompress(in_: bytes, in_count: int)->bytes:
 
-	# Q2PORT: the cblock_t is the data and its count; the result is the bytes (out.data, out.count long)
+	pixels, warnings = cin.huffman.decompress(bytes(in_[:in_count]))
 
-	"""
-	byte *input;
-	byte *out_p;
-	int nodenum;
-	int count;
-	cblock_t out;
-	int inbyte;
-	int *hnodes, *hnodesbase;
-	"""
-	hnodes1 = cin.hnodes1
-	numhnodes1 = cin.numhnodes1
+	for warning in warnings:
 
-	# get decompressed count
-	count = in_[0] + (in_[1] << 8) + (in_[2] << 16) + (in_[3] << 24)
-	input_ = 4 # input = in.data + 4;
-	out = bytearray(count) # out_p = out.data = Z_Malloc(count);
-	out_p = 0
+		clientserver.Com_Printf(warning)
 
-	# read bits
-	hnodesbase = -256 * 2 # nodes 0-255 aren't stored, hnodesbase = cin.hnodes1 - 256 * 2
-
-	# Q2PORT: the C reads a byte at a time and walks the tree of the previous
-	# symbol (hnodes) one bit at a time, from its root (numhnodes1[]) to a leaf
-	# (nodenum < 256, the symbol). Here a symbol at a time instead, with the
-	# lookup table of Huff1DecodeTableInit() (much faster in python): window[pos]
-	# is the HUFF_LOOKUP_BITS bits from bit pos of the input (a byte's lowest
-	# bit first, as the C reads them; reading past the end gives zero bits).
-	hdecode1 = cin.hdecode1
-	data = np.frombuffer(in_, dtype=np.uint8, offset=4)
-	bits = np.unpackbits(data, bitorder="little").astype(np.int32)
-	bits = np.concatenate((bits, np.zeros(HUFF_LOOKUP_BITS, dtype=np.int32)))
-	window = np.zeros(len(bits) - HUFF_LOOKUP_BITS, dtype=np.int32)
-	for i in range(HUFF_LOOKUP_BITS):
-		window |= bits[i:i + len(window)] << i
-	window = window.tolist()
-
-	pos = 0 # bits read
-	hnodes = 0 # the tree of the previous symbol, << HUFF_LOOKUP_BITS; the first is tree 0
-
-	while out_p < count:
-
-		try:
-
-			while out_p < count:
-
-				entry = hdecode1[hnodes + window[pos]]
-
-				if entry == HUFF_LOOKUP_LONG:
-
-					# walk the bits, as the C
-					prev = hnodes >> HUFF_LOOKUP_BITS
-					nodenum = numhnodes1[prev]
-
-					while nodenum >= 256:
-
-						inbyte = in_[4 + (pos >> 3)] if 4 + (pos >> 3) < len(in_) else 0
-						nodenum = hnodes1[hnodesbase + (prev << 9) + nodenum * 2 + ((inbyte >> (pos & 7)) & 1)]
-						pos += 1
-
-				else:
-
-					nodenum = entry & 255
-					pos += entry >> 8
-
-				out[out_p] = nodenum
-				out_p += 1
-
-				hnodes = nodenum << HUFF_LOOKUP_BITS
-
-		except IndexError: # read past the end of the block, which gives zero bits
-
-			window.extend([0] * max(len(window), 64))
-
-	# Q2PORT: the bytes the C has read: it finds the last symbol's leaf at the
-	# next bit, reading the byte that holds it
-	if count:
-
-		input_ = 4 + (pos >> 3) + 1
-
-	if (input_ != in_count) and (input_ != in_count + 1):
-
-		clientserver.Com_Printf("Decompression overread by %i", input_ - in_count)
-
-
-	#out.count = out_p - out.data;
-
-	return bytes(out[:out_p])
-
+	return pixels
 
 
 """

@@ -26,9 +26,11 @@ they collide with the world model, entities or other boxes.
 """
 from __future__ import annotations
 
-import struct
 import numpy as np
-from common.header import files as files_h
+
+from q2data import FormatError
+from q2data import binary as q2binary
+from q2data import bsp as q2bsp
 from common.header import shared
 from common.shared import shared as shared_c
 from common import clientserver
@@ -89,63 +91,70 @@ map_name: str = None # char		[MAX_QPATH];
 
 numbrushsides: int = None
 map_brushsides = []
-for i in range(files_h.MAX_MAP_BRUSHSIDES):
+for i in range(q2bsp.MAX_MAP_BRUSHSIDES):
 	map_brushsides.append(cbrushside_t())
 
 numtexinfo: int = None
 map_surfaces = []
-for i in range(files_h.MAX_MAP_TEXINFO):
+for i in range(q2bsp.MAX_MAP_TEXINFO):
 	map_surfaces.append(shared.mapsurface_t())
 
 numplanes: int = None
 map_planes = []
-for i in range(files_h.MAX_MAP_PLANES+6): # extra for box hull
+for i in range(q2bsp.MAX_MAP_PLANES+6): # extra for box hull
 	map_planes.append(shared.cplane_t())
 
 numnodes: int = None
 map_nodes = []
-for i in range(files_h.MAX_MAP_NODES+6): # extra for box hull
+for i in range(q2bsp.MAX_MAP_NODES+6): # extra for box hull
 	map_nodes.append(cnode_t())
 
 numleafs: int = 1	# allow leaf funcs to be called without a map
 map_leafs = []
-for i in range(files_h.MAX_MAP_LEAFS):
+for i in range(q2bsp.MAX_MAP_LEAFS):
 	map_leafs.append(cleaf_t())
 emptyleaf: int = None
 solidleaf: int = None
 
 numleafbrushes: int = None
 map_leafbrushes = []
-for i in range(files_h.MAX_MAP_LEAFBRUSHES):
+for i in range(q2bsp.MAX_MAP_LEAFBRUSHES):
 	map_leafbrushes.append(None) # unsigned short
 
 numcmodels: int = None
 map_cmodels = []
-for i in range(files_h.MAX_MAP_MODELS):
+for i in range(q2bsp.MAX_MAP_MODELS):
 	map_cmodels.append(shared.cmodel_t())
 
 numbrushes: int = None
 map_brushes = []
-for i in range(files_h.MAX_MAP_BRUSHES):
+for i in range(q2bsp.MAX_MAP_BRUSHES):
 	map_brushes.append(cbrush_t())
 
 numvisibility: int = None
 map_visibility = None
 
-map_vis = files_h.dvis_t()
+map_vis = q2bsp.Visibility.from_bytes(b"") # q2data.bsp.Visibility
 
 numentitychars: int = None
 map_entitystring = None
 
 numareas: int = 1
 map_areas = []
-for i in range(files_h.MAX_MAP_AREAS):
+for i in range(q2bsp.MAX_MAP_AREAS):
 	map_areas.append(carea_t())
 
 numareaportals: int = None
+class dareaportal_t(object):
+	# an area portal: the portal number and the area on its other side
+
+	def __init__(self):
+		self.portalnum = 0 # int
+		self.otherarea = 0 # int
+
 map_areaportals = []
-for i in range(files_h.MAX_MAP_AREAPORTALS):
-	map_areaportals.append(files_h.dareaportal_t())
+for i in range(q2bsp.MAX_MAP_AREAPORTALS):
+	map_areaportals.append(dareaportal_t())
 
 numclusters: int = 1
 
@@ -154,7 +163,7 @@ nullsurface = shared.mapsurface_t()
 floodvalid = 0
 
 portalopen = [] #qboolean[MAX_MAP_AREAPORTALS];
-for i in range(files_h.MAX_MAP_AREAPORTALS):
+for i in range(q2bsp.MAX_MAP_AREAPORTALS):
 	portalopen.append(False)
 
 map_noareas = None # cvar_t	*
@@ -460,8 +469,8 @@ def CM_PointContents(p, headnode):
 	return map_leafs[l].contents
 
 
-pvsrow = bytearray((files_h.MAX_MAP_LEAFS + 7) // 8)
-phsrow = bytearray((files_h.MAX_MAP_LEAFS + 7) // 8)
+pvsrow = bytearray((q2bsp.MAX_MAP_LEAFS + 7) // 8)
+phsrow = bytearray((q2bsp.MAX_MAP_LEAFS + 7) // 8)
 
 
 def CM_TransformedPointContents(p, headnode, origin, angles):
@@ -797,404 +806,294 @@ def CM_TransformedBoxTrace(start, end, mins, maxs, headnode, brushmask, origin, 
 """
 """
 =================
+_lump_records
+
+The records of one lump of the map in cmod_base, read by q2data.bsp.
+=================
+"""
+def _lump_records (l, lump): #q2bsp.LumpInfo, q2bsp.Lump (returns numpy record array)
+
+	try:
+		return q2bsp.lump_records(cmod_base, l, lump)
+	except FormatError:
+		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
+
+"""
+=================
 CMod_LoadSubmodels
 =================
 """
-def CMod_LoadSubmodels (l): #lump_t *
+def CMod_LoadSubmodels (l): #q2bsp.LumpInfo
 
-	global numcmodels, map_cmodels, cmod_base
-	"""
-	dmodel_t	*in;
-	cmodel_t	*out;
-	int			i, j, count;
-	"""
+	global numcmodels
 
-	#in = (void *)(cmod_base + l->fileofs);
-	if l.filelen % files_h.dmodel_t.packed_size():
-		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
-	count = l.filelen // files_h.dmodel_t.packed_size()
+	records = _lump_records(l, q2bsp.Lump.MODELS)
+	count = len(records)
 
 	if count < 1:
 		clientserver.Com_Error (shared.ERR_DROP, "Map with no models")
-	if count > files_h.MAX_MAP_MODELS:
+	if count > q2bsp.MAX_MAP_MODELS:
 		clientserver.Com_Error (shared.ERR_DROP, "Map has too many models")
 
 	numcmodels = count
-	in_obj = files_h.dmodel_t()
+	mins = records["mins"].tolist()
+	maxs = records["maxs"].tolist()
+	origins = records["origin"].tolist()
+	headnodes = records["head_node"].tolist()
 
 	for i in range(count):
-	
-		in_offset = l.fileofs + i * files_h.dmodel_t.packed_size()
-		in_offset2 = in_offset + files_h.dmodel_t.packed_size()
-		in_obj.load(cmod_base[in_offset:in_offset2])
 
 		out = map_cmodels[i]
 
 		for j in range(3):
 			# spread the mins / maxs by a pixel
-			out.mins[j] = in_obj.mins[j] - 1.0
-			out.maxs[j] = in_obj.maxs[j] + 1.0
-			out.origin[j] = in_obj.origin[j]
-		
-		out.headnode = in_obj.headnode
+			out.mins[j] = mins[i][j] - 1.0
+			out.maxs[j] = maxs[i][j] + 1.0
+			out.origin[j] = origins[i][j]
+
+		out.headnode = headnodes[i]
 
 """
 =================
 CMod_LoadSurfaces
 =================
 """
-def CMod_LoadSurfaces (l: files_h.lump_t):
+def CMod_LoadSurfaces (l): #q2bsp.LumpInfo
 
-	global numtexinfo, map_surfaces, cmod_base
-	"""
-	texinfo_t	*in;
-	mapsurface_t	*out;
-	int			i, count;
-	"""
+	global numtexinfo
 
-	#in = (void *)(cmod_base + l->fileofs);
-	if l.filelen % files_h.texinfo_t.packed_size():
-		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
-	count = l.filelen // files_h.texinfo_t.packed_size()
+	records = _lump_records(l, q2bsp.Lump.TEXINFO)
+	count = len(records)
 	if count < 1:
 		clientserver.Com_Error (shared.ERR_DROP, "Map with no surfaces")
-	if count > files_h.MAX_MAP_TEXINFO:
+	if count > q2bsp.MAX_MAP_TEXINFO:
 		clientserver.Com_Error (shared.ERR_DROP, "Map has too many surfaces")
 
 	numtexinfo = count
-	in_obj = files_h.texinfo_t()
+	names = q2binary.strings_field(records, "texture")
+	flags = records["flags"].tolist()
+	values = records["value"].tolist()
 
 	for i in range(count):
-	
-		in_offset = l.fileofs + i * files_h.texinfo_t.packed_size()
-		in_offset2 = in_offset + files_h.texinfo_t.packed_size()
-		in_obj.load(cmod_base[in_offset:in_offset2])
 
 		out = map_surfaces[i]
 
-		out.c.name = in_obj.texture
-		out.rname = in_obj.texture
-		out.c.flags = in_obj.flags
-		out.c.value = in_obj.value
+		out.c.name = names[i]
+		out.rname = names[i]
+		out.c.flags = flags[i]
+		out.c.value = values[i]
 
 """
 =================
 CMod_LoadNodes
-
 =================
 """
-def CMod_LoadNodes (l): #lump_t *
-	
-	global cmod_base, map_nodes, numnodes
+def CMod_LoadNodes (l): #q2bsp.LumpInfo
 
-	"""
-	dnode_t		*in;
-	int			child;
-	cnode_t		*out;
-	int			i, j, count;
-	"""
-	
-	#in = (void *)(cmod_base + l->fileofs);
-	in_offset = 0
-	if l.filelen % files_h.dnode_t.packed_size():
-		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
-	count = l.filelen // files_h.dnode_t.packed_size()
+	global numnodes
+
+	records = _lump_records(l, q2bsp.Lump.NODES)
+	count = len(records)
 
 	if count < 1:
 		clientserver.Com_Error (shared.ERR_DROP, "Map has no nodes")
-	if count > files_h.MAX_MAP_NODES:
+	if count > q2bsp.MAX_MAP_NODES:
 		clientserver.Com_Error (shared.ERR_DROP, "Map has too many nodes")
 
-	in_obj = files_h.dnode_t()
-
-	#out = map_nodes
-
 	numnodes = count
+	planes = records["plane"].tolist()
+	children = records["children"].tolist()
 
 	for i in range(count):
 
-		in_offset = l.fileofs + i * files_h.dnode_t.packed_size()
-		in_offset2 = in_offset + files_h.dnode_t.packed_size()
-		in_obj.load(cmod_base[in_offset:in_offset2])
-
 		out = map_nodes[i]
 
-		out.plane = map_planes[in_obj.planenum]
-		out.children[0] = in_obj.children[0]
-		out.children[1] = in_obj.children[1]
+		out.plane = map_planes[planes[i]]
+		out.children[0] = children[i][0]
+		out.children[1] = children[i][1]
 
 """
 =================
 CMod_LoadBrushes
-
 =================
 """
-def CMod_LoadBrushes (l): #lump_t *
+def CMod_LoadBrushes (l): #q2bsp.LumpInfo
 
-	global map_brushes, numbrushes, cmod_base
-	"""
-	dbrush_t	*in;
-	cbrush_t	*out;
-	int			i, count;
-	"""
-	
-	#in = (void *)(cmod_base + l->fileofs);
-	if l.filelen % files_h.dbrush_t.packed_size():
-		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
-	count = l.filelen // files_h.dbrush_t.packed_size()
+	global numbrushes
 
-	if count > files_h.MAX_MAP_BRUSHES:
+	records = _lump_records(l, q2bsp.Lump.BRUSHES)
+	count = len(records)
+
+	if count > q2bsp.MAX_MAP_BRUSHES:
 		clientserver.Com_Error (shared.ERR_DROP, "Map has too many brushes")
 
-	out = map_brushes
-
 	numbrushes = count
-	in_obj = files_h.dbrush_t()
 
-	for i in range(count):
-	
-		in_offset = l.fileofs + i * files_h.dbrush_t.packed_size()
-		in_offset2 = in_offset + files_h.dbrush_t.packed_size()
-		in_obj.load(cmod_base[in_offset:in_offset2])
+	for i, (first_side, num_sides, contents) in enumerate(records.tolist()):
 
 		out = map_brushes[i]
 
-		out.firstbrushside = in_obj.firstside
-		out.numsides = in_obj.numsides
-		out.contents = in_obj.contents
-	
-
+		out.firstbrushside = first_side
+		out.numsides = num_sides
+		out.contents = contents
 
 """
 =================
 CMod_LoadLeafs
 =================
 """
-def CMod_LoadLeafs (l): #lump_t *
+def CMod_LoadLeafs (l): #q2bsp.LumpInfo
 
-	global numclusters, map_leafs, cmod_base, numleafs, solidleaf, emptyleaf
-	"""
-	int			i;
-	cleaf_t		*out;
-	dleaf_t 	*in;
-	int			count;
-	"""
-	
-	#in = (void *)(cmod_base + l->fileofs);
-	if l.filelen % files_h.dleaf_t.packed_size():
-		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
-	count = l.filelen // files_h.dleaf_t.packed_size()
+	global numclusters, numleafs, solidleaf, emptyleaf
+
+	records = _lump_records(l, q2bsp.Lump.LEAFS)
+	count = len(records)
 
 	if count < 1:
 		clientserver.Com_Error (shared.ERR_DROP, "Map with no leafs")
 	# need to save space for box planes
-	if count > files_h.MAX_MAP_PLANES:
+	if count > q2bsp.MAX_MAP_PLANES:
 		clientserver.Com_Error (shared.ERR_DROP, "Map has too many planes")
 
-	out = map_leafs
 	numleafs = count
 	numclusters = 0
-	in_obj = files_h.dleaf_t()
+	contents = records["contents"].tolist()
+	clusters = records["cluster"].tolist()
+	areas = records["area"].tolist()
+	firstleafbrushes = records["first_leaf_brush"].tolist()
+	numleafbrushes_ = records["num_leaf_brushes"].tolist()
 
 	for i in range(count):
 
-		in_offset = l.fileofs + i * files_h.dleaf_t.packed_size()
-		in_offset2 = in_offset + files_h.dleaf_t.packed_size()
-		in_obj.load(cmod_base[in_offset:in_offset2])
-
 		out = map_leafs[i]
-		out.contents = in_obj.contents
-		out.cluster = in_obj.cluster
-		out.area = in_obj.area
-		out.firstleafbrush = in_obj.firstleafbrush
-		out.numleafbrushes = in_obj.numleafbrushes
+		out.contents = contents[i]
+		out.cluster = clusters[i]
+		out.area = areas[i]
+		out.firstleafbrush = firstleafbrushes[i]
+		out.numleafbrushes = numleafbrushes_[i]
 
 		if out.cluster >= numclusters:
 			numclusters = out.cluster + 1
 
-	if map_leafs[0].contents != files_h.CONTENTS_SOLID:
+	if map_leafs[0].contents != q2bsp.Contents.SOLID:
 		clientserver.Com_Error (shared.ERR_DROP, "Map leaf 0 is not CONTENTS_SOLID")
 	solidleaf = 0
 	emptyleaf = -1
 	for i in range(1, numleafs):
-	
+
 		if not map_leafs[i].contents:
-		
+
 			emptyleaf = i
 			break
-		
+
 	if emptyleaf == -1:
 		clientserver.Com_Error (shared.ERR_DROP, "Map does not have an empty leaf")
-	
+
 """
 =================
 CMod_LoadPlanes
 =================
 """
-def CMod_LoadPlanes (l): #lump_t *
+def CMod_LoadPlanes (l): #q2bsp.LumpInfo
 
-	global map_planes, numplanes, cmod_base
-	"""
-	int			i, j;
-	cplane_t	*out;
-	dplane_t 	*in;
-	int			count;
-	int			bits;
-	"""
-	
-	#in = (void *)(cmod_base + l->fileofs);
-	if l.filelen % files_h.dplane_t.packed_size():
-		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size");
-	count = l.filelen // files_h.dplane_t.packed_size()
+	global numplanes
 
-	
+	records = _lump_records(l, q2bsp.Lump.PLANES)
+	count = len(records)
+
 	if count < 1:
 		clientserver.Com_Error (shared.ERR_DROP, "Map with no planes")
 	# need to save space for box planes
-	if count > files_h.MAX_MAP_PLANES:
+	if count > q2bsp.MAX_MAP_PLANES:
 		clientserver.Com_Error (shared.ERR_DROP, "Map has too many planes")
 
 	numplanes = count
-	in_obj = files_h.dplane_t()
 
-	for i in range(count):
-	
-		in_offset = l.fileofs + i * files_h.dplane_t.packed_size()
-		in_offset2 = in_offset + files_h.dplane_t.packed_size()
-		in_obj.load(cmod_base[in_offset:in_offset2])
+	for i, (normal, dist, type_) in enumerate(records.tolist()):
 
 		out = map_planes[i]
 		bits = 0
 		for j in range(3):
-		
-			out.normal[j] = in_obj.normal[j]
+
+			out.normal[j] = normal[j]
 			if out.normal[j] < 0:
 				bits |= 1<<j
-		
-		out.dist = in_obj.dist
-		out.type = in_obj.type
+
+		out.dist = dist
+		out.type = type_
 		out.signbits = bits
-	
 
 """
 =================
 CMod_LoadLeafBrushes
 =================
 """
-def CMod_LoadLeafBrushes (l): #lump_t *
+def CMod_LoadLeafBrushes (l): #q2bsp.LumpInfo
 
-	global map_leafbrushes, numleafbrushes, cmod_base
-	"""
-	int			i;
-	unsigned short	*out;
-	unsigned short 	*in;
-	int			count;
-	"""
-	
-	#in = (void *)(cmod_base + l->fileofs)
-	if l.filelen % 2:
-		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
-	count = l.filelen // 2
+	global numleafbrushes
+
+	records = _lump_records(l, q2bsp.Lump.LEAF_BRUSHES)
+	count = len(records)
 
 	if count < 1:
 		clientserver.Com_Error (shared.ERR_DROP, "Map with no planes")
 	# need to save space for box planes
-	if count > files_h.MAX_MAP_LEAFBRUSHES:
+	if count > q2bsp.MAX_MAP_LEAFBRUSHES:
 		clientserver.Com_Error (shared.ERR_DROP, "Map has too many leafbrushes")
 
-	out = map_leafbrushes
 	numleafbrushes = count
-
-	for i in range(count):
-		in_offset = l.fileofs + i * 2
-		in_offset2 = in_offset + 2
-
-		map_leafbrushes[i] = shared_c.LittleShort (cmod_base[in_offset:in_offset2])
-
+	map_leafbrushes[:count] = records.tolist()
 
 """
 =================
 CMod_LoadBrushSides
 =================
 """
-def CMod_LoadBrushSides (l): #lump_t *
+def CMod_LoadBrushSides (l): #q2bsp.LumpInfo
 
-	global cmod_base, map_brushsides, numbrushsides, map_planes, map_surfaces, numtexinfo
-	"""
-	int			i, j;
-	cbrushside_t	*out;
-	dbrushside_t 	*in;
-	int			count;
-	int			num;
-	"""
+	global numbrushsides
 
-	#in = (void *)(cmod_base + l->fileofs);
-	if l.filelen % files_h.dbrushside_t.packed_size():
-		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
-	count = l.filelen // files_h.dbrushside_t.packed_size()
+	records = _lump_records(l, q2bsp.Lump.BRUSH_SIDES)
+	count = len(records)
 
 	# need to save space for box planes
-	if count > files_h.MAX_MAP_BRUSHSIDES:
+	if count > q2bsp.MAX_MAP_BRUSHSIDES:
 		clientserver.Com_Error (shared.ERR_DROP, "Map has too many planes")
 
-	#out = map_brushsides
 	numbrushsides = count
-	in_obj = files_h.dbrushside_t()
 
-	for i in range(count):
+	for i, (planenum, texinfo) in enumerate(records.tolist()):
 
-		in_offset = l.fileofs + i * files_h.dbrushside_t.packed_size()
-		in_offset2 = in_offset + files_h.dbrushside_t.packed_size()
-		in_obj.load(cmod_base[in_offset:in_offset2])
-	
 		out = map_brushsides[i]
 
-		num = in_obj.planenum
-		out.plane = map_planes[num]
-		j = in_obj.texinfo
-		if j >= numtexinfo:
+		out.plane = map_planes[planenum]
+		if texinfo >= numtexinfo:
 			clientserver.Com_Error (shared.ERR_DROP, "Bad brushside texinfo")
-		out.surface = map_surfaces[j]
-	
-
+		out.surface = map_surfaces[texinfo]
 
 """
 =================
 CMod_LoadAreas
 =================
 """
+def CMod_LoadAreas (l): #q2bsp.LumpInfo
 
-def CMod_LoadAreas (l): #lump_t *
+	global numareas
 
-	global numareas, map_areas, map_areas
-	"""
-	int			i;
-	carea_t		*out;
-	darea_t 	*in;
-	int			count;
-	"""
+	records = _lump_records(l, q2bsp.Lump.AREAS)
+	count = len(records)
 
-	#in = (void *)(cmod_base + l->fileofs);
-	if l.filelen % files_h.darea_t.packed_size():
-		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
-	count = l.filelen // files_h.darea_t.packed_size()
-
-	if count > files_h.MAX_MAP_AREAS:
+	if count > q2bsp.MAX_MAP_AREAS:
 		clientserver.Com_Error (shared.ERR_DROP, "Map has too many areas")
 
 	numareas = count
-	in_obj = files_h.darea_t()
 
-	for i in range(count):
-
-		in_offset = l.fileofs + i * files_h.darea_t.packed_size()
-		in_offset2 = in_offset + files_h.darea_t.packed_size()
-		in_obj.load(cmod_base[in_offset:in_offset2])
+	for i, (numareaportals_, firstareaportal) in enumerate(records.tolist()):
 
 		out = map_areas[i]
 
-		out.numareaportals = in_obj.numareaportals
-		out.firstareaportal = in_obj.firstareaportal
+		out.numareaportals = numareaportals_
+		out.firstareaportal = firstareaportal
 		out.floodvalid = 0
 		out.floodnum = 0
 
@@ -1203,55 +1102,41 @@ def CMod_LoadAreas (l): #lump_t *
 CMod_LoadAreaPortals
 =================
 """
-def CMod_LoadAreaPortals (l): #lump_t *
+def CMod_LoadAreaPortals (l): #q2bsp.LumpInfo
 
-	global numareaportals, map_areaportals, cmod_base
-	"""
-	int			i;
-	dareaportal_t		*out;
-	dareaportal_t 	*in;
-	int			count;
-	"""
+	global numareaportals
 
-	#in = (void *)(cmod_base + l->fileofs)
-	if l.filelen % files_h.dareaportal_t.packed_size():
-		clientserver.Com_Error (shared.ERR_DROP, "MOD_LoadBmodel: funny lump size")
-	count = l.filelen // files_h.dareaportal_t.packed_size()
+	records = _lump_records(l, q2bsp.Lump.AREA_PORTALS)
+	count = len(records)
 
-	if count > files_h.MAX_MAP_AREAS:
+	if count > q2bsp.MAX_MAP_AREAS:
 		clientserver.Com_Error (shared.ERR_DROP, "Map has too many areas")
 
 	numareaportals = count
-	in_obj = files_h.dareaportal_t()
 
-	for i in range(count):
-
-		in_offset = l.fileofs + i * files_h.dareaportal_t.packed_size()
-		in_offset2 = in_offset + files_h.dareaportal_t.packed_size()
-		in_obj.load(cmod_base[in_offset:in_offset2])
+	for i, (portalnum, otherarea) in enumerate(records.tolist()):
 
 		out = map_areaportals[i]
-	
-		out.portalnum = in_obj.portalnum
-		out.otherarea = in_obj.otherarea
-	
+
+		out.portalnum = portalnum
+		out.otherarea = otherarea
 
 """
 =================
 CMod_LoadVisibility
 =================
 """
-def CMod_LoadVisibility (l): #lump_t *
+def CMod_LoadVisibility (l): #q2bsp.LumpInfo
 
-	global map_vis, map_visibility, numvisibility, cmod_base
+	global map_visibility, numvisibility, map_vis
 
-	numvisibility = l.filelen
-	if l.filelen > files_h.MAX_MAP_VISIBILITY:
+	numvisibility = l.length
+	if l.length > q2bsp.MAX_MAP_VISIBILITY:
 		clientserver.Com_Error (shared.ERR_DROP, "Map has too large visibility lump")
 
-	map_visibility = cmod_base[l.fileofs:l.fileofs+l.filelen]
+	map_visibility = cmod_base[l.offset:l.offset + l.length]
 
-	map_vis.load(map_visibility)
+	map_vis = q2bsp.Visibility.from_bytes(bytes(map_visibility))
 
 """
 =================
@@ -1283,8 +1168,8 @@ def CMod_LoadEntityString(l, name): #const lump_t *, const char *
 
 			crc = 0
 
-			if l.filelen > 0:
-				crc = crc_mod.CRC_Block(cmod_base[l.fileofs:l.fileofs + l.filelen - 1], l.filelen - 1)
+			if l.length > 0:
+				crc = crc_mod.CRC_Block(cmod_base[l.offset:l.offset + l.length - 1], l.length - 1)
 
 
 			namewe = name[:nameLen - 4]
@@ -1305,7 +1190,7 @@ def CMod_LoadEntityString(l, name): #const lump_t *, const char *
 
 
 
-		if buffer is not None and bufLen > 1 and bufLen < files_h.MAX_MAP_ENTSTRING - 1:
+		if buffer is not None and bufLen > 1 and bufLen < q2bsp.MAX_MAP_ENTSTRING - 1:
 
 			numentitychars = bufLen
 
@@ -1324,19 +1209,19 @@ def CMod_LoadEntityString(l, name): #const lump_t *, const char *
 
 
 
-	numentitychars = l.filelen
+	numentitychars = l.length
 
-	if l.filelen < 0:
+	if l.length < 0:
 
 		clientserver.Com_Error(shared.ERR_DROP, "%s: Map %s has too small entity lump", "CMod_LoadEntityString", name)
 
 
-	if l.filelen >= files_h.MAX_MAP_ENTSTRING:
+	if l.length >= q2bsp.MAX_MAP_ENTSTRING:
 
 		clientserver.Com_Error(shared.ERR_DROP, "%s: Map %s has too large entity lump", "CMod_LoadEntityString", name)
 
 
-	map_entitystring = cmod_base[l.fileofs:l.fileofs + numentitychars].decode('latin-1')
+	map_entitystring = cmod_base[l.offset:l.offset + numentitychars].decode('latin-1')
 	# jit entity bug - null terminate the entity string!
 
 	
@@ -1408,28 +1293,28 @@ def CM_LoadMap (name, clientload): #char *, qboolean (returns cmodel_t *, unsign
 	last_checksum = md4.Com_BlockChecksum (buf, length) # LittleLong (Com_BlockChecksum (buf, length)); Q2PORT: already a host int
 	checksum = last_checksum
 
-	header = files_h.dheader_t()
-	header.parse(buf)
-
-	if header.version != files_h.BSPVERSION:
-		clientserver.Com_Error (shared.ERR_DROP, "CMod_LoadBrushModel: {} has wrong version number ({} should be {})".format( \
-			name, header.version, files_h.BSPVERSION))
+	# the header and lump bounds, checked by q2data.bsp
+	try:
+		lumps = q2bsp.read_header(buf)
+	except FormatError as err:
+		clientserver.Com_Error (shared.ERR_DROP, "CMod_LoadBrushModel: {} {}".format(name, err))
 
 	cmod_base = buf
 
 	# load into heap
-	CMod_LoadSurfaces (header.lumps[files_h.LUMP_TEXINFO])
-	CMod_LoadLeafs (header.lumps[files_h.LUMP_LEAFS])
-	CMod_LoadLeafBrushes (header.lumps[files_h.LUMP_LEAFBRUSHES])
-	CMod_LoadPlanes (header.lumps[files_h.LUMP_PLANES])
-	CMod_LoadBrushes (header.lumps[files_h.LUMP_BRUSHES])
-	CMod_LoadBrushSides (header.lumps[files_h.LUMP_BRUSHSIDES])
-	CMod_LoadSubmodels (header.lumps[files_h.LUMP_MODELS])
-	CMod_LoadNodes (header.lumps[files_h.LUMP_NODES])
-	CMod_LoadAreas (header.lumps[files_h.LUMP_AREAS])
-	CMod_LoadAreaPortals (header.lumps[files_h.LUMP_AREAPORTALS])
-	CMod_LoadVisibility (header.lumps[files_h.LUMP_VISIBILITY])
-	CMod_LoadEntityString (header.lumps[files_h.LUMP_ENTITIES], name)
+	Lump = q2bsp.Lump
+	CMod_LoadSurfaces (lumps[Lump.TEXINFO])
+	CMod_LoadLeafs (lumps[Lump.LEAFS])
+	CMod_LoadLeafBrushes (lumps[Lump.LEAF_BRUSHES])
+	CMod_LoadPlanes (lumps[Lump.PLANES])
+	CMod_LoadBrushes (lumps[Lump.BRUSHES])
+	CMod_LoadBrushSides (lumps[Lump.BRUSH_SIDES])
+	CMod_LoadSubmodels (lumps[Lump.MODELS])
+	CMod_LoadNodes (lumps[Lump.NODES])
+	CMod_LoadAreas (lumps[Lump.AREAS])
+	CMod_LoadAreaPortals (lumps[Lump.AREA_PORTALS])
+	CMod_LoadVisibility (lumps[Lump.VISIBILITY])
+	CMod_LoadEntityString (lumps[Lump.ENTITIES], name)
 
 	del buf, cmod_base
 
@@ -1545,7 +1430,7 @@ def CM_ClusterPVS(cluster):
 	if map_vis is None or map_visibility is None:
 		return pvsrow
 
-	offset = map_vis.bitofs[cluster][files_h.DVIS_PVS]
+	offset = int(map_vis.offsets[cluster, q2bsp.VisType.PVS])
 	CM_DecompressVis(map_visibility[offset:], pvsrow)
 	return pvsrow
 
@@ -1562,7 +1447,7 @@ def CM_ClusterPHS(cluster):
 	if map_vis is None or map_visibility is None:
 		return phsrow
 
-	offset = map_vis.bitofs[cluster][files_h.DVIS_PHS]
+	offset = int(map_vis.offsets[cluster, q2bsp.VisType.PHS])
 	CM_DecompressVis(map_visibility[offset:], phsrow)
 	return phsrow
 

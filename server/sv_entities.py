@@ -35,6 +35,8 @@ from common.header import shared
 from common.shared import shared as shared_c
 from common import clientserver
 from common import movemsg
+from common import entity_delta
+from common import player_delta
 from common import szone
 from common import collision
 from server.header import server as server_h
@@ -108,14 +110,14 @@ def SV_EmitPacketEntities (frm, to, msg): #client_frame_t *, client_frame_t *, s
 			# in any bytes being emited if the entity has not changed at all
 			# note that players are always 'newentities', this updates their oldorigin always
 			# and prevents warping
-			movemsg.MSG_WriteDeltaEntity (oldent, newent, msg, False, newent.number <= int(sv_main.maxclients.value))
+			entity_delta.write_delta (oldent, newent, msg, False, newent.number <= int(sv_main.maxclients.value))
 			oldindex += 1
 			newindex += 1
 			continue
 
 		if newnum < oldnum:
 			# this is a new entity, send it from the baseline
-			movemsg.MSG_WriteDeltaEntity (sv_init.sv.baselines[newnum] if (newnum < sv_init.sv.numbaselines) else None, newent, msg, True, True)
+			entity_delta.write_delta (sv_init.sv.baselines[newnum] if (newnum < sv_init.sv.numbaselines) else None, newent, msg, True, True)
 			newindex += 1
 			continue
 
@@ -148,177 +150,9 @@ SV_WritePlayerstateToClient
 """
 def SV_WritePlayerstateToClient (frm, to, msg): #client_frame_t *, client_frame_t *, sizebuf_t *
 
-	"""
-	int				i;
-	int				pflags;
-	player_state_t	*ps, *ops;
-	player_state_t	dummy;
-	int				statbits;
-	"""
-	#int i, pflags, statbits
-
-	ps = to.ps
-	if not frm:
-		dummy = shared.player_state_t()
-		ops = dummy
-	else:
-		ops = frm.ps
-
-	#
-	# determine what needs to be sent
-	#
-	pflags = 0
-
-	if ps.pmove.pm_type != ops.pmove.pm_type:
-		pflags |= common_h.PS_M_TYPE
-
-	if (ps.pmove.origin[0] != ops.pmove.origin[0]
-		or ps.pmove.origin[1] != ops.pmove.origin[1]
-		or ps.pmove.origin[2] != ops.pmove.origin[2]):
-		pflags |= common_h.PS_M_ORIGIN
-
-	if (ps.pmove.velocity[0] != ops.pmove.velocity[0]
-		or ps.pmove.velocity[1] != ops.pmove.velocity[1]
-		or ps.pmove.velocity[2] != ops.pmove.velocity[2]):
-		pflags |= common_h.PS_M_VELOCITY
-
-	if ps.pmove.pm_time != ops.pmove.pm_time:
-		pflags |= common_h.PS_M_TIME
-
-	if ps.pmove.pm_flags != ops.pmove.pm_flags:
-		pflags |= common_h.PS_M_FLAGS
-
-	if ps.pmove.gravity != ops.pmove.gravity:
-		pflags |= common_h.PS_M_GRAVITY
-
-	if (ps.pmove.delta_angles[0] != ops.pmove.delta_angles[0]
-		or ps.pmove.delta_angles[1] != ops.pmove.delta_angles[1]
-		or ps.pmove.delta_angles[2] != ops.pmove.delta_angles[2]):
-		pflags |= common_h.PS_M_DELTA_ANGLES
-
-	if (ps.viewoffset[0] != ops.viewoffset[0]
-		or ps.viewoffset[1] != ops.viewoffset[1]
-		or ps.viewoffset[2] != ops.viewoffset[2]):
-		pflags |= common_h.PS_VIEWOFFSET
-
-	if (ps.viewangles[0] != ops.viewangles[0]
-		or ps.viewangles[1] != ops.viewangles[1]
-		or ps.viewangles[2] != ops.viewangles[2]):
-		pflags |= common_h.PS_VIEWANGLES
-
-	if (ps.kick_angles[0] != ops.kick_angles[0]
-		or ps.kick_angles[1] != ops.kick_angles[1]
-		or ps.kick_angles[2] != ops.kick_angles[2]):
-		pflags |= common_h.PS_KICKANGLES
-
-	if (ps.blend[0] != ops.blend[0]
-		or ps.blend[1] != ops.blend[1]
-		or ps.blend[2] != ops.blend[2]
-		or ps.blend[3] != ops.blend[3]):
-		pflags |= common_h.PS_BLEND
-
-	if ps.fov != ops.fov:
-		pflags |= common_h.PS_FOV
-
-	if ps.rdflags != ops.rdflags:
-		pflags |= common_h.PS_RDFLAGS
-
-	if (ps.gunframe != ops.gunframe) or \
-		(ps.gunoffset[0] != ops.gunoffset[0]) or \
-		(ps.gunoffset[1] != ops.gunoffset[1]) or \
-		(ps.gunoffset[2] != ops.gunoffset[2]) or \
-		(ps.gunangles[0] != ops.gunangles[0]) or \
-		(ps.gunangles[1] != ops.gunangles[1]) or \
-		(ps.gunangles[2] != ops.gunangles[2]):
-		pflags |= common_h.PS_WEAPONFRAME
-
-	pflags |= common_h.PS_WEAPONINDEX
-
-	#
-	# write it
-	#
+	# the groups that changed since frm (player_delta's table), then the stats
 	movemsg.MSG_WriteByte (msg, common_h.svc_ops_e.svc_playerinfo.value)
-	movemsg.MSG_WriteShort (msg, pflags)
-
-	#
-	# write the pmove_state_t
-	#
-	if pflags & common_h.PS_M_TYPE:
-		movemsg.MSG_WriteByte (msg, ps.pmove.pm_type)
-
-	if pflags & common_h.PS_M_ORIGIN:
-		movemsg.MSG_WriteShort (msg, int(ps.pmove.origin[0]))
-		movemsg.MSG_WriteShort (msg, int(ps.pmove.origin[1]))
-		movemsg.MSG_WriteShort (msg, int(ps.pmove.origin[2]))
-
-	if pflags & common_h.PS_M_VELOCITY:
-		movemsg.MSG_WriteShort (msg, int(ps.pmove.velocity[0]))
-		movemsg.MSG_WriteShort (msg, int(ps.pmove.velocity[1]))
-		movemsg.MSG_WriteShort (msg, int(ps.pmove.velocity[2]))
-
-	if pflags & common_h.PS_M_TIME:
-		movemsg.MSG_WriteByte (msg, ps.pmove.pm_time)
-
-	if pflags & common_h.PS_M_FLAGS:
-		movemsg.MSG_WriteByte (msg, ps.pmove.pm_flags)
-
-	if pflags & common_h.PS_M_GRAVITY:
-		movemsg.MSG_WriteShort (msg, int(ps.pmove.gravity))
-
-	if pflags & common_h.PS_M_DELTA_ANGLES:
-		movemsg.MSG_WriteShort (msg, int(ps.pmove.delta_angles[0]))
-		movemsg.MSG_WriteShort (msg, int(ps.pmove.delta_angles[1]))
-		movemsg.MSG_WriteShort (msg, int(ps.pmove.delta_angles[2]))
-
-	#
-	# write the rest of the player_state_t
-	#
-	if pflags & common_h.PS_VIEWOFFSET:
-		movemsg.MSG_WriteChar (msg, int(ps.viewoffset[0]*4))
-		movemsg.MSG_WriteChar (msg, int(ps.viewoffset[1]*4))
-		movemsg.MSG_WriteChar (msg, int(ps.viewoffset[2]*4))
-
-	if pflags & common_h.PS_VIEWANGLES:
-		movemsg.MSG_WriteAngle16 (msg, ps.viewangles[0])
-		movemsg.MSG_WriteAngle16 (msg, ps.viewangles[1])
-		movemsg.MSG_WriteAngle16 (msg, ps.viewangles[2])
-
-	if pflags & common_h.PS_KICKANGLES:
-		movemsg.MSG_WriteChar (msg, int(ps.kick_angles[0]*4))
-		movemsg.MSG_WriteChar (msg, int(ps.kick_angles[1]*4))
-		movemsg.MSG_WriteChar (msg, int(ps.kick_angles[2]*4))
-
-	if pflags & common_h.PS_WEAPONINDEX:
-		movemsg.MSG_WriteByte (msg, ps.gunindex)
-
-	if pflags & common_h.PS_WEAPONFRAME:
-		movemsg.MSG_WriteByte (msg, ps.gunframe)
-		movemsg.MSG_WriteChar (msg, int(ps.gunoffset[0]*4))
-		movemsg.MSG_WriteChar (msg, int(ps.gunoffset[1]*4))
-		movemsg.MSG_WriteChar (msg, int(ps.gunoffset[2]*4))
-		movemsg.MSG_WriteChar (msg, int(ps.gunangles[0]*4))
-		movemsg.MSG_WriteChar (msg, int(ps.gunangles[1]*4))
-		movemsg.MSG_WriteChar (msg, int(ps.gunangles[2]*4))
-
-	if pflags & common_h.PS_BLEND:
-		movemsg.MSG_WriteByte (msg, int(ps.blend[0]*255))
-		movemsg.MSG_WriteByte (msg, int(ps.blend[1]*255))
-		movemsg.MSG_WriteByte (msg, int(ps.blend[2]*255))
-		movemsg.MSG_WriteByte (msg, int(ps.blend[3]*255))
-	if pflags & common_h.PS_FOV:
-		movemsg.MSG_WriteByte (msg, int(ps.fov))
-	if pflags & common_h.PS_RDFLAGS:
-		movemsg.MSG_WriteByte (msg, ps.rdflags)
-
-	# send stats
-	statbits = 0
-	for i in range(shared.MAX_STATS):
-		if ps.stats[i] != ops.stats[i]:
-			statbits |= 1<<i
-	movemsg.MSG_WriteLong (msg, statbits)
-	for i in range(shared.MAX_STATS):
-		if statbits & (1<<i):
-			movemsg.MSG_WriteShort (msg, ps.stats[i])
+	player_delta.write_delta (frm.ps if frm else None, to.ps, msg)
 
 
 """
@@ -588,7 +422,7 @@ def SV_RecordDemoMessage ():
 			and ent.s.number \
 			and (ent.s.modelindex or ent.s.effects or ent.s.sound or ent.s.event) \
 			and not (ent.svflags & game_h.SVF_NOCLIENT):
-			movemsg.MSG_WriteDeltaEntity (nostate, ent.s, buf, False, True)
+			entity_delta.write_delta (nostate, ent.s, buf, False, True)
 
 		e += 1
 		ent = server_h.EDICT_NUM(e)

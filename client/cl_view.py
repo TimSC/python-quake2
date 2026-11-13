@@ -38,7 +38,6 @@ import functools
 import numpy as np
 from client import cl_main, ref
 from backends.unix import system
-from linux import cd_linux
 from client.vid import vid
 from common.header import shared
 from common.shared import shared as shared_c

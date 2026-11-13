@@ -34,7 +34,7 @@ from client import ref
 from client.refresh.gl1 import gl1_main, gl1_image, gl1_light, gl1_buffer
 from common import clientserver
 from common import movemsg
-from common.header import files as files_h
+from q2data import md2 as q2md2
 from common.header import shared
 from common.shared import shared as shared_c
 
@@ -59,7 +59,7 @@ def _LoadAnormtab(): # Q2PORT: float r_avertexnormal_dots[SHADEDOT_QUANT][256] =
 r_avertexnormal_dots = _LoadAnormtab() #float [SHADEDOT_QUANT][256]
 
 #typedef float vec4_t[4];
-s_lerped = np.zeros((files_h.MAX_VERTS, 4), dtype=np.float32) #static vec4_t [MAX_VERTS]
+s_lerped = np.zeros((q2md2.MAX_VERTS, 4), dtype=np.float32) #static vec4_t [MAX_VERTS]
 shadevector = np.zeros((3,), dtype=np.float32) #vec3_t
 shadelight = np.zeros((3,), dtype=np.float32) #float [3]
 shadedots = r_avertexnormal_dots[0] #float *
@@ -676,7 +676,7 @@ def R_DrawAliasModel(currententity, currentmodel): #entity_t *, const model_t *
 
 	else:
 
-		if currententity.skinnum >= files_h.MAX_MD2SKINS:
+		if currententity.skinnum >= q2md2.MAX_SKINS:
 
 			skin = currentmodel.skins[0]
 

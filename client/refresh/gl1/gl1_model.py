@@ -27,8 +27,14 @@ from __future__ import annotations
 
 import copy
 import math
+
+import numpy as np
+
+from q2data import FormatError
+from q2data import bsp as q2bsp
 from common import clientserver
-from common.header import files as files_h
+from q2data import md2 as q2md2
+from q2data import sp2 as q2sp2
 from common.header import shared
 from common.shared import shared as shared_c
 from client.refresh import ref_shared
@@ -42,7 +48,7 @@ from client.refresh.gl1 import gl1_main, gl1_image, gl1_warp, gl1_lightmap
 MAX_MOD_KNOWN = 512
 
 modfilelen = 0 #int
-mod_novis = bytearray(files_h.MAX_MAP_LEAFS // 8) #YQ2_ALIGNAS_TYPE(int) byte [MAX_MAP_LEAFS / 8]
+mod_novis = bytearray(q2bsp.MAX_MAP_LEAFS // 8) #YQ2_ALIGNAS_TYPE(int) byte [MAX_MAP_LEAFS / 8]
 mod_known = [] #static model_t [MAX_MOD_KNOWN]
 for i in range(MAX_MOD_KNOWN):
 	mod_known.append(model.model_t())
@@ -89,9 +95,10 @@ def Mod_ClusterPVS(cluster: int, model_: model.model_t): #int, const model_t * (
 
 		return mod_novis
 
-	# Q2PORT: vis.data is the whole lump, the C's (byte *)model->vis
-	return files_pvs.Mod_DecompressVis(model_.vis.data[model_.vis.bitofs[cluster][files_h.DVIS_PVS]:],
-			(model_.vis.numclusters + 7) >> 3)
+	# vis is a q2data.bsp.Visibility: data is the whole lump, the C's (byte *)model->vis
+	vis = model_.vis
+	return files_pvs.Mod_DecompressVis(vis.data[int(vis.offsets[cluster, q2bsp.VisType.PVS]):],
+			(vis.num_clusters + 7) >> 3)
 
 def Mod_Modellist_f(): #void
 
@@ -211,8 +218,8 @@ def Mod_ForName(name: str, parent_model: model.model_t, crash: bool)->model.mode
 		return None
 
 	# call the apropriate loader
-	ident = shared_c.LittleLong(buf[:4])
-	if ident == files_h.IDALIASHEADER:
+	ident = bytes(buf[:4])
+	if ident == q2md2.MD2_IDENT:
 
 		type_ = [0] # Q2PORT: the files_models loaders set the type's int value
 		mod.extradata = files_models.Mod_LoadMD2(mod.name, buf, modfilelen,
@@ -225,7 +232,7 @@ def Mod_ForName(name: str, parent_model: model.model_t, crash: bool)->model.mode
 			clientserver.Com_Error(shared.ERR_DROP, "{}: Failed to load {}".format(
 				"Mod_ForName", mod.name))
 
-	elif ident == files_h.IDSPRITEHEADER:
+	elif ident == q2sp2.SP2_IDENT:
 
 		type_ = [0]
 		mod.extradata = files_models.Mod_LoadSP2(mod.name, buf, modfilelen,
@@ -237,7 +244,7 @@ def Mod_ForName(name: str, parent_model: model.model_t, crash: bool)->model.mode
 			clientserver.Com_Error(shared.ERR_DROP, "{}: Failed to load {}".format(
 				"Mod_ForName", mod.name))
 
-	elif ident == files_h.IDBSPHEADER:
+	elif ident == q2bsp.BSP_IDENT:
 
 		Mod_LoadBrushModel(mod, buf, modfilelen)
 
@@ -252,29 +259,23 @@ def Mod_ForName(name: str, parent_model: model.model_t, crash: bool)->model.mode
 
 	return mod
 
-def Mod_LoadSubmodels(loadmodel: model.model_t, mod_base: bytes, l: files_h.lump_t): #model_t *, byte *, lump_t *
+def Mod_LoadSubmodels(loadmodel: model.model_t, mod_base: bytes, l: q2bsp.LumpInfo): #model_t *, byte *, lump_t *
 
 	#dmodel_t *in;
 	#model_t	*out;
 	#int i, j, count;
 
-	if l.filelen % files_h.dmodel_t.packed_size():
-
-		clientserver.Com_Error(shared.ERR_DROP, "{}: funny lump size in {}".format(
-				"Mod_LoadSubmodels", loadmodel.name))
-
-	count = l.filelen // files_h.dmodel_t.packed_size()
+	rows = files_models.lump_rows("{}: funny lump size in {}".format(
+				"Mod_LoadSubmodels", loadmodel.name), mod_base, l, q2bsp.Lump.MODELS)
+	count = len(rows)
 	#out = Hunk_Alloc(count * sizeof(*out));
 
 	loadmodel.submodels = []
 	loadmodel.numsubmodels = count
 
-	in_ = files_h.dmodel_t()
-
 	for i in range(count):
 
-		in_offset = l.fileofs + i * files_h.dmodel_t.packed_size()
-		in_.load(mod_base[in_offset:in_offset + files_h.dmodel_t.packed_size()])
+		in_ = rows[i]
 
 		if i == 0:
 
@@ -373,7 +374,7 @@ static int calcTexinfoAndFacesSize(byte *mod_base, const lump_t *fl, const lump_
 }
 """
 
-def Mod_LoadFaces(loadmodel: model.model_t, mod_base: bytes, l: files_h.lump_t): #model_t *, byte *, lump_t *
+def Mod_LoadFaces(loadmodel: model.model_t, mod_base: bytes, l: q2bsp.LumpInfo): #model_t *, byte *, lump_t *
 
 	#dface_t *in;
 	#msurface_t *out;
@@ -381,12 +382,9 @@ def Mod_LoadFaces(loadmodel: model.model_t, mod_base: bytes, l: files_h.lump_t):
 	#int planenum, side;
 	#int ti;
 
-	if l.filelen % files_h.dface_t.packed_size():
-
-		clientserver.Com_Error(shared.ERR_DROP, "{}: funny lump size in {}".format(
-				"Mod_LoadFaces", loadmodel.name))
-
-	count = l.filelen // files_h.dface_t.packed_size()
+	rows = files_models.lump_rows("{}: funny lump size in {}".format(
+				"Mod_LoadFaces", loadmodel.name), mod_base, l, q2bsp.Lump.FACES)
+	count = len(rows)
 	#out = Hunk_Alloc(count * sizeof(*out));
 
 	loadmodel.surfaces = []
@@ -394,12 +392,9 @@ def Mod_LoadFaces(loadmodel: model.model_t, mod_base: bytes, l: files_h.lump_t):
 
 	gl1_lightmap.LM_BeginBuildingLightmaps(loadmodel)
 
-	in_ = files_h.dface_t()
-
 	for surfnum in range(count):
 
-		in_offset = l.fileofs + surfnum * files_h.dface_t.packed_size()
-		in_.load(mod_base[in_offset:in_offset + files_h.dface_t.packed_size()])
+		in_ = rows[surfnum]
 
 		out = model.msurface_t()
 		loadmodel.surfaces.append(out)
@@ -435,8 +430,8 @@ def Mod_LoadFaces(loadmodel: model.model_t, mod_base: bytes, l: files_h.lump_t):
 		Mod_CalcSurfaceExtents(loadmodel, out)
 
 		# lighting info
-		out.styles = [0] * files_h.MAXLIGHTMAPS
-		for i in range(files_h.MAXLIGHTMAPS):
+		out.styles = [0] * q2bsp.MAX_LIGHTMAPS
+		for i in range(q2bsp.MAX_LIGHTMAPS):
 
 			out.styles[i] = in_.styles[i]
 
@@ -481,29 +476,23 @@ def Mod_LoadFaces(loadmodel: model.model_t, mod_base: bytes, l: files_h.lump_t):
 
 	gl1_lightmap.LM_EndBuildingLightmaps()
 
-def Mod_LoadLeafs(loadmodel: model.model_t, mod_base: bytes, l: files_h.lump_t): #model_t *, byte *, lump_t *
+def Mod_LoadLeafs(loadmodel: model.model_t, mod_base: bytes, l: q2bsp.LumpInfo): #model_t *, byte *, lump_t *
 
 	#dleaf_t *in;
 	#mleaf_t *out;
 	#int i, j, count, p;
 
-	if l.filelen % files_h.dleaf_t.packed_size():
-
-		clientserver.Com_Error(shared.ERR_DROP, "{}: funny lump size in {}".format(
-				"Mod_LoadLeafs", loadmodel.name))
-
-	count = l.filelen // files_h.dleaf_t.packed_size()
+	rows = files_models.lump_rows("{}: funny lump size in {}".format(
+				"Mod_LoadLeafs", loadmodel.name), mod_base, l, q2bsp.Lump.LEAFS)
+	count = len(rows)
 	#out = Hunk_Alloc(count * sizeof(*out));
 
 	loadmodel.leafs = []
 	loadmodel.numleafs = count
 
-	in_ = files_h.dleaf_t()
-
 	for i in range(count):
 
-		in_offset = l.fileofs + i * files_h.dleaf_t.packed_size()
-		in_.load(mod_base[in_offset:in_offset + files_h.dleaf_t.packed_size()])
+		in_ = rows[i]
 
 		out = ref_shared.mleaf_t()
 		loadmodel.leafs.append(out)
@@ -534,18 +523,17 @@ def Mod_LoadLeafs(loadmodel: model.model_t, mod_base: bytes, l: files_h.lump_t):
 			clientserver.Com_Error(shared.ERR_DROP, "{}: wrong marksurfaces position in {}".format(
 				"Mod_LoadLeafs", loadmodel.name))
 
-def Mod_LoadMarksurfaces(loadmodel: model.model_t, mod_base: bytes, l: files_h.lump_t): #model_t *, byte *, lump_t *
+def Mod_LoadMarksurfaces(loadmodel: model.model_t, mod_base: bytes, l: q2bsp.LumpInfo): #model_t *, byte *, lump_t *
 
 	#int i, j, count;
 	#short *in;
 	#msurface_t **out;
 
-	if l.filelen % 2: # sizeof(*in)
-
-		clientserver.Com_Error(shared.ERR_DROP, "{}: funny lump size in {}".format(
-				"Mod_LoadMarksurfaces", loadmodel.name))
-
-	count = l.filelen // 2
+	# the C reads them as (signed) shorts
+	surfnums = files_models.lump_records("{}: funny lump size in {}".format(
+				"Mod_LoadMarksurfaces", loadmodel.name),
+		mod_base, l, q2bsp.Lump.LEAF_FACES).astype(np.int16).tolist()
+	count = len(surfnums)
 	#out = Hunk_Alloc(count * sizeof(*out));
 
 	loadmodel.marksurfaces = []
@@ -553,8 +541,7 @@ def Mod_LoadMarksurfaces(loadmodel: model.model_t, mod_base: bytes, l: files_h.l
 
 	for i in range(count):
 
-		in_offset = l.fileofs + i * 2
-		j = shared_c.LittleSShort(mod_base[in_offset:in_offset + 2])
+		j = surfnums[i]
 
 		if (j < 0) or (j >= loadmodel.numsurfaces):
 
@@ -573,21 +560,17 @@ def Mod_LoadBrushModel(mod: model.model_t, buffer: bytes, modfilelen: int): #mod
 
 		clientserver.Com_Error(shared.ERR_DROP, "{}: Loaded a brush model after the world".format("Mod_LoadBrushModel"))
 
-	header = files_h.dheader_t()
-	header.parse(buffer)
-
-	i = header.version
-
-	if i != files_h.BSPVERSION:
-
-		clientserver.Com_Error(shared.ERR_DROP, "{}: {} has wrong version number ({} should be {})".format(
-				"Mod_LoadBrushModel", mod.name, i, files_h.BSPVERSION))
+	# the header and lump bounds, checked by q2data.bsp
+	try:
+		lumps = q2bsp.read_header(buffer)
+	except FormatError as err:
+		clientserver.Com_Error(shared.ERR_DROP, "{}: {} {}".format("Mod_LoadBrushModel", mod.name, err))
 
 	# swap all the lumps
 	mod_base = buffer
 
-	# Q2PORT: dheader_t.parse swapped the lumps; the C then sizes the hunk
-	# (Mod_CalcLumpHunkSize, calcTexinfoAndFacesSize), which the port doesn't need
+	# the C sizes the hunk here (Mod_CalcLumpHunkSize, calcTexinfoAndFacesSize);
+	# the port has none
 
 	#mod->extradata = Hunk_Begin(hunkSize);
 	mod.type = model.modtype_t.mod_brush
@@ -596,40 +579,40 @@ def Mod_LoadBrushModel(mod: model.model_t, buffer: bytes, modfilelen: int): #mod
 	# Q2PORT: the files_models loaders fill one element lists in place of the C's out pointers
 	vertexes, numvertexes = [None], [0]
 	files_models.Mod_LoadVertexes(mod.name, vertexes, numvertexes, mod_base,
-		header.lumps[files_h.LUMP_VERTEXES], 0)
+		lumps[q2bsp.Lump.VERTICES], 0)
 	mod.vertexes, mod.numvertexes = vertexes[0], numvertexes[0]
 	edges, numedges = [None], [0]
 	files_models.Mod_LoadEdges(mod.name, edges, numedges,
-		mod_base, header.lumps[files_h.LUMP_EDGES], 1)
+		mod_base, lumps[q2bsp.Lump.EDGES], 1)
 	mod.edges, mod.numedges = edges[0], numedges[0]
 	surfedges, numsurfedges = [None], [0]
 	files_models.Mod_LoadSurfedges(mod.name, surfedges, numsurfedges,
-		mod_base, header.lumps[files_h.LUMP_SURFEDGES], 0)
+		mod_base, lumps[q2bsp.Lump.SURF_EDGES], 0)
 	mod.surfedges, mod.numsurfedges = surfedges[0], numsurfedges[0]
 	lightdata = [None]
-	files_models.Mod_LoadLighting(lightdata, mod_base, header.lumps[files_h.LUMP_LIGHTING])
+	files_models.Mod_LoadLighting(lightdata, mod_base, lumps[q2bsp.Lump.LIGHTING])
 	mod.lightdata = lightdata[0]
 	planes, numplanes = [None], [0]
 	files_models.Mod_LoadPlanes (mod.name, planes, numplanes,
-		mod_base, header.lumps[files_h.LUMP_PLANES], 0)
+		mod_base, lumps[q2bsp.Lump.PLANES], 0)
 	mod.planes, mod.numplanes = planes[0], numplanes[0]
 	texinfo, numtexinfo = [None], [0]
 	files_models.Mod_LoadTexinfo(mod.name, texinfo, numtexinfo,
-		mod_base, header.lumps[files_h.LUMP_TEXINFO], gl1_image.R_FindImage,
+		mod_base, lumps[q2bsp.Lump.TEXINFO], gl1_image.R_FindImage,
 		gl1_main.r_notexture, 0)
 	mod.texinfo, mod.numtexinfo = texinfo[0], numtexinfo[0]
-	Mod_LoadFaces(mod, mod_base, header.lumps[files_h.LUMP_FACES])
-	Mod_LoadMarksurfaces(mod, mod_base, header.lumps[files_h.LUMP_LEAFFACES])
+	Mod_LoadFaces(mod, mod_base, lumps[q2bsp.Lump.FACES])
+	Mod_LoadMarksurfaces(mod, mod_base, lumps[q2bsp.Lump.LEAF_FACES])
 	vis = [None]
-	files_models.Mod_LoadVisibility (vis, mod_base, header.lumps[files_h.LUMP_VISIBILITY])
+	files_models.Mod_LoadVisibility (vis, mod_base, lumps[q2bsp.Lump.VISIBILITY])
 	mod.vis = vis[0]
-	Mod_LoadLeafs(mod, mod_base, header.lumps[files_h.LUMP_LEAFS])
+	Mod_LoadLeafs(mod, mod_base, lumps[q2bsp.Lump.LEAFS])
 	nodes, numnodes = [None], [0]
 	files_models.Mod_LoadNodes(mod.name, mod.planes, mod.numplanes, mod.leafs,
 		mod.numleafs, nodes, numnodes, mod_base,
-		header.lumps[files_h.LUMP_NODES])
+		lumps[q2bsp.Lump.NODES])
 	mod.nodes, mod.numnodes = nodes[0], numnodes[0]
-	Mod_LoadSubmodels (mod, mod_base, header.lumps[files_h.LUMP_MODELS])
+	Mod_LoadSubmodels (mod, mod_base, lumps[q2bsp.Lump.MODELS])
 	mod.numframes = 2 # regular and alternate animation
 
 def Mod_Free(mod: model.model_t): #model_t *

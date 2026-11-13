@@ -34,6 +34,8 @@ from common.header import common as common_h
 from common.header import shared
 from common import clientserver
 from common import movemsg
+from common import entity_delta
+from common import player_delta
 from common import netchan
 from client import cl_main
 from client import cl_prediction
@@ -52,7 +54,6 @@ vidref_val = shared.VIDREF_GL # int
 from client import cl_main, cl_view, cl_cin
 from client.sound import sound as sound_c
 from backends.unix import system
-from linux import cd_linux
 from client.vid import vid
 from common.header import common as common_h
 from common.header import shared
@@ -140,137 +141,6 @@ def CL_RegisterSounds(): #
 	sound_c.S_EndRegistration()
 
 
-bitcounts = [] #int[32], just for protocol profilingf
-for i in range(32):
-	bitcounts.append(0)
-
-def CL_ParseEntityBits (): # (unsigned *bits)
-
-	# unsigned	b, total;
-	# int			i;
-	# int			number;
-
-	total = movemsg.MSG_ReadByte (netchan.net_message)
-	if total & common_h.U_MOREBITS1:
-	
-		b = movemsg.MSG_ReadByte (netchan.net_message)
-		total |= b<<8
-	
-	if total & common_h.U_MOREBITS2:
-	
-		b = movemsg.MSG_ReadByte (netchan.net_message)
-		total |= b<<16
-	
-	if total & common_h.U_MOREBITS3:
-	
-		b = movemsg.MSG_ReadByte (netchan.net_message)
-		total |= b<<24
-	
-
-	# count the bits for net profiling
-	for i in range(32):
-		if total&(1<<i): # 1u << i
-			bitcounts[i]+=1
-
-	if total & common_h.U_NUMBER16:
-		number = movemsg.MSG_ReadShort (netchan.net_message)
-	else:
-		number = movemsg.MSG_ReadByte (netchan.net_message)
-
-	return number, total
-
-
-	# ==================
-	# CL_ParseDelta
-	#
-	# Can go from either a baseline or a previous packet_entity
-	# ==================
-CL_ParseDelta_es_nullstate = shared.entity_state_t() #static const entity_state_t, in CL_ParseDelta
-
-def CL_ParseDelta (fromEnt, toEnt, number, bits): #const entity_state_t *from, entity_state_t *to, int number, int bits
-
-	#entity_state_t dummy;
-
-	if fromEnt is None:
-
-		fromEnt = CL_ParseDelta_es_nullstate
-
-
-	if toEnt is None:
-
-		toEnt = shared.entity_state_t() # to = &dummy;
-
-
-	# set everything to the state we are delta'ing from
-	toEnt.copy(fromEnt)
-
-	shared.VectorCopy (fromEnt.origin, toEnt.old_origin)
-	toEnt.number = number
-
-	if bits & common_h.U_MODEL:
-		toEnt.modelindex = movemsg.MSG_ReadByte (netchan.net_message)
-	if bits & common_h.U_MODEL2:
-		toEnt.modelindex2 = movemsg.MSG_ReadByte (netchan.net_message)
-	if bits & common_h.U_MODEL3:
-		toEnt.modelindex3 = movemsg.MSG_ReadByte (netchan.net_message)
-	if bits & common_h.U_MODEL4:
-		toEnt.modelindex4 = movemsg.MSG_ReadByte (netchan.net_message)
-		
-	if bits & common_h.U_FRAME8:
-		toEnt.frame = movemsg.MSG_ReadByte (netchan.net_message)
-	if bits & common_h.U_FRAME16:
-		toEnt.frame = movemsg.MSG_ReadShort (netchan.net_message)
-
-	if (bits & common_h.U_SKIN8) and (bits & common_h.U_SKIN16):		# used for laser colors
-		toEnt.skinnum = movemsg.MSG_ReadLong(netchan.net_message)
-	elif bits & common_h.U_SKIN8:
-		toEnt.skinnum = movemsg.MSG_ReadByte(netchan.net_message)
-	elif bits & common_h.U_SKIN16:
-		toEnt.skinnum = movemsg.MSG_ReadShort(netchan.net_message)
-
-	if (bits & (common_h.U_EFFECTS8|common_h.U_EFFECTS16)) == (common_h.U_EFFECTS8|common_h.U_EFFECTS16):
-		toEnt.effects = movemsg.MSG_ReadLong(netchan.net_message)
-	elif bits & common_h.U_EFFECTS8:
-		toEnt.effects = movemsg.MSG_ReadByte(netchan.net_message)
-	elif bits & common_h.U_EFFECTS16:
-		toEnt.effects = movemsg.MSG_ReadShort(netchan.net_message)
-
-	if (bits & (common_h.U_RENDERFX8|common_h.U_RENDERFX16)) == (common_h.U_RENDERFX8|common_h.U_RENDERFX16):
-		toEnt.renderfx = movemsg.MSG_ReadLong(netchan.net_message)
-	elif bits & common_h.U_RENDERFX8:
-		toEnt.renderfx = movemsg.MSG_ReadByte(netchan.net_message)
-	elif bits & common_h.U_RENDERFX16:
-		toEnt.renderfx = movemsg.MSG_ReadShort(netchan.net_message)
-
-	if bits & common_h.U_ORIGIN1:
-		toEnt.origin[0] = movemsg.MSG_ReadCoord (netchan.net_message)
-	if bits & common_h.U_ORIGIN2:
-		toEnt.origin[1] = movemsg.MSG_ReadCoord (netchan.net_message)
-	if bits & common_h.U_ORIGIN3:
-		toEnt.origin[2] = movemsg.MSG_ReadCoord (netchan.net_message)
-		
-	if bits & common_h.U_ANGLE1:
-		toEnt.angles[0] = movemsg.MSG_ReadAngle(netchan.net_message)
-	if bits & common_h.U_ANGLE2:
-		toEnt.angles[1] = movemsg.MSG_ReadAngle(netchan.net_message)
-	if bits & common_h.U_ANGLE3:
-		toEnt.angles[2] = movemsg.MSG_ReadAngle(netchan.net_message)
-
-	if bits & common_h.U_OLDORIGIN:
-		movemsg.MSG_ReadPos(netchan.net_message, toEnt.old_origin)
-
-	if bits & common_h.U_SOUND:
-		toEnt.sound = movemsg.MSG_ReadByte (netchan.net_message)
-
-	if bits & common_h.U_EVENT:
-		toEnt.event = movemsg.MSG_ReadByte (netchan.net_message)
-	else:
-		toEnt.event = 0
-
-	if bits & common_h.U_SOLID:
-		toEnt.solid = movemsg.MSG_ReadShort (netchan.net_message)
-
-
 	# ==================
 	# CL_DeltaEntity
 	#
@@ -291,7 +161,7 @@ def CL_DeltaEntity (frame, newnum, old, bits): #frame_t *, int, const entity_sta
 	cl_main.cl.parse_entities+=1
 	frame.num_entities+=1
 
-	CL_ParseDelta (old, state, newnum, bits)
+	entity_delta.read_delta (old, state, newnum, bits, netchan.net_message)
 
 	# some data changes will force no lerping
 	if ((state.modelindex != ent.current.modelindex) or
@@ -371,7 +241,7 @@ def CL_ParsePacketEntities (oldframe, newframe): #frame_t *, frame_t *
 
 	while 1:
 
-		newnum, bits = CL_ParseEntityBits ()
+		newnum, bits = entity_delta.read_bits (netchan.net_message)
 
 		if newnum > client_h.MAX_CL_ENTNUM:
 
@@ -477,11 +347,6 @@ def CL_ParsePacketEntities (oldframe, newframe): #frame_t *, frame_t *
 # ===================
 def CL_ParsePlayerstate (oldframe, newframe): #frame_t *, frame_t *
 
-	# int			flags;
-	# player_state_t	*state;
-	# int			i;
-	# int			statbits;
-
 	# clear to old value before delta parsing
 	if oldframe:
 		newframe.playerstate = copy.deepcopy(oldframe.playerstate) # *state = oldframe->playerstate
@@ -490,107 +355,11 @@ def CL_ParsePlayerstate (oldframe, newframe): #frame_t *, frame_t *
 
 	state = newframe.playerstate
 
-	flags = movemsg.MSG_ReadShort (netchan.net_message)
-
-	#
-	# parse the pmove_state_t
-	#
-	if flags & common_h.PS_M_TYPE:
-		state.pmove.pm_type = movemsg.MSG_ReadByte (netchan.net_message)
-
-
-	if flags & common_h.PS_M_ORIGIN:
-
-		state.pmove.origin[0] = movemsg.MSG_ReadShort (netchan.net_message)
-		state.pmove.origin[1] = movemsg.MSG_ReadShort (netchan.net_message)
-		state.pmove.origin[2] = movemsg.MSG_ReadShort (netchan.net_message)
-
-
-	if flags & common_h.PS_M_VELOCITY:
-
-		state.pmove.velocity[0] = movemsg.MSG_ReadShort (netchan.net_message)
-		state.pmove.velocity[1] = movemsg.MSG_ReadShort (netchan.net_message)
-		state.pmove.velocity[2] = movemsg.MSG_ReadShort (netchan.net_message)
-
-
-	if flags & common_h.PS_M_TIME:
-		state.pmove.pm_time = movemsg.MSG_ReadByte (netchan.net_message)
-
-	if flags & common_h.PS_M_FLAGS:
-		state.pmove.pm_flags = movemsg.MSG_ReadByte (netchan.net_message)
-
-	if flags & common_h.PS_M_GRAVITY:
-		state.pmove.gravity = movemsg.MSG_ReadShort (netchan.net_message)
-
-	if flags & common_h.PS_M_DELTA_ANGLES:
-
-		state.pmove.delta_angles[0] = movemsg.MSG_ReadShort (netchan.net_message)
-		state.pmove.delta_angles[1] = movemsg.MSG_ReadShort (netchan.net_message)
-		state.pmove.delta_angles[2] = movemsg.MSG_ReadShort (netchan.net_message)
-
+	# the groups that changed (player_delta's table), then the stats
+	player_delta.read_delta (netchan.net_message, state)
 
 	if cl_main.cl.attractloop:
 		state.pmove.pm_type = shared.pmtype_t.PM_FREEZE.value		# demo playback
-
-	#
-	# parse the rest of the player_state_t
-	#
-	if flags & common_h.PS_VIEWOFFSET:
-
-		state.viewoffset[0] = movemsg.MSG_ReadChar (netchan.net_message) * 0.25
-		state.viewoffset[1] = movemsg.MSG_ReadChar (netchan.net_message) * 0.25
-		state.viewoffset[2] = movemsg.MSG_ReadChar (netchan.net_message) * 0.25
-
-
-	if flags & common_h.PS_VIEWANGLES:
-
-		state.viewangles[0] = movemsg.MSG_ReadAngle16 (netchan.net_message)
-		state.viewangles[1] = movemsg.MSG_ReadAngle16 (netchan.net_message)
-		state.viewangles[2] = movemsg.MSG_ReadAngle16 (netchan.net_message)
-
-
-	if flags & common_h.PS_KICKANGLES:
-
-		state.kick_angles[0] = movemsg.MSG_ReadChar (netchan.net_message) * 0.25
-		state.kick_angles[1] = movemsg.MSG_ReadChar (netchan.net_message) * 0.25
-		state.kick_angles[2] = movemsg.MSG_ReadChar (netchan.net_message) * 0.25
-
-
-	if flags & common_h.PS_WEAPONINDEX:
-
-		state.gunindex = movemsg.MSG_ReadByte (netchan.net_message)
-
-
-	if flags & common_h.PS_WEAPONFRAME:
-
-		state.gunframe = movemsg.MSG_ReadByte (netchan.net_message)
-		state.gunoffset[0] = movemsg.MSG_ReadChar (netchan.net_message)*0.25
-		state.gunoffset[1] = movemsg.MSG_ReadChar (netchan.net_message)*0.25
-		state.gunoffset[2] = movemsg.MSG_ReadChar (netchan.net_message)*0.25
-		state.gunangles[0] = movemsg.MSG_ReadChar (netchan.net_message)*0.25
-		state.gunangles[1] = movemsg.MSG_ReadChar (netchan.net_message)*0.25
-		state.gunangles[2] = movemsg.MSG_ReadChar (netchan.net_message)*0.25
-
-
-	if flags & common_h.PS_BLEND:
-
-		state.blend[0] = movemsg.MSG_ReadByte (netchan.net_message)/255.0
-		state.blend[1] = movemsg.MSG_ReadByte (netchan.net_message)/255.0
-		state.blend[2] = movemsg.MSG_ReadByte (netchan.net_message)/255.0
-		state.blend[3] = movemsg.MSG_ReadByte (netchan.net_message)/255.0
-
-
-	if flags & common_h.PS_FOV:
-		state.fov = float(movemsg.MSG_ReadByte (netchan.net_message))
-
-	if flags & common_h.PS_RDFLAGS:
-		state.rdflags = movemsg.MSG_ReadByte (netchan.net_message)
-
-	# parse stats
-	statbits = movemsg.MSG_ReadLong (netchan.net_message)
-	for i in range(shared.MAX_STATS):
-		if statbits & (1<<i): # 1u << i
-			state.stats[i] = movemsg.MSG_ReadShort(netchan.net_message)
 
 
 """
@@ -923,9 +692,9 @@ def CL_ParseBaseline ():
 	centity_t *ent;
 	"""
 
-	newnum, bits = CL_ParseEntityBits ()
+	newnum, bits = entity_delta.read_bits (netchan.net_message)
 	ent = cl_main.CL_AllocEntity(newnum)
-	CL_ParseDelta (None, ent.baseline if ent else None, newnum, bits)
+	entity_delta.read_delta (None, ent.baseline if ent else None, newnum, bits, netchan.net_message)
 
 """
 ================

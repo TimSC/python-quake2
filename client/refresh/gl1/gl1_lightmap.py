@@ -27,7 +27,6 @@ from client import ref
 from client.refresh.gl1 import gl1_image, gl1_light, gl1_main, gl1_surf
 from client.refresh.gl1.header import model
 from common import clientserver
-from common.header import files as files_h
 from common.header import shared
 
 # Meant for tile / deferred rendering platforms

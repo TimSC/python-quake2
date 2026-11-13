@@ -25,15 +25,104 @@
 """
 from __future__ import annotations
 
-import math
-import struct
+import types
+
 import numpy as np
-from common.header import files as files_h
+
+from q2data import FormatError
+from q2data import bsp as q2bsp
+from q2data import md2 as q2md2
+from q2data import sp2 as q2sp2
 from common.header import shared
-from common.shared import shared as shared_c
 from common import clientserver
 from client.refresh import ref_shared
 
+
+class daliasframe_t(object):
+	# one frame of an alias model, as the renderers use it
+
+	def __init__(self):
+		self.scale = np.zeros((3,), dtype=np.float32) # multiply byte verts by this
+		self.translate = np.zeros((3,), dtype=np.float32) # then add this
+		self.name = "" # frame name from grabbing
+		self.verts = [] # (num_xyz, 4) bytes: the position, then the normal index
+
+class dmdl_t(object):
+	# an alias model: the MD2 header values, and the data the renderers use
+	# (Mod_LoadMD2 sets frames, stverts, glcmds and the glcmds_* arrays)
+
+	def __init__(self):
+		self.ident = None
+		self.version = None
+		self.skinwidth = None
+		self.skinheight = None
+		self.framesize = None # byte size of each frame
+		self.num_skins = None
+		self.num_xyz = None
+		self.num_st = None # greater than num_xyz for seams
+		self.num_tris = None
+		self.num_glcmds = None # dwords in strip/fan command list
+		self.num_frames = None
+		self.ofs_skins = None # each skin is a MAX_SKINNAME string
+		self.ofs_st = None # byte offset from start for stverts
+		self.ofs_tris = None # offset for dtriangles
+		self.ofs_frames = None # offset for first frame
+		self.ofs_glcmds = None
+		self.ofs_end = None # end of file
+
+class dsprframe_t(object):
+
+	def __init__(self):
+		self.width = None
+		self.height = None
+		self.origin_x = None # raster coordinates inside pic
+		self.origin_y = None
+		self.name = "" # name of pcx file
+
+class dsprite_t(object):
+
+	def __init__(self):
+		self.ident = None
+		self.version = None
+		self.numframes = None
+		self.frames = []
+
+"""
+=================
+lump_records, lump_rows
+
+The renderers' BSP lumps, read by q2data.bsp. lump_rows gives each record as
+an object with the C field names, which the loaders below still use.
+=================
+"""
+C_FIELDS = {
+	q2bsp.Lump.PLANES: ("normal", "dist", "type"),
+	q2bsp.Lump.VERTICES: ("point",),
+	q2bsp.Lump.NODES: ("planenum", "children", "mins", "maxs", "firstface", "numfaces"),
+	q2bsp.Lump.TEXINFO: ("vecs", "flags", "value", "texture", "nexttexinfo"),
+	q2bsp.Lump.FACES: ("planenum", "side", "firstedge", "numedges", "texinfo", "styles", "lightofs"),
+	q2bsp.Lump.LEAFS: ("contents", "cluster", "area", "mins", "maxs", "firstleafface",
+		"numleaffaces", "firstleafbrush", "numleafbrushes"),
+	q2bsp.Lump.EDGES: ("v",),
+	q2bsp.Lump.MODELS: ("mins", "maxs", "origin", "headnode", "firstface", "numfaces"),
+}
+
+def lump_records(error, mod_base, l, lump): #str, bytes, q2bsp.LumpInfo, q2bsp.Lump (returns numpy record array)
+
+	try:
+		return q2bsp.lump_records(mod_base, l, lump)
+	except FormatError:
+		clientserver.Com_Error(shared.ERR_DROP, error)
+
+def lump_rows(error, mod_base, l, lump): #str, bytes, q2bsp.LumpInfo, q2bsp.Lump (returns list of SimpleNamespace)
+
+	fields = C_FIELDS[lump]
+	rows = [types.SimpleNamespace(**dict(zip(fields, row)))
+		for row in lump_records(error, mod_base, l, lump).tolist()]
+	if lump == q2bsp.Lump.TEXINFO:
+		for row in rows:
+			row.texture = row.texture.split(b"\0", 1)[0].decode("latin-1")
+	return rows
 
 """
 =================
@@ -42,106 +131,120 @@ Mod_LoadAliasModel/Mod_LoadMD2
 """
 def Mod_LoadMD2(mod_name, buff, modfilelen, mins, maxs, skins, find_image, type): #const char *, const void *, int, vec3_t, vec3_t, struct image_s **, findimage_t, modtype_t * (returns void *)
 
-	header = files_h.dmdl_t()
-	header.load(buff)
+	# The file is parsed by q2data.md2; the engine checks its limits and keeps
+	# the model in a dmdl_t, as the renderers expect.
+	data = bytes(buff[:modfilelen])
 
-	if header.version != files_h.ALIAS_VERSION:
-		clientserver.Com_Printf("{}: {} has wrong version number ({} should be {})\n".format("Mod_LoadMD2", mod_name, header.version, files_h.ALIAS_VERSION))
+	try:
+		q2header = q2md2.read_header(data)
+	except FormatError as err:
+		reason = str(err)
+		if reason.startswith("has wrong version"):
+			clientserver.Com_Printf("{}: {} {}\n".format("Mod_LoadMD2", mod_name, reason))
+		elif reason.startswith("file size"):
+			clientserver.Com_Printf("{}: model {} {}\n".format("Mod_LoadMD2", mod_name, reason))
+		else:
+			clientserver.Com_Printf("{}: model {} {}\n".format("Mod_LoadMD2", mod_name, reason))
 		return None
 
-	if header.ofs_end < 0 or header.ofs_end > modfilelen:
-		clientserver.Com_Printf("{}: model {} file size({}) too small, should be {}\n".format("Mod_LoadMD2", mod_name, modfilelen, header.ofs_end))
-		return None
-
-	# Hunk_Begin(modfilelen); the Python objects are the hunk
-
-	if header.skinheight > ref_shared.MAX_LBM_HEIGHT:
+	if q2header.skin_height > ref_shared.MAX_LBM_HEIGHT:
 		clientserver.Com_Printf("{}: model {} has a skin taller than {}\n".format("Mod_LoadMD2", mod_name, ref_shared.MAX_LBM_HEIGHT))
 		return None
 
-	if header.num_xyz <= 0:
+	if q2header.num_xyz <= 0:
 		clientserver.Com_Printf("{}: model {} has no vertices\n".format("Mod_LoadMD2", mod_name))
 		return None
 
-	if header.num_xyz > files_h.MAX_VERTS:
+	if q2header.num_xyz > q2md2.MAX_VERTS:
 		clientserver.Com_Printf("{}: model {} has too many vertices\n".format("Mod_LoadMD2", mod_name))
 		return None
 
-	if header.num_st <= 0:
+	if q2header.num_st <= 0:
 		clientserver.Com_Printf("{}: model {} has no st vertices\n".format("Mod_LoadMD2", mod_name))
 		return None
 
-	if header.num_tris <= 0:
+	if q2header.num_tris <= 0:
 		clientserver.Com_Printf("{}: model {} has no triangles\n".format("Mod_LoadMD2", mod_name))
 		return None
 
-	if header.num_frames <= 0:
+	if q2header.num_frames <= 0:
 		clientserver.Com_Printf("{}: model {} has no frames\n".format("Mod_LoadMD2", mod_name))
 		return None
 
-	if header.num_skins > files_h.MAX_MD2SKINS:
-		clientserver.Com_Printf("{} has too many skins ({} > {}), extra sprites will be ignored\n".format(mod_name, header.num_skins, files_h.MAX_MD2SKINS))
-		header.num_skins = files_h.MAX_MD2SKINS
+	try:
+		model = q2md2.load_md2(data)
+	except FormatError as err:
+		clientserver.Com_Printf("{}: model {} {}\n".format("Mod_LoadMD2", mod_name, err))
+		return None
 
-	#
-	# load base s and t vertices (not used in gl version)
-	#
-	stverts = []
-	for i in range(header.num_st):
-		entry_offset = header.ofs_st + i * 4
-		s, t = struct.unpack_from("<hh", buff, entry_offset)
-		stverts.append((s, t))
+	header = dmdl_t()
+	header.ident = q2md2.MD2_IDENT
+	header.version = q2md2.MD2_VERSION
+	header.skinwidth = q2header.skin_width
+	header.skinheight = q2header.skin_height
+	header.framesize = q2header.frame_size
+	header.num_skins = q2header.num_skins
+	header.num_xyz = q2header.num_xyz
+	header.num_st = q2header.num_st
+	header.num_tris = q2header.num_tris
+	header.num_glcmds = q2header.num_glcmds
+	header.num_frames = q2header.num_frames
+	header.ofs_skins = q2header.ofs_skins
+	header.ofs_st = q2header.ofs_st
+	header.ofs_tris = q2header.ofs_tris
+	header.ofs_frames = q2header.ofs_frames
+	header.ofs_glcmds = q2header.ofs_glcmds
+	header.ofs_end = q2header.ofs_end
 
-	#
-	# load the frames
-	#
+	if header.num_skins > q2md2.MAX_SKINS:
+		clientserver.Com_Printf("{} has too many skins ({} > {}), extra sprites will be ignored\n".format(mod_name, header.num_skins, q2md2.MAX_SKINS))
+		header.num_skins = q2md2.MAX_SKINS
+
+	# base s and t vertices (not used in gl version)
+	stverts = list(zip(model.st["s"].tolist(), model.st["t"].tolist()))
+
+	# the frames: verts is (num_xyz, 4) bytes, the position then the normal index
 	frames = [] # daliasframe_t[num_frames]
-	frame_offset = header.ofs_frames
-	for i in range(header.num_frames):
-		frame_data = buff[frame_offset:frame_offset + header.framesize]
-		frame = files_h.daliasframe_t()
-		frame.scale = np.array(struct.unpack_from("<3f", frame_data, 0), dtype=np.float32)
-		frame.translate = np.array(struct.unpack_from("<3f", frame_data, 12), dtype=np.float32)
-		frame.name = frame_data[24:40].split(b'\x00', 1)[0].decode("ascii", "ignore")
-		frame.verts = np.frombuffer(frame_data, dtype=np.uint8, count=header.num_xyz * 4, offset=40).reshape((header.num_xyz, 4))
+	for q2frame in model.frames:
+		frame = daliasframe_t()
+		frame.scale = q2frame.scale
+		frame.translate = q2frame.translate
+		frame.name = q2frame.name
+		frame.verts = q2frame.verts.view(np.uint8).reshape((header.num_xyz, 4))
 		frames.append(frame)
-		frame_offset += header.framesize
 
-	#
-	# load the glcmds
-	#
-	# The C stores these as ints, with the texture coordinates being floats
-	# punned into the same array. Decode them here into a plain list of
-	# count, then (s float, t float, index_xyz int) per vertex, ending with 0.
+	# The glcmds are ints with the texture coordinates being floats punned into
+	# the same array. Decode them into a plain list of count, then (s float,
+	# t float, index_xyz int) per vertex, ending with 0.
+	words = model.glcmds
+	floats = words.view(np.float32)
 	glcmds = []
-	glcmds_counts = [] # Q2PORT: see header.glcmds_counts below
+	glcmds_counts = [] # the signed count of each fan (< 0) or strip (> 0)
 	glcmds_st = []
 	glcmds_xyz = []
-	cmd_offset = header.ofs_glcmds
-	cmd_end = header.ofs_glcmds + header.num_glcmds * 4
-	while cmd_offset < cmd_end:
-		count = struct.unpack_from("<i", buff, cmd_offset)[0]
-		cmd_offset += 4
+	i = 0
+	while i < len(words):
+		count = int(words[i])
+		i += 1
 		glcmds.append(count)
 		if not count:
 			break
+		if i + abs(count) * 3 > len(words):
+			break # the list ends in the middle of a fan or strip
 		glcmds_counts.append(count)
 		for _ in range(abs(count)):
-			s, t, index_xyz = struct.unpack_from("<ffi", buff, cmd_offset)
-			cmd_offset += 12
-			glcmds.extend((s, t, index_xyz))
-			glcmds_st.append((s, t))
+			s_coord, t_coord, index_xyz = float(floats[i]), float(floats[i + 1]), int(words[i + 2])
+			i += 3
+			glcmds.extend((s_coord, t_coord, index_xyz))
+			glcmds_st.append((s_coord, t_coord))
 			glcmds_xyz.append(index_xyz)
 
 	if glcmds and glcmds[-1] != 0:
 		clientserver.Com_Printf("{}: Entity {} has possible last element issues with {} verts.\n".format("Mod_LoadMD2", mod_name, glcmds[-1]))
 
 	# register all skins
-	skinnames = []
-	for i in range(header.num_skins):
-		offset = header.ofs_skins + i * files_h.MAX_SKINNAME
-		name = buff[offset:offset + files_h.MAX_SKINNAME].split(b'\x00', 1)[0].decode("ascii", "ignore")
-		skinnames.append(name)
+	skinnames = model.skins[:header.num_skins]
+	for i, name in enumerate(skinnames):
 		skins[i] = find_image(name, ref_shared.imagetype_t.it_skin)
 
 	type[0] = ref_shared.modtype_t.mod_alias.value
@@ -156,12 +259,10 @@ def Mod_LoadMD2(mod_name, buff, modfilelen, mins, maxs, skins, find_image, type)
 	header.stverts = stverts
 	header.frames = frames
 	header.glcmds = glcmds
-	# Q2PORT: the glcmds again as arrays, so the renderers can draw a whole
-	# model with numpy instead of walking the fans and strips vertex by vertex
-	# (much faster in python). glcmds_counts is the signed count of each
-	# fan (< 0) or strip (> 0), glcmds_st and glcmds_xyz the (s, t) and
-	# index_xyz of all their vertices in order. glcmds_tris is the triangle
-	# index list the renderer builds from these on the first draw.
+	# the glcmds again as arrays, so the renderers can draw a whole model with
+	# numpy: glcmds_st and glcmds_xyz are the (s, t) and index_xyz of all the
+	# fan and strip vertices in order; glcmds_tris is the triangle index list
+	# the renderer builds from these on the first draw.
 	header.glcmds_counts = glcmds_counts
 	header.glcmds_st = np.array(glcmds_st, dtype=np.float32).reshape((-1, 2))
 	header.glcmds_xyz = np.array(glcmds_xyz, dtype=np.intp)
@@ -185,16 +286,26 @@ support for .sp2 sprites
 """
 def Mod_LoadSP2(mod_name, buff, modfilelen, skins, find_image, type): #const char *, const void *, int, struct image_s **, findimage_t, modtype_t * (returns void *)
 
-	sprite = files_h.dsprite_t()
-	sprite.load(buff)
-
-	if sprite.version != files_h.SPRITE_VERSION:
-		clientserver.Com_Printf("{} has wrong version number ({} should be {})\n".format(mod_name, sprite.version, files_h.SPRITE_VERSION))
+	try:
+		q2sprite = q2sp2.load_sp2(bytes(buff[:modfilelen]))
+	except FormatError as err:
+		clientserver.Com_Printf("{} {}\n".format(mod_name, err))
 		return None
 
-	if sprite.numframes > files_h.MAX_MD2SKINS:
-		clientserver.Com_Printf("{} has too many frames ({} > {}), extra frames will be ignored\n".format(mod_name, sprite.numframes, files_h.MAX_MD2SKINS))
-		sprite.numframes = files_h.MAX_MD2SKINS
+	sprite = dsprite_t()
+	sprite.ident = q2sp2.SP2_IDENT
+	sprite.version = q2sp2.SP2_VERSION
+	sprite.numframes = len(q2sprite.frames)
+	for q2frame in q2sprite.frames:
+		frame = dsprframe_t()
+		frame.width, frame.height = q2frame.width, q2frame.height
+		frame.origin_x, frame.origin_y = q2frame.origin_x, q2frame.origin_y
+		frame.name = q2frame.name
+		sprite.frames.append(frame)
+
+	if sprite.numframes > q2md2.MAX_SKINS:
+		clientserver.Com_Printf("{} has too many frames ({} > {}), extra frames will be ignored\n".format(mod_name, sprite.numframes, q2md2.MAX_SKINS))
+		sprite.numframes = q2md2.MAX_SKINS
 
 	for i in range(sprite.numframes):
 		skins[i] = find_image(sprite.frames[i].name, ref_shared.imagetype_t.it_sprite)
@@ -269,23 +380,17 @@ Mod_LoadNodes
 def Mod_LoadNodes(name, planes, numplanes, leafs, numleafs, nodes, numnodes, mod_base, l): #const char *, cplane_t *, int, mleaf_t *, int, mnode_t **, int *, const byte *, const lump_t *
 
 	#int	r_leaftovis[MAX_MAP_LEAFS], r_vistoleaf[MAX_MAP_LEAFS];
-	r_leaftovis = [0] * files_h.MAX_MAP_LEAFS
-	r_vistoleaf = [0] * files_h.MAX_MAP_LEAFS
-	in_obj = files_h.dnode_t()
-
-	if l.filelen % files_h.dnode_t.packed_size():
-		clientserver.Com_Error(shared.ERR_DROP, "{}: funny lump size in {}\n".format("Mod_LoadNodes", name))
-
-	count = l.filelen // files_h.dnode_t.packed_size()
+	r_leaftovis = [0] * q2bsp.MAX_MAP_LEAFS
+	r_vistoleaf = [0] * q2bsp.MAX_MAP_LEAFS
+	rows = lump_rows("{}: funny lump size in {}\n".format("Mod_LoadNodes", name), mod_base, l, q2bsp.Lump.NODES)
+	count = len(rows)
 	#out = Hunk_Alloc(count * sizeof(*out));
 	nodes[0] = []
 	numnodes[0] = count
 
 	for i in range(count):
 
-		in_offset = l.fileofs + i * files_h.dnode_t.packed_size()
-		in_offset2 = in_offset + files_h.dnode_t.packed_size()
-		in_obj.load(mod_base[in_offset:in_offset2])
+		in_obj = rows[i]
 
 		node = ref_shared.mnode_t()
 		for j in range(3):
@@ -322,9 +427,7 @@ def Mod_LoadNodes(name, planes, numplanes, leafs, numleafs, nodes, numnodes, mod
 		pass
 	# re-walk using the original lump for child indices
 	for i in range(count):
-		in_offset = l.fileofs + i * files_h.dnode_t.packed_size()
-		in_offset2 = in_offset + files_h.dnode_t.packed_size()
-		in_obj.load(mod_base[in_offset:in_offset2])
+		in_obj = rows[i]
 		node = nodes[0][i]
 		for j in range(2):
 			leafnum = in_obj.children[j]
@@ -343,17 +446,15 @@ Mod_LoadVisibility
 """
 def Mod_LoadVisibility(vis, mod_base, l): #dvis_t **, const byte *, const lump_t *
 
-	if not l.filelen:
+	if not l.length:
 		vis[0] = None
 		return
 
-	in_offset = l.fileofs
-	in_offset2 = in_offset + l.filelen
+	in_offset = l.offset
+	in_offset2 = in_offset + l.length
 	buffer = mod_base[in_offset:in_offset2]
 
-	vis_obj = files_h.dvis_t()
-	vis_obj.load(buffer)
-	vis[0] = vis_obj
+	vis[0] = q2bsp.Visibility.from_bytes(bytes(buffer))
 
 """
 =================
@@ -364,18 +465,13 @@ extra for skybox
 """
 def Mod_LoadVertexes(name, vertexes, numvertexes, mod_base, l, extra): #const char *, mvertex_t **, int *, const byte *, const lump_t *, int
 
-	in_obj = files_h.dvertex_t()
-
-	if l.filelen % files_h.dvertex_t.packed_size():
-		clientserver.Com_Error(shared.ERR_DROP, "{}: funny lump size in {}\n".format("Mod_LoadVertexes", name))
-	count = l.filelen // files_h.dvertex_t.packed_size()
+	rows = lump_rows("{}: funny lump size in {}\n".format("Mod_LoadVertexes", name), mod_base, l, q2bsp.Lump.VERTICES)
+	count = len(rows)
 	#out = Hunk_Alloc((count + extra)*sizeof(*out));
 	out = []
 	for i in range(count):
 
-		in_offset = l.fileofs + i * files_h.dvertex_t.packed_size()
-		in_offset2 = in_offset + files_h.dvertex_t.packed_size()
-		in_obj.load(mod_base[in_offset:in_offset2])
+		in_obj = rows[i]
 
 		v = ref_shared.mvertex_t()
 		v.position[0] = in_obj.point[0]
@@ -396,12 +492,12 @@ Mod_LoadLighting
 """
 def Mod_LoadLighting(lightdata, mod_base, l): #byte **, const byte *, const lump_t *
 
-	if not l.filelen:
+	if not l.length:
 		lightdata[0] = None
 		return
 
-	in_offset = l.fileofs
-	in_offset2 = in_offset + l.filelen
+	in_offset = l.offset
+	in_offset2 = in_offset + l.length
 	lightdata[0] = mod_base[in_offset:in_offset2]
 
 """
@@ -427,20 +523,15 @@ def GetTexImage(name, find_image): #const char *, findimage_t (returns struct im
 
 def Mod_LoadTexinfo(name, texinfo, numtexinfo, mod_base, l, find_image, notexture, extra): #const char *, mtexinfo_t **, int *, const byte *, const lump_t *, findimage_t, struct image_s *, int
 
-	in_obj = files_h.texinfo_t()
-
-	if l.filelen % files_h.texinfo_t.packed_size():
-		clientserver.Com_Error(shared.ERR_DROP, "{}: funny lump size in {}\n".format("Mod_LoadTexinfo", name))
-	count = l.filelen // files_h.texinfo_t.packed_size()
+	rows = lump_rows("{}: funny lump size in {}\n".format("Mod_LoadTexinfo", name), mod_base, l, q2bsp.Lump.TEXINFO)
+	count = len(rows)
 	out = []
 	texinfo[0] = out
 	numtexinfo[0] = count
 
 	for i in range(count):
 
-		in_offset = l.fileofs + i * files_h.texinfo_t.packed_size()
-		in_offset2 = in_offset + files_h.texinfo_t.packed_size()
-		in_obj.load(mod_base[in_offset:in_offset2])
+		in_obj = rows[i]
 
 		out_obj = ref_shared.mtexinfo_t()
 		for j in range(4):
@@ -487,17 +578,12 @@ extra is used for skybox, which adds 6 surfaces
 """
 def Mod_LoadEdges(name, edges, numedges, mod_base, l, extra): #const char *, medge_t **, int *, const byte *, const lump_t *, int
 
-	in_obj = files_h.dedge_t()
-
-	if l.filelen % files_h.dedge_t.packed_size():
-		clientserver.Com_Error(shared.ERR_DROP, "{}: funny lump size in {}\n".format("Mod_LoadEdges", name))
-	count = l.filelen // files_h.dedge_t.packed_size()
+	rows = lump_rows("{}: funny lump size in {}\n".format("Mod_LoadEdges", name), mod_base, l, q2bsp.Lump.EDGES)
+	count = len(rows)
 	out = []
 	for i in range(count):
 
-		in_offset = l.fileofs + i * files_h.dedge_t.packed_size()
-		in_offset2 = in_offset + files_h.dedge_t.packed_size()
-		in_obj.load(mod_base[in_offset:in_offset2])
+		in_obj = rows[i]
 
 		e = ref_shared.medge_t()
 		e.v[0] = in_obj.v[0]
@@ -519,17 +605,12 @@ extra is used for skybox, which adds 6 surfaces
 """
 def Mod_LoadPlanes(name, planes, numplanes, mod_base, l, extra): #const char *, cplane_t **, int *, const byte *, const lump_t *, int
 
-	in_obj = files_h.dplane_t()
-
-	if l.filelen % files_h.dplane_t.packed_size():
-		clientserver.Com_Error(shared.ERR_DROP, "{}: funny lump size in {}\n".format("Mod_LoadPlanes", name))
-	count = l.filelen // files_h.dplane_t.packed_size()
+	rows = lump_rows("{}: funny lump size in {}\n".format("Mod_LoadPlanes", name), mod_base, l, q2bsp.Lump.PLANES)
+	count = len(rows)
 	out = []
 	for i in range(count):
 
-		in_offset = l.fileofs + i * files_h.dplane_t.packed_size()
-		in_offset2 = in_offset + files_h.dplane_t.packed_size()
-		in_obj.load(mod_base[in_offset:in_offset2])
+		in_obj = rows[i]
 
 		out_obj = shared.cplane_t()
 		bits = 0
@@ -556,13 +637,9 @@ Mod_LoadSurfedges
 """
 def Mod_LoadSurfedges(name, surfedges, numsurfedges, mod_base, l, extra): #const char *, int **, int *, const byte *, const lump_t *, int
 
-	if l.filelen % 4:
-		clientserver.Com_Error(shared.ERR_DROP, "{}: funny lump size in {}\n".format("Mod_LoadSurfedges", name))
-	count = l.filelen // 4
-	out = []
-	for i in range(count):
-		in_offset = l.fileofs + i * 4
-		out.append(shared_c.LittleSLong(mod_base[in_offset:in_offset + 4]))
+	out = lump_records("{}: funny lump size in {}\n".format("Mod_LoadSurfedges", name),
+		mod_base, l, q2bsp.Lump.SURF_EDGES).tolist()
+	count = len(out)
 
 	for _ in range(extra):
 		out.append(0)
@@ -582,10 +659,10 @@ extra is used for skybox, which adds 6 surfaces
 def Mod_CalcLumpHunkSize(l, inSize, outSize, extra): #const lump_t *, int, int, int (returns int)
 
 	# the Python port has no hunk, so this is unused
-	if l.filelen % inSize:
+	if l.length % inSize:
 		return 0
 
-	count = l.filelen // inSize + extra
+	count = l.length // inSize + extra
 	size = count * outSize
 
 	size = (size + 31) & ~31

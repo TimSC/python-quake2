@@ -26,7 +26,7 @@
 from __future__ import annotations
 
 import numpy as np
-from common.header import files as files_h
+from q2data import bsp as q2bsp
 from common.header import shared
 from common.shared import shared as shared_c
 from client.refresh import ref_shared
@@ -145,7 +145,7 @@ def R_SetFrustum(vup, vpn, vright, r_origin, fov_x, fov_y, frustum): #vec3_t, ve
 	shared_c.RotatePointAroundVector(frustum[3].normal, vright, vpn, -(90 - fov_y / 2))
 
 	for i in range(4):
-		frustum[i].type = files_h.PLANE_ANYZ
+		frustum[i].type = q2bsp.PlaneType.ANY_Z
 		frustum[i].dist = shared.DotProduct(r_origin, frustum[i].normal)
 		frustum[i].signbits = R_SignbitsForPlane(frustum[i])
 		frustum[i].normal_l = frustum[i].normal.tolist() # Q2PORT: for BoxOnPlaneSide(), once per frame rather than per call

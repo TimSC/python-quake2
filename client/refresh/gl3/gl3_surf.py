@@ -32,7 +32,7 @@ import ctypes
 import numpy as np
 import OpenGL.GL as GL
 
-from common.header import files as files_h
+from q2data import bsp as q2bsp
 from common.header import shared
 from common.shared import shared as shared_c
 from client import ref
@@ -563,11 +563,11 @@ def RecursiveWorldNode(currententity, node): #entity_t *, mnode_t *
 	#   sides find which side of the node we are on
 	plane = node.plane
 
-	if plane.type == files_h.PLANE_X:
+	if plane.type == q2bsp.PlaneType.X:
 		dot = modelorg[0] - plane.dist
-	elif plane.type == files_h.PLANE_Y:
+	elif plane.type == q2bsp.PlaneType.Y:
 		dot = modelorg[1] - plane.dist
-	elif plane.type == files_h.PLANE_Z:
+	elif plane.type == q2bsp.PlaneType.Z:
 		dot = modelorg[2] - plane.dist
 	else:
 		dot = shared.DotProduct(modelorg, plane.normal) - plane.dist

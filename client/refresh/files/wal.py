@@ -14,220 +14,100 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307,
- * USA.
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  *
  * =======================================================================
  *
- * The Wal image format
+ * Wall textures: .wal, and Heretic II's .m8 and .m32, read with q2data.images.
  *
  * =======================================================================
 """
-from __future__ import annotations
 
-from common.header import files as files_h
-# Q2PORT: LittleLong() is done by the files_h structs' load()
-from common import clientserver, filesystem
+from collections.abc import Callable
+
 from client.refresh.files import pcx
-
-
-def LoadWal(origname, type, load_image): #const char *, imagetype_t, loadimage_t (returns struct image_s *)
-
-	name = pcx.FixFileExt(origname, "wal", None)
-
-	size, mt = filesystem.FS_LoadFile(name)
-
-	if mt is None:
-		return None
-
-	if size < files_h.miptex_t.packed_size():
-		clientserver.Com_Printf("{}: can't load {}, small header\n".format("LoadWal", name))
-		filesystem.FS_FreeFile(mt)
-		return None
-
-	img_header = files_h.miptex_t()
-	img_header.load(mt)
-
-	width = img_header.width
-	height = img_header.height
-	ofs = img_header.offsets[0]
-
-	if (ofs <= 0) or (width <= 0) or (height <= 0) or (((size - ofs) // height) < width):
-		clientserver.Com_Printf("{}: can't load {}, small body\n".format("LoadWal", name))
-		filesystem.FS_FreeFile(mt)
-		return None
-
-	image = load_image(name, mt[ofs:],
-		width, 0,
-		height, 0,
-		(size - ofs), type, 8)
-
-	filesystem.FS_FreeFile(mt)
-
-	return image
-
-
-def LoadM8(origname, type, load_image): #const char *, imagetype_t, loadimage_t (returns struct image_s *)
-
-	name = pcx.FixFileExt(origname, "m8", None)
-
-	size, mt = filesystem.FS_LoadFile(name)
-
-	if mt is None:
-		return None
-
-	if size < files_h.m8tex_t.packed_size():
-		clientserver.Com_Printf("{}: can't load {}, small header\n".format("LoadM8", name))
-		filesystem.FS_FreeFile(mt)
-		return None
-
-	mt_obj = files_h.m8tex_t()
-	mt_obj.load(mt)
-
-	if mt_obj.version != files_h.M8_VERSION:
-		clientserver.Com_Printf("{}: can't load {}, wrong magic value.\n".format("LoadM8", name))
-		filesystem.FS_FreeFile(mt)
-		return None
-
-	width = mt_obj.width[0]
-	height = mt_obj.height[0]
-	ofs = mt_obj.offsets[0]
-
-	if (ofs <= 0) or (width <= 0) or (height <= 0) or (((size - ofs) // height) < width):
-		clientserver.Com_Printf("{}: can't load {}, small body\n".format("LoadM8", name))
-		filesystem.FS_FreeFile(mt)
-		return None
-
-	image_buffer = bytearray((size - ofs) * 4)
-	for i in range(size - ofs):
-		value = mt[ofs + i]
-		image_buffer[i * 4 + 0] = mt_obj.palette[value].r
-		image_buffer[i * 4 + 1] = mt_obj.palette[value].g
-		image_buffer[i * 4 + 2] = mt_obj.palette[value].b
-		image_buffer[i * 4 + 3] = 0 if value == 255 else 255
-
-	image = load_image(name, image_buffer,
-		width, 0,
-		height, 0,
-		(size - ofs), type, 32)
-
-	filesystem.FS_FreeFile(mt)
-
-	return image
-
-
-def LoadM32(origname, type, load_image): #const char *, imagetype_t, loadimage_t (returns struct image_s *)
-
-	name = pcx.FixFileExt(origname, "m32", None)
-
-	size, mt = filesystem.FS_LoadFile(name)
-
-	if mt is None:
-		return None
-
-	if size < files_h.m32tex_t.packed_size():
-		clientserver.Com_Printf("{}: can't load {}, small header\n".format("LoadM32", name))
-		filesystem.FS_FreeFile(mt)
-		return None
-
-	mt_obj = files_h.m32tex_t()
-	mt_obj.load(mt)
-
-	if mt_obj.version != files_h.M32_VERSION:
-		clientserver.Com_Printf("{}: can't load {}, wrong magic value.\n".format("LoadM32", name))
-		filesystem.FS_FreeFile(mt)
-		return None
-
-	width = mt_obj.width[0]
-	height = mt_obj.height[0]
-	ofs = mt_obj.offsets[0]
-
-	if (ofs <= 0) or (width <= 0) or (height <= 0) or (((size - ofs) // height) < (width * 4)):
-		clientserver.Com_Printf("{}: can't load {}, small body\n".format("LoadM32", name))
-		filesystem.FS_FreeFile(mt)
-		return None
-
-	image = load_image(name, mt[ofs:],
-		width, 0,
-		height, 0,
-		(size - ofs) // 4, type, 32)
-	filesystem.FS_FreeFile(mt)
-
-	return image
-
-
-def GetWalInfo(origname, width, height): #const char *, int *, int *
-
-	name = pcx.FixFileExt(origname, "wal", None)
-
-	size, mt = filesystem.FS_LoadFile(name)
-
-	if mt is None:
-		return None, None
-
-	if size < files_h.miptex_t.packed_size():
-		filesystem.FS_FreeFile(mt)
-		return None, None
-
-	img_header = files_h.miptex_t()
-	img_header.load(mt)
-
-	width[0] = img_header.width
-	height[0] = img_header.height
-
-	filesystem.FS_FreeFile(mt)
-
-	return width[0], height[0]
-
-
-def GetM8Info(origname, width, height): #const char *, int *, int *
-
-	name = pcx.FixFileExt(origname, "m8", None)
-
-	size, mt = filesystem.FS_LoadFile(name)
-
-	if mt is None:
-		return None, None
-
-	if size < files_h.m8tex_t.packed_size():
-		filesystem.FS_FreeFile(mt)
-		return None, None
-
-	mt_obj = files_h.m8tex_t()
-	mt_obj.load(mt)
-	if mt_obj.version != files_h.M8_VERSION:
-		filesystem.FS_FreeFile(mt)
-		return None, None
-	width[0] = mt_obj.width[0]
-	height[0] = mt_obj.height[0]
-
-	filesystem.FS_FreeFile(mt)
-
-	return width[0], height[0]
-
-
-def GetM32Info(origname, width, height): #const char *, int *, int *
-
-	name = pcx.FixFileExt(origname, "m32", None)
-
-	size, mt = filesystem.FS_LoadFile(name)
-
-	if mt is None:
-		return None, None
-
-	if size < files_h.m32tex_t.packed_size():
-		filesystem.FS_FreeFile(mt)
-		return None, None
-
-	mt_obj = files_h.m32tex_t()
-	mt_obj.load(mt)
-	if mt_obj.version != files_h.M32_VERSION:
-		filesystem.FS_FreeFile(mt)
-		return None, None
-
-	width[0] = mt_obj.width[0]
-	height[0] = mt_obj.height[0]
-
-	filesystem.FS_FreeFile(mt)
-
-	return width[0], height[0]
+from common import clientserver, filesystem
+from q2data import FormatError
+from q2data import images
+
+# load_image(name, pixels, width, realwidth, height, realheight, data_size, type, bits)
+LoadImage = Callable[..., object]
+
+
+def _read(name: str) -> bytes | None:
+    size, data = filesystem.FS_LoadFile(name)
+    return None if data is None else bytes(data)
+
+
+def LoadWal(origname: str, type_: object, load_image: LoadImage) -> object | None:  # noqa: N802
+    """An 8-bit .wal texture, as an image of the renderer."""
+    name = pcx.FixFileExt(origname, "wal", None)
+    data = _read(name)
+    if data is None:
+        return None
+    try:
+        wal = images.load_wal(data)
+    except FormatError as err:
+        clientserver.Com_Printf(f"LoadWal: can't load {name}, {err}\n")
+        return None
+    pixels = bytearray(wal.pixels.tobytes())
+    return load_image(name, pixels, wal.width, 0, wal.height, 0, len(pixels), type_, 8)
+
+
+def _load_mip_texture(origname: str, ext: str, loader: Callable[[bytes], images.MipTexture],
+                      type_: object, load_image: LoadImage, func: str) -> object | None:
+    name = pcx.FixFileExt(origname, ext, None)
+    data = _read(name)
+    if data is None:
+        return None
+    try:
+        texture = loader(data)
+    except FormatError as err:
+        reason = str(err)
+        if reason == "wrong magic value":
+            reason += "."
+        clientserver.Com_Printf(f"{func}: can't load {name}, {reason}\n")
+        return None
+    pixels = bytearray(texture.rgba.tobytes())
+    return load_image(name, pixels, texture.width, 0, texture.height, 0,
+                      texture.width * texture.height, type_, 32)
+
+
+def LoadM8(origname: str, type_: object, load_image: LoadImage) -> object | None:  # noqa: N802
+    """A Heretic II .m8 texture (8-bit with its own palette), as RGBA."""
+    return _load_mip_texture(origname, "m8", images.load_m8, type_, load_image, "LoadM8")
+
+
+def LoadM32(origname: str, type_: object, load_image: LoadImage) -> object | None:  # noqa: N802
+    """A Heretic II .m32 texture (RGBA)."""
+    return _load_mip_texture(origname, "m32", images.load_m32, type_, load_image, "LoadM32")
+
+
+def GetWalInfo(origname: str) -> tuple[int, int] | tuple[None, None]:  # noqa: N802
+    """The size of a .wal texture, or (None, None)."""
+    data = _read(pcx.FixFileExt(origname, "wal", None))
+    if data is None:
+        return None, None
+    try:
+        return images.wal_size(data)
+    except FormatError:
+        return None, None
+
+
+def _mip_texture_info(origname: str, ext: str) -> tuple[int, int] | tuple[None, None]:
+    data = _read(pcx.FixFileExt(origname, ext, None))
+    if data is None:
+        return None, None
+    try:
+        return images.mip_texture_size(data, ext)
+    except FormatError:
+        return None, None
+
+
+def GetM8Info(origname: str) -> tuple[int, int] | tuple[None, None]:  # noqa: N802
+    return _mip_texture_info(origname, "m8")
+
+
+def GetM32Info(origname: str) -> tuple[int, int] | tuple[None, None]:  # noqa: N802
+    return _mip_texture_info(origname, "m32")

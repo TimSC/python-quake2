@@ -38,7 +38,6 @@ from client.refresh.gl1.header import model, qgl as qgl_h
 from client.refresh.files import models as files_models, pcx as files_pcx, surf as files_surf
 from common import clientserver
 from common.header import common as common_h
-from common.header import files as files_h
 from common.header import shared
 from common.shared import shared as shared_c
 

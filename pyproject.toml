@@ -1,0 +1,33 @@
+[tool.pytest.ini_options]
+testpaths = ["tests/unit"]
+# the repository root, so tests import the packages without installing them
+pythonpath = ["."]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 99
+# Code not yet reworked still follows the old C-port style (tabs, C names),
+# so it is excluded until its step converts it; remove a path from this list
+# when its rework is done (see docs/pythonic_plan.md).
+extend-exclude = [
+    "backends",
+    "client",
+    "common",
+    "game",
+    "server",
+    "scripts",
+    "main.py",
+    "tests/*.py",
+    "tests/harness",
+    "benchmarks",
+    "py-modern-opengl",
+    "quake2-original",
+    "yquake2",
+    "env",
+    "venv",
+]
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, import order, pyupgrade, bugbear, naming
+select = ["E", "W", "F", "I", "UP", "B", "N"]

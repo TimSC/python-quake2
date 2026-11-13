@@ -26,14 +26,15 @@ as well as the .pak file format and support for .pk3 files.
 """
 from __future__ import annotations
 
+import io
 import os
-import struct
-import zipfile
 from enum import Enum
+
+from q2data import FormatError
+from q2data import pak as q2pak
 from backends.unix import system
 from backends.generic import misc
 from common.header import common as common_h
-from common.header import files as files_h
 from common.header import shared
 from common.shared import shared as shared_c
 from common import argproc, clientserver, cmdparser, cvar, frame, glob, zone
@@ -54,7 +55,7 @@ from common import argproc, clientserver, cmdparser, cvar, frame, glob, zone
 
 #include "../client/sound/header/vorbis.h"
 """
-# Q2PORT: .pk3 files are read with Python's zipfile instead of minizip
+# .pak and .pk3 files are read with q2data.pak (Python's zipfile in place of minizip)
 
 MAX_HANDLES = 512
 MAX_MODS = 32
@@ -77,9 +78,7 @@ class fsHandle_t(object):
 
 		self.name = "" #char [MAX_QPATH]
 		self.mode = None #fsMode_t
-		self.file = None #FILE *, Only one will be used.
-		self.zip = None #unzFile *, (file or zip); Q2PORT: an open zipfile member (ZipExtFile)
-		self.zipfile = None # Q2PORT: the ZipFile the member was opened from
+		self.file = None #FILE *, or an io.BytesIO of a pack member
 
 class fsLink_t(object):
 
@@ -104,8 +103,7 @@ class fsPack_t(object):
 
 		self.name = "" #char [MAX_OSPATH]
 		self.numFiles = 0 #int
-		self.pak = None #FILE *
-		self.pk3 = None #unzFile *; Q2PORT: a zipfile.ZipFile
+		self.archive = None # q2data.pak.PakArchive or ZipArchive
 		self.isProtectedPak = False #qboolean
 		self.files = [] #fsPackFile_t *
 		self.lookup = {} # Q2PORT: lower-case name -> index, in place of FS_PackQuickSearch's binary search
@@ -292,7 +290,7 @@ def FS_HandleForFile(path: str): #const char *, fileHandle_t * (returns static f
 	for i in range(MAX_HANDLES):
 
 		handle = fs_handles[i]
-		if (handle.file is None) and (handle.zip is None):
+		if handle.file is None:
 
 			handle.name = path[:shared.MAX_QPATH - 1]
 			return handle, i + 1
@@ -336,11 +334,6 @@ def FS_FCloseFile(f: int): #fileHandle_t
 	if handle.file is not None:
 
 		handle.file.close()
-
-	elif handle.zip is not None:
-
-		handle.zip.close() #unzCloseCurrentFile(handle->zip);
-		handle.zipfile.close() #unzClose(handle->zip);
 
 
 	fs_handles[fs_handles.index(handle)] = fsHandle_t() #memset(handle, 0, sizeof(*handle));
@@ -494,43 +487,17 @@ def FS_FOpenFile(rawname: str, gamedir_only: bool = False): #const char *, fileH
 				#  because it's from pak, but save/bla/MAPname.sav/sv2 will have wrong case and can't be found then)
 				handle.name = pack.files[i].name[:shared.MAX_QPATH - 1]
 
-				if pack.pak is not None:
+				if pack.isProtectedPak:
 
-					# PAK
-					if pack.isProtectedPak:
+					file_from_protected_pak = True
 
-						file_from_protected_pak = True
-
-
-					try:
-						handle.file = open(pack.name, "rb") #Q_fopen(pack->name, "rb");
-					except OSError:
-						handle.file = None
-
-					if handle.file is not None:
-
-						handle.file.seek(pack.files[i].offset, os.SEEK_SET)
-						return pack.files[i].size, f
-
-
-				elif pack.pk3 is not None:
-
-					# PK3
-					if pack.isProtectedPak:
-
-						file_from_protected_pak = True
-
-
-					try:
-						handle.zipfile = zipfile.ZipFile(pack.name) #unzOpen(pack->name);
-						handle.zip = handle.zipfile.open(pack.files[i].name) #unzLocateFile, unzOpenCurrentFile
-						return pack.files[i].size, f
-					except (OSError, KeyError, zipfile.BadZipFile):
-						handle.zip = None
-						if handle.zipfile is not None:
-							handle.zipfile.close() #unzClose(handle->zip);
-							handle.zipfile = None
-
+				# The member is read whole (q2data.pak) and served from memory,
+				# so a read can't run past its end into the next file.
+				try:
+					handle.file = io.BytesIO(pack.archive.read(pack.files[i].name))
+					return pack.files[i].size, f
+				except (OSError, FormatError):
+					handle.file = None
 
 				clientserver.Com_Error(shared.ERR_FATAL, "Couldn't reopen '%s'", pack.name)
 				return 0, f
@@ -613,9 +580,6 @@ def FS_Read(size: int, f): #void *, int, fileHandle_t (returns int)
 
 			data = handle.file.read(remaining)
 
-		elif handle.zip is not None:
-
-			data = handle.zip.read(remaining)
 
 		else:
 
@@ -681,9 +645,6 @@ def FS_FRead(size: int, count: int, f): #void *, int, int, fileHandle_t (returns
 
 				data = handle.file.read(remaining)
 
-			elif handle.zip is not None:
-
-				data = handle.zip.read(remaining)
 
 			else:
 
@@ -773,14 +734,9 @@ def FS_FreeSearchPaths(start: int, end: int): #fsSearchPath_t *, fsSearchPath_t 
 
 		if cur.pack is not None:
 
-			if cur.pack.pak is not None:
+			if isinstance(cur.pack.archive, q2pak.ZipArchive):
 
-				cur.pack.pak.close()
-
-
-			if cur.pack.pk3 is not None:
-
-				cur.pack.pk3.close() #unzClose(cur->pack->pk3);
+				cur.pack.archive.close()
 
 
 			#Z_Free(cur->pack->files);
@@ -797,70 +753,41 @@ def FS_FreeSearchPaths(start: int, end: int): #fsSearchPath_t *, fsSearchPath_t 
 """
 def FS_LoadPAK(packPath: str)->fsPack_t: #const char * (returns static fsPack_t *)
 
-	"""
-	int i; /* Loop counter. */
-	int numFiles; /* Number of files in PAK. */
-	FILE *handle; /* File handle. */
-	fsPackFile_t *files; /* List of files in PAK. */
-	fsPack_t *pack; /* PAK file. */
-	dpackheader_t header; /* PAK file header. */
-	dpackfile_t *info = NULL; /* PAK info. */
-	"""
-
-	handle = Q_fopen(packPath, "rb")
-
-	if handle is None:
+	if not os.path.isfile(packPath):
 
 		return None
 
-
-	header = files_h.dpackheader_t()
-	header.read(handle) #fread(&header, 1, sizeof(dpackheader_t), handle);
-
-	if header.ident != files_h.IDPAKHEADER:
-
-		handle.close()
-		clientserver.Com_Error(shared.ERR_FATAL, "%s: '%s' is not a pack file", "FS_LoadPAK", packPath)
+	try:
+		archive = q2pak.PakArchive(packPath)
+	except OSError:
+		return None
+	except FormatError as err:
+		if str(err) == "not a pack file":
+			clientserver.Com_Error(shared.ERR_FATAL, "%s: '%s' is not a pack file", "FS_LoadPAK", packPath)
+		else:
+			clientserver.Com_Error(shared.ERR_FATAL, "%s: '%s' is too short.", "FS_LoadPAK", packPath)
 		return None
 
+	numFiles = len(archive)
 
-	numFiles = header.dirlen // 64 #sizeof(dpackfile_t)
-
-	if (numFiles == 0) or (header.dirlen < 0) or (header.dirofs < 0):
-
-		handle.close()
-		clientserver.Com_Error(shared.ERR_FATAL, "%s: '%s' is too short.",
-			"FS_LoadPAK", packPath)
-		return None
-
-
-	if numFiles > files_h.MAX_FILES_IN_PACK:
+	if numFiles > q2pak.MAX_FILES_IN_PACK:
 
 		clientserver.Com_Printf("%s: '%s' has %i > %i files\n",
-			"FS_LoadPAK", packPath, numFiles, files_h.MAX_FILES_IN_PACK)
-
-
-	handle.seek(header.dirofs, os.SEEK_SET)
-	info = handle.read(header.dirlen)
+			"FS_LoadPAK", packPath, numFiles, q2pak.MAX_FILES_IN_PACK)
 
 	files = []
 
-	# Parse the directory.
-	for i in range(numFiles):
+	for entry in archive.entries:
 
 		fi = fsPackFile_t()
-		name, filepos, filelen = struct.unpack_from("<56sii", info, i * 64)
-		fi.name = name.split(b"\0", 1)[0].decode("latin-1")[:shared.MAX_QPATH - 1]
-		fi.offset = filepos
-		fi.size = filelen
+		fi.name = entry.name[:shared.MAX_QPATH - 1]
+		fi.offset = entry.offset
+		fi.size = entry.length
 		files.append(fi)
-
-	#free(info);
 
 	pack = fsPack_t()
 	pack.name = packPath[:shared.MAX_OSPATH - 1]
-	pack.pak = handle
-	pack.pk3 = None
+	pack.archive = archive
 	pack.numFiles = numFiles
 	pack.files = files
 
@@ -876,55 +803,38 @@ def FS_LoadPAK(packPath: str)->fsPack_t: #const char * (returns static fsPack_t 
 """
 def FS_LoadPK3(packPath: str)->fsPack_t: #const char * (returns static fsPack_t *)
 
-	"""
-	int i = 0; /* Loop counter. */
-	int numFiles; /* Number of files in PK3. */
-	int status; /* Error indicator. */
-	fsPackFile_t *files; /* List of files in PK3. */
-	fsPack_t *pack; /* PK3 file. */
-	unzFile *handle; /* Zip file handle. */
-	unz_file_info info; /* Zip file info. */
-	unz_global_info global; /* Zip file global info. */
-	"""
-
 	if not os.path.isfile(packPath):
 
 		return None
 
-
 	try:
-		handle = zipfile.ZipFile(packPath) #unzOpen(packPath);
-	except (OSError, zipfile.BadZipFile):
+		archive = q2pak.ZipArchive(packPath)
+	except (OSError, FormatError):
 		clientserver.Com_Error(shared.ERR_FATAL, "%s: '%s' is not a pack file", "FS_LoadPK3", packPath)
 		return None
 
-	infos = handle.infolist() #unzGetGlobalInfo(handle, &global)
-	numFiles = len(infos)
+	numFiles = len(archive)
 
 	if numFiles <= 0:
 
-		handle.close()
+		archive.close()
 		clientserver.Com_Error(shared.ERR_FATAL, "%s: '%s' has %i files",
 				"FS_LoadPK3", packPath, numFiles)
 		return None
 
-
 	files = []
 
-	# Parse the directory.
-	for info in infos:
+	for name in archive.names():
 
 		fi = fsPackFile_t()
-		fi.name = info.filename[:shared.MAX_QPATH - 1]
+		fi.name = name[:shared.MAX_QPATH - 1]
 		fi.offset = -1 # Not used in ZIP files
-		fi.size = info.file_size
+		fi.size = archive.size(name)
 		files.append(fi)
-
 
 	pack = fsPack_t()
 	pack.name = packPath[:shared.MAX_OSPATH - 1]
-	pack.pak = None
-	pack.pk3 = handle
+	pack.archive = archive
 	pack.numFiles = numFiles
 	pack.files = files
 
@@ -1010,7 +920,7 @@ def FS_Path_f(): #void
 	for i in range(MAX_HANDLES):
 
 		handle = fs_handles[i]
-		if (handle.file is not None) or (handle.zip is not None):
+		if handle.file is not None:
 
 			clientserver.Com_Printf("Handle %i: '%s'.\n", i + 1, handle.name)
 
@@ -1743,7 +1653,7 @@ def FS_BuildGameSpecificSearchPath(dir: str): #const char *
 	# Close open files for game dir.
 	for i in range(MAX_HANDLES):
 
-		if dir in fs_handles[i].name and ((fs_handles[i].file is not None) or (fs_handles[i].zip is not None)):
+		if dir in fs_handles[i].name and fs_handles[i].file is not None:
 
 			FS_FCloseFile(i)	# (fileHandle_t is i + 1; i closes the handle before, as in Yamagi)
 

@@ -27,7 +27,8 @@ from __future__ import annotations
 
 import numpy as np
 from enum import Enum
-from common.header import files as files_h
+from q2data import bsp as q2bsp
+from q2data import md2 as q2md2
 from common.header import shared
 from client.refresh import ref_shared
 
@@ -92,7 +93,7 @@ class msurface_t(object):
 		self.dlightframe = 0 #int, lighting info
 		self.dlightbits = 0 #int
 		self.lightmaptexturenum = 0 #int
-		self.styles = [0] * files_h.MAXLIGHTMAPS #byte, MAXLIGHTMAPS = MAX_LIGHTMAPS_PER_SURFACE
+		self.styles = [0] * q2bsp.MAX_LIGHTMAPS #byte, MAXLIGHTMAPS = MAX_LIGHTMAPS_PER_SURFACE
 		self.samples = None #byte *, [numstyles*surfsize]
 
 # this, must be struct model_s, not gl3model_s, because struct model_s* is returned by re.RegisterModel()
@@ -140,7 +141,7 @@ class gl3model_t(object):
 		self.marksurfaces = [] #msurface_t **
 		self.vis = None #dvis_t *
 		self.lightdata = None #byte *
-		self.skins = [None] * files_h.MAX_MD2SKINS #gl3image_t *, for alias models and skins
+		self.skins = [None] * q2md2.MAX_SKINS #gl3image_t *, for alias models and skins
 		self.extradatasize = 0 #int
 		self.extradata = None #void *
 		self.origin = np.zeros((3,), dtype=np.float32) #vec3_t, submodules, for sounds or lights

@@ -145,7 +145,7 @@ def CL_SendConnectPacket ():
 		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
 
 	port = int(cvar.Cvar_VariableValue ("qport"))
-	cvar.userinfo_modified = False
+	cvar.registry.userinfo_modified = False
 
 	netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "connect {:d} {:d} {:d} \"{}\"\n".format(
 		common_h.PROTOCOL_VERSION, port, cl_main.cls.challenge, cvar.Cvar_Userinfo()).encode('ascii') )

@@ -17,9 +17,12 @@ NOSOUND="+set s_initsound 0"	# don't open the audio device while the tests run
 CFG="-cfgdir .yq2py-tests +set vid_renderer gl1"
 AUDIO=${AUDIO:-0}		# run the ogg_music (audio) test only when AUDIO=1
 fail=0
+# the game tests need the (proprietary) game data; without it they are skipped
+if [ -d "$Q2DATA/baseq2" ]; then HAVE_DATA=1; else HAVE_DATA=0; fi
 run() {	# name timeout expected-regex args...
 	name=$1; t=$2; want=$3; shift 3
 	if [ -n "$ONLY" ] && ! echo " $ONLY " | grep -q " $name "; then return; fi
+	if [ $HAVE_DATA = 0 ]; then echo "skip $name  (no game data in $Q2DATA)"; return; fi
 	timeout -k 10 "$t" $PY -u tests/$name.py "$@" > "$OUT/$name.log" 2>&1
 	if grep -q "Traceback\|Error:" "$OUT/$name.log" || ! grep -q "$want" "$OUT/$name.log"; then
 		echo "FAIL $name  (log: $OUT/$name.log)"; fail=1
@@ -32,13 +35,20 @@ if [ -z "$ONLY" ] || echo " $ONLY " | grep -q " static "; then
 	if $PY tests/check_static.py > "$OUT/static.log" 2>&1; then echo "ok   static"; else echo "FAIL static  (log: $OUT/static.log)"; fail=1; fi
 	# module-level undefined names too (pyflakes, if installed in the venv)
 	if $PY -m pyflakes --version > /dev/null 2>&1; then
-		$PY -m pyflakes common server game client linux ref_gl qcommon tests 2>&1 | grep "undefined name" | grep -v "sys_linux.py:.*elapse_time" > "$OUT/pyflakes.log"
+		$PY -m pyflakes common server game client backends tests 2>&1 | grep "undefined name" | grep -v "sys_linux.py:.*elapse_time" > "$OUT/pyflakes.log"
 		if [ -s "$OUT/pyflakes.log" ]; then echo "FAIL pyflakes  (log: $OUT/pyflakes.log)"; fail=1; else echo "ok   pyflakes"; fi
 	fi
 fi
 if [ -z "$ONLY" ] || echo " $ONLY " | grep -q " unit "; then
 	ok=1
 	for u in tests/unit_*.py; do $PY "$u" > "$OUT/$(basename $u .py).log" 2>&1 || { echo "FAIL $(basename $u .py)  (log: $OUT/$(basename $u .py).log)"; ok=0; fail=1; }; done
+	# pytest unit tests (no game data needed)
+	if [ -d tests/unit ]; then
+		$PY -m pytest -q tests/unit > "$OUT/pytest.log" 2>&1
+		rc=$?
+		# exit code 5: no tests collected yet
+		if [ $rc != 0 ] && [ $rc != 5 ]; then echo "FAIL pytest  (log: $OUT/pytest.log)"; ok=0; fail=1; fi
+	fi
 	[ $ok = 1 ] && echo "ok   unit"
 fi
 run state_trace 90 "40s\|30s frame" +set basedir "$Q2DATA" $CFG $NOSOUND +map base1
@@ -57,7 +67,9 @@ run dedicated 60 "dedicated: .* state ss_game, map base1" +set basedir "$Q2DATA"
 run save_load 120 "save_load: level contents restored" +set basedir "$Q2DATA" $CFG $NOSOUND +map base1
 # the map run again with every GL extension off
 NOEXT="+set gl_ext_multitexture 0 +set gl_ext_pointparameters 0 +set gl_ext_palettedtexture 0 +set gl_ext_swapinterval 0 +set gl_ext_compiled_vertex_array 0"
-if [ -z "$ONLY" ] || echo " $ONLY " | grep -q " noext "; then
+if [ $HAVE_DATA = 0 ]; then
+	echo "skip noext  (no game data in $Q2DATA)"
+elif [ -z "$ONLY" ] || echo " $ONLY " | grep -q " noext "; then
 	ONLY_SAVE=$ONLY; ONLY=""
 	timeout 90 $PY -u tests/state_trace.py +set basedir "$Q2DATA" $CFG $NOSOUND $NOEXT +map base1 > "$OUT/noext.log" 2>&1
 	if grep -q "Traceback\|Error:" "$OUT/noext.log" || ! grep -q "30s frame" "$OUT/noext.log"; then echo "FAIL noext  (log: $OUT/noext.log)"; fail=1; else echo "ok   noext"; fi

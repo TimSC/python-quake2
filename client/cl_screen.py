@@ -43,7 +43,6 @@ import copy
 from client import cl_main, cl_cin, cl_view
 from client.sound import sound as sound_c
 from backends.unix import system
-from linux import cd_linux
 from client.vid import vid
 from common.header import shared
 from common import clientserver

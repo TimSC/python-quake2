@@ -27,12 +27,12 @@
 
 from __future__ import annotations
 
-import io
-
 import numpy as np
 
 from PIL import Image
 
+from q2data import FormatError
+from q2data import images as q2images
 from common import clientserver, filesystem
 from client.refresh import ref_shared
 from client.refresh.files import pcx, wal
@@ -84,12 +84,12 @@ def LoadSTB(origname, type): #const char *, const char*, byte **, int *, int * (
 
 		return False, None, 0, 0
 
-	# Q2PORT: stbi_load_from_memory(..., STBI_rgb_alpha) is PIL here
+	# stbi_load_from_memory(..., STBI_rgb_alpha) is q2data.images.load_rgba
 	try:
-		img = Image.open(io.BytesIO(rawdata)).convert("RGBA")
-		w, h = img.size
-		data = bytearray(img.tobytes()) # Q2PORT: mutable like the C's malloc'd buffer (the renderers change it in place)
-	except (OSError, ValueError) as e:
+		img = q2images.load_rgba(bytes(rawdata))
+		w, h = img.width, img.height
+		data = bytearray(img.pixels.tobytes()) # mutable: the renderers change it in place
+	except FormatError as e:
 		clientserver.Com_Printf("{} couldn't load data from {}: {}!\n".format("LoadSTB", filename, e))
 		filesystem.FS_FreeFile(rawdata)
 		return False, None, 0, 0
@@ -431,15 +431,15 @@ def LoadHiColorImage(name, namewe, ext, type, load_image): #const char *, const 
 
 	elif ext == "wal":
 
-		realwidth, realheight = wal.GetWalInfo(name, [0], [0])
+		realwidth, realheight = wal.GetWalInfo(name)
 
 	elif ext == "m8":
 
-		realwidth, realheight = wal.GetM8Info(name, [0], [0])
+		realwidth, realheight = wal.GetM8Info(name)
 
 	elif ext == "m32":
 
-		realwidth, realheight = wal.GetM32Info(name, [0], [0])
+		realwidth, realheight = wal.GetM32Info(name)
 
 	if realwidth is None or realheight is None:
 		realwidth, realheight = 0, 0

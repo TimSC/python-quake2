@@ -33,7 +33,7 @@ from common import clientserver
 from client.refresh import ref_shared
 from client.refresh.gl1.header import model
 from client.refresh.files import surf as files_surf
-from common.header import files as files_h
+from q2data import bsp as q2bsp
 from common.header import shared
 from common.shared import shared as shared_c
 
@@ -262,7 +262,7 @@ def R_RecursiveLightPoint (node, start, end): #mnode_t *, vec3_t, vec3_t (return
 		lightmap_p += 3 * (dt * ((surf.extents[0] >> 4) + 1) + ds)
 
 		maps = 0
-		while maps < files_h.MAXLIGHTMAPS and surf.styles[maps] != 255:
+		while maps < q2bsp.MAX_LIGHTMAPS and surf.styles[maps] != 255:
 
 			#const float *rgb;
 			#int j;
@@ -407,7 +407,7 @@ def R_SetCacheState(surf): #msurface_t *
 	#int maps;
 
 	maps = 0
-	while maps < files_h.MAXLIGHTMAPS and surf.styles[maps] != 255:
+	while maps < q2bsp.MAX_LIGHTMAPS and surf.styles[maps] != 255:
 
 		surf.cached_light[maps] = \
 			gl1_main.r_newrefdef.lightstyles[surf.styles[maps]].white
@@ -460,7 +460,7 @@ def R_BuildLightMap(surf, dest, stride): #msurface_t *, byte *, int
 
 		# count the # of maps
 		nummaps = 0
-		while nummaps < files_h.MAXLIGHTMAPS and surf.styles[nummaps] != 255:
+		while nummaps < q2bsp.MAX_LIGHTMAPS and surf.styles[nummaps] != 255:
 
 			nummaps += 1
 
@@ -473,7 +473,7 @@ def R_BuildLightMap(surf, dest, stride): #msurface_t *, byte *, int
 			#int maps;
 
 			maps = 0
-			while maps < files_h.MAXLIGHTMAPS and surf.styles[maps] != 255:
+			while maps < q2bsp.MAX_LIGHTMAPS and surf.styles[maps] != 255:
 
 				for i in range(3):
 
@@ -503,7 +503,7 @@ def R_BuildLightMap(surf, dest, stride): #msurface_t *, byte *, int
 			bl[:] = 0 # memset(s_blocklights, 0, sizeof(s_blocklights[0]) * size * 3);
 
 			maps = 0
-			while maps < files_h.MAXLIGHTMAPS and surf.styles[maps] != 255:
+			while maps < q2bsp.MAX_LIGHTMAPS and surf.styles[maps] != 255:
 
 				for i in range(3):
 

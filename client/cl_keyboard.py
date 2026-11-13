@@ -1050,7 +1050,7 @@ def Key_Bind_f(): # (static)
 	# don't allow binding escape or the special console keys
 	if b == keyboard_h.K_ESCAPE or b == ord('^') or b == ord('`') or b == ord('~'):
 
-		if cmdparser.doneWithDefaultCfg:
+		if cmdparser.commands.done_with_default_cfg:
 
 			# don't warn about this when it's from default.cfg, we can't change that anyway
 			clientserver.Com_Printf("You can't bind the special key \"%s\"!\n", cmdparser.Cmd_Argv(1))

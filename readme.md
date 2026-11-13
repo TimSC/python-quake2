@@ -1,111 +1,110 @@
 # Quake II in Python
 
-A port of the id Software Quake II engine (version 3.21) from C to Python. It
-follows the original source closely: each `.c` file maps to a `.py` file with
-the same path, and functions keep their names, order and global variables, so
-the port can be compared with the C line by line. The renderer is the OpenGL
-one (`ref_gl`), and the platform layer uses pygame for the window, input and
-sound.
+A Quake II engine written in Python, with the features of
+[Yamagi Quake II](https://github.com/yquake2/yquake2). It plays the original
+game and talks to C Quake II clients and servers over the network.
 
-This is the Quake2 game engine without the maps, textures and models which are 
-proprietary. If you purchase the official game, it includes the
-quake2data asset folder and the game can be played normally using that. 
-Alternatively, you can try running independently created maps but they mostly 
-rely on the base games textures.
+This is the engine only. The maps, textures, models and sounds are
+proprietary: you need the data from a copy of the game you own
+(`baseq2/pak0.pak` and so on). It is not included.
 
-About 5% of the code was ported by hand; the rest was ported with the
-help of ChatGPT, Claude and qwen.
+The code started as a line-by-line port of id Software's C source (3.21), then
+moved to Yamagi Quake II's source. Most of it was ported with the help of
+ChatGPT, Claude and qwen.
 
-## This branch: merging Yamagi Quake II fixes
+## This branch: a Pythonic rewrite
 
-The `yquake2` branch moves the port from id's original source to
-[Yamagi Quake II](https://github.com/yquake2/yquake2). Yamagi is a maintained
-C version of Quake II that has fixed many bugs in id's code over more than
-fifteen years, and changed some gameplay along the way.
+The `pythonic` branch drops the rule that the Python mirrors the C. The code
+is reworked, step by step, into ordinary Python:
 
-On this branch the reference the port follows becomes Yamagi's source, kept
-in `yquake2/`:
+- **Style:** PEP 8 names and layout, type hints, dataclasses and numpy.
+- **State:** objects instead of module-level global state.
+- **Repetition:** repetitive code folded into tables and helpers.
+- **Loading library:** a self-contained package, `q2data`, for reading
+  Quake II data (PAK/PK3, maps, models, images, sounds). It can be used
+  without the engine.
 
-- **Layout:** the Python files move to Yamagi's layout, file for file. For
-  example `qcommon/cmodel.c` became `src/common/collision.c` in Yamagi, and
-  `game/m_soldier.c` became `src/game/monster/soldier/soldier.c`.
-- **Behaviour:** Yamagi's bug fixes and its gameplay changes are both taken.
-- **Network:** the port follows Yamagi's protocol. It is still Quake II
-  protocol 34, so the port can still play with Yamagi and other C servers and
-  clients.
+What the player sees stays the same:
+- the network protocol;
+- the game data and map formats;
+- save games and demos;
+- console commands, cvars and config files.
 
-The work is done one area of functionality at a time: shared code, collision
-and movement, networking, the server, the game logic (player, weapons and
-items, doors and triggers, monsters, save games), the client, and the
-renderer. Each area is tested before moving on. New Yamagi features, such as
-music from OGG files in place of CD audio or the OpenGL 3 renderer, can follow
-later.
+The game keeps running after every step. The plan and the order of the
+steps are in [docs/pythonic_plan.md](docs/pythonic_plan.md). Until a part
+has been reworked, it still reads like the C it came from.
 
-Until the move is finished, parts of the port still follow id's 3.21 source
-in `quake2-original/`, which is kept unmodified as a reference. The plan and
-progress are in [docs/yquake2_plan.md](docs/yquake2_plan.md).
+## Features
 
-## Status
+- Single player and deathmatch on the original maps, with all monsters,
+  weapons, items and bosses.
+- Two OpenGL renderers: OpenGL 1 (`gl1`, the default) and OpenGL 3.2 core
+  (`gl3`).
+- Sound through OpenAL, with music from OGG files.
+- Cinematics, demos and `timedemo`.
+- Save games in Yamagi's format.
+- Network play against C Quake II servers and clients (protocol 34), over
+  IPv4 and IPv6, with LAN server search and HTTP downloads.
+- A dedicated server that takes commands from the terminal.
+- Screenshots in TGA, BMP, PNG and JPG.
 
-- The single player game runs: maps load, monsters fight, items, doors, lifts
-  and triggers work.
-- All of the game's monsters are ported, including the bosses.
-- The client can connect to a C Quake II server (tested against Yamagi Quake II
-  8.30).
-- A Python dedicated server runs and takes console commands from the terminal.
-- Demos play back, and `timedemo` reports frame rates.
-- Expect bugs: the port is still being tested level by level.
-
-Not ported, or out of scope for now:
-
-- the software renderer (`ref_soft`), the Capture the Flag mod (`ctf`), and
-  platforms other than Linux (`win32`, `irix`, `solaris`)
-- the C sound mixer (pygame does the playback) and CD audio
+Not included:
+- the software and Vulkan renderers;
+- gamepad and gyro input;
+- the C software sound mixer;
+- the mission packs and Capture the Flag;
+- platforms other than Linux.
 
 ## Requirements
 
-- Python 3 (developed and tested with 3.12)
-- The packages in `requirements.txt`: pygame, PyOpenGL, numpy and Pillow.
-- The Quake II game data (`baseq2/pak0.pak` and so on), from a copy of the
-  game you own. It is not included.
+- Python 3.12 or later.
+- The packages in `requirements.txt`: pyglet, PyOpenGL, numpy, Pillow and
+  pycurl.
+- The OpenAL library (`libopenal.so.1`) for sound. FFmpeg's libraries, which
+  pyglet loads, for OGG music.
+- The Quake II game data.
 
 ## Setup
 
 ```
-pip3 install -r requirements.txt
+python3 -m venv env
+env/bin/pip install -r requirements.txt
 ```
+
+For development (tests), install `requirements-dev.txt` instead.
 
 ## Running
 
 Point `-datadir` at the folder that contains `baseq2`:
 
 ```
-python3 main.py -datadir /path/to/quake2data/Data
+env/bin/python main.py -datadir /path/to/quake2data/Data
 ```
 
-`-datadir` replaces `+set basedir`, which still works but is deprecated (as
-in Yamagi Quake II). Commands after `+` run at startup, as in the original game. For example, to
+Commands after `+` run at startup, as in the original game. For example, to
 start a map at a chosen skill (0 to 3):
 
 ```
-python3 main.py -datadir /path/to/quake2data/Data +skill 1 +map base1
+env/bin/python main.py -datadir /path/to/quake2data/Data +skill 1 +map base1
 ```
 
 To measure performance on a demo:
 
 ```
-python3 main.py -datadir /path/to/quake2data/Data +demomap demo1.dm2 +timedemo 1
+env/bin/python main.py -datadir /path/to/quake2data/Data +demomap demo1.dm2 +timedemo 1
 ```
 
-PyOpenGL checks for an OpenGL error (`glGetError`) after every OpenGL call by
-default. That is useful for catching rendering bugs but costs performance. Set
-`PYOPENGL_ERROR_CHECKING=0` to turn it off; it is on by default, and setting it
-to `1`/`true` leaves it on.
+### Renderer
+
+The `vid_renderer` cvar picks the renderer: `gl1` (the default) or `gl3`.
+Change it in the video menu, or on the command line with
+`+set vid_renderer gl3`. The `Q2_RENDERER` environment variable overrides
+the cvar.
 
 ### Dedicated server
 
 ```
-python3 main.py -datadir /path/to/quake2data/Data +set dedicated 1 +map base1
+env/bin/python main.py -datadir /path/to/quake2data/Data +set dedicated 1 +map base1
 ```
 
 Type server commands such as `status`, `serverinfo` or `map base2` into the
@@ -118,33 +117,49 @@ The windowed game ignores the terminal, as the original does. Set
 also be piped in, which is useful for scripted tests:
 
 ```
-Q2STDIN=1 python3 main.py -datadir /path/to/quake2data/Data +map base1
+Q2STDIN=1 env/bin/python main.py -datadir /path/to/quake2data/Data +map base1
 ```
+
+### OpenGL error checking
+
+PyOpenGL checks for an OpenGL error after every call by default. That costs
+speed. Set `PYOPENGL_ERROR_CHECKING=0` to turn it off.
+
+## Tests
+
+- **Unit tests:** they don't need the game data. They build their own small
+  map, model, image and archive files.
+
+  ```
+  env/bin/python -m pytest tests/unit
+  ```
+
+- **Engine tests:** these need the game data. They play maps, fight
+  monsters, save and load, and run a dedicated server. They also compare
+  collision and player movement with Yamagi's C code:
+
+  ```
+  tests/run_all.sh
+  tests/harness/run.sh
+  ```
 
 ## Source layout
 
 | Folder | Contents |
 |---|---|
-| `client/` | client: input, prediction, effects, menus, console, sound |
-| `server/` | server: game hosting, networking, entity updates |
-| `game/` | game logic: monsters, weapons, items, physics, triggers |
-| `qcommon/` | shared code: collision, player movement, file system, network channel |
-| `ref_gl/` | OpenGL renderer |
-| `linux/` | platform layer, using pygame for video, input and sound |
-| `quake2-original/` | id Software's Quake II 3.21 C source, which the port originally followed |
-| `yquake2/` | a checkout of Yamagi Quake II, the reference on this branch (not tracked in this repository) |
+| `common/` | engine core: console, cvars, commands, file system, collision, player movement, messages, network channel |
+| `server/` | the server: hosting games, entity updates, client connections |
+| `game/` | game logic: player, weapons, items, physics, triggers, monsters, save games |
+| `client/` | the client: input, prediction, effects, screen, menus, sound, downloads |
+| `client/refresh/` | the renderers (`gl1`, `gl3`) and their shared loaders (`files`) |
+| `backends/` | the platform layer: the system, networking, and `sdl.py` (SDL 2's calls, done with pyglet) |
+| `tests/` | unit tests, engine tests, and the C comparison harnesses |
+| `scripts/` | tools used while porting |
+| `docs/` | plans and notes |
+| `yquake2/` | a checkout of Yamagi Quake II, the reference for behaviour (not tracked) |
+| `quake2-original/` | id Software's 3.21 C source (not tracked) |
 
-## Porting conventions
-
-- Keep the 1:1 file mapping and the original function names and order.
-- Favour closeness to the C over idiomatic Python, so the two can be compared.
-- C code that is not yet ported stays in triple-quoted blocks next to the
-  Python. Code that is disabled in the C (`#if 0`) stays disabled.
-- Changes that only exist in the port are marked with `Q2PORT` comments.
-- On this branch the file mapping moves from id's source to Yamagi's: each
-  ported file follows a file under `yquake2/src/`.
-
-`AGENTS.md` has the full set of conventions.
+`AGENTS.md` has the coding conventions.
 
 ## License
 

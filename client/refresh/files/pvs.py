@@ -26,7 +26,7 @@
 from __future__ import annotations
 
 import numpy as np
-from common.header import files as files_h
+from q2data import bsp as q2bsp
 from common.header import shared
 from common.shared import shared as shared_c
 
@@ -39,7 +39,7 @@ Mod_DecompressVis
 def Mod_DecompressVis(data, row): #const byte *, int (returns byte *)
 
 	# YQ2_ALIGNAS_TYPE(int) static byte decompressed[MAX_MAP_LEAFS / 8];
-	decompressed = bytearray(files_h.MAX_MAP_LEAFS // 8)
+	decompressed = bytearray(q2bsp.MAX_MAP_LEAFS // 8)
 
 	if not data:
 		# no vis info, so make all visible
