@@ -26,6 +26,7 @@ Server main function and correspondig stuff
 from __future__ import annotations
 
 import struct
+import traceback
 from backends.unix import network, system
 from common.header import common as common_h
 from common.header import shared
@@ -281,9 +282,23 @@ def SV_ReadPackets(): #void
 			break
 
 		# check for connectionless packet (0xffffffff) first
-		if struct.unpack_from("<i", netchan.net_message.data, 0)[0] == -1: #*(int *)net_message.data == -1
+		# Q2PORT: and the packet has those 4 bytes; net_message.data is only as
+		# long as the packet (the C reads its fixed size buffer)
+		if netchan.net_message.cursize >= 4 and \
+			struct.unpack_from("<i", netchan.net_message.data, 0)[0] == -1: #*(int *)net_message.data == -1
 
-			sv_conless.SV_ConnectionlessPacket()
+			try: # Q2PORT: see SV_UntrustedDataError()
+
+				sv_conless.SV_ConnectionlessPacket()
+
+			except clientserver.abortframe:
+
+				raise
+
+			except Exception as err:
+
+				SV_UntrustedDataError(err, "connectionless packet")
+
 			continue
 
 
@@ -333,7 +348,18 @@ def SV_ReadPackets(): #void
 
 					if not (sv_init.sv.demofile and (sv_init.sv.state == server_h.server_state_t.ss_demo)):
 
-						sv_user.SV_ExecuteClientMessage(cl)
+						try: # Q2PORT: see SV_UntrustedDataError()
+
+							sv_user.SV_ExecuteClientMessage(cl)
+
+						except clientserver.abortframe:
+
+							raise
+
+						except Exception as err:
+
+							SV_UntrustedDataError(err, "message from {}".format(cl.name))
+							SV_DropClient(cl)
 
 
 
@@ -344,6 +370,18 @@ def SV_ReadPackets(): #void
 		if i != maxclients.value:
 
 			continue
+
+def SV_UntrustedDataError(err: Exception, what: str): # Q2PORT: Exception, char *
+
+	# Q2PORT: not in the C. A packet from the network is untrusted data, and a
+	# python exception while handling it (a bug the bad data reached, where the
+	# C would read garbage or drop the client) would otherwise end the whole
+	# server. SV_ReadPackets() catches it instead: a connectionless packet is
+	# ignored and a client's message drops that client. The exception is
+	# reported here, with the traceback for developer 1.
+	clientserver.Com_Printf("{}: {} in {} from {}, ignored\n".format("SV_ReadPackets",
+		type(err).__name__, what, network.NET_AdrToString(netchan.net_from)))
+	clientserver.Com_DPrintf("{}".format("".join(traceback.format_exception(err))))
 
 """
  * If a packet has not been received from a client for timeout->value

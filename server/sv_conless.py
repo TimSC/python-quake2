@@ -253,27 +253,32 @@ to issue remote commands.
 """
 def Rcon_Validate (): #int
 
-	ri = sv_main.rcon_password
-	if ri.value < 3:
-		return True
-	if ri.value == 3:
-		adr = network.NET_AdrToString(netchan.net_from)
-		if ri.string[0] == '*' and ri.string[1:].lower() == adr.lower():
-			return True
-		if ri.string[0] == '*':
-			return False
+	if not len(sv_main.rcon_password.string):
 
-	return ri.string.lower() == network.NET_AdrToString(netchan.net_from).lower()
+		return 0
+
+
+	if cmdparser.Cmd_Argv(1) != sv_main.rcon_password.string:
+
+		return 0
+
+
+	return 1
+
 def SVC_RemoteCommand ():
 
 	#char		remaining[1024];
 
 	i = Rcon_Validate ()
 
+	# Q2PORT: net_message.data + 4 as the C string it prints (up to a NUL); the
+	# packet is untrusted, so latin-1, which decodes any byte
+	text = bytes(netchan.net_message.data[4:netchan.net_message.cursize]).split(b"\0", 1)[0].decode("latin-1")
+
 	if i == 0:
-		clientserver.Com_Printf ("Bad rcon from {}:\n{}\n".format(network.NET_AdrToString (netchan.net_from), netchan.net_message.data[4:].decode('ascii')))
+		clientserver.Com_Printf ("Bad rcon from {}:\n{}\n".format(network.NET_AdrToString (netchan.net_from), text))
 	else:
-		clientserver.Com_Printf ("Rcon from {}:\n{}\n".format(network.NET_AdrToString (netchan.net_from), netchan.net_message.data[4:].decode('ascii')))
+		clientserver.Com_Printf ("Rcon from {}:\n{}\n".format(network.NET_AdrToString (netchan.net_from), text))
 
 	clientserver.Com_BeginRedirect (server_h.redirect_t.RD_PACKET.value, sv_send.sv_outputbuf, server_h.SV_OUTPUTBUF_LENGTH, sv_send.SV_FlushRedirect)
 

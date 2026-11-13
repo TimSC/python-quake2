@@ -1568,8 +1568,8 @@ class player_state_t(object):
 
 		self.gunangles = np.zeros((3,), dtype=np.float32) # vec3_t
 		self.gunoffset = np.zeros((3,), dtype=np.float32) # vec3_t
-		self.gunindex = None # int
-		self.gunframe = None # int
+		self.gunindex = 0 # int, zeroed as the C's memset (None crashed SV_WritePlayerstateToClient for a client without a weapon)
+		self.gunframe = 0 # int
 
 		self.blend = np.zeros((4,), dtype=np.float32) # float[4], rgba full screen effect
 		

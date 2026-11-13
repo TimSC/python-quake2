@@ -716,6 +716,14 @@ def SV_ExecuteClientMessage(cl: server_h.client_t): #client_t *
 				continue	# break;
 
 
+			# Q2PORT: a move cut short by the end of the packet; the C checksums the
+			# garbage past it in its buffer, which fails (the python buffer ends there)
+			if netchan.net_message.readcount > netchan.net_message.cursize:
+
+				clientserver.Com_DPrintf("Failed command checksum for %s (truncated move)\n", cl.name)
+				return
+
+
 			# if the checksum fails, ignore the rest of the packet
 			calculatedChecksum = crc.COM_BlockSequenceCRCByte(
 				netchan.net_message.data, checksumIndex + 1,
