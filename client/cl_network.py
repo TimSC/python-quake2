@@ -36,6 +36,7 @@ from client.vid import vid
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
+from common import errors
 from common import clientserver
 from common import cmdparser
 from common import cvar
@@ -757,7 +758,7 @@ def CL_ReadPackets ():
 
 					CL_ConnectionlessPacket ()
 
-				except clientserver.abortframe:
+				except errors.DropError:
 
 					raise
 
@@ -792,7 +793,7 @@ def CL_ReadPackets ():
 
 				cl_parse.CL_ParseServerMessage ()
 
-			except clientserver.abortframe:
+			except errors.DropError:
 
 				raise
 

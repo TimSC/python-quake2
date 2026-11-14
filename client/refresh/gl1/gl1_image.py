@@ -440,7 +440,7 @@ def R_ImageList_f(): #void
 
 			continue
 
-		if image.registration_sequence == gl1_model.registration_sequence:
+		if image.registration_sequence == gl1_model.cache.registration_sequence:
 
 			in_use = "*"
 			used += 1
@@ -860,7 +860,7 @@ def R_LoadPic(name, pic, width, realwidth, height, realheight, data_size, type, 
 		return None
 
 	image.name = name
-	image.registration_sequence = gl1_model.registration_sequence
+	image.registration_sequence = gl1_model.cache.registration_sequence
 
 	image.width = width
 	image.height = height
@@ -1062,7 +1062,7 @@ def R_FindImage(originname, type): #const char *, imagetype_t (returns image_t *
 
 		if name == image.name:
 
-			image.registration_sequence = gl1_model.registration_sequence
+			image.registration_sequence = gl1_model.cache.registration_sequence
 			return image
 
 	#
@@ -1092,14 +1092,14 @@ def R_FreeUnusedImages(): #void
 	#size_t i;
 
 	# never free r_notexture or particle texture
-	gl1_main.r_notexture.registration_sequence = gl1_model.registration_sequence
-	gl1_main.r_particletexture.registration_sequence = gl1_model.registration_sequence
+	gl1_main.r_notexture.registration_sequence = gl1_model.cache.registration_sequence
+	gl1_main.r_particletexture.registration_sequence = gl1_model.cache.registration_sequence
 
 	for i in range(numgltextures):
 
 		image = gltextures[i]
 
-		if image.registration_sequence == gl1_model.registration_sequence:
+		if image.registration_sequence == gl1_model.cache.registration_sequence:
 
 			continue # used this sequence
 
@@ -1130,7 +1130,7 @@ def R_ImageHasFreeSpace(): #void (returns qboolean)
 
 		if not image.name:
 			continue
-		if image.registration_sequence == gl1_model.registration_sequence:
+		if image.registration_sequence == gl1_model.cache.registration_sequence:
 
 			used += 1
 
@@ -1162,7 +1162,7 @@ def R_InitImages(): #void
 
 	gl1_scrap.Scrap_Init()
 
-	gl1_model.registration_sequence = 1
+	gl1_model.cache.registration_sequence = 1
 	image_max = 0
 
 	# init intensity conversions

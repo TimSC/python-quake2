@@ -292,7 +292,7 @@ should land together.
       download, instead of having names read from past its end.
     - **Leaf brushes:** collision reads leaf brush numbers unsigned, as
       the C's `unsigned short`.
-- [ ] **3. Common core** (in progress):
+- [x] **3. Common core:**
   - **Done, table-driven messages:** new PEP 8 modules
     `common/entity_delta.py`, `player_delta.py` and `usercmd_delta.py`.
     - **What they replace:** each has one table of fields (bits, wire
@@ -370,13 +370,76 @@ should land together.
       `q2ded` (entered the game; `kill` came back as "Player killed
       himself."), and the C client on a Python dedicated server (entered
       the game).
-  - **Left:**
-    - the console and the frame loop into the `Engine`;
-    - the module globals' callers taking the engine (or its subsystems)
-      directly;
-    - errors as exceptions;
-    - the engine file system on `q2data.filesystem`.
-- [ ] 4. Renderers
+  - **Done, errors:** `common/errors.py` has `DropError` (`ERR_DROP`) and
+    `DisconnectError` (`ERR_DISCONNECT`), which carry the message.
+    - `Com_Error` raises them after its clean-up, in place of the C's
+      longjmp; the frame loop and the network safety nets catch them.
+    - `abortframe` is gone. Fatal errors still end the process through
+      `Sys_Error`, as in the C.
+  - **Done, the file system's search order:**
+    `q2data.filesystem.game_directory_archives` is the one place that
+    knows the order of a game directory's archives (numbered paks first,
+    then the others as the directory lists them).
+    - Both `q2data`'s `FileSystem` and the engine's
+      `FS_AddDirToSearchPath` use it. The engine's pack-type table comes
+      from `q2data`'s `PACK_TYPES`.
+    - **Checked:** on a scratch game directory with numbered and other
+      PAK, PK3 and ZIP files (and a directory named `sub.pak`), the
+      engine's search list and lookups are identical to the code before.
+  - **Done, the frame timing:** `common/frame_timing.py`.
+    - **What it has:** `target_rates` (the render and packet frame rates
+      from vsync and the caps) and `FrameClock` (the four deltas, and
+      each iteration's packet/render decision). The `Engine` owns the
+      clock.
+    - **Tests:** 14 unit tests.
+    - **What `Qcommon_Frame` keeps:** the cvar clamping, the console
+      input and the calls into the server and client.
+  - **Checked for the whole step:**
+    - **Speed:** `timedemo` is unchanged against the code before step 3
+      (42.2–42.4 fps against 41.8–42.3, with the monitor on).
+    - **Screenshots:** gl1 and gl3 are pixel-identical (one gl1 base2
+      run differed once and not again in two repeats).
+    - **Tests:** the test suite and the harnesses pass.
+  - **Moved to later steps:**
+    - **The console:** `cl_console`, the client's console, moves with the
+      client (step 7).
+    - **Callers taking the engine directly:** as each part becomes an
+      object (renderers, sound, server, client, game, steps 4–8), its
+      callers move from the old `Cvar_*`/`Cmd_*`/`Netchan_*` functions to
+      the engine's subsystems. Until then those functions are thin
+      layers over `engine.engine`.
+    - **The rest of the engine file system** (handles, raw paths, links,
+      listings) moves to `q2data.filesystem` with the client and server
+      steps, which use it.
+- [ ] **4. Renderers** (in progress):
+  - **Where sharing pays off:** gl1's and gl3's files were compared line by
+    line. Only the model loaders were mostly alike (72%); the others share
+    40% or less (warp 40%, light 35%, mesh 31%, image 28%, surf 26%, main
+    14%).
+  - **Done, the shared model cache:** `client/refresh/model_cache.py` has
+    `ModelCache`.
+    - **What it covers:** the model slots (slot 0 the world), MD2/SP2/BSP
+      loading into the renderer's model structures, the brush lumps
+      (faces, leafs, marksurfaces, submodels, surface extents),
+      registration (`begin_registration`, `register`, `end_registration`),
+      the cluster PVS and `modellist`.
+    - **What each renderer supplies:** a `ModelHooks` with its model header
+      module and its image, warp and lightmap functions.
+    - **What's left in the renderers:** `gl1_model.py` and `gl3_model.py`
+      went from about 700 lines each to a hooks object and the function
+      names the renderers call. The registration counter is on the cache
+      (`gl1_model.cache.registration_sequence`).
+    - **Checked:**
+      - gl1 and gl3 frames are pixel-identical on base1, base2 and bunk1;
+      - a level change and `modellist` give the same output in both
+        renderers;
+      - the renderer tests (restart, menus, extensions off, save/load)
+        pass;
+      - 4 unit tests load the box-room fixture through the cache with
+        stand-in hooks.
+  - **Left:** the `Renderer` protocol in place of the `re`/`ri` tables, gl1
+    and gl3 as classes, and sharing the light and warp code where the two
+    really do the same thing.
 - [ ] 5. Sound
 - [ ] 6. Server
 - [ ] 7. Client

@@ -617,7 +617,7 @@ def GL3_Init(): #void (returns qboolean)
 		clientserver.Com_Printf("Loading shaders failed.\n")
 		return False
 
-	gl3_model.registration_sequence = 1 # from R_InitImages() (everything else from there shouldn't be needed anymore)
+	gl3_model.cache.registration_sequence = 1 # from R_InitImages() (everything else from there shouldn't be needed anymore)
 
 	gl3_image.GL3_Scrap_Init()
 

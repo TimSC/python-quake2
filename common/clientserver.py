@@ -29,6 +29,7 @@ from backends.unix import system
 pass
 from client import cl_main
 from common.header import shared
+from common import errors
 from common import frame, filesystem
 from server import sv_main
 from client import cl_console
@@ -45,8 +46,8 @@ MAXPRINTMSG = 4096
 
 logfile = None #FILE *
 logfile_active = None #cvar_t *, 1 = buffer log, 2 = flush after each print
-class abortframe(Exception):	# jmp_buf abortframe, an ERR_DROP occured, exit the entire frame
-	pass				# YQ2_LONGJMP (abortframe, 1) raises it, the setjmp in Qcommon_Frame catches it
+# jmp_buf abortframe: Com_Error raises common/errors.py's DropError (or
+# DisconnectError) in place of YQ2_LONGJMP, and Qcommon_Frame catches it
 server_state = 0 #int
 color_terminal = None #cvar_t *
 
@@ -264,7 +265,7 @@ def Com_Error(code: int, fmt: str, *args): #int, const char *, ...
 		cl_network.CL_Drop()
 		#endif
 		com_error_recursive = False
-		raise abortframe() #YQ2_LONGJMP(abortframe, 1);
+		raise errors.DisconnectError(msg) #YQ2_LONGJMP(abortframe, 1);
 
 	elif code == shared.ERR_DROP:
 
@@ -275,7 +276,7 @@ def Com_Error(code: int, fmt: str, *args): #int, const char *, ...
 		cl_network.CL_Drop()
 		#endif
 		com_error_recursive = False
-		raise abortframe() #YQ2_LONGJMP(abortframe, 1);
+		raise errors.DropError(msg) #YQ2_LONGJMP(abortframe, 1);
 
 	else:
 

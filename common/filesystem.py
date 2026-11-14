@@ -31,6 +31,7 @@ import os
 from enum import Enum
 
 from q2data import FormatError
+from q2data import filesystem as q2fs
 from q2data import pak as q2pak
 from backends.unix import system
 from backends.generic import misc
@@ -59,7 +60,7 @@ from common import argproc, clientserver, cmdparser, cvar, frame, glob, zone
 
 MAX_HANDLES = 512
 MAX_MODS = 32
-MAX_PAKS = 100
+MAX_PAKS = q2fs.MAX_PAKS
 
 #ifdef SYSTEMWIDE
 # #ifndef SYSTEMDIR
@@ -135,13 +136,9 @@ fs_searchPaths = [] #fsSearchPath_t *, Q2PORT: the linked list is a Python list,
 fs_baseSearchPaths = 0 #fsSearchPath_t *, Q2PORT: the number of generic search paths at the end of fs_searchPaths
 
 # Pack formats / suffixes.
-fs_packtypes = [
-	fsPackTypes_t("pak", fsPackFormat_t.PAK),
-	fsPackTypes_t("pk2", fsPackFormat_t.PK3),
-	fsPackTypes_t("pk3", fsPackFormat_t.PK3),
-	fsPackTypes_t("pkz", fsPackFormat_t.PK3),
-	fsPackTypes_t("zip", fsPackFormat_t.PK3)
-]
+# the pack types, from q2data.filesystem.PACK_TYPES (pak, pk2, pk3, pkz, zip)
+fs_packtypes = [fsPackTypes_t(suffix, fsPackFormat_t.PAK if reader is q2pak.PakArchive else fsPackFormat_t.PK3)
+	for suffix, reader in q2fs.PACK_TYPES]
 
 datadir = "" #char [MAX_OSPATH]
 fs_gamedir = "" #char [MAX_OSPATH]
@@ -1467,106 +1464,26 @@ def FS_AddDirToSearchPath(dir: str, create: bool): #char *, qboolean
 	search.path = dir[:shared.MAX_OSPATH - 1]
 	fs_searchPaths.insert(0, search)
 
-	# Numbered paks contain the official game data, they
-	# need to be added first and are marked protected.
-	# Files from protected paks are never offered for
-	# download.
-	for i in range(len(fs_packtypes)):
+	# The archives, in the order Quake II adds them (q2data.filesystem): the
+	# numbered paks first (official data, marked protected: never offered for
+	# download), then every other archive in the order the directory lists them.
+	for spec in q2fs.game_directory_archives(dir):
 
-		for j in range(MAX_PAKS):
+		if spec.reader is q2pak.PakArchive:
+			pack = FS_LoadPAK(spec.path)
+		else:
+			pack = FS_LoadPK3(spec.path)
 
-			path = "{}/pak{}.{}".format(dir, j, fs_packtypes[i].suffix)
+		if pack is None:
 
-			pack = None
-			if fs_packtypes[i].format == fsPackFormat_t.PAK:
+			continue
 
-				pack = FS_LoadPAK(path)
+		pack.isProtectedPak = spec.protected
+		FS_SortPack(pack)
 
-				if pack is not None:
-
-					pack.isProtectedPak = True
-
-
-			elif fs_packtypes[i].format == fsPackFormat_t.PK3:
-
-				pack = FS_LoadPK3(path)
-
-				if pack is not None:
-
-					pack.isProtectedPak = False
-
-
-
-			if pack is None:
-
-				continue
-
-
-			FS_SortPack(pack)
-
-			search = fsSearchPath_t()
-			search.pack = pack
-			fs_searchPaths.insert(0, search)
-
-
-
-	# All other pak files are added after the numbered paks.
-	# They aren't sorted in any way, but added in the same
-	# sequence as they're returned by FS_ListFiles. This is
-	# fragile and file system dependend. We cannot change
-	# this, since it might break existing installations.
-	for i in range(len(fs_packtypes)):
-
-		path = "{}/*.{}".format(dir, fs_packtypes[i].suffix)
-
-		lst = FS_ListFiles(path, 0, 0)
-
-		for j in range(lst.num):
-
-			# Sort out numbered paks. This is as inefficient as
-			# it can be, but it doesn't matter. This is done only
-			# once at client or game startup.
-			nextpak = False
-
-			for k in range(MAX_PAKS):
-
-				file = os.path.basename(lst.data[j]) #basename(tmp)
-
-				path = "pak{}.{}".format(k, fs_packtypes[i].suffix)
-
-				if shared_c.Q_strcasecmp(path, file) == 0:
-
-					nextpak = True
-					break
-
-
-
-			if nextpak:
-
-				continue
-
-
-			pack = None
-			if fs_packtypes[i].format == fsPackFormat_t.PAK:
-				pack = FS_LoadPAK(lst.data[j])
-			elif fs_packtypes[i].format == fsPackFormat_t.PK3:
-				pack = FS_LoadPK3(lst.data[j])
-
-			if pack is None:
-
-				continue
-
-
-			FS_SortPack(pack)
-
-			pack.isProtectedPak = False
-
-			search = fsSearchPath_t()
-			search.pack = pack
-			fs_searchPaths.insert(0, search)
-
-
-		shared_c.StrList_Free(lst)
+		search = fsSearchPath_t()
+		search.pack = pack
+		fs_searchPaths.insert(0, search)
 
 def FS_BuildGenericSearchPath(): #void
 

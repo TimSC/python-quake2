@@ -392,7 +392,7 @@ def GL3_LoadPic(name, pic, width, realwidth, height, realheight, data_size, type
 		return None
 
 	image.name = name
-	image.registration_sequence = gl3_model.registration_sequence
+	image.registration_sequence = gl3_model.cache.registration_sequence
 
 	image.width = width
 	image.height = height
@@ -594,7 +594,7 @@ def GL3_FindImage(originname, type): #const char *, imagetype_t (returns gl3imag
 		image = gl3textures[i]
 		if name == image.name:
 
-			image.registration_sequence = gl3_model.registration_sequence
+			image.registration_sequence = gl3_model.cache.registration_sequence
 			return image
 
 	#
@@ -621,14 +621,14 @@ def GL3_RegisterSkin(name): #const char * (returns gl3image_t *)
 def GL3_FreeUnusedImages(): #void
 
 	# never free r_notexture or particle texture
-	gl3_misc.gl3_notexture.registration_sequence = gl3_model.registration_sequence
-	gl3_misc.gl3_particletexture.registration_sequence = gl3_model.registration_sequence
+	gl3_misc.gl3_notexture.registration_sequence = gl3_model.cache.registration_sequence
+	gl3_misc.gl3_particletexture.registration_sequence = gl3_model.cache.registration_sequence
 
 	for i in range(numgl3textures):
 
 		image = gl3textures[i]
 
-		if image.registration_sequence == gl3_model.registration_sequence:
+		if image.registration_sequence == gl3_model.cache.registration_sequence:
 
 			continue # used this sequence
 
@@ -656,7 +656,7 @@ def GL3_ImageHasFreeSpace(): #void (returns qboolean)
 
 		if not image.name:
 			continue
-		if image.registration_sequence == gl3_model.registration_sequence:
+		if image.registration_sequence == gl3_model.cache.registration_sequence:
 
 			used += 1
 
@@ -721,7 +721,7 @@ def GL3_ImageList_f(): #void
 
 			continue
 
-		if image.registration_sequence == gl3_model.registration_sequence:
+		if image.registration_sequence == gl3_model.cache.registration_sequence:
 
 			in_use = "*"
 			used += 1

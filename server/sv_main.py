@@ -31,6 +31,7 @@ from backends.unix import network, system
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
+from common import errors
 from common import clientserver
 from common import cvar
 from common import filesystem
@@ -291,7 +292,7 @@ def SV_ReadPackets(): #void
 
 				sv_conless.SV_ConnectionlessPacket()
 
-			except clientserver.abortframe:
+			except errors.DropError:
 
 				raise
 
@@ -352,7 +353,7 @@ def SV_ReadPackets(): #void
 
 							sv_user.SV_ExecuteClientMessage(cl)
 
-						except clientserver.abortframe:
+						except errors.DropError:
 
 							raise
 

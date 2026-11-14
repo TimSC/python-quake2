@@ -25,7 +25,6 @@ Platform independent initialization, main loop and frame handling.
 """
 from __future__ import annotations
 
-import math
 import sys
 import random
 pass
@@ -36,6 +35,9 @@ from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
 from common.shared import rand
+from common import frame_timing
+from common.engine import engine
+from common import errors
 from common import argproc
 from common import clientserver
 from common import cmdparser
@@ -435,23 +437,9 @@ def Qcommon_Init(): #int argc, char **argv
 # Q2PORT: the client's Qcommon_Frame (#ifndef DEDICATED_ONLY); the dedicated
 # server build's one isn't needed, CL_Frame returns early when dedicated is set
 
-# Time since last packetframe in microsec.
-Qcommon_Frame_packetdelta = 1000000 #static int, in Qcommon_Frame
-
-# Time since last renderframe in microsec.
-Qcommon_Frame_renderdelta = 1000000 #static int, in Qcommon_Frame
-
-# Accumulated time since last client run.
-Qcommon_Frame_clienttimedelta = 0 #static int, in Qcommon_Frame
-
-# Accumulated time since last server run.
-Qcommon_Frame_servertimedelta = 0 #static int, in Qcommon_Frame
-
 def Qcommon_Frame(usec: int): #int (static)
 
 	global log_stats_file
-	global Qcommon_Frame_packetdelta, Qcommon_Frame_renderdelta, Qcommon_Frame_clienttimedelta, \
-		Qcommon_Frame_servertimedelta
 
 	"""
 	// Used for the dedicated server console.
@@ -471,18 +459,8 @@ def Qcommon_Frame(usec: int): #int (static)
 	time_before = 0
 	time_between = 0
 
-	# A packetframe runs the server and the client,
-	# but not the renderer. The minimal interval of
-	# packetframes is about 10.000 microsec. If run
-	# more often the movement prediction in pmove.c
-	# breaks. That's the Q2 variant if the famous
-	# 125hz bug.
-	packetframe = True
-
-	# A rendererframe runs the renderer, but not the
-	# client or the server. The minimal interval is
-	# about 1000 microseconds.
-	renderframe = True
+	# A packetframe runs the server and the client, but not the renderer;
+	# a renderframe runs the renderer. See common/frame_timing.py.
 
 
 	# Tells the client to shutdown.
@@ -567,109 +545,14 @@ def Qcommon_Frame(usec: int): #int (static)
 			cvar.Cvar_SetValue("cl_maxfps", 250)
 
 
-		# Calculate target and renderframerate.
-		if vid.R_IsVSyncActive():
-
-			refreshrate = vid.GLimp_GetRefreshRate()
-
-			# using refreshRate - 2, because targeting a value slightly below the
-			# (possibly not 100% correctly reported) refreshRate would introduce jittering, so only
-			# use vid_maxfps if it looks like the user really means it to be different from refreshRate
-			if vid_maxfps.value < refreshrate - 2:
-
-				rfps = vid_maxfps.value
-				# we can't have more packet frames than render frames, so limit pfps to rfps
-				pfps = rfps if (cl_maxfps.value > rfps) else cl_maxfps.value
-
-			else: # target refresh rate, not vid_maxfps
-
-				# if vsync is active, we increase the target framerate a bit for two reasons
-				# 1. On Windows, GLimp_GetFrefreshRate() (or the SDL counterpart, or even
-				#    the underlying WinAPI function) often returns a too small value,
-				#    like 58 or 59 when it's really 59.95 and thus (as integer) should be 60
-				# 2. vsync will throttle us to refreshrate anyway, so there is no harm
-				#    in starting the frame *a bit* earlier, instead of risking starting
-				#    it too late
-				rfps = refreshrate * 1.2
-				# we can't have more packet frames than render frames, so limit pfps to rfps
-				# but in this case use tolerance for comparison and assign rfps with tolerance
-				pfps = cl_maxfps.value if (cl_maxfps.value < refreshrate - 2) else rfps
-
-
-		else:
-
-			rfps = vid_maxfps.value
-			# we can't have more packet frames than render frames, so limit pfps to rfps
-			pfps = rfps if (cl_maxfps.value > rfps) else cl_maxfps.value
-
-
-		# cl_maxfps <= 0 means: automatically choose a packet framerate that should work
-		# well with the render framerate, which is the case if rfps is a multiple of pfps
-		if cl_maxfps.value <= 0.0 and cl_async.value != 0.0:
-
-			# packet framerates between about 45 and 90 should be ok,
-			# with other values the game (esp. movement/clipping) can become glitchy
-			# as pfps must be <= rfps, for rfps < 90 just use that as pfps
-			if rfps < 90.0:
-
-				pfps = rfps
-
-			else:
-
-				# we want an integer divider, so every div-th renderframe is a packetframe.
-				# this formula gives nice dividers that keep pfps as close as possible
-				# to 60 (which seems to be ideal):
-				# - for < 150 rfps div will be 2, so pfps will be between 45 and ~75
-				#   => exactly every second renderframe we also run a packetframe
-				# - for < 210 rfps div will be 3, so pfps will be between 50 and ~70
-				#   => exactly every third renderframe we also run a packetframe
-				# - etc, the higher the rfps, the closer the pfps-range will be to 60
-				#   (and you probably get the very best results by running at a
-				#    render framerate that's a multiple of 60)
-				div = math.floor(rfps/60 + 0.5) # round(rfps/60), C rounds halves away from zero
-				pfps = rfps/div
-
-
-
-		# Calculate timings.
-		Qcommon_Frame_packetdelta += usec
-		Qcommon_Frame_renderdelta += usec
-		Qcommon_Frame_clienttimedelta += usec
-		Qcommon_Frame_servertimedelta += usec
-
-		if not cl_timedemo.value:
-
-			if cl_async.value:
-
-				# Render frames.
-				if Qcommon_Frame_renderdelta < (1000000.0 / rfps):
-
-					renderframe = False
-
-
-				# Network frames.
-				packettargetdelta = 1000000.0 / pfps
-				# "packetdelta + renderdelta/2 >= packettargetdelta" if now we're
-				# closer to when we want to run the next packetframe than we'd
-				# (probably) be after the next render frame
-				# also, we only run packetframes together with renderframes,
-				# because we must have at least one render frame between two packet frames
-				# TODO: does it make sense to use the average renderdelta of the last X frames
-				#       instead of just the last renderdelta?
-				if not renderframe or Qcommon_Frame_packetdelta + int(Qcommon_Frame_renderdelta/2) < packettargetdelta:
-
-					packetframe = False
-
-
-			else:
-
-				# Cap frames at target framerate.
-				if Qcommon_Frame_renderdelta < (1000000.0 / rfps):
-					renderframe = False
-					packetframe = False
-
-
-
+		# The target render and packet frame rates, and which frames run now
+		# (common/frame_timing.py)
+		vsync = vid.R_IsVSyncActive()
+		rfps, pfps = frame_timing.target_rates(vsync, vid.GLimp_GetRefreshRate() if vsync else 0,
+			vid_maxfps.value, cl_maxfps.value, cl_async.value != 0.0)
+		clock = engine.clock
+		packetframe, renderframe = clock.advance(usec, rfps, pfps, bool(cl_timedemo.value),
+			cl_async.value != 0.0)
 
 		# Dedicated server terminal console.
 		while True: # do { ... } while (s);
@@ -692,8 +575,8 @@ def Qcommon_Frame(usec: int): #int (static)
 
 		# Run the serverframe.
 		if packetframe:
-			sv_main.SV_Frame(Qcommon_Frame_servertimedelta)
-			Qcommon_Frame_servertimedelta = 0
+			sv_main.SV_Frame(clock.server_delta)
+			clock.server_ran()
 
 
 
@@ -705,8 +588,8 @@ def Qcommon_Frame(usec: int): #int (static)
 
 		# Run the client frame.
 		if packetframe or renderframe:
-			cl_main.CL_Frame(Qcommon_Frame_packetdelta, Qcommon_Frame_renderdelta, Qcommon_Frame_clienttimedelta, packetframe, renderframe)
-			Qcommon_Frame_clienttimedelta = 0
+			cl_main.CL_Frame(clock.packet_delta, clock.render_delta, clock.client_delta, packetframe, renderframe)
+			clock.client_ran()
 
 
 
@@ -729,14 +612,9 @@ def Qcommon_Frame(usec: int): #int (static)
 
 
 		# Reset deltas and mark frame.
-		if packetframe:
-			Qcommon_Frame_packetdelta = 0
+		clock.frame_done(packetframe, renderframe)
 
-
-		if renderframe:
-			Qcommon_Frame_renderdelta = 0
-
-	except clientserver.abortframe:
+	except errors.DropError:
 
 		return
 

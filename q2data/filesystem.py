@@ -61,49 +61,21 @@ class FileSystem:
         self.search_paths.insert(0, SearchPath(archive=archive, protected=protected))
 
     def add_game_directory(self, path: str | os.PathLike[str]) -> list[tuple[str, Exception]]:
-        """Add a game directory and its archives, as Quake II does.
-
-        The directory goes first, then the numbered paks (``pak0.pak`` to
-        ``pak99.pak``, then the numbered zip types), then every other archive
-        in the order the directory lists them. Each one goes in front, so the
-        last added is searched first. Returns the archives that could not be
-        read, with the error, so the caller can report them.
+        """Add a game directory and its archives, as Quake II does (see
+        ``game_directory_archives``). Each one goes in front, so the last
+        added is searched first. Returns the archives that could not be read,
+        with the error, so the caller can report them.
         """
         directory = os.fspath(path).rstrip("/\\")
         self.add_directory(directory)
         failures: list[tuple[str, Exception]] = []
-
-        for suffix, reader in PACK_TYPES:
-            for number in range(MAX_PAKS):
-                pack_path = os.path.join(directory, f"pak{number}.{suffix}")
-                if not os.path.isfile(pack_path):
-                    continue
-                try:
-                    archive = reader(pack_path)
-                except (OSError, ValueError) as err:
-                    failures.append((pack_path, err))
-                    continue
-                self.add_archive(archive, protected=reader is PakArchive)
-
-        numbered = {f"pak{n}" for n in range(MAX_PAKS)}
-        try:
-            listing = os.listdir(directory)
-        except OSError:
-            listing = []
-        for suffix, reader in PACK_TYPES:
-            for entry in listing:
-                stem, dot, ext = entry.rpartition(".")
-                if not dot or ext != suffix or stem.lower() in numbered:
-                    continue
-                pack_path = os.path.join(directory, entry)
-                if not os.path.isfile(pack_path):
-                    continue
-                try:
-                    archive = reader(pack_path)
-                except (OSError, ValueError) as err:
-                    failures.append((pack_path, err))
-                    continue
-                self.add_archive(archive)
+        for spec in game_directory_archives(directory):
+            try:
+                archive = spec.reader(spec.path)
+            except (OSError, ValueError) as err:
+                failures.append((spec.path, err))
+                continue
+            self.add_archive(archive, protected=spec.protected)
         return failures
 
     def find(self, name: str) -> FoundFile | None:
@@ -133,6 +105,44 @@ class FileSystem:
             if search_path.archive is not None:
                 out.update(search_path.archive.names())
         return out
+
+
+@dataclass(slots=True, frozen=True)
+class ArchiveSpec:
+    """An archive of a game directory, to be added to a search path."""
+
+    path: str
+    reader: type[PakArchive] | type[ZipArchive]
+    protected: bool  # a numbered .pak: official data, never offered for download
+
+
+def game_directory_archives(directory: str) -> list[ArchiveSpec]:
+    """The archives of a game directory, in the order Quake II adds them.
+
+    First the numbered paks (``pak0.pak`` to ``pak99.pak``, then the numbered
+    zip types), then every other archive in the order the directory lists
+    them. Each is put in front of the search path when added, so the last
+    one is searched first.
+    """
+    specs: list[ArchiveSpec] = []
+    for suffix, reader in PACK_TYPES:
+        for number in range(MAX_PAKS):
+            path = os.path.join(directory, f"pak{number}.{suffix}")
+            if os.path.isfile(path):
+                specs.append(ArchiveSpec(path, reader, reader is PakArchive))
+
+    numbered = {f"pak{n}" for n in range(MAX_PAKS)}
+    try:
+        listing = os.listdir(directory)
+    except OSError:
+        listing = []
+    for suffix, reader in PACK_TYPES:
+        for entry in listing:
+            stem, dot, ext = entry.rpartition(".")
+            path = os.path.join(directory, entry)
+            if dot and ext == suffix and stem.lower() not in numbered and os.path.isfile(path):
+                specs.append(ArchiveSpec(path, reader, False))
+    return specs
 
 
 def read_found(found: FoundFile) -> bytes:

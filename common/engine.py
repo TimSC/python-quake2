@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from common.commands import CommandSystem
 from common.cvars import CvarRegistry
+from common.frame_timing import FrameClock
 
 
 @dataclass(slots=True)
@@ -30,10 +31,11 @@ class EngineHooks:
 
 
 class Engine:
-    """An engine's cvars and commands."""
+    """An engine's cvars, commands and frame clock."""
 
     def __init__(self, hooks: EngineHooks) -> None:
         self.hooks = hooks
+        self.clock = FrameClock()
         self.cvars = CvarRegistry(print_=hooks.print_, server_running=hooks.server_running,
                                   game_changed=hooks.game_changed,
                                   user_game_changed=hooks.user_game_changed)
