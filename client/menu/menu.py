@@ -853,7 +853,7 @@ def KeyCursorDrawFunc(menu): #menuframework_s * (static)
 
 	if menukeyitem_bind:
 
-		c = ' = '
+		c = ord('=') # '='
 
 	else:
 
