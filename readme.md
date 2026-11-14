@@ -16,7 +16,7 @@ rely on the base games textures.
 About 5% of the code was ported by hand; the rest was ported with the
 help of ChatGPT, Claude and qwen.
 
-## This branch: merging Yamagi Quake II fixes
+## This branch: yquake, based on Yamagi Quake II
 
 The `yquake2` branch moves the port from id's original source to
 [Yamagi Quake II](https://github.com/yquake2/yquake2). Yamagi is a maintained
@@ -44,6 +44,16 @@ later.
 Until the move is finished, parts of the port still follow id's 3.21 source
 in `quake2-original/`, which is kept unmodified as a reference. The plan and
 progress are in [docs/yquake2_plan.md](docs/yquake2_plan.md).
+
+## Other branches
+
+| Branch | What it is | Use it to |
+|---|---|---|
+| [`original`](https://github.com/TimSC/python-quake2/tree/original) | the first port, of id Software's Quake II 3.21 C source | see the port as it followed id's C line by line (file names, function names, globals and layout) |
+| [`pythonic`](https://github.com/TimSC/python-quake2/tree/pythonic) | a rewrite of this branch into ordinary Python: PEP 8, type hints, objects instead of globals, and `q2data`, a separate library for reading Quake II data | read or build on the engine as Python, without the C structure |
+
+The `pythonic` branch keeps the behaviour of this one (the network protocol,
+game data, save games, demos, and console commands).
 
 ## Status
 

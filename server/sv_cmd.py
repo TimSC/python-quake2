@@ -78,9 +78,14 @@ def SV_SetMaster_f ():
 		if slot == server_h.MAX_MASTERS:
 			break
 
-		if not network.NET_StringToAdr (cmdparser.Cmd_Argv(i), sv_main.master_adr[i]):
+		# Q2PORT: fix, into master_adr[slot]; the C parses into master_adr[i], so
+		# after a bad address the next ones went into the wrong slot. And
+		# NET_StringToAdr returns the address (it took two arguments here, which crashed)
+		adr = network.NET_StringToAdr (cmdparser.Cmd_Argv(i))
+		if adr is None:
 			clientserver.Com_Printf ("Bad address: %s\n", cmdparser.Cmd_Argv(i))
 			continue
+		sv_main.master_adr[slot] = adr
 		if sv_main.master_adr[slot].port == 0:
 			sv_main.master_adr[slot].port = shared_c.BigShort (common_h.PORT_MASTER)
 
@@ -114,8 +119,8 @@ def SV_SetPlayer ():
 	s = cmdparser.Cmd_Argv(1)
 
 	# numeric values are just slot numbers
-	if s[0] >= '0' and s[0] <= '9':
-		idnum = int(s)
+	if s[:1] >= '0' and s[:1] <= '9': # Q2PORT: s[:1], s[0] crashed on an empty name (the C reads its NUL)
+		idnum = shared_c.atoi(s) # (int)strtol(Cmd_Argv(1), (char **)NULL, 10); Q2PORT: int() crashed on "1abc"
 		if idnum < 0 or idnum >= int(sv_main.maxclients.value):
 			clientserver.Com_Printf ("Bad client slot: %i\n", idnum)
 			return False

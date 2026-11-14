@@ -28,6 +28,7 @@ from __future__ import annotations
 import random
 from backends.unix import network, system
 from common.header import common as common_h
+from common.header import shared
 from common.shared import shared as shared_c
 from common.shared import rand
 from common import clientserver
@@ -71,22 +72,21 @@ def SVC_Info ():
 	if sv_main.maxclients.value == 1:
 		return		# ignore in single player
 
-	try:
-		version = int(cmdparser.Cmd_Argv(1))
-	except ValueError:
-		version = None
+	version = shared_c.atoi(cmdparser.Cmd_Argv(1)) # (int)strtol(Cmd_Argv(1), (char **)NULL, 10);
 
 	if version != common_h.PROTOCOL_VERSION:
-		string = "{}: wrong version\n".format(sv_main.hostname.string)
+		string = "%s: wrong version\n" % sv_main.hostname.string
 	else:
 		count = 0
 		for i in range(int(sv_main.maxclients.value)):
 			if sv_init.svs.clients[i].state.value >= server_h.client_state_t.cs_connected.value:
 				count += 1
 
-		string = "{:16s} {:8s} {}/{}\n".format(sv_main.hostname.string, sv_init.sv.name, count, int(sv_main.maxclients.value))
+		string = "%16s %8s %2i/%2i\n" % (sv_main.hostname.string, sv_init.sv.name, count, int(sv_main.maxclients.value))
 
-	netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, netchan.net_from, "info\n{}".format(string))
+	string = string[:64 - 1] # Com_sprintf(string, sizeof(string), ...)
+
+	netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, netchan.net_from, "info\n%s", string)
 """
 ================
 SVC_Ping
@@ -157,24 +157,18 @@ def SVC_DirectConnect ():
 
 	clientserver.Com_DPrintf ("SVC_DirectConnect ()\n")
 
-	try:
-		version = int(cmdparser.Cmd_Argv(1))
-	except ValueError:
-		version = None
+	version = shared_c.atoi(cmdparser.Cmd_Argv(1)) # (int)strtol(Cmd_Argv(1), (char **)NULL, 10);
 	if version != common_h.PROTOCOL_VERSION:
 	
 		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_SERVER, adr, "print\nServer is protocol version 34.\n")
 		clientserver.Com_DPrintf ("    rejected connect from version {}\n".format(version))
 		return
 	
-	try:
-		qport = int(cmdparser.Cmd_Argv(2))
-		challenge = int(cmdparser.Cmd_Argv(3))
-	except ValueError:
-		qport = None
-		challenge = None
+	qport = shared_c.atoi(cmdparser.Cmd_Argv(2)) # (int)strtol(Cmd_Argv(2), (char **)NULL, 10);
 
-	userinfo = cmdparser.Cmd_Argv(4)
+	challenge = shared_c.atoi(cmdparser.Cmd_Argv(3)) # (int)strtol(Cmd_Argv(3), (char **)NULL, 10);
+
+	userinfo = cmdparser.Cmd_Argv(4)[:shared.MAX_INFO_STRING - 1] # Q_strlcpy(userinfo, Cmd_Argv(4), sizeof(userinfo));
 
 	# force the IP key/value pair so the game can filter based on ip
 	userinfo = shared_c.Info_SetValueForKey (userinfo, "ip", network.NET_AdrToString(netchan.net_from))
@@ -287,9 +281,9 @@ def SVC_RemoteCommand ():
 	else:
 		remaining = ""
 		for i in range(2, cmdparser.Cmd_Argc()):
-			remaining += cmdparser.Cmd_Argv(i) + " "
+			remaining += cmdparser.Cmd_Argv(i) + " " # Q_strlcat(remaining, ..., sizeof(remaining));
 
-		cmdparser.Cmd_ExecuteString (remaining)
+		cmdparser.Cmd_ExecuteString (remaining[:1024 - 1]) # char remaining[1024]
 
 	clientserver.Com_EndRedirect ()
 

@@ -600,6 +600,6 @@ def SV_RecordDemoMessage ():
 	szone.SZ_Clear (sv_init.svs.demo_multicast)
 
 	# now write the entire message to the file, prefixed by the length
-	length = shared_c.LittleLong (buf.cursize)
-	sv_init.svs.demofile.write(length.to_bytes(4, 'little'))
+	length = buf.cursize # LittleLong (buf.cursize); Q2PORT: fix, shared_c.LittleLong unpacks bytes, an int crashed serverrecord
+	sv_init.svs.demofile.write(length.to_bytes(4, 'little', signed=True)) # fwrite(&len, 4, 1, svs.demofile);
 	sv_init.svs.demofile.write(bytes(buf.data[:buf.cursize]))
