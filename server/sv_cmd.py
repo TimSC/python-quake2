@@ -64,9 +64,11 @@ def _set_master() -> None:
             break
         # into the slot it goes to (the C parses into slot i, which leaves
         # a gap after a bad address)
-        if not network.NET_StringToAdr(cmdparser.Cmd_Argv(i), masters[slot]):
+        adr = network.NET_StringToAdr(cmdparser.Cmd_Argv(i))
+        if adr is None:
             clientserver.Com_Printf("Bad address: %s\n", cmdparser.Cmd_Argv(i))
             continue
+        masters[slot] = adr
         if masters[slot].port == 0:
             masters[slot].port = shared_c.BigShort(common_h.PORT_MASTER)
 

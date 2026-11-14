@@ -578,7 +578,13 @@ should land together.
       a slot like `1abc` (`int()`; the C's strtol reads 1) and on an empty
       name (`s[0]`).
     - **Fixed, `setmaster`:** after a bad address the C parses the next
-      ones into the wrong slot (`master_adr[i]`, not `[slot]`).
+      ones into the wrong slot (`master_adr[i]`, not `[slot]`). It also
+      crashed with any address (`NET_StringToAdr` called with two
+      arguments; it takes one and returns the address).
+    - **Fixed, bad host names:** a name like `bad..host` crashed the game
+      (`UnicodeError` from Python's IDNA encoding, not caught in
+      `NET_StringToSockaddr`); `connect`, `rcon_address` and `setmaster`
+      reach it.
     - **Kept:** the server demo's multicast buffer stays 64 KB; the C's
       `MAX_MSGLEN` one overflows (a fatal error) on a busy frame.
     - **Checked:** each command on a dedicated server (with odd

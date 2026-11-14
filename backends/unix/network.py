@@ -366,6 +366,10 @@ def NET_StringToSockaddr(s: str): #const char *, struct sockaddr_storage * (retu
 		clientserver.Com_Printf("NET_StringToSockaddr: string {}:\n{}\n".format(s, err.strerror))
 		return False, (0, None)
 
+	except UnicodeError as err: # Q2PORT: Python's IDNA encoding refuses names like "a..b" (the C's getaddrinfo fails on them)
+		clientserver.Com_Printf("NET_StringToSockaddr: string {}:\n{}\n".format(s, err))
+		return False, (0, None)
+
 	ai_family, _, _, _, ai_addr = resultp[0]
 
 	if ai_family in (socket.AF_INET, socket.AF_INET6):
