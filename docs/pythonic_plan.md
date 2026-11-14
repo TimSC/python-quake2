@@ -477,8 +477,27 @@ should land together.
       with the same message.
     - **Checked:** the music test (with audio), cinematics, `snd_restart`,
       `soundinfo`, `play`, and `s_openal 0`.
-  - **Left:** the OpenAL code and the OGG player as objects; the channels
-    and playsound lists as plain data.
+  - **Done, the music player:** `client/sound/music.py` has `MusicPlayer`.
+    - **What it covers:** Yamagi's `ogg.c` as an object: the track lookup
+      (`music/02.ogg`, GOG's `TrackXX.ogg`, the ReRelease's
+      `trackXX.ogg`), the map's CD track, shuffle, pause with the game,
+      save and recover over a sound restart, and the `ogg` command.
+      `load_as_wav` decodes `.ogg` sounds.
+    - **Layers kept:** `ogg.py` is a thin layer of the old `OGG_*`
+      functions over one player. The music test reads the player's
+      attributes.
+  - **Fixed, a real bug found by the music test:** `pyglet.media.load`
+    creates pyglet's OpenAL audio driver on first use, and that driver
+    made its own OpenAL context current. The game's later OpenAL calls
+    then went to a context without its sources and buffers, so music and
+    sounds could stop.
+    - **Fix:** `header/stb_vorbis.py` sets pyglet's silent audio driver;
+      pyglet only decodes here.
+    - **Effect:** the music test went from flaky (3 of 5 with the old
+      code) to passing every time. Music now keeps playing across
+      `snd_restart`.
+  - **Left:** the OpenAL code (`openal.py`, about 1,400 lines) as an object.
+    The channels and playsounds are already plain classes in lists.
 - [ ] 6. Server
 - [ ] 7. Client
 - [ ] 8. Game

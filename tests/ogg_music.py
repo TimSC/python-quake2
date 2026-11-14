@@ -63,11 +63,11 @@ def EF():
 		t = time.time() - st["t0"]
 		step = st["step"]
 		if step == 0 and t > 2:
-			if not ogg.ogg_started:
+			if not ogg.player.started:
 				ogg.OGG_Init()
 				ogg.OGG_InitTrackList()
-			assert ogg.ogg_maxfileindex >= 3, "track list empty: {}".format(ogg.ogg_maxfileindex)
-			print("ogg: listed tracks up to", ogg.ogg_maxfileindex)
+			assert ogg.player.maxfileindex >= 3, "track list empty: {}".format(ogg.player.maxfileindex)
+			print("ogg: listed tracks up to", ogg.player.maxfileindex)
 			# S_LoadVorbis: the .wav is missing, the .ogg is picked up
 			assert sound_c.sound_started == sound_local.SS_OAL, "OpenAL not started: {}".format(sound_c.sound_started)
 			s = sound_local.sfx_t()
@@ -80,11 +80,11 @@ def EF():
 			st["step"] = 1
 			st["t0"] = time.time()
 		elif step == 1 and t > 1:
-			assert ogg.ogg_numsamples > 0, "no samples read, pos {}".format(ogg.ogg_numsamples)
+			assert ogg.player.numsamples > 0, "no samples read, pos {}".format(ogg.player.numsamples)
 			state = qal.ALint()
 			qal.qalGetSourcei(openal.streamSource, qal_h.AL_SOURCE_STATE, ctypes.byref(state))
 			assert state.value == AL_PLAYING, "stream source not playing: {:#x}".format(state.value)
-			print("ogg: playing track 2 at", ogg.ogg_numsamples, "samples,", openal.active_buffers, "buffers queued")
+			print("ogg: playing track 2 at", ogg.player.numsamples, "samples,", openal.active_buffers, "buffers queued")
 			ogg.OGG_TogglePlayback()
 			assert ogg.OGG_Status() == vorbis.PAUSE
 			ogg.OGG_TogglePlayback()
@@ -96,7 +96,7 @@ def EF():
 			assert abs(gain.value - 0.5) < 0.01, "volume {}".format(gain.value)
 			print("ogg: pause/resume ok, volume ok")
 			ogg.OGG_SaveState()
-			assert ogg.ogg_saved_state.saved
+			assert ogg.player.saved
 			ogg.OGG_Stop()
 			assert ogg.OGG_Status() == vorbis.STOP
 			ogg.OGG_RecoverState()
@@ -106,9 +106,9 @@ def EF():
 			st["t0"] = time.time()
 		elif step == 2 and t > 1:
 			ogg.OGG_PlayTrack("3", False, True)
-			assert ogg.ogg_curfile == 3
+			assert ogg.player.curfile == 3
 			ogg.OGG_Shutdown()
-			assert ogg.OGG_Status() == vorbis.STOP and not ogg.ogg_started
+			assert ogg.OGG_Status() == vorbis.STOP and not ogg.player.started
 			print("ogg: done")
 			sys.stdout.flush()
 			os._exit(0)

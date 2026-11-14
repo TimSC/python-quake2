@@ -15,7 +15,15 @@ from __future__ import annotations
 import io
 
 import numpy as np
-import pyglet.media
+import pyglet
+
+# pyglet only decodes here; the game plays through its own OpenAL context.
+# pyglet's OpenAL audio driver (created on the first pyglet.media.load) would
+# make another OpenAL context current, and the game's sources and buffers
+# would no longer exist for its OpenAL calls. The silent driver makes none.
+pyglet.options['audio'] = ('silent',)
+
+import pyglet.media  # noqa: E402
 
 #define STB_VORBIS_NO_PUSHDATA_API
 
