@@ -120,9 +120,8 @@ def SV_SetPlayer ():
 			clientserver.Com_Printf ("Bad client slot: %i\n", idnum)
 			return False
 
-		sv_main.sv_client = sv_init.svs.clients[idnum]
-		sv_user.sv_player = server_h.CL_EDICT(sv_main.sv_client)
-		if sv_main.sv_client.state == server_h.client_state_t.cs_free:
+		sv_init.server.set_client(sv_init.svs.clients[idnum])
+		if sv_init.server.client.state == server_h.client_state_t.cs_free:
 			clientserver.Com_Printf ("Client %i is not active\n", idnum)
 			return False
 		return True
@@ -133,8 +132,7 @@ def SV_SetPlayer ():
 		if cl.state == server_h.client_state_t.cs_free:
 			continue
 		if cl.name == s:
-			sv_main.sv_client = cl
-			sv_user.sv_player = server_h.CL_EDICT(sv_main.sv_client)
+			sv_init.server.set_client(cl)
 			return True
 
 	clientserver.Com_Printf ("Userid %s is not on the server\n", s)
@@ -385,16 +383,16 @@ def SV_Kick_f(): #void
 		return
 
 
-	if (sv_main.sv_client.state == server_h.client_state_t.cs_spawned) and sv_main.sv_client.name:
+	if (sv_init.server.client.state == server_h.client_state_t.cs_spawned) and sv_init.server.client.name:
 
-		sv_send.SV_BroadcastPrintf(shared.PRINT_HIGH, "%s was kicked\n", sv_main.sv_client.name)
+		sv_send.broadcast_printf(shared.PRINT_HIGH, "%s was kicked\n", sv_init.server.client.name)
 
 
 	# print directly, because the dropped client
 	# won't get the SV_BroadcastPrintf message
-	sv_send.SV_ClientPrintf(sv_main.sv_client, shared.PRINT_HIGH, "You were kicked from the game\n")
-	sv_main.SV_DropClient(sv_main.sv_client)
-	sv_main.sv_client.lastmessage = sv_init.svs.realtime # min case there is a funny zombie
+	sv_send.client_printf(sv_init.server.client, shared.PRINT_HIGH, "You were kicked from the game\n")
+	sv_main.SV_DropClient(sv_init.server.client)
+	sv_init.server.client.lastmessage = sv_init.svs.realtime # min case there is a funny zombie
 
 """
 ================
@@ -482,7 +480,7 @@ def SV_ConSay_f():
 		client = sv_init.svs.clients[j]
 		if client.state != server_h.client_state_t.cs_spawned:
 			continue
-		sv_send.SV_ClientPrintf (client, shared.PRINT_CHAT, "{}\n".format(text))
+		sv_send.client_printf (client, shared.PRINT_CHAT, "{}\n".format(text))
 
 
 """
@@ -536,7 +534,7 @@ def SV_DumpUser_f(): #void
 
 	clientserver.Com_Printf("userinfo\n")
 	clientserver.Com_Printf("--------\n")
-	argproc.Info_Print(sv_main.sv_client.userinfo)
+	argproc.Info_Print(sv_init.server.client.userinfo)
 
 """
 /*

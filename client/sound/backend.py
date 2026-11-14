@@ -1,61 +1,52 @@
-"""The sound backend interface, and the one backend there is: OpenAL.
+"""The sound backend interface.
 
 The sound system (``sound.py``) mixes nothing itself; a backend uploads the
 sounds, plays the channels, streams raw samples (cinematics, music) and
-updates the listener every frame. Yamagi also has an SDL backend with a
-software mixer; it isn't ported, so without OpenAL there is no sound.
+updates the listener every frame. The one backend is OpenAL
+(``openal.OpenALBackend``). Yamagi also has an SDL backend with a software
+mixer; it isn't ported, so without OpenAL there is no sound.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 
-@dataclass(frozen=True, slots=True)
-class SoundBackend:
+class SoundBackend(Protocol):
     """A sound backend's entry points."""
 
     name: str
-    # (sfx, wavinfo, samples, volume, begin, end, attack, fade) -> sfxcache_t
-    upload_sfx: Callable[..., Any]
-    delete_sfx: Callable[[Any], None]
-    start_channel: Callable[[Any, float, float], None]  # (channel, volume, master volume)
-    stop_channel: Callable[[Any], None]
-    stop_all_channels: Callable[[], None]
-    # When a playsound starts and at what volume: (timeofs, volume, paintedtime)
-    # -> (begin, volume)
-    playsound_start: Callable[[float, float, int], tuple[int, float]]
-    raw_samples: Callable[[int, int, int, int, Any, float], None]
-    unqueue_raw_samples: Callable[[], None]
-    update: Callable[[], None]
-    sound_info: Callable[[], None]
-    shutdown: Callable[[], None]
+    active_buffers: int  # buffers in use: sounds and queued raw samples
 
+    @property
+    def num_channels(self) -> int: ...
 
-def openal_backend() -> SoundBackend:
-    """The OpenAL backend (client/sound/openal.py)."""
-    from client.sound import openal, qal
+    def upload_sfx(self, sfx: Any, info: Any, data: Any, volume: int, begin: int, end: int,
+                   attack: int, fade: int) -> Any:
+        """Uploads a sound; returns its sfxcache_t, or None."""
 
-    def start_channel(channel: Any, volume: float, master: float) -> None:
-        channel.oal_vol = volume * master  # clamped to 1.0 in AL_PlayChannel()
-        openal.AL_PlayChannel(channel)
+    def delete_sfx(self, sfx: Any) -> None: ...
 
-    def playsound_start(timeofs: float, volume: float, painted: int) -> tuple[int, float]:
-        return int(painted + timeofs * 1000), volume  # OpenAL counts in milliseconds
+    def start_channel(self, channel: Any, volume: float, master: float) -> None: ...
 
-    return SoundBackend(
-        name="openal",
-        upload_sfx=openal.AL_UploadSfx,
-        delete_sfx=openal.AL_DeleteSfx,
-        start_channel=start_channel,
-        stop_channel=openal.AL_StopChannel,
-        stop_all_channels=openal.AL_StopAllChannels,
-        playsound_start=playsound_start,
-        raw_samples=openal.AL_RawSamples,
-        unqueue_raw_samples=openal.AL_UnqueueRawSamples,
-        update=openal.AL_Update,
-        sound_info=lambda: qal.QAL_SoundInfo(True),
-        shutdown=openal.AL_Shutdown,
-    )
+    def stop_channel(self, channel: Any) -> None: ...
+
+    def stop_all_channels(self) -> None: ...
+
+    def playsound_start(self, timeofs: float, volume: float, painted: int) -> tuple[int, float]:
+        """When a playsound starts and at what volume: (begin, volume)."""
+
+    def raw_samples(self, samples: int, rate: int, width: int, channels: int, data: Any,
+                    volume: float) -> None: ...
+
+    def unqueue_raw_samples(self) -> None: ...
+
+    def underwater(self) -> None: ...
+
+    def overwater(self) -> None: ...
+
+    def update(self) -> None: ...
+
+    def sound_info(self) -> None: ...
+
+    def shutdown(self) -> None: ...

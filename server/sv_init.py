@@ -43,6 +43,7 @@ from common import collision
 from common import pmove
 from common.shared import rand
 from server.header import server as server_h
+from server import context
 from server import sv_game
 from server import sv_main
 from server import sv_send
@@ -60,8 +61,9 @@ from client import cl_screen
 ALLOC_ENTITIES_MIN = 32
 MAX_SV_ENTNUM = 32767 #SHRT_MAX
 
-svs = server_h.server_static_t() # persistant server info
-sv = server_h.server_t() # local server
+server = context.Server() # the server: the C's sv and svs, and the current client
+svs = server.persistent # persistant server info
+sv = server.level # local server
 
 def SV_AllocBaseline(entnum: int)->shared.entity_state_t: #int (returns static entity_state_t *)
 
@@ -157,7 +159,7 @@ def SV_FindIndex(name: str, start: int, max: int, create: bool)->int: #const cha
 		# send the update to everyone
 		movemsg.MSG_WriteChar(sv.multicast, common_h.svc_ops_e.svc_configstring.value)
 		movemsg.MSG_WriteConfigString(sv.multicast, start + i, name)
-		sv_send.SV_Multicast(shared_c.vec3_origin, shared.multicast_t.MULTICAST_ALL_R)
+		sv_send.multicast(shared_c.vec3_origin, shared.multicast_t.MULTICAST_ALL_R)
 
 
 	return i
@@ -510,7 +512,7 @@ def SV_InitGame(): #void
 
 	svs.gamemode = gamemode
 	svs.spawncount = rand.randk()
-	svs.clients = [server_h.client_t() for i in range(int(sv_main.maxclients.value))] #Z_Malloc(sizeof(client_t) * maxclients->value);
+	server.make_clients(int(sv_main.maxclients.value)) #Z_Malloc(sizeof(client_t) * maxclients->value);
 	svs.num_client_entities = int(sv_main.maxclients.value * common_h.UPDATE_BACKUP * 64)
 	svs.client_entities = [shared.entity_state_t() for i in range(svs.num_client_entities)]
 
@@ -629,7 +631,7 @@ def SV_Map(attractloop: bool, levelstring: str, loadgame: bool, isautosave: bool
 		#ifndef DEDICATED_ONLY
 		cl_screen.SCR_BeginLoadingPlaque() # for local system
 		#endif
-		sv_send.SV_BroadcastCommand("changing\n")
+		sv_send.broadcast_command("changing\n")
 		SV_SpawnServer(level, spawnpoint, server_h.server_state_t.ss_cinematic, attractloop, loadgame, isautosave)
 
 	elif ext is not None and ext == ".dm2":
@@ -637,7 +639,7 @@ def SV_Map(attractloop: bool, levelstring: str, loadgame: bool, isautosave: bool
 		#ifndef DEDICATED_ONLY
 		cl_screen.SCR_BeginLoadingPlaque() # for local system
 		#endif
-		sv_send.SV_BroadcastCommand("changing\n")
+		sv_send.broadcast_command("changing\n")
 		SV_SpawnServer(level, spawnpoint, server_h.server_state_t.ss_demo, attractloop, loadgame, isautosave)
 
 	elif ext is not None and (ext == ".pcx" or
@@ -648,7 +650,7 @@ def SV_Map(attractloop: bool, levelstring: str, loadgame: bool, isautosave: bool
 		#ifndef DEDICATED_ONLY
 		cl_screen.SCR_BeginLoadingPlaque() # for local system
 		#endif
-		sv_send.SV_BroadcastCommand("changing\n")
+		sv_send.broadcast_command("changing\n")
 		SV_SpawnServer(level, spawnpoint, server_h.server_state_t.ss_pic, attractloop, loadgame, isautosave)
 
 	else:
@@ -656,17 +658,17 @@ def SV_Map(attractloop: bool, levelstring: str, loadgame: bool, isautosave: bool
 		#ifndef DEDICATED_ONLY
 		cl_screen.SCR_BeginLoadingPlaque() # for local system
 		#endif
-		sv_send.SV_BroadcastCommand("changing\n")
+		sv_send.broadcast_command("changing\n")
 
 		# for some reason calling send messages here causes a lengthy reconnect delay
 		if not (sv_main.SV_Optimizations() & server_h.OPTIMIZE_RECONNECT):
 
-			sv_send.SV_SendClientMessages()
-			sv_send.SV_SendPrepClientMessages()
+			sv_send.send_client_messages()
+			sv_send.send_prep_client_messages()
 
 
 		SV_SpawnServer(level, spawnpoint, server_h.server_state_t.ss_game, attractloop, loadgame, isautosave)
 		cmdparser.Cbuf_CopyToDefer()
 
 
-	sv_send.SV_BroadcastCommand("reconnect\n")
+	sv_send.broadcast_command("reconnect\n")

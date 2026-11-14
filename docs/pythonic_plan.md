@@ -290,8 +290,6 @@ should land together.
     - **PK3:** directory entries are no longer counted as files.
     - **Downloads:** a truncated MD2 is skipped when checking skins to
       download, instead of having names read from past its end.
-    - **Leaf brushes:** collision reads leaf brush numbers unsigned, as
-      the C's `unsigned short`.
 - [x] **3. Common core:**
   - **Done, table-driven messages:** new PEP 8 modules
     `common/entity_delta.py`, `player_delta.py` and `usercmd_delta.py`.
@@ -463,15 +461,15 @@ should land together.
       in float detail. gl3 sums with numpy, gl1 one vertex at a time in
       float32. Sharing one would change the other's output, for about 100
       lines saved.
-- [ ] **5. Sound** (in progress):
+- [x] **5. Sound:**
   - **Done, the sound backend:** `client/sound/backend.py` has
     `SoundBackend`.
-    - **What it is:** a backend's entry points (upload/delete a sound,
-      start/stop channels, a playsound's start time, raw samples, update,
-      info, shutdown).
+    - **What it is:** a `Protocol` of a backend's entry points
+      (upload/delete a sound, start/stop channels, a playsound's start
+      time, raw samples, underwater/overwater, update, info, shutdown).
     - **What it replaces:** every OpenAL/SDL branch in `sound.py`, which is
       now a call on `backend` (None when the sound system isn't running).
-      `openal_backend()` is the one backend.
+      `pmove`'s underwater switch calls it too.
     - **Removed:** the `sdl.py` stub, which only ever failed to start, and
       `ogg.py`'s dead SDL branch. Without OpenAL there is still no sound,
       with the same message.
@@ -496,12 +494,107 @@ should land together.
     - **Effect:** the music test went from flaky (3 of 5 with the old
       code) to passing every time. Music now keeps playing across
       `snd_restart`.
-  - **Left:** the OpenAL code (`openal.py`, about 1,400 lines) as an object.
-    The channels and playsounds are already plain classes in lists.
-- [ ] 6. Server
+  - **Done, OpenAL as an object:** `client/sound/openal.py` has
+    `OpenALBackend` (1,400 lines down to 770).
+    - **What it holds:** the sources (one per channel, and the stream's),
+      the buffer count, the EFX filters and reverb effect, and the stream
+      state, as attributes instead of module globals. `start()` opens
+      OpenAL and returns None, with Yamagi's messages, when it can't.
+    - **Tables:** the 113 reverb presets are one list of (name, preset);
+      the automatic reverb's distance bands are a table.
+    - **Users:** the music player reads `backend.active_buffers`; the music
+      test reads `backend.stream_source`.
+    - **Checked:** the music test, cinematics, the integration tests, and a
+      run of base1 with automatic and fixed reverb, occlusion, doppler, an
+      unknown preset, `snd_restart` and `soundinfo`.
+  - **Not done:** the channels and playsounds stay module lists in
+    `sound.py` (already plain classes); they move with the client's
+    context object in step 7.
+- [ ] **6. Server** (in progress):
+  - **Done, connectionless packets as a dispatch table:**
+    `server/sv_conless.py`.
+    - **What it is:** the packet's arguments go in a `Request` (with
+      `reply()`), and `COMMANDS` maps `ping`, `ack`, `status`, `info`,
+      `getchallenge`, `connect` and `rcon` to their handlers.
+    - **Pure parts:** the challenge table (`issue_challenge`,
+      `check_challenge`), the `info` line and the rcon command are small
+      functions, with 12 unit tests.
+    - **Taken from Yamagi:**
+      - the `info` reply right-aligns its fields, as the C's
+        `%16s %8s %2i/%2i` (the port left-aligned them);
+      - number arguments parse as `strtol` (a bad one is 0, not `None`);
+      - the rcon command is cut at 1023 characters, the userinfo at the
+        info string size.
+    - **Checked:** a dedicated server answered every command over UDP
+      (`%` in an rcon command included).
+  - **Done, entity snapshots:** `server/sv_entities.py`.
+    - **What it has:** `build_client_frame` (the visible entities, with
+      `_sendable` and `_visible` as the tests), `write_frame_to_client`,
+      and `write_packet_entities`, the delta merge of two lists of
+      entity states, with 6 unit tests. `fat_pvs` ORs the clusters' PVS
+      with numpy.
+    - **Checked against the old code:** both ran on every client frame of
+      base1, base2 and bunk1 (1,196 frames): identical entity lists, area
+      bits and messages.
+    - **Fixed, a crash:** `serverrecord` crashed the server on its first
+      frame (`LittleLong` of an int). The recording now works. Playing it
+      back still refuses it ("msglen > MAX_MSGLEN": its first chunk is
+      5,774 bytes), as Yamagi does: server demos are for merging.
+  - **Done, the server object:** `server/context.py` has `Server`.
+    - **What it holds:** the level (`level`, the C's `sv`), the state
+      across levels (`persistent`, `svs`), and the client being handled
+      (`client` and its edict `player`, the C's `sv_client` and
+      `sv_player`, now gone).
+    - **For now:** `sv_init.server` is the process's one server;
+      `sv_init.sv` and `sv_init.svs` are its `level` and `persistent`, for
+      the 230 uses of the C names.
+    - **Client slots:** each client knows its slot, so finding its edict
+      no longer searches the client list.
+    - **Checked:** a client on a dedicated server, with `status`,
+      `dumpuser` and `kick` over rcon.
+  - **Done, what the server sends:** `server/sv_send.py` in PEP 8
+    (`client_printf`, `broadcast_printf`, `broadcast_command`,
+    `multicast`, `start_sound`, `send_client_messages`,
+    `send_prep_client_messages`).
+    - **Tables:** the multicast kinds are one table of (reliable, mask).
+    - **Checked against the old code:** both ran on every sound and
+      multicast of base1 and base2 with every weapon firing (247 sounds,
+      738 multicasts): identical buffers for every client, the multicast
+      and the server demo.
+    - **Also checked:** chat, a suicide, `kick` and the prints on a
+      dedicated server with a client.
+  - **Left:** moving the 230 `sv_init.sv`/`svs` uses and the server cvars
+    onto the `Server`, and the server's remaining C-style modules
+    (`sv_main`, `sv_user`, `sv_cmd`, `sv_init`, `sv_game`, `sv_save`,
+    `sv_world`).
 - [ ] 7. Client
 - [ ] 8. Game
 - [ ] 9. Final layout and packaging
+
+## Fixes to apply to the yquake2 branch
+
+Bugs found while reworking this branch that the `yquake2` branch still has
+(checked against it). Applied there, they are `Q2PORT` fixes or follow
+Yamagi's C.
+
+- [ ] **`serverrecord` crashes the server** (`server/sv_entities.py`,
+  `SV_RecordDemoMessage`): `shared_c.LittleLong(buf.cursize)` unpacks
+  bytes, so an int raises `TypeError` on the first recorded frame. Write
+  the length with `struct.pack("<i", buf.cursize)`. (Playing the demo
+  back is then refused with "msglen > MAX_MSGLEN", as in Yamagi.)
+- [ ] **The `info` reply is aligned wrongly** (`server/sv_conless.py`,
+  `SVC_Info`): `"{:16s} {:8s} {}/{}"` left-aligns the fields; the C's
+  `"%16s %8s %2i/%2i"` right-aligns them and pads the counts to 2. The C
+  also cuts the reply at 63 characters (`char string[64]`).
+- [ ] **Number arguments of connectionless packets** (`SVC_Info`,
+  `SVC_DirectConnect`): a value that isn't a number becomes `None`,
+  where the C's `strtol` gives 0 or the leading digits (`"12abc"` is 12).
+  In `SVC_DirectConnect` one bad value also makes both qport and
+  challenge `None`. `shared_c.atoi` parses as the C does.
+- [ ] **Lengths the C caps** (`SVC_DirectConnect`, `SVC_RemoteCommand`):
+  the userinfo is not cut at `MAX_INFO_STRING - 1` before the `ip` key is
+  added (`Q_strlcpy`), and the rcon command is not cut at 1023
+  characters (`char remaining[1024]`).
 
 ## Following Yamagi
 

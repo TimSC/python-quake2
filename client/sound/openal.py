@@ -1,1401 +1,769 @@
+"""The OpenAL sound backend (Yamagi's openal.c).
+
+Copyright (C) 1997-2005 Id Software, Inc., (C) 2010 skuller.net,
+(C) 2005 Stuart Dalton; GPL version 2 or later (see the other files).
+
+``OpenALBackend`` plays the sound system's channels on OpenAL sources (one
+per channel, plus one for streamed raw samples: music and cinematics),
+moves the listener, and applies the EFX effects: the underwater low-pass
+filter, distance occlusion and the reverb presets. ``qal.py`` loads the
+OpenAL library and owns the device and context.
 """
- * Copyright (C) 1997-2005 Id Software, Inc.
- *           (C) 2010 skuller.net
- *           (C) 2005 Stuart Dalton (badcdev@gmail.com)
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or (at
- * your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *
- * See the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
- *
- * =======================================================================
- *
- * This is the OpenAL backend for the Quake II Soundsystem. Most of these
- * functions were optained from the Q2Pro project, and some are from zeq2.
- * We adapted them to work with Yamagi Quake II. The OpenAL backend is
- * split into two layers. This is the upper layer, doing the actual work.
- * The lower layer implements the interface between Q2 and the OpenAL
- * implementation. This backend is overmuch complicated due to the
- * restrictions of the frontend.
- *
- * =======================================================================
-"""
+
 from __future__ import annotations
 
 import ctypes
 
 import numpy as np
 
-from common import clientserver
-from common import collision
-from common.header import shared
-from common.shared import shared as shared_c
-from client import cl_main
-from client import cl_entities
+from client import cl_entities, cl_main
 from client.header import client as client_h
-from client.sound import qal
-from client.sound import ogg
+from client.sound import ogg, qal
 from client.sound import sound as sound_c
 from client.sound.header import local as sound_local
 from client.sound.header import qal as qal_h
+from common import clientserver, collision
+from common.header import shared
+from common.shared import shared as shared_c
 
-#ifdef USE_OPENAL
+# avg US male height / q2PlayerHeight = 1.764 / 56.0 = 0.0315
+# (see PutClientInServer()'s bounding box)
+METERS_PER_UNIT = 0.0315
 
-#include <stdint.h>
-
-#include "../header/client.h"
-#include "header/local.h"
-#include "header/qal.h"
-#include "header/vorbis.h"
-
-# translates from AL coordinate system to quake
-def AL_UnpackVector(v)->tuple: #define AL_UnpackVector(v) - v[1], v[2], -v[0]
-
-	return float(-v[1]), float(v[2]), float(-v[0])
-
-def AL_CopyVector(a, b, ofs: int = 0): #define AL_CopyVector(a, b) ((b)[0] = -(a)[1], (b)[1] = (a)[2], (b)[2] = -(a)[0])
-
-	# Q2PORT: ofs is the C's "b + 3"
-	b[ofs + 0], b[ofs + 1], b[ofs + 2] = -a[1], a[2], -a[0]
-
-# avg US male height / q2PlayerHeight = 1.764f / 56.0f = 0.0315f
-# see: https://en.wikipedia.org/wiki/List_of_average_human_height_worldwide
-# see: PutClientInServer(edict_t *ent) bbox
-AL_METER_OF_Q2_UNIT = 0.0315
-
-# The OpenAL implementation should support
-# at least this number of sources
+# The OpenAL implementation has to give at least this many sources.
 MIN_CHANNELS = 16
 
-QAL_EFX_MAX = 1
-QAL_REVERB_EFFECT = 0
-
-# Globals
-active_buffers = 0 #int
-
-# Locals
-streamPlaying = False #static qboolean
-streamQueued = 0 # Q2PORT: buffers AL_RawSamples() queued since the last AL_StreamUpdate()
-s_srcnums = (qal.ALuint * (sound_local.MAX_CHANNELS - 1))() #static ALuint [MAX_CHANNELS - 1]
-streamSource = qal.ALuint() #static ALuint
-s_framecount = 0 #static int
-underwaterFilter = qal.ALuint() #static ALuint
-occlusionFilter = qal.ALuint() #static ALuint
-ReverbEffect = (qal.ALuint * QAL_EFX_MAX)() #static ALuint [QAL_EFX_MAX]
-ReverbEffectSlot = (qal.ALuint * QAL_EFX_MAX)() #static ALuint [QAL_EFX_MAX]
-lastreverteffect = -1 #static int, just some invalid index value
-snd_is_underwater_enabled = False #static qboolean
-
-# -----------------------------------------------------------------
-
-"""
- * Silence / stop all OpenAL streams
-"""
-def AL_StreamDie(): #void (static)
-
-	global streamPlaying, active_buffers, streamQueued
-
-	numBuffers = qal.ALint() #int
-
-	# openal might not be initialised yet
-	if not qal.qalSourceStop:
-
-		return
-
-	streamPlaying = False
-	qal.qalSourceStop(streamSource)
-
-	# Un-queue any buffers, and delete them
-	qal.qalGetSourcei(streamSource, qal_h.AL_BUFFERS_QUEUED, ctypes.byref(numBuffers))
-
-	while numBuffers.value:
-
-		numBuffers.value -= 1 # while (numBuffers--)
-
-		buffer = qal.ALuint() #ALuint
-		qal.qalSourceUnqueueBuffers(streamSource, 1, ctypes.byref(buffer))
-		qal.qalDeleteBuffers(1, ctypes.byref(buffer))
-		active_buffers -= 1
-
-	streamQueued = 0 # Q2PORT
-
-"""
- * Updates stream sources by removing all played
- * buffers and restarting playback if necessary.
-"""
-def AL_StreamUpdate(): #void (static)
-
-	global streamPlaying, active_buffers, streamQueued
-
-	numBuffers = qal.ALint() #int
-	state = qal.ALint() #ALint
-
-	qal.qalGetSourcei(streamSource, qal_h.AL_SOURCE_STATE, ctypes.byref(state))
-
-	if state.value == qal_h.AL_STOPPED:
-
-		streamPlaying = False
-
-		# Q2PORT: fix, a source that ran dry (a cinematic paused by the menu or
-		# console) stops with its played buffers still queued, and the
-		# qalSourcePlay() below restarted them, looping the last chunk of sound.
-		# Un-queue them, but keep the ones AL_RawSamples() queued since the last
-		# update: a stopped source counts every buffer as processed.
-		qal.qalGetSourcei(streamSource, qal_h.AL_BUFFERS_QUEUED, ctypes.byref(numBuffers))
-		numBuffers.value -= streamQueued
-
-		while numBuffers.value > 0:
-
-			numBuffers.value -= 1
-
-			buffer = qal.ALuint() #ALuint
-			qal.qalSourceUnqueueBuffers(streamSource, 1, ctypes.byref(buffer))
-			qal.qalDeleteBuffers(1, ctypes.byref(buffer))
-			active_buffers -= 1
-
-	else:
-
-		# Un-queue any already pleyed buffers and delete them
-		qal.qalGetSourcei(streamSource, qal_h.AL_BUFFERS_PROCESSED, ctypes.byref(numBuffers))
-
-		while numBuffers.value:
-
-			numBuffers.value -= 1 # while (numBuffers--)
-
-			buffer = qal.ALuint() #ALuint
-			qal.qalSourceUnqueueBuffers(streamSource, 1, ctypes.byref(buffer))
-			qal.qalDeleteBuffers(1, ctypes.byref(buffer))
-			active_buffers -= 1
-
-	# Start the streamSource playing if necessary
-	qal.qalGetSourcei(streamSource, qal_h.AL_BUFFERS_QUEUED, ctypes.byref(numBuffers))
-
-	if not streamPlaying and numBuffers.value:
-
-		qal.qalSourcePlay(streamSource)
-		streamPlaying = True
-
-	streamQueued = 0 # Q2PORT
-
-# -----------------------------------------------------------------
-
-def AL_GetFormat(width: int, channels: int)->int: #int, int (returns static ALenum)
-
-	if width == 1:
-
-		if channels == 1:
-
-			return qal_h.AL_FORMAT_MONO8
-
-		elif channels == 2:
-
-			return qal_h.AL_FORMAT_STEREO8
-
-	elif width == 2:
-
-		if channels == 1:
-
-			return qal_h.AL_FORMAT_MONO16
-
-		elif channels == 2:
-
-			return qal_h.AL_FORMAT_STEREO16
-
-	return qal_h.AL_FORMAT_MONO8
-
-"""
- * Uploads a sample to OpenAL and places
- * a dummy entry in the frontends cache.
- * This is not nice but necessary for the
- * frontend to work.
-"""
-def AL_UploadSfx(s: sound_local.sfx_t, s_info: sound_local.wavinfo_t, data, volume: int,
-		begin_length: int, end_length: int,
-		attack_length: int, fade_length: int)->sound_local.sfxcache_t: #sfx_t *, wavinfo_t *, byte *, short, int, int, int, int (returns sfxcache_t *)
-
-	global active_buffers
-
-	#sfxcache_t *sc;
-	#ALsizei size;
-	#ALenum format;
-	name = qal.ALuint() #ALuint
-
-	size = s_info.samples * s_info.width
-
-	# Work out format
-	format = AL_GetFormat(s_info.width, s_info.channels)
-
-	if not size:
-
-		return None
-
-	qal.qalGetError()
-	qal.qalGenBuffers(1, ctypes.byref(name))
-	qal.qalBufferData(name, format, bytes(data[:size]), size, s_info.rate)
-	active_buffers += 1
-
-	if qal.qalGetError() != qal_h.AL_NO_ERROR:
-
-		return None
-
-	# allocate placeholder sfxcache
-	sc = s.cache = sound_local.sfxcache_t() # Z_TagMalloc(sizeof(*sc), 0)
-	sc.length = (s_info.samples * 1000) // s_info.rate # ((uint64_t)s_info->samples * 1000) / s_info->rate
-	sc.loopstart = s_info.loopstart
-	sc.width = s_info.width
-	sc.size = size
-	sc.bufnum = name.value
-	sc.stereo = s_info.channels - 1
-	sc.volume = int(volume) # short
-	sc.begin = int(begin_length * 1000 / s_info.rate)
-	sc.end = int(end_length * 1000 / s_info.rate)
-	sc.fade = int(fade_length * 1000 / s_info.rate)
-	sc.attack = int(attack_length * 1000 / s_info.rate)
-
-	return sc
-
-"""
- * Deletes a sample from OpenALs internal
- * cache. The dummy entry in the frontends
- * cache is deleted by the frontend.
-"""
-def AL_DeleteSfx(s: sound_local.sfx_t): #sfx_t *
-
-	global active_buffers
-
-	#sfxcache_t *sc;
-	#ALuint name;
-
-	sc = s.cache
-
-	if not sc:
-
-		return
-
-	name = qal.ALuint(sc.bufnum)
-	qal.qalDeleteBuffers(1, ctypes.byref(name))
-	active_buffers -= 1
-
-# -----------------------------------------------------------------
-
-ReverbPresets = [ #static EFXEAXREVERBPROPERTIES []
-	qal_h.EFX_REVERB_PRESET_GENERIC,
-	qal_h.EFX_REVERB_PRESET_PADDEDCELL,
-	qal_h.EFX_REVERB_PRESET_ROOM,
-	qal_h.EFX_REVERB_PRESET_BATHROOM,
-	qal_h.EFX_REVERB_PRESET_LIVINGROOM,
-	qal_h.EFX_REVERB_PRESET_STONEROOM,
-	qal_h.EFX_REVERB_PRESET_AUDITORIUM,
-	qal_h.EFX_REVERB_PRESET_CONCERTHALL,
-	qal_h.EFX_REVERB_PRESET_CAVE,
-	qal_h.EFX_REVERB_PRESET_ARENA,
-	qal_h.EFX_REVERB_PRESET_HANGAR,
-	qal_h.EFX_REVERB_PRESET_CARPETEDHALLWAY,
-	qal_h.EFX_REVERB_PRESET_HALLWAY,
-	qal_h.EFX_REVERB_PRESET_STONECORRIDOR,
-	qal_h.EFX_REVERB_PRESET_ALLEY,
-	qal_h.EFX_REVERB_PRESET_FOREST,
-	qal_h.EFX_REVERB_PRESET_CITY,
-	qal_h.EFX_REVERB_PRESET_MOUNTAINS,
-	qal_h.EFX_REVERB_PRESET_QUARRY,
-	qal_h.EFX_REVERB_PRESET_PLAIN,
-	qal_h.EFX_REVERB_PRESET_PARKINGLOT,
-	qal_h.EFX_REVERB_PRESET_SEWERPIPE,
-	qal_h.EFX_REVERB_PRESET_UNDERWATER,
-	qal_h.EFX_REVERB_PRESET_DRUGGED,
-	qal_h.EFX_REVERB_PRESET_DIZZY,
-	qal_h.EFX_REVERB_PRESET_PSYCHOTIC,
-	qal_h.EFX_REVERB_PRESET_CASTLE_SMALLROOM,
-	qal_h.EFX_REVERB_PRESET_CASTLE_SHORTPASSAGE,
-	qal_h.EFX_REVERB_PRESET_CASTLE_MEDIUMROOM,
-	qal_h.EFX_REVERB_PRESET_CASTLE_LARGEROOM,
-	qal_h.EFX_REVERB_PRESET_CASTLE_LONGPASSAGE,
-	qal_h.EFX_REVERB_PRESET_CASTLE_HALL,
-	qal_h.EFX_REVERB_PRESET_CASTLE_CUPBOARD,
-	qal_h.EFX_REVERB_PRESET_CASTLE_COURTYARD,
-	qal_h.EFX_REVERB_PRESET_CASTLE_ALCOVE,
-	qal_h.EFX_REVERB_PRESET_FACTORY_SMALLROOM,
-	qal_h.EFX_REVERB_PRESET_FACTORY_SHORTPASSAGE,
-	qal_h.EFX_REVERB_PRESET_FACTORY_MEDIUMROOM,
-	qal_h.EFX_REVERB_PRESET_FACTORY_LARGEROOM,
-	qal_h.EFX_REVERB_PRESET_FACTORY_LONGPASSAGE,
-	qal_h.EFX_REVERB_PRESET_FACTORY_HALL,
-	qal_h.EFX_REVERB_PRESET_FACTORY_CUPBOARD,
-	qal_h.EFX_REVERB_PRESET_FACTORY_COURTYARD,
-	qal_h.EFX_REVERB_PRESET_FACTORY_ALCOVE,
-	qal_h.EFX_REVERB_PRESET_ICEPALACE_SMALLROOM,
-	qal_h.EFX_REVERB_PRESET_ICEPALACE_SHORTPASSAGE,
-	qal_h.EFX_REVERB_PRESET_ICEPALACE_MEDIUMROOM,
-	qal_h.EFX_REVERB_PRESET_ICEPALACE_LARGEROOM,
-	qal_h.EFX_REVERB_PRESET_ICEPALACE_LONGPASSAGE,
-	qal_h.EFX_REVERB_PRESET_ICEPALACE_HALL,
-	qal_h.EFX_REVERB_PRESET_ICEPALACE_CUPBOARD,
-	qal_h.EFX_REVERB_PRESET_ICEPALACE_COURTYARD,
-	qal_h.EFX_REVERB_PRESET_ICEPALACE_ALCOVE,
-	qal_h.EFX_REVERB_PRESET_SPACESTATION_SMALLROOM,
-	qal_h.EFX_REVERB_PRESET_SPACESTATION_SHORTPASSAGE,
-	qal_h.EFX_REVERB_PRESET_SPACESTATION_MEDIUMROOM,
-	qal_h.EFX_REVERB_PRESET_SPACESTATION_LARGEROOM,
-	qal_h.EFX_REVERB_PRESET_SPACESTATION_LONGPASSAGE,
-	qal_h.EFX_REVERB_PRESET_SPACESTATION_HALL,
-	qal_h.EFX_REVERB_PRESET_SPACESTATION_CUPBOARD,
-	qal_h.EFX_REVERB_PRESET_SPACESTATION_ALCOVE,
-	qal_h.EFX_REVERB_PRESET_WOODEN_SMALLROOM,
-	qal_h.EFX_REVERB_PRESET_WOODEN_SHORTPASSAGE,
-	qal_h.EFX_REVERB_PRESET_WOODEN_MEDIUMROOM,
-	qal_h.EFX_REVERB_PRESET_WOODEN_LARGEROOM,
-	qal_h.EFX_REVERB_PRESET_WOODEN_LONGPASSAGE,
-	qal_h.EFX_REVERB_PRESET_WOODEN_HALL,
-	qal_h.EFX_REVERB_PRESET_WOODEN_CUPBOARD,
-	qal_h.EFX_REVERB_PRESET_WOODEN_COURTYARD,
-	qal_h.EFX_REVERB_PRESET_WOODEN_ALCOVE,
-	qal_h.EFX_REVERB_PRESET_SPORT_EMPTYSTADIUM,
-	qal_h.EFX_REVERB_PRESET_SPORT_SQUASHCOURT,
-	qal_h.EFX_REVERB_PRESET_SPORT_SMALLSWIMMINGPOOL,
-	qal_h.EFX_REVERB_PRESET_SPORT_LARGESWIMMINGPOOL,
-	qal_h.EFX_REVERB_PRESET_SPORT_GYMNASIUM,
-	qal_h.EFX_REVERB_PRESET_SPORT_FULLSTADIUM,
-	qal_h.EFX_REVERB_PRESET_SPORT_STADIUMTANNOY,
-	qal_h.EFX_REVERB_PRESET_PREFAB_WORKSHOP,
-	qal_h.EFX_REVERB_PRESET_PREFAB_SCHOOLROOM,
-	qal_h.EFX_REVERB_PRESET_PREFAB_PRACTISEROOM,
-	qal_h.EFX_REVERB_PRESET_PREFAB_OUTHOUSE,
-	qal_h.EFX_REVERB_PRESET_PREFAB_CARAVAN,
-	qal_h.EFX_REVERB_PRESET_DOME_TOMB,
-	qal_h.EFX_REVERB_PRESET_PIPE_SMALL,
-	qal_h.EFX_REVERB_PRESET_DOME_SAINTPAULS,
-	qal_h.EFX_REVERB_PRESET_PIPE_LONGTHIN,
-	qal_h.EFX_REVERB_PRESET_PIPE_LARGE,
-	qal_h.EFX_REVERB_PRESET_PIPE_RESONANT,
-	qal_h.EFX_REVERB_PRESET_OUTDOORS_BACKYARD,
-	qal_h.EFX_REVERB_PRESET_OUTDOORS_ROLLINGPLAINS,
-	qal_h.EFX_REVERB_PRESET_OUTDOORS_DEEPCANYON,
-	qal_h.EFX_REVERB_PRESET_OUTDOORS_CREEK,
-	qal_h.EFX_REVERB_PRESET_OUTDOORS_VALLEY,
-	qal_h.EFX_REVERB_PRESET_MOOD_HEAVEN,
-	qal_h.EFX_REVERB_PRESET_MOOD_HELL,
-	qal_h.EFX_REVERB_PRESET_MOOD_MEMORY,
-	qal_h.EFX_REVERB_PRESET_DRIVING_COMMENTATOR,
-	qal_h.EFX_REVERB_PRESET_DRIVING_PITGARAGE,
-	qal_h.EFX_REVERB_PRESET_DRIVING_INCAR_RACER,
-	qal_h.EFX_REVERB_PRESET_DRIVING_INCAR_SPORTS,
-	qal_h.EFX_REVERB_PRESET_DRIVING_INCAR_LUXURY,
-	qal_h.EFX_REVERB_PRESET_DRIVING_FULLGRANDSTAND,
-	qal_h.EFX_REVERB_PRESET_DRIVING_EMPTYGRANDSTAND,
-	qal_h.EFX_REVERB_PRESET_DRIVING_TUNNEL,
-	qal_h.EFX_REVERB_PRESET_CITY_STREETS,
-	qal_h.EFX_REVERB_PRESET_CITY_SUBWAY,
-	qal_h.EFX_REVERB_PRESET_CITY_MUSEUM,
-	qal_h.EFX_REVERB_PRESET_CITY_LIBRARY,
-	qal_h.EFX_REVERB_PRESET_CITY_UNDERPASS,
-	qal_h.EFX_REVERB_PRESET_CITY_ABANDONED,
-	qal_h.EFX_REVERB_PRESET_DUSTYROOM,
-	qal_h.EFX_REVERB_PRESET_CHAPEL,
-	qal_h.EFX_REVERB_PRESET_SMALLWATERROOM,
+# The reverb presets: s_reverb_preset is an index into this list.
+REVERB_PRESETS = [
+    ("Generic", qal_h.EFX_REVERB_PRESET_GENERIC),
+    ("Padded Cell", qal_h.EFX_REVERB_PRESET_PADDEDCELL),
+    ("Room", qal_h.EFX_REVERB_PRESET_ROOM),
+    ("Bathroom", qal_h.EFX_REVERB_PRESET_BATHROOM),
+    ("LivingRoom", qal_h.EFX_REVERB_PRESET_LIVINGROOM),
+    ("StoneRoom", qal_h.EFX_REVERB_PRESET_STONEROOM),
+    ("Auditorium", qal_h.EFX_REVERB_PRESET_AUDITORIUM),
+    ("ConcertHall", qal_h.EFX_REVERB_PRESET_CONCERTHALL),
+    ("Cave", qal_h.EFX_REVERB_PRESET_CAVE),
+    ("Arena", qal_h.EFX_REVERB_PRESET_ARENA),
+    ("Hangar", qal_h.EFX_REVERB_PRESET_HANGAR),
+    ("Carpeted Hallway", qal_h.EFX_REVERB_PRESET_CARPETEDHALLWAY),
+    ("Hallway", qal_h.EFX_REVERB_PRESET_HALLWAY),
+    ("Stone Corridor", qal_h.EFX_REVERB_PRESET_STONECORRIDOR),
+    ("Alley", qal_h.EFX_REVERB_PRESET_ALLEY),
+    ("Forest", qal_h.EFX_REVERB_PRESET_FOREST),
+    ("City", qal_h.EFX_REVERB_PRESET_CITY),
+    ("Mountains", qal_h.EFX_REVERB_PRESET_MOUNTAINS),
+    ("Quarry", qal_h.EFX_REVERB_PRESET_QUARRY),
+    ("Plain", qal_h.EFX_REVERB_PRESET_PLAIN),
+    ("Parking Lot", qal_h.EFX_REVERB_PRESET_PARKINGLOT),
+    ("Sewer Pipe", qal_h.EFX_REVERB_PRESET_SEWERPIPE),
+    ("Underwater", qal_h.EFX_REVERB_PRESET_UNDERWATER),
+    ("Drugged", qal_h.EFX_REVERB_PRESET_DRUGGED),
+    ("Dizzy", qal_h.EFX_REVERB_PRESET_DIZZY),
+    ("Psychotic", qal_h.EFX_REVERB_PRESET_PSYCHOTIC),
+    ("Castle Small Room", qal_h.EFX_REVERB_PRESET_CASTLE_SMALLROOM),
+    ("Castle Short Passage", qal_h.EFX_REVERB_PRESET_CASTLE_SHORTPASSAGE),
+    ("Castle Medium Room", qal_h.EFX_REVERB_PRESET_CASTLE_MEDIUMROOM),
+    ("Castle Large Room", qal_h.EFX_REVERB_PRESET_CASTLE_LARGEROOM),
+    ("Castle Long Passage", qal_h.EFX_REVERB_PRESET_CASTLE_LONGPASSAGE),
+    ("Castle Hall", qal_h.EFX_REVERB_PRESET_CASTLE_HALL),
+    ("Castle Cupboard", qal_h.EFX_REVERB_PRESET_CASTLE_CUPBOARD),
+    ("Castle Courtyard", qal_h.EFX_REVERB_PRESET_CASTLE_COURTYARD),
+    ("Castle Alcove", qal_h.EFX_REVERB_PRESET_CASTLE_ALCOVE),
+    ("Factory Small Room", qal_h.EFX_REVERB_PRESET_FACTORY_SMALLROOM),
+    ("Factory Short Passage", qal_h.EFX_REVERB_PRESET_FACTORY_SHORTPASSAGE),
+    ("Factory Medium Room", qal_h.EFX_REVERB_PRESET_FACTORY_MEDIUMROOM),
+    ("Factory Large Room", qal_h.EFX_REVERB_PRESET_FACTORY_LARGEROOM),
+    ("Factory Long Passage", qal_h.EFX_REVERB_PRESET_FACTORY_LONGPASSAGE),
+    ("Factory Hall", qal_h.EFX_REVERB_PRESET_FACTORY_HALL),
+    ("Factory Cupboard", qal_h.EFX_REVERB_PRESET_FACTORY_CUPBOARD),
+    ("Factory Courtyard", qal_h.EFX_REVERB_PRESET_FACTORY_COURTYARD),
+    ("Factory Alcove", qal_h.EFX_REVERB_PRESET_FACTORY_ALCOVE),
+    ("Icepalace Small Room", qal_h.EFX_REVERB_PRESET_ICEPALACE_SMALLROOM),
+    ("Icepalace Short Passage", qal_h.EFX_REVERB_PRESET_ICEPALACE_SHORTPASSAGE),
+    ("Icepalace Medium Room", qal_h.EFX_REVERB_PRESET_ICEPALACE_MEDIUMROOM),
+    ("Icepalace Large Room", qal_h.EFX_REVERB_PRESET_ICEPALACE_LARGEROOM),
+    ("Icepalace Long Passage", qal_h.EFX_REVERB_PRESET_ICEPALACE_LONGPASSAGE),
+    ("Icepalace Hall", qal_h.EFX_REVERB_PRESET_ICEPALACE_HALL),
+    ("Icepalace Cupboard", qal_h.EFX_REVERB_PRESET_ICEPALACE_CUPBOARD),
+    ("Icepalace Courtyard", qal_h.EFX_REVERB_PRESET_ICEPALACE_COURTYARD),
+    ("Icepalace Alcove", qal_h.EFX_REVERB_PRESET_ICEPALACE_ALCOVE),
+    ("Spacestation Small Room", qal_h.EFX_REVERB_PRESET_SPACESTATION_SMALLROOM),
+    ("Spacestation Short Passage", qal_h.EFX_REVERB_PRESET_SPACESTATION_SHORTPASSAGE),
+    ("Spacestation Medium Room", qal_h.EFX_REVERB_PRESET_SPACESTATION_MEDIUMROOM),
+    ("Spacestation Large Room", qal_h.EFX_REVERB_PRESET_SPACESTATION_LARGEROOM),
+    ("Spacestation Long Passage", qal_h.EFX_REVERB_PRESET_SPACESTATION_LONGPASSAGE),
+    ("Spacestation Hall", qal_h.EFX_REVERB_PRESET_SPACESTATION_HALL),
+    ("Spacestation Cupboard", qal_h.EFX_REVERB_PRESET_SPACESTATION_CUPBOARD),
+    ("Spacestation Alcove", qal_h.EFX_REVERB_PRESET_SPACESTATION_ALCOVE),
+    ("Wooden Small Room", qal_h.EFX_REVERB_PRESET_WOODEN_SMALLROOM),
+    ("Wooden Short Passage", qal_h.EFX_REVERB_PRESET_WOODEN_SHORTPASSAGE),
+    ("Wooden Medium Room", qal_h.EFX_REVERB_PRESET_WOODEN_MEDIUMROOM),
+    ("Wooden Large Room", qal_h.EFX_REVERB_PRESET_WOODEN_LARGEROOM),
+    ("Wooden Long Passage", qal_h.EFX_REVERB_PRESET_WOODEN_LONGPASSAGE),
+    ("Wooden Hall", qal_h.EFX_REVERB_PRESET_WOODEN_HALL),
+    ("Wooden Cupboard", qal_h.EFX_REVERB_PRESET_WOODEN_CUPBOARD),
+    ("Wooden CourtYard", qal_h.EFX_REVERB_PRESET_WOODEN_COURTYARD),
+    ("Wooden Alcove", qal_h.EFX_REVERB_PRESET_WOODEN_ALCOVE),
+    ("Sport Empty Stadium", qal_h.EFX_REVERB_PRESET_SPORT_EMPTYSTADIUM),
+    ("Sport Squash Court", qal_h.EFX_REVERB_PRESET_SPORT_SQUASHCOURT),
+    ("Sport Small Swimming Pool", qal_h.EFX_REVERB_PRESET_SPORT_SMALLSWIMMINGPOOL),
+    ("Sport Large Swimming Pool", qal_h.EFX_REVERB_PRESET_SPORT_LARGESWIMMINGPOOL),
+    ("Sport Gymnasium", qal_h.EFX_REVERB_PRESET_SPORT_GYMNASIUM),
+    ("Sport Full Stadium", qal_h.EFX_REVERB_PRESET_SPORT_FULLSTADIUM),
+    ("Sport Stadium Tannoy", qal_h.EFX_REVERB_PRESET_SPORT_STADIUMTANNOY),
+    ("Prefab Workshop", qal_h.EFX_REVERB_PRESET_PREFAB_WORKSHOP),
+    ("Prefab School Room", qal_h.EFX_REVERB_PRESET_PREFAB_SCHOOLROOM),
+    ("Prefab Practise Room", qal_h.EFX_REVERB_PRESET_PREFAB_PRACTISEROOM),
+    ("Prefab Outhouse", qal_h.EFX_REVERB_PRESET_PREFAB_OUTHOUSE),
+    ("Prefab Caravan", qal_h.EFX_REVERB_PRESET_PREFAB_CARAVAN),
+    ("Dome Tomb", qal_h.EFX_REVERB_PRESET_DOME_TOMB),
+    ("Pipe Small", qal_h.EFX_REVERB_PRESET_PIPE_SMALL),
+    ("Dome Saintpauls", qal_h.EFX_REVERB_PRESET_DOME_SAINTPAULS),
+    ("Pipe Longthin", qal_h.EFX_REVERB_PRESET_PIPE_LONGTHIN),
+    ("Pipe Large", qal_h.EFX_REVERB_PRESET_PIPE_LARGE),
+    ("Pipe Resonant", qal_h.EFX_REVERB_PRESET_PIPE_RESONANT),
+    ("Outdoors Backyard", qal_h.EFX_REVERB_PRESET_OUTDOORS_BACKYARD),
+    ("Outdoors Rolling Plains", qal_h.EFX_REVERB_PRESET_OUTDOORS_ROLLINGPLAINS),
+    ("Outdoors Deep Canyon", qal_h.EFX_REVERB_PRESET_OUTDOORS_DEEPCANYON),
+    ("Outdoors Creek", qal_h.EFX_REVERB_PRESET_OUTDOORS_CREEK),
+    ("Outdoors Valley", qal_h.EFX_REVERB_PRESET_OUTDOORS_VALLEY),
+    ("Mood Heaven", qal_h.EFX_REVERB_PRESET_MOOD_HEAVEN),
+    ("Mood Hell", qal_h.EFX_REVERB_PRESET_MOOD_HELL),
+    ("Mood Memory", qal_h.EFX_REVERB_PRESET_MOOD_MEMORY),
+    ("Driving Commentator", qal_h.EFX_REVERB_PRESET_DRIVING_COMMENTATOR),
+    ("Driving Pit Garage", qal_h.EFX_REVERB_PRESET_DRIVING_PITGARAGE),
+    ("Driving Incar Racer", qal_h.EFX_REVERB_PRESET_DRIVING_INCAR_RACER),
+    ("Driving Incar Sports", qal_h.EFX_REVERB_PRESET_DRIVING_INCAR_SPORTS),
+    ("Driving Incar Luxury", qal_h.EFX_REVERB_PRESET_DRIVING_INCAR_LUXURY),
+    ("Driving Full Grandstand", qal_h.EFX_REVERB_PRESET_DRIVING_FULLGRANDSTAND),
+    ("Driving Empty Grandstand", qal_h.EFX_REVERB_PRESET_DRIVING_EMPTYGRANDSTAND),
+    ("Driving Tunnel", qal_h.EFX_REVERB_PRESET_DRIVING_TUNNEL),
+    ("City Streets", qal_h.EFX_REVERB_PRESET_CITY_STREETS),
+    ("City Subway", qal_h.EFX_REVERB_PRESET_CITY_SUBWAY),
+    ("City Museum", qal_h.EFX_REVERB_PRESET_CITY_MUSEUM),
+    ("City Library", qal_h.EFX_REVERB_PRESET_CITY_LIBRARY),
+    ("City Underpass", qal_h.EFX_REVERB_PRESET_CITY_UNDERPASS),
+    ("City Abandoned", qal_h.EFX_REVERB_PRESET_CITY_ABANDONED),
+    ("Dusty Room", qal_h.EFX_REVERB_PRESET_DUSTYROOM),
+    ("Chapel", qal_h.EFX_REVERB_PRESET_CHAPEL),
+    ("Smallwater Room", qal_h.EFX_REVERB_PRESET_SMALLWATERROOM),
 ]
 
-EFX_REVERB_SIZE = len(ReverbPresets) # ARRLEN(ReverbPresets)
-
-ReverbPresetsNames = [ #static char [][32]
-	"Generic",
-	"Padded Cell",
-	"Room",
-	"Bathroom",
-	"LivingRoom",
-	"StoneRoom",
-	"Auditorium",
-	"ConcertHall",
-	"Cave",
-	"Arena",
-	"Hangar",
-	"Carpeted Hallway",
-	"Hallway",
-	"Stone Corridor",
-	"Alley",
-	"Forest",
-	"City",
-	"Mountains",
-	"Quarry",
-	"Plain",
-	"Parking Lot",
-	"Sewer Pipe",
-	"Underwater",
-	"Drugged",
-	"Dizzy",
-	"Psychotic",
-	"Castle Small Room",
-	"Castle Short Passage",
-	"Castle Medium Room",
-	"Castle Large Room",
-	"Castle Long Passage",
-	"Castle Hall",
-	"Castle Cupboard",
-	"Castle Courtyard",
-	"Castle Alcove",
-	"Factory Small Room",
-	"Factory Short Passage",
-	"Factory Medium Room",
-	"Factory Large Room",
-	"Factory Long Passage",
-	"Factory Hall",
-	"Factory Cupboard",
-	"Factory Courtyard",
-	"Factory Alcove",
-	"Icepalace Small Room",
-	"Icepalace Short Passage",
-	"Icepalace Medium Room",
-	"Icepalace Large Room",
-	"Icepalace Long Passage",
-	"Icepalace Hall",
-	"Icepalace Cupboard",
-	"Icepalace Courtyard",
-	"Icepalace Alcove",
-	"Spacestation Small Room",
-	"Spacestation Short Passage",
-	"Spacestation Medium Room",
-	"Spacestation Large Room",
-	"Spacestation Long Passage",
-	"Spacestation Hall",
-	"Spacestation Cupboard",
-	"Spacestation Alcove",
-	"Wooden Small Room",
-	"Wooden Short Passage",
-	"Wooden Medium Room",
-	"Wooden Large Room",
-	"Wooden Long Passage",
-	"Wooden Hall",
-	"Wooden Cupboard",
-	"Wooden CourtYard",
-	"Wooden Alcove",
-	"Sport Empty Stadium",
-	"Sport Squash Court",
-	"Sport Small Swimming Pool",
-	"Sport Large Swimming Pool",
-	"Sport Gymnasium",
-	"Sport Full Stadium",
-	"Sport Stadium Tannoy",
-	"Prefab Workshop",
-	"Prefab School Room",
-	"Prefab Practise Room",
-	"Prefab Outhouse",
-	"Prefab Caravan",
-	"Dome Tomb",
-	"Pipe Small",
-	"Dome Saintpauls",
-	"Pipe Longthin",
-	"Pipe Large",
-	"Pipe Resonant",
-	"Outdoors Backyard",
-	"Outdoors Rolling Plains",
-	"Outdoors Deep Canyon",
-	"Outdoors Creek",
-	"Outdoors Valley",
-	"Mood Heaven",
-	"Mood Hell",
-	"Mood Memory",
-	"Driving Commentator",
-	"Driving Pit Garage",
-	"Driving Incar Racer",
-	"Driving Incar Sports",
-	"Driving Incar Luxury",
-	"Driving Full Grandstand",
-	"Driving Empty Grandstand",
-	"Driving Tunnel",
-	"City Streets",
-	"City Subway",
-	"City Museum",
-	"City Library",
-	"City Underpass",
-	"City Abandoned",
-	"Dusty Room",
-	"Chapel",
-	"Smallwater Room",
-]
-
-"""
- * Update reverb setting without apply
-"""
-def AL_SetReverb(reverb_effect: int): #int (static)
-
-	global lastreverteffect
-
-	#EFXEAXREVERBPROPERTIES reverb;
-
-	if (reverb_effect == lastreverteffect or
-		reverb_effect < 0 or
-		reverb_effect >= EFX_REVERB_SIZE):
-
-		return
-
-	reverb = ReverbPresets[reverb_effect]
-	lastreverteffect = reverb_effect
-
-	qal.qalEffectf(ReverbEffect[QAL_REVERB_EFFECT], qal_h.AL_REVERB_DENSITY, reverb.flDensity)
-	qal.qalEffectf(ReverbEffect[QAL_REVERB_EFFECT], qal_h.AL_REVERB_DIFFUSION, reverb.flDiffusion)
-	qal.qalEffectf(ReverbEffect[QAL_REVERB_EFFECT], qal_h.AL_REVERB_GAIN, reverb.flGain)
-	qal.qalEffectf(ReverbEffect[QAL_REVERB_EFFECT], qal_h.AL_REVERB_GAINHF, reverb.flGainHF)
-	qal.qalEffectf(ReverbEffect[QAL_REVERB_EFFECT], qal_h.AL_REVERB_DECAY_TIME, reverb.flDecayTime)
-	qal.qalEffectf(ReverbEffect[QAL_REVERB_EFFECT], qal_h.AL_REVERB_DECAY_HFRATIO, reverb.flDecayHFRatio)
-	qal.qalEffectf(ReverbEffect[QAL_REVERB_EFFECT], qal_h.AL_REVERB_REFLECTIONS_GAIN, reverb.flReflectionsGain)
-	qal.qalEffectf(ReverbEffect[QAL_REVERB_EFFECT], qal_h.AL_REVERB_REFLECTIONS_DELAY, reverb.flReflectionsDelay)
-	qal.qalEffectf(ReverbEffect[QAL_REVERB_EFFECT], qal_h.AL_REVERB_LATE_REVERB_GAIN, reverb.flLateReverbGain)
-	qal.qalEffectf(ReverbEffect[QAL_REVERB_EFFECT], qal_h.AL_REVERB_LATE_REVERB_DELAY, reverb.flLateReverbDelay)
-	qal.qalEffectf(ReverbEffect[QAL_REVERB_EFFECT], qal_h.AL_REVERB_AIR_ABSORPTION_GAINHF, reverb.flAirAbsorptionGainHF)
-	qal.qalEffectf(ReverbEffect[QAL_REVERB_EFFECT], qal_h.AL_REVERB_ROOM_ROLLOFF_FACTOR, reverb.flRoomRolloffFactor)
-	qal.qalEffecti(ReverbEffect[QAL_REVERB_EFFECT], qal_h.AL_REVERB_DECAY_HFLIMIT, reverb.iDecayHFLimit)
-
-	qal.qalAuxiliaryEffectSloti(ReverbEffectSlot[QAL_REVERB_EFFECT],
-		qal_h.AL_EFFECTSLOT_EFFECT, ReverbEffect[QAL_REVERB_EFFECT])
-
-"""
- * Apply Reverb effect
-"""
-def AL_ApplyReverb(): #void (static)
-
-	mins = np.zeros((3,), dtype=np.float32) #vec3_t
-	maxs = np.zeros((3,), dtype=np.float32) #vec3_t
-	direction = np.array([ #vec3_t [6]
-		[1000000, 0, 0], # forward
-		[-1000000, 0, 0], # backward
-		[0, 1000000, 0], # left
-		[0, -1000000, 0], # right
-		[ 0, 0, 1000000 ], # up
-		[ 0, 0, -1000000 ], # down
-	], dtype=np.float32)
-	average = 0.0 #float
-	#int i;
-
-	if ReverbEffect[QAL_REVERB_EFFECT] == 0:
-		return
-
-	for i in range(6):
-
-		#trace_t trace;
-		length = np.zeros((3,), dtype=np.float32) #vec3_t
-
-		trace = collision.CM_BoxTrace(sound_c.listener_origin, direction[i], mins, maxs, 0, shared.MASK_DEADSOLID)
-		shared.VectorSubtract(trace.endpos, sound_c.listener_origin, length)
-		average += shared_c.VectorLength(length)
-
-	# Use five as down is near to us
-	average /= 5
-
-	if average < 100:
-
-		AL_SetReverb(41)
-
-	if average >= 100 and average < 200:
-
-		AL_SetReverb(26)
-
-	if average >= 200 and average < 330:
-
-		AL_SetReverb(5)
-
-	if average >= 330 and average < 450:
-
-		AL_SetReverb(12)
-
-	if average >= 450 and average < 650:
-
-		AL_SetReverb(18)
-
-	if average >= 650:
-
-		AL_SetReverb(17)
-
-"""
- * Performance stereo spatialization
- * of a channel in the frontends
- * sense.
-"""
-def AL_Spatialize(ch: sound_local.channel_t): #channel_t * (static)
-
-	origin = np.zeros((3,), dtype=np.float32) #vec3_t
-	velocity = np.zeros((3,), dtype=np.float32) #vec3_t
-
-	if (ch.entnum == -1) or (ch.entnum == cl_main.cl.playernum + 1) or not ch.dist_mult:
-
-		# from view entity (player) => nothing to do,
-		# position is still (0,0,0) and relative,
-		# as set in AL_PlayChannel()
-
-		return
-
-	elif ch.fixed_origin:
-
-		shared.VectorCopy(ch.origin, origin)
-		qal.qalSource3f(ch.srcnum, qal_h.AL_POSITION, *AL_UnpackVector(origin))
-		return
-
-	else:
-
-		source_occluded = False #qboolean
-		reverb_enabled = False #qboolean
-
-		sound_c.GetEntitySoundOrigin(ch.entnum, sound_c.listener_origin, origin)
-		qal.qalSource3f(ch.srcnum, qal_h.AL_POSITION, *AL_UnpackVector(origin))
-
-		if sound_c.s_doppler.value:
-
-			cl_entities.CL_GetEntitySoundVelocity(ch.entnum, velocity)
-			shared_c.VectorScale(velocity, AL_METER_OF_Q2_UNIT, velocity)
-			qal.qalSource3f(ch.srcnum, qal_h.AL_VELOCITY, *AL_UnpackVector(velocity))
-
-		if (not sound_c.snd_is_underwater and
-			sound_c.s_occlusion_strength.value and
-			occlusionFilter.value != 0):
-
-			#trace_t trace;
-			mins = np.zeros((3,), dtype=np.float32) #vec3_t
-			maxs = np.zeros((3,), dtype=np.float32) #vec3_t
-
-			trace = collision.CM_BoxTrace(origin, sound_c.listener_origin, mins, maxs, 0, shared.MASK_PLAYERSOLID)
-			if (trace.fraction < 1.0 and
-				not (ch.entnum == -1 or ch.entnum == cl_main.cl.playernum + 1 or not ch.dist_mult)
-			):
-
-				distance = np.zeros((3,), dtype=np.float32) #vec3_t
-				#float dist;
-				#float final;
-				#float gain_hf;
-
-				shared.VectorSubtract(origin, sound_c.listener_origin, distance)
-				dist = shared_c.VectorLength(distance)
-
-				final = 1.0 - ((dist / 1000) * (1.0 - sound_c.s_occlusion_strength.value))
-
-				qal.qalSourcef(ch.srcnum, qal_h.AL_GAIN, shared.Q_min(shared.Q_max(final, 0), 1))
-
-				# Scale high-frequency attenuation with distance.
-				# Preserve enough HF content for HRTF spatial cues
-				gain_hf = 1.0 - (0.5 * sound_c.s_occlusion_strength.value *
-					shared.Q_min(dist / 1000.0, 1.0))
-				gain_hf = shared.Q_min(shared.Q_max(gain_hf, qal_h.AL_LOWPASS_MIN_GAINHF),
-					qal_h.AL_LOWPASS_MAX_GAINHF)
-				qal.qalFilterf(occlusionFilter, qal_h.AL_LOWPASS_GAINHF, gain_hf)
-
-				qal.qalSourcei(ch.srcnum, qal_h.AL_DIRECT_FILTER, occlusionFilter.value)
-
-				source_occluded = True
-
-		if not source_occluded:
-
-			# Remove filter
-			if not sound_c.snd_is_underwater:
-				qal.qalSourcei(ch.srcnum, qal_h.AL_DIRECT_FILTER, 0)
-
-			if sound_c.s_reverb_preset.value != -1: # Non Disabled reverb
-
-				# Apply reverb effect
-				qal.qalSource3i(ch.srcnum, qal_h.AL_AUXILIARY_SEND_FILTER,
-					ReverbEffectSlot[QAL_REVERB_EFFECT], 0, qal_h.AL_FILTER_NULL)
-				reverb_enabled = True
-
-		if not reverb_enabled:
-
-			# Disable filtering
-			qal.qalSource3i(ch.srcnum, qal_h.AL_AUXILIARY_SEND_FILTER,
-				0, 0, qal_h.AL_FILTER_NULL)
-
-		return
-
-"""
- * Plays a channel (in the frontends
- * sense) with OpenAL.
-"""
-def AL_PlayChannel(ch: sound_local.channel_t): #channel_t *
-
-	#sfxcache_t *sc;
-	#float vol;
-
-	# Debug
-	if sound_c.s_show.value > 1:
-
-		clientserver.Com_Printf("{}: {}\n".format("AL_PlayChannel", ch.sfx.name))
-
-	# Clamp volume
-	vol = ch.oal_vol
-
-	if vol > 1.0:
-
-		vol = 1.0
-
-	sc = ch.sfx.cache
-	ch.srcnum = s_srcnums[sound_c.channels.index(ch)] # s_srcnums[ch - channels]
-
-	qal.qalGetError()
-	qal.qalSourcef(ch.srcnum, qal_h.AL_REFERENCE_DISTANCE, sound_local.SOUND_FULLVOLUME)
-	qal.qalSourcef(ch.srcnum, qal_h.AL_MAX_DISTANCE, 8192)
-	qal.qalSourcef(ch.srcnum, qal_h.AL_ROLLOFF_FACTOR, ch.dist_mult * (8192 - sound_local.SOUND_FULLVOLUME))
-	qal.qalSourcef(ch.srcnum, qal_h.AL_GAIN, vol)
-	qal.qalSourcei(ch.srcnum, qal_h.AL_BUFFER, sc.bufnum)
-	qal.qalSourcei(ch.srcnum, qal_h.AL_LOOPING, qal_h.AL_TRUE if ch.autosound else qal_h.AL_FALSE)
-
-	if (ch.entnum == -1) or (ch.entnum == cl_main.cl.playernum + 1) or not ch.dist_mult:
-
-		# anything coming from the view entity will always
-		# be full volume and at the listeners position
-		qal.qalSource3f(ch.srcnum, qal_h.AL_POSITION, 0.0, 0.0, 0.0)
-		qal.qalSourcei(ch.srcnum, qal_h.AL_SOURCE_RELATIVE, qal_h.AL_TRUE)
-
-	else:
-
-		# all other sources are *not* relative
-		qal.qalSourcei(ch.srcnum, qal_h.AL_SOURCE_RELATIVE, qal_h.AL_FALSE)
-
-	# Spatialize it
-	AL_Spatialize(ch)
-
-	# Play it
-	qal.qalSourcePlay(ch.srcnum)
-
-	# Do not play broken channels
-	if qal.qalGetError() != qal_h.AL_NO_ERROR:
-
-		AL_StopChannel(ch)
-
-"""
- * Stops playback of a "channel"
- * in the frontends sense.
-"""
-def AL_StopChannel(ch: sound_local.channel_t): #channel_t *
-
-	# Debug output
-	if sound_c.s_show.value > 1:
-
-		clientserver.Com_Printf("{}: {}\n".format("AL_StopChannel", ch.sfx.name))
-
-	# stop it
-	qal.qalSourceStop(ch.srcnum)
-	qal.qalSourcei(ch.srcnum, qal_h.AL_BUFFER, qal_h.AL_NONE)
-	ch.clear() # memset(ch, 0, sizeof(*ch));
-
-"""
- * Stops playback of all channels.
-"""
-def AL_StopAllChannels(): #void
-
-	#int i;
-	#channel_t *ch;
-
-	# It doesn't matter if a channel
-	# is active or not.
-	for i in range(sound_c.s_numchannels):
-
-		ch = sound_c.channels[i]
-		if not ch.sfx:
-
-			continue
-
-		AL_StopChannel(ch)
-
-	sound_c.s_rawend = 0
-
-	# Remove all pending samples
-	AL_StreamDie()
-
-# -----------------------------------------------------------------
-
-"""
- * Returns the channel which contains
- * the looping sound for the entity
- * "entnum".
-"""
-def AL_FindLoopingSound(entnum: int, sfx: sound_local.sfx_t)->sound_local.channel_t: #int, sfx_t * (returns static channel_t *)
-
-	#int i;
-	#channel_t *ch;
-
-	for i in range(sound_c.s_numchannels):
-
-		ch = sound_c.channels[i]
-		if not ch.sfx:
-
-			continue
-
-		if not ch.autosound:
-
-			continue
-
-		if ch.entnum != entnum:
-
-			continue
-
-		if ch.sfx is not sfx:
-
-			continue
-
-		return ch
-
-	return None
-
-"""
- * Plays an looping sound with OpenAL
-"""
-def AL_AddLoopSounds(): #void (static)
-
-	#int i;
-	#int sounds[MAX_EDICTS];
-
-	if ((cl_main.cls.state != client_h.connstate_t.ca_active) or (cl_main.cl_paused.value and cl_main.cl_audiopaused.value) or
-		not sound_c.s_ambient.value):
-
-		return
-
-	sounds = [0] * shared.MAX_EDICTS # memset(&sounds, 0, sizeof(int) * MAX_EDICTS);
-	sound_c.S_BuildSoundList(sounds)
-
-	for i in range(cl_main.cl.frame.num_entities):
-
-		#channel_t *ch;
-		#sfx_t *sfx;
-		#sfxcache_t *sc;
-		#int num;
-		#entity_state_t *ent;
-
-		if not sounds[i]:
-
-			continue
-
-		sfx = cl_main.cl.sound_precache[sounds[i]]
-
-		if not sfx:
-
-			continue # bad sound effect
-
-		sc = sfx.cache
-
-		if not sc:
-
-			continue
-
-		num = (cl_main.cl.frame.parse_entities + i) & (client_h.MAX_PARSE_ENTITIES - 1)
-		ent = cl_main.cl_parse_entities[num]
-
-		ch = AL_FindLoopingSound(ent.number, sfx)
-
-		if ch:
-
-			ch.autoframe = s_framecount
-			ch.end = sound_c.paintedtime + sc.length
-			continue
-
-		# allocate a channel
-		ch = sound_c.S_PickChannel(0, 0)
-
-		if not ch:
-
-			continue
-
-		ch.autosound = True # remove next frame
-		ch.autoframe = s_framecount
-		ch.sfx = sfx
-		ch.entnum = ent.number
-		ch.master_vol = 1
-		ch.dist_mult = sound_local.SOUND_LOOPATTENUATE
-		ch.end = sound_c.paintedtime + sc.length
-
-		# it seems like looped sounds are always played at full volume
-		# see SDL_AddLoopSounds() which calls SDL_SpatializeOrigin() with volume 255.0f
-		# so set it to full volume (1.0 * s_volume).
-		ch.oal_vol = sound_c.s_volume.value
-
-		AL_PlayChannel(ch)
-
-"""
- * Starts all pending playsounds.
-"""
-def AL_IssuePlaysounds(): #void (static)
-
-	#playsound_t *ps;
-
-	# start any playsounds
-	while True:
-
-		if not sound_c.s_pendingplays: # ps == &s_pendingplays
-
-			break # no more pending sounds
-
-		ps = sound_c.s_pendingplays[0] # s_pendingplays.next
-
-		if ps.begin > sound_c.paintedtime:
-
-			break
-
-		sound_c.S_IssuePlaysound(ps)
-
-"""
- * Queues raw samples for playback. Used
- * by the background music an cinematics.
-"""
-def AL_RawSamples(samples: int, rate: int, width: int, channels: int,
-		data, volume: float): #int, int, int, int, const byte *, float
-
-	global active_buffers, streamQueued
-
-	buffer = qal.ALuint() #ALuint
-	format = 0 #ALuint
-
-	# Work out format
-	format = AL_GetFormat(width, channels)
-
-	# Create a buffer, and stuff the data into it
-	qal.qalGenBuffers(1, ctypes.byref(buffer))
-	qal.qalBufferData(buffer, format, bytes(data),
-			(samples * width * channels), rate)
-	active_buffers += 1
-
-	# set volume
-	if volume > 1.0:
-
-		volume = 1.0
-
-	qal.qalSourcef(streamSource, qal_h.AL_GAIN, volume)
-
-	# Shove the data onto the streamSource
-	qal.qalSourceQueueBuffers(streamSource, 1, ctypes.byref(buffer))
-	streamQueued += 1 # Q2PORT
-
-	# emulate behavior of S_RawSamples for s_rawend
-	sound_c.s_rawend += samples
-
-"""
- * Kills all raw samples still in flight.
- * This is used to stop music playback
- * when silence is triggered.
-"""
-def AL_UnqueueRawSamples(): #void
-
-	AL_StreamDie()
-
-def AL_UpdateReverb(): #void (static)
-
-	#int reverb_effect;
-
-	if not sound_c.s_reverb_preset.modified:
-
-		return
-
-	sound_c.s_reverb_preset.modified = False
-
-	reverb_effect = int(sound_c.s_reverb_preset.value)
-
-	if reverb_effect == -2:
-
-		clientserver.Com_Printf("Reverb set to: AUTO\n")
-		return
-
-	elif reverb_effect == -1:
-
-		clientserver.Com_Printf("Reverb set to: Disabled\n")
-		return
-
-	# We have only EFX_REVERB_SIZE(113) effects
-	elif reverb_effect >= 0 and reverb_effect < EFX_REVERB_SIZE:
-
-		clientserver.Com_Printf("Reverb set to: {}\n".format(ReverbPresetsNames[reverb_effect]))
-
-		AL_SetReverb(reverb_effect)
-
-	else:
-
-		#int i;
-		clientserver.Com_Printf("Uknown reverb effect, supported:\n-2: Auto\n-1: Disabled\n")
-		for i in range(EFX_REVERB_SIZE):
-
-			clientserver.Com_Printf("{}: {}\n".format(i, ReverbPresetsNames[i]))
-
-def AL_UpdateUnderwater(): #void (static)
-
-	global snd_is_underwater_enabled
-
-	#int i;
-	#float gain_hf;
-	update = False #qboolean
-	#ALuint filter;
-
-	if underwaterFilter.value == 0:
-		return
-
-	if sound_c.s_underwater.modified:
-		update = True
-		sound_c.s_underwater.modified = False
-		snd_is_underwater_enabled = (int(sound_c.s_underwater.value) != 0)
-
-	if sound_c.s_underwater_gain_hf.modified:
-		update = True
-		sound_c.s_underwater_gain_hf.modified = False
-
-	if not update:
-		return
-
-	gain_hf = sound_c.s_underwater_gain_hf.value
-
-	if gain_hf < qal_h.AL_LOWPASS_MIN_GAINHF:
-		gain_hf = qal_h.AL_LOWPASS_MIN_GAINHF
-
-	if gain_hf > qal_h.AL_LOWPASS_MAX_GAINHF:
-		gain_hf = qal_h.AL_LOWPASS_MAX_GAINHF
-
-	qal.qalFilterf(underwaterFilter, qal_h.AL_LOWPASS_GAINHF, gain_hf)
-
-	if snd_is_underwater_enabled and sound_c.snd_is_underwater:
-		filter = underwaterFilter.value
-	else:
-		filter = 0
-
-	for i in range(sound_c.s_numchannels):
-		qal.qalSourcei(s_srcnums[i], qal_h.AL_DIRECT_FILTER, filter)
-
-"""
- * Main update function. Called every frame,
- * performes all necessary calculations.
-"""
-def AL_Update(): #void
-
-	global s_framecount
-
-	#int i;
-	#channel_t *ch;
-	orientation = (qal.ALfloat * 6)() #vec_t [6]
-	listener_velocity = np.zeros((3,), dtype=np.float32) #vec3_t
-
-	sound_c.paintedtime = cl_main.cls.realtime
-
-	# Do nothing if we aren't connected to a output device.
-	# This is called after increasing paintedtime, because
-	# the sound for the current frame needs to be skipped.
-	# Otherwise sound and game will become asynchronous and
-	# the paint buffer may overflow.
-	if not qal.QAL_RecoverLostDevice():
-		return
-
-	# set listener (player) parameters
-	AL_CopyVector(sound_c.listener_forward, orientation)
-	AL_CopyVector(sound_c.listener_up, orientation, 3) # orientation + 3
-	qal.qalListener3f(qal_h.AL_POSITION, *AL_UnpackVector(sound_c.listener_origin))
-	qal.qalListenerfv(qal_h.AL_ORIENTATION, orientation)
-
-	if sound_c.s_reverb_preset.value == -2:
-
-		AL_ApplyReverb()
-
-	elif sound_c.s_reverb_preset.value >= 0:
-
-		AL_SetReverb(int(sound_c.s_reverb_preset.value))
-
-	if sound_c.s_doppler.value:
-		cl_entities.CL_GetViewVelocity(listener_velocity)
-		shared_c.VectorScale(listener_velocity, AL_METER_OF_Q2_UNIT, listener_velocity)
-		qal.qalListener3f(qal_h.AL_VELOCITY, *AL_UnpackVector(listener_velocity))
-
-	# update spatialization for dynamic sounds
-	for i in range(sound_c.s_numchannels):
-
-		ch = sound_c.channels[i]
-		if not ch.sfx:
-
-			continue
-
-		if ch.autosound:
-
-			# autosounds are regenerated fresh each frame
-			if ch.autoframe != s_framecount:
-
-				AL_StopChannel(ch)
-				continue
-
-		else:
-
-			state = qal.ALint() #ALenum
-
-			qal.qalGetError()
-			qal.qalGetSourcei(ch.srcnum, qal_h.AL_SOURCE_STATE, ctypes.byref(state))
-
-			if (qal.qalGetError() != qal_h.AL_NO_ERROR) or (state.value == qal_h.AL_STOPPED):
-
-				AL_StopChannel(ch)
-				continue
-
-		if sound_c.s_show.value:
-
-			clientserver.Com_Printf("{:3} {}\n".format(ch.master_vol, ch.sfx.name))
-
-		# respatialize channel
-		AL_Spatialize(ch)
-
-	s_framecount += 1
-
-	# add loopsounds
-	AL_AddLoopSounds()
-
-	# add music
-	ogg.OGG_Stream()
-
-	AL_StreamUpdate()
-	AL_IssuePlaysounds()
-
-	AL_UpdateUnderwater()
-	AL_UpdateReverb()
-
-# -----------------------------------------------------------------
-
-"""
- * Enables underwater effect
-"""
-def AL_Underwater(): #void
-
-	#int i;
-
-	if sound_c.sound_started != sound_local.SS_OAL or not snd_is_underwater_enabled:
-
-		return
-
-	if underwaterFilter.value == 0:
-		return
-
-	# Apply to all sources
-	for i in range(sound_c.s_numchannels):
-
-		qal.qalSourcei(s_srcnums[i], qal_h.AL_DIRECT_FILTER, underwaterFilter.value)
-
-	AL_SetReverb(22)
-
-"""
- * Disables the underwater effect
-"""
-def AL_Overwater(): #void
-
-	#int i;
-
-	if sound_c.sound_started != sound_local.SS_OAL or not snd_is_underwater_enabled:
-
-		return
-
-	if underwaterFilter.value == 0:
-
-		return
-
-	# Apply to all sources
-	for i in range(sound_c.s_numchannels):
-
-		qal.qalSourcei(s_srcnums[i], qal_h.AL_DIRECT_FILTER, qal_h.AL_FILTER_NULL)
-
-	AL_SetReverb(int(sound_c.s_reverb_preset.value))
-
-# -----------------------------------------------------------------
-
-"""
- * Set up the stream sources
-"""
-def AL_InitStreamSource(): #void (static)
-
-	qal.qalSource3f(streamSource, qal_h.AL_POSITION, 0.0, 0.0, 0.0)
-	qal.qalSource3f(streamSource, qal_h.AL_VELOCITY, 0.0, 0.0, 0.0)
-	qal.qalSource3f(streamSource, qal_h.AL_DIRECTION, 0.0, 0.0, 0.0)
-	qal.qalSourcef(streamSource, qal_h.AL_ROLLOFF_FACTOR, 0.0)
-	qal.qalSourcei(streamSource, qal_h.AL_BUFFER, 0)
-	qal.qalSourcei(streamSource, qal_h.AL_LOOPING, qal_h.AL_FALSE)
-	qal.qalSourcei(streamSource, qal_h.AL_SOURCE_RELATIVE, qal_h.AL_TRUE)
-
-def AL_Efx_Enabled()->bool: #void (returns static qboolean)
-
-	if (qal.qalAuxiliaryEffectSloti and
-		qal.qalDeleteAuxiliaryEffectSlots and
-		qal.qalDeleteEffects and
-		qal.qalDeleteFilters and
-		qal.qalEffectf and
-		qal.qalEffecti and
-		qal.qalFilterf and
-		qal.qalFilteri and
-		qal.qalGenAuxiliaryEffectSlots and
-		qal.qalGenEffects and
-		qal.qalGenFilters):
-		return True
-	return False
-
-"""
- * Set up the underwater filter
-"""
-def AL_InitUnderwaterFilter(): #void (static)
-
-	underwaterFilter.value = 0
-
-	if not AL_Efx_Enabled():
-		return
-
-	# Generate a filter
-	qal.qalGenFilters(1, ctypes.byref(underwaterFilter))
-
-	if qal.qalGetError() != qal_h.AL_NO_ERROR:
-
-		clientserver.Com_Printf("Couldn't generate an OpenAL filter!\n")
-		return
-
-	# Low pass filter for underwater effect
-	qal.qalFilteri(underwaterFilter, qal_h.AL_FILTER_TYPE, qal_h.AL_FILTER_LOWPASS)
-
-	if qal.qalGetError() != qal_h.AL_NO_ERROR:
-
-		clientserver.Com_Printf("Low pass filter is not supported!\n")
-		return
-
-	qal.qalFilterf(underwaterFilter, qal_h.AL_LOWPASS_GAIN, qal_h.AL_LOWPASS_DEFAULT_GAIN)
-
-	sound_c.s_underwater.modified = True
-	sound_c.s_underwater_gain_hf.modified = True
-
-"""
- * Set up the occlusion filter (separate from underwater)
-"""
-def AL_InitOcclusionFilter(): #void (static)
-
-	occlusionFilter.value = 0
-
-	if not AL_Efx_Enabled():
-		return
-
-	qal.qalGenFilters(1, ctypes.byref(occlusionFilter))
-
-	if qal.qalGetError() != qal_h.AL_NO_ERROR:
-
-		clientserver.Com_Printf("Couldn't generate occlusion filter!\n")
-		return
-
-	qal.qalFilteri(occlusionFilter, qal_h.AL_FILTER_TYPE, qal_h.AL_FILTER_LOWPASS)
-
-	if qal.qalGetError() != qal_h.AL_NO_ERROR:
-
-		clientserver.Com_Printf("Low pass filter is not supported!\n")
-		occlusionFilter.value = 0
-		return
-
-	qal.qalFilterf(occlusionFilter, qal_h.AL_LOWPASS_GAIN, qal_h.AL_LOWPASS_DEFAULT_GAIN)
-	qal.qalFilterf(occlusionFilter, qal_h.AL_LOWPASS_GAINHF, qal_h.AL_LOWPASS_DEFAULT_GAINHF)
-
-def AL_InitReverbEffect(): #void (static)
-
-	if not AL_Efx_Enabled():
-		return
-
-	qal.qalGenEffects(QAL_EFX_MAX, ReverbEffect)
-	if qal.qalGetError() != qal_h.AL_NO_ERROR:
-
-		clientserver.Com_Printf("Couldn't generate an OpenAL effect!\n")
-		return
-
-	qal.qalGenAuxiliaryEffectSlots(QAL_EFX_MAX, ReverbEffectSlot)
-	if qal.qalGetError() != qal_h.AL_NO_ERROR:
-
-		clientserver.Com_Printf("Couldn't generate an OpenAL auxiliary effect slot!\n")
-		return
-
-	qal.qalEffecti(ReverbEffect[QAL_REVERB_EFFECT], qal_h.AL_EFFECT_TYPE, qal_h.AL_EFFECT_REVERB)
-	AL_SetReverb(int(sound_c.s_reverb_preset.value))
-
-"""
- * Initializes the OpenAL backend
-"""
-def AL_Init()->bool: #void (returns qboolean)
-
-	#int i;
-
-	if not qal.QAL_Init():
-
-		clientserver.Com_Printf("ERROR: OpenAL failed to initialize.\n")
-		return False
-
-	# check for linear distance extension
-	if not qal.qalIsExtensionPresent(b"AL_EXT_LINEAR_DISTANCE"):
-
-		clientserver.Com_Printf("ERROR: Required AL_EXT_LINEAR_DISTANCE extension is missing.\n")
-		qal.QAL_Shutdown()
-		return False
-
-	# generate source names
-	qal.qalGetError()
-	qal.qalGenSources(1, ctypes.byref(streamSource))
-
-	if qal.qalGetError() != qal_h.AL_NO_ERROR:
-
-		clientserver.Com_Printf("ERROR: Couldn't get a single Source.\n")
-		qal.QAL_Shutdown()
-		return False
-
-	else:
-
-		# -1 because we already got one channel for streaming
-		i = 0
-		while i < sound_local.MAX_CHANNELS - 1:
-
-			source = qal.ALuint()
-			qal.qalGenSources(1, ctypes.byref(source)) # &s_srcnums[i]
-			s_srcnums[i] = source.value
-
-			if qal.qalGetError() != qal_h.AL_NO_ERROR:
-
-				break
-
-			i += 1
-
-		if i < MIN_CHANNELS - 1:
-
-			clientserver.Com_Printf("ERROR: Required at least {} sources, but got {}.\n".format(
-					MIN_CHANNELS, i + 1))
-			qal.QAL_Shutdown()
-			return False
-
-	sound_c.s_numchannels = i
-	AL_InitStreamSource()
-	AL_InitUnderwaterFilter()
-	AL_InitOcclusionFilter()
-	AL_InitReverbEffect()
-
-	clientserver.Com_Printf("Number of OpenAL sources: {}\n\n".format(sound_c.s_numchannels))
-
-	# exaggerate 2x because realistic is barely noticeable
-	if sound_c.s_doppler.value:
-		qal.qalDopplerFactor(2.0)
-
-	qal.qalDistanceModel(qal_h.AL_LINEAR_DISTANCE_CLAMPED)
-
-	return True
-
-"""
- * Shuts the OpenAL backend down
-"""
-def AL_Shutdown(): #void
-
-	clientserver.Com_Printf("Shutting down OpenAL.\n")
-
-	AL_StopAllChannels()
-
-	qal.qalDeleteSources(1, ctypes.byref(streamSource))
-	if qal.qalDeleteFilters: # Q2PORT: NULL without ALC_EXT_EFX, the C would crash
-		qal.qalDeleteFilters(1, ctypes.byref(underwaterFilter))
-		qal.qalDeleteFilters(1, ctypes.byref(occlusionFilter))
-		qal.qalDeleteAuxiliaryEffectSlots(QAL_EFX_MAX, ReverbEffectSlot)
-		qal.qalDeleteEffects(QAL_EFX_MAX, ReverbEffect)
-
-	if sound_c.s_numchannels:
-
-		# delete source names
-		qal.qalDeleteSources(sound_c.s_numchannels, s_srcnums)
-		ctypes.memset(s_srcnums, 0, ctypes.sizeof(s_srcnums))
-		sound_c.s_numchannels = 0
-
-	qal.QAL_Shutdown()
-
-#endif /* USE_OPENAL */
+# s_reverb_preset -2 picks one by the size of the space around the listener:
+# (average distance to the walls below which it applies, preset)
+AUTO_REVERB = [(100, 41), (200, 26), (330, 5), (450, 12), (650, 18), (float("inf"), 17)]
+UNDERWATER_REVERB = 22
+
+# Where apply_reverb() traces to from the listener: forward, back, left,
+# right, up, down.
+_REVERB_DIRECTIONS = np.array([
+    [1000000, 0, 0], [-1000000, 0, 0], [0, 1000000, 0],
+    [0, -1000000, 0], [0, 0, 1000000], [0, 0, -1000000],
+], dtype=np.float32)
+
+_ZERO = np.zeros((3,), dtype=np.float32)
+
+
+def al_vector(v) -> tuple[float, float, float]:
+    """A Quake vector in OpenAL's coordinates."""
+    return float(-v[1]), float(v[2]), float(-v[0])
+
+
+def al_format(width: int, channels: int) -> int:
+    """The OpenAL buffer format for a sample width (bytes) and channel count."""
+    return {
+        (1, 1): qal_h.AL_FORMAT_MONO8, (1, 2): qal_h.AL_FORMAT_STEREO8,
+        (2, 1): qal_h.AL_FORMAT_MONO16, (2, 2): qal_h.AL_FORMAT_STEREO16,
+    }.get((width, channels), qal_h.AL_FORMAT_MONO8)
+
+
+def _efx_available() -> bool:
+    return all((
+        qal.qalAuxiliaryEffectSloti, qal.qalDeleteAuxiliaryEffectSlots, qal.qalDeleteEffects,
+        qal.qalDeleteFilters, qal.qalEffectf, qal.qalEffecti, qal.qalFilterf, qal.qalFilteri,
+        qal.qalGenAuxiliaryEffectSlots, qal.qalGenEffects, qal.qalGenFilters,
+    ))
+
+
+def _from_listener(ch: sound_local.channel_t) -> bool:
+    """A channel that plays at the listener, at full volume."""
+    return ch.entnum == -1 or ch.entnum == cl_main.cl.playernum + 1 or not ch.dist_mult
+
+
+class OpenALBackend:
+    """The sound backend on OpenAL (see client/sound/backend.py)."""
+
+    name = "openal"
+
+    def __init__(self) -> None:
+        self.active_buffers = 0  # OpenAL buffers in use: sounds and queued raw samples
+        self.sources: list[int] = []  # one per channel
+        self.stream_source = qal.ALuint()
+        self.stream_playing = False
+        # buffers raw_samples() queued since the last stream update
+        self.stream_queued = 0
+        self.frame_count = 0
+        self.underwater_filter = qal.ALuint()
+        self.occlusion_filter = qal.ALuint()
+        self.reverb_effect = qal.ALuint()
+        self.reverb_slot = qal.ALuint()
+        self.last_reverb = -1
+        self.underwater_enabled = False
+
+    @classmethod
+    def start(cls) -> OpenALBackend | None:
+        """Opens OpenAL and makes the sources; None (with a message) if it can't."""
+        if not qal.QAL_Init():
+            clientserver.Com_Printf("ERROR: OpenAL failed to initialize.\n")
+            return None
+
+        if not qal.qalIsExtensionPresent(b"AL_EXT_LINEAR_DISTANCE"):
+            clientserver.Com_Printf(
+                "ERROR: Required AL_EXT_LINEAR_DISTANCE extension is missing.\n")
+            qal.QAL_Shutdown()
+            return None
+
+        backend = cls()
+        qal.qalGetError()
+        qal.qalGenSources(1, ctypes.byref(backend.stream_source))
+        if qal.qalGetError() != qal_h.AL_NO_ERROR:
+            clientserver.Com_Printf("ERROR: Couldn't get a single Source.\n")
+            qal.QAL_Shutdown()
+            return None
+
+        # one source less than MAX_CHANNELS: the stream has one
+        while len(backend.sources) < sound_local.MAX_CHANNELS - 1:
+            source = qal.ALuint()
+            qal.qalGenSources(1, ctypes.byref(source))
+            if qal.qalGetError() != qal_h.AL_NO_ERROR:
+                break
+            backend.sources.append(source.value)
+
+        if len(backend.sources) < MIN_CHANNELS - 1:
+            clientserver.Com_Printf(f"ERROR: Required at least {MIN_CHANNELS} sources, "
+                                    f"but got {len(backend.sources) + 1}.\n")
+            qal.QAL_Shutdown()
+            return None
+
+        backend._init_stream_source()
+        backend._init_underwater_filter()
+        backend._init_occlusion_filter()
+        backend._init_reverb_effect()
+
+        clientserver.Com_Printf(f"Number of OpenAL sources: {len(backend.sources)}\n\n")
+
+        if sound_c.s_doppler.value:
+            qal.qalDopplerFactor(2.0)  # exaggerated, realistic is barely noticeable
+        qal.qalDistanceModel(qal_h.AL_LINEAR_DISTANCE_CLAMPED)
+        return backend
+
+    @property
+    def num_channels(self) -> int:
+        return len(self.sources)
+
+    # -- setup ------------------------------------------------------------
+
+    def _init_stream_source(self) -> None:
+        src = self.stream_source
+        qal.qalSource3f(src, qal_h.AL_POSITION, 0.0, 0.0, 0.0)
+        qal.qalSource3f(src, qal_h.AL_VELOCITY, 0.0, 0.0, 0.0)
+        qal.qalSource3f(src, qal_h.AL_DIRECTION, 0.0, 0.0, 0.0)
+        qal.qalSourcef(src, qal_h.AL_ROLLOFF_FACTOR, 0.0)
+        qal.qalSourcei(src, qal_h.AL_BUFFER, 0)
+        qal.qalSourcei(src, qal_h.AL_LOOPING, qal_h.AL_FALSE)
+        qal.qalSourcei(src, qal_h.AL_SOURCE_RELATIVE, qal_h.AL_TRUE)
+
+    def _make_lowpass(self, flt: ctypes.c_uint, what: str) -> bool:
+        """Makes a low-pass filter in flt (0 if it can't)."""
+        flt.value = 0
+        if not _efx_available():
+            return False
+        qal.qalGenFilters(1, ctypes.byref(flt))
+        if qal.qalGetError() != qal_h.AL_NO_ERROR:
+            clientserver.Com_Printf(f"Couldn't generate {what}!\n")
+            return False
+        qal.qalFilteri(flt, qal_h.AL_FILTER_TYPE, qal_h.AL_FILTER_LOWPASS)
+        if qal.qalGetError() != qal_h.AL_NO_ERROR:
+            clientserver.Com_Printf("Low pass filter is not supported!\n")
+            return False
+        qal.qalFilterf(flt, qal_h.AL_LOWPASS_GAIN, qal_h.AL_LOWPASS_DEFAULT_GAIN)
+        return True
+
+    def _init_underwater_filter(self) -> None:
+        # Yamagi keeps the filter name when the low pass type fails
+        if self._make_lowpass(self.underwater_filter, "an OpenAL filter"):
+            sound_c.s_underwater.modified = True
+            sound_c.s_underwater_gain_hf.modified = True
+
+    def _init_occlusion_filter(self) -> None:
+        if self._make_lowpass(self.occlusion_filter, "occlusion filter"):
+            qal.qalFilterf(self.occlusion_filter, qal_h.AL_LOWPASS_GAINHF,
+                           qal_h.AL_LOWPASS_DEFAULT_GAINHF)
+        else:
+            self.occlusion_filter.value = 0
+
+    def _init_reverb_effect(self) -> None:
+        if not _efx_available():
+            return
+        qal.qalGenEffects(1, ctypes.byref(self.reverb_effect))
+        if qal.qalGetError() != qal_h.AL_NO_ERROR:
+            clientserver.Com_Printf("Couldn't generate an OpenAL effect!\n")
+            return
+        qal.qalGenAuxiliaryEffectSlots(1, ctypes.byref(self.reverb_slot))
+        if qal.qalGetError() != qal_h.AL_NO_ERROR:
+            clientserver.Com_Printf("Couldn't generate an OpenAL auxiliary effect slot!\n")
+            return
+        qal.qalEffecti(self.reverb_effect.value, qal_h.AL_EFFECT_TYPE, qal_h.AL_EFFECT_REVERB)
+        self.set_reverb(int(sound_c.s_reverb_preset.value))
+
+    def shutdown(self) -> None:
+        clientserver.Com_Printf("Shutting down OpenAL.\n")
+        self.stop_all_channels()
+
+        qal.qalDeleteSources(1, ctypes.byref(self.stream_source))
+        if qal.qalDeleteFilters:  # missing without ALC_EXT_EFX
+            qal.qalDeleteFilters(1, ctypes.byref(self.underwater_filter))
+            qal.qalDeleteFilters(1, ctypes.byref(self.occlusion_filter))
+            qal.qalDeleteAuxiliaryEffectSlots(1, ctypes.byref(self.reverb_slot))
+            qal.qalDeleteEffects(1, ctypes.byref(self.reverb_effect))
+
+        if self.sources:
+            names = (qal.ALuint * len(self.sources))(*self.sources)
+            qal.qalDeleteSources(len(self.sources), names)
+            self.sources = []
+
+        qal.QAL_Shutdown()
+
+    # -- sounds -----------------------------------------------------------
+
+    def _gen_buffer(self, data: bytes, size: int, fmt: int, rate: int) -> qal.ALuint:
+        name = qal.ALuint()
+        qal.qalGenBuffers(1, ctypes.byref(name))
+        qal.qalBufferData(name, fmt, data, size, rate)
+        self.active_buffers += 1
+        return name
+
+    def _delete_buffer(self, name: qal.ALuint) -> None:
+        qal.qalDeleteBuffers(1, ctypes.byref(name))
+        self.active_buffers -= 1
+
+    def upload_sfx(self, s: sound_local.sfx_t, info: sound_local.wavinfo_t, data, volume: int,
+                   begin_length: int, end_length: int,
+                   attack_length: int, fade_length: int) -> sound_local.sfxcache_t | None:
+        """Uploads a sound to an OpenAL buffer and gives it a placeholder cache.
+
+        The cache holds no samples, only the buffer name and the lengths
+        (in milliseconds) the sound system needs.
+        """
+        size = info.samples * info.width
+        if not size:
+            return None
+
+        qal.qalGetError()
+        name = self._gen_buffer(bytes(data[:size]), size, al_format(info.width, info.channels),
+                                info.rate)
+        if qal.qalGetError() != qal_h.AL_NO_ERROR:
+            return None
+
+        sc = s.cache = sound_local.sfxcache_t()
+        sc.length = (info.samples * 1000) // info.rate
+        sc.loopstart = info.loopstart
+        sc.width = info.width
+        sc.size = size
+        sc.bufnum = name.value
+        sc.stereo = info.channels - 1
+        sc.volume = int(volume)
+        sc.begin = int(begin_length * 1000 / info.rate)
+        sc.end = int(end_length * 1000 / info.rate)
+        sc.fade = int(fade_length * 1000 / info.rate)
+        sc.attack = int(attack_length * 1000 / info.rate)
+        return sc
+
+    def delete_sfx(self, s: sound_local.sfx_t) -> None:
+        """Deletes a sound's buffer (the sound system frees the cache)."""
+        if s.cache:
+            self._delete_buffer(qal.ALuint(s.cache.bufnum))
+
+    # -- reverb -----------------------------------------------------------
+
+    def set_reverb(self, preset: int) -> None:
+        """Sets the reverb effect to a preset, unless it's set already."""
+        if preset == self.last_reverb or not 0 <= preset < len(REVERB_PRESETS):
+            return
+        if not qal.qalEffectf:
+            return  # no EFX
+        reverb = REVERB_PRESETS[preset][1]
+        self.last_reverb = preset
+
+        effect = self.reverb_effect.value
+        for param, value in (
+            (qal_h.AL_REVERB_DENSITY, reverb.flDensity),
+            (qal_h.AL_REVERB_DIFFUSION, reverb.flDiffusion),
+            (qal_h.AL_REVERB_GAIN, reverb.flGain),
+            (qal_h.AL_REVERB_GAINHF, reverb.flGainHF),
+            (qal_h.AL_REVERB_DECAY_TIME, reverb.flDecayTime),
+            (qal_h.AL_REVERB_DECAY_HFRATIO, reverb.flDecayHFRatio),
+            (qal_h.AL_REVERB_REFLECTIONS_GAIN, reverb.flReflectionsGain),
+            (qal_h.AL_REVERB_REFLECTIONS_DELAY, reverb.flReflectionsDelay),
+            (qal_h.AL_REVERB_LATE_REVERB_GAIN, reverb.flLateReverbGain),
+            (qal_h.AL_REVERB_LATE_REVERB_DELAY, reverb.flLateReverbDelay),
+            (qal_h.AL_REVERB_AIR_ABSORPTION_GAINHF, reverb.flAirAbsorptionGainHF),
+            (qal_h.AL_REVERB_ROOM_ROLLOFF_FACTOR, reverb.flRoomRolloffFactor),
+        ):
+            qal.qalEffectf(effect, param, value)
+        qal.qalEffecti(effect, qal_h.AL_REVERB_DECAY_HFLIMIT, reverb.iDecayHFLimit)
+        qal.qalAuxiliaryEffectSloti(self.reverb_slot.value, qal_h.AL_EFFECTSLOT_EFFECT, effect)
+
+    def apply_reverb(self) -> None:
+        """Picks a reverb preset by the size of the space around the listener."""
+        if self.reverb_effect.value == 0:
+            return
+
+        average = 0.0
+        length = np.zeros((3,), dtype=np.float32)
+        for direction in _REVERB_DIRECTIONS:
+            trace = collision.CM_BoxTrace(sound_c.listener_origin, direction, _ZERO, _ZERO,
+                                          0, shared.MASK_DEADSOLID)
+            shared.VectorSubtract(trace.endpos, sound_c.listener_origin, length)
+            average += shared_c.VectorLength(length)
+        average /= 5  # five, as down is near to us
+
+        for limit, preset in AUTO_REVERB:
+            if average < limit:
+                self.set_reverb(preset)
+                break
+
+    def _update_reverb_cvar(self) -> None:
+        cv = sound_c.s_reverb_preset
+        if not cv.modified:
+            return
+        cv.modified = False
+
+        preset = int(cv.value)
+        if preset == -2:
+            clientserver.Com_Printf("Reverb set to: AUTO\n")
+        elif preset == -1:
+            clientserver.Com_Printf("Reverb set to: Disabled\n")
+        elif 0 <= preset < len(REVERB_PRESETS):
+            clientserver.Com_Printf(f"Reverb set to: {REVERB_PRESETS[preset][0]}\n")
+            self.set_reverb(preset)
+        else:
+            clientserver.Com_Printf("Uknown reverb effect, supported:\n-2: Auto\n-1: Disabled\n")
+            for i, (name, _) in enumerate(REVERB_PRESETS):
+                clientserver.Com_Printf(f"{i}: {name}\n")
+
+    # -- underwater -------------------------------------------------------
+
+    def _set_direct_filter(self, flt: int) -> None:
+        for source in self.sources:
+            qal.qalSourcei(source, qal_h.AL_DIRECT_FILTER, flt)
+
+    def underwater(self) -> None:
+        """The listener went under water: muffle every source."""
+        if not self.underwater_enabled or self.underwater_filter.value == 0:
+            return
+        self._set_direct_filter(self.underwater_filter.value)
+        self.set_reverb(UNDERWATER_REVERB)
+
+    def overwater(self) -> None:
+        """The listener came out of the water."""
+        if not self.underwater_enabled or self.underwater_filter.value == 0:
+            return
+        self._set_direct_filter(qal_h.AL_FILTER_NULL)
+        self.set_reverb(int(sound_c.s_reverb_preset.value))
+
+    def _update_underwater_cvars(self) -> None:
+        if self.underwater_filter.value == 0:
+            return
+
+        update = False
+        if sound_c.s_underwater.modified:
+            update = True
+            sound_c.s_underwater.modified = False
+            self.underwater_enabled = int(sound_c.s_underwater.value) != 0
+        if sound_c.s_underwater_gain_hf.modified:
+            update = True
+            sound_c.s_underwater_gain_hf.modified = False
+        if not update:
+            return
+
+        gain_hf = min(max(sound_c.s_underwater_gain_hf.value, qal_h.AL_LOWPASS_MIN_GAINHF),
+                      qal_h.AL_LOWPASS_MAX_GAINHF)
+        qal.qalFilterf(self.underwater_filter, qal_h.AL_LOWPASS_GAINHF, gain_hf)
+
+        under = self.underwater_enabled and sound_c.snd_is_underwater
+        self._set_direct_filter(self.underwater_filter.value if under else 0)
+
+    # -- channels ---------------------------------------------------------
+
+    def _spatialize(self, ch: sound_local.channel_t) -> None:
+        """Moves a channel's source to where its sound comes from."""
+        if _from_listener(ch):
+            return  # relative, at the listener (see start_channel())
+
+        origin = np.zeros((3,), dtype=np.float32)
+        if ch.fixed_origin:
+            shared.VectorCopy(ch.origin, origin)
+            qal.qalSource3f(ch.srcnum, qal_h.AL_POSITION, *al_vector(origin))
+            return
+
+        sound_c.GetEntitySoundOrigin(ch.entnum, sound_c.listener_origin, origin)
+        qal.qalSource3f(ch.srcnum, qal_h.AL_POSITION, *al_vector(origin))
+
+        if sound_c.s_doppler.value:
+            velocity = np.zeros((3,), dtype=np.float32)
+            cl_entities.CL_GetEntitySoundVelocity(ch.entnum, velocity)
+            shared_c.VectorScale(velocity, METERS_PER_UNIT, velocity)
+            qal.qalSource3f(ch.srcnum, qal_h.AL_VELOCITY, *al_vector(velocity))
+
+        occluded = False
+        strength = sound_c.s_occlusion_strength.value
+        if not sound_c.snd_is_underwater and strength and self.occlusion_filter.value != 0:
+            trace = collision.CM_BoxTrace(origin, sound_c.listener_origin, _ZERO, _ZERO,
+                                          0, shared.MASK_PLAYERSOLID)
+            if trace.fraction < 1.0:
+                distance = np.zeros((3,), dtype=np.float32)
+                shared.VectorSubtract(origin, sound_c.listener_origin, distance)
+                dist = shared_c.VectorLength(distance)
+
+                gain = 1.0 - ((dist / 1000) * (1.0 - strength))
+                qal.qalSourcef(ch.srcnum, qal_h.AL_GAIN, min(max(gain, 0), 1))
+
+                # high frequencies fade with distance, but keep enough for
+                # HRTF's spatial cues
+                gain_hf = 1.0 - (0.5 * strength * min(dist / 1000.0, 1.0))
+                gain_hf = min(max(gain_hf, qal_h.AL_LOWPASS_MIN_GAINHF),
+                              qal_h.AL_LOWPASS_MAX_GAINHF)
+                qal.qalFilterf(self.occlusion_filter, qal_h.AL_LOWPASS_GAINHF, gain_hf)
+                qal.qalSourcei(ch.srcnum, qal_h.AL_DIRECT_FILTER, self.occlusion_filter.value)
+                occluded = True
+
+        reverb = False
+        if not occluded:
+            if not sound_c.snd_is_underwater:
+                qal.qalSourcei(ch.srcnum, qal_h.AL_DIRECT_FILTER, 0)
+            if sound_c.s_reverb_preset.value != -1:
+                qal.qalSource3i(ch.srcnum, qal_h.AL_AUXILIARY_SEND_FILTER,
+                                self.reverb_slot.value, 0, qal_h.AL_FILTER_NULL)
+                reverb = True
+        if not reverb:
+            qal.qalSource3i(ch.srcnum, qal_h.AL_AUXILIARY_SEND_FILTER, 0, 0, qal_h.AL_FILTER_NULL)
+
+    def _play(self, ch: sound_local.channel_t) -> None:
+        if sound_c.s_show.value > 1:
+            clientserver.Com_Printf("{}: {}\n".format("AL_PlayChannel", ch.sfx.name))
+
+        vol = min(ch.oal_vol, 1.0)
+        ch.srcnum = src = self.sources[sound_c.channels.index(ch)]
+
+        qal.qalGetError()
+        qal.qalSourcef(src, qal_h.AL_REFERENCE_DISTANCE, sound_local.SOUND_FULLVOLUME)
+        qal.qalSourcef(src, qal_h.AL_MAX_DISTANCE, 8192)
+        qal.qalSourcef(src, qal_h.AL_ROLLOFF_FACTOR,
+                       ch.dist_mult * (8192 - sound_local.SOUND_FULLVOLUME))
+        qal.qalSourcef(src, qal_h.AL_GAIN, vol)
+        qal.qalSourcei(src, qal_h.AL_BUFFER, ch.sfx.cache.bufnum)
+        qal.qalSourcei(src, qal_h.AL_LOOPING, qal_h.AL_TRUE if ch.autosound else qal_h.AL_FALSE)
+
+        if _from_listener(ch):
+            # at the listener, at full volume
+            qal.qalSource3f(src, qal_h.AL_POSITION, 0.0, 0.0, 0.0)
+            qal.qalSourcei(src, qal_h.AL_SOURCE_RELATIVE, qal_h.AL_TRUE)
+        else:
+            qal.qalSourcei(src, qal_h.AL_SOURCE_RELATIVE, qal_h.AL_FALSE)
+
+        self._spatialize(ch)
+        qal.qalSourcePlay(src)
+
+        if qal.qalGetError() != qal_h.AL_NO_ERROR:
+            self.stop_channel(ch)  # don't keep a broken channel
+
+    def start_channel(self, ch: sound_local.channel_t, volume: float, master: float) -> None:
+        ch.oal_vol = volume * master  # clamped to 1.0 in _play()
+        self._play(ch)
+
+    def stop_channel(self, ch: sound_local.channel_t) -> None:
+        if sound_c.s_show.value > 1:
+            clientserver.Com_Printf("{}: {}\n".format("AL_StopChannel", ch.sfx.name))
+        qal.qalSourceStop(ch.srcnum)
+        qal.qalSourcei(ch.srcnum, qal_h.AL_BUFFER, qal_h.AL_NONE)
+        ch.clear()
+
+    def _active_channels(self):
+        return (ch for ch in sound_c.channels[:sound_c.s_numchannels] if ch.sfx)
+
+    def stop_all_channels(self) -> None:
+        for ch in list(self._active_channels()):
+            self.stop_channel(ch)
+        sound_c.s_rawend = 0
+        self._stream_die()
+
+    def playsound_start(self, timeofs: float, volume: float, painted: int) -> tuple[int, float]:
+        return int(painted + timeofs * 1000), volume  # OpenAL counts in milliseconds
+
+    def _find_looping_sound(self, entnum: int, sfx: sound_local.sfx_t):
+        for ch in self._active_channels():
+            if ch.autosound and ch.entnum == entnum and ch.sfx is sfx:
+                return ch
+        return None
+
+    def _add_loop_sounds(self) -> None:
+        """Keeps the entities' looping sounds playing, one channel each."""
+        cl = cl_main.cl
+        if (cl_main.cls.state != client_h.connstate_t.ca_active
+                or (cl_main.cl_paused.value and cl_main.cl_audiopaused.value)
+                or not sound_c.s_ambient.value):
+            return
+
+        sounds = [0] * shared.MAX_EDICTS
+        sound_c.S_BuildSoundList(sounds)
+
+        for i in range(cl.frame.num_entities):
+            if not sounds[i]:
+                continue
+            sfx = cl.sound_precache[sounds[i]]
+            if not sfx or not sfx.cache:
+                continue  # bad sound effect
+            sc = sfx.cache
+
+            num = (cl.frame.parse_entities + i) & (client_h.MAX_PARSE_ENTITIES - 1)
+            ent = cl_main.cl_parse_entities[num]
+
+            ch = self._find_looping_sound(ent.number, sfx)
+            if ch:
+                ch.autoframe = self.frame_count
+                ch.end = sound_c.paintedtime + sc.length
+                continue
+
+            ch = sound_c.S_PickChannel(0, 0)
+            if not ch:
+                continue
+
+            ch.autosound = True  # removed next frame unless still there
+            ch.autoframe = self.frame_count
+            ch.sfx = sfx
+            ch.entnum = ent.number
+            ch.master_vol = 1
+            ch.dist_mult = sound_local.SOUND_LOOPATTENUATE
+            ch.end = sound_c.paintedtime + sc.length
+            # looping sounds play at full volume (SDL_AddLoopSounds() uses 255)
+            ch.oal_vol = sound_c.s_volume.value
+            self._play(ch)
+
+    # -- raw samples (music, cinematics) ------------------------------------
+
+    def _unqueue(self, count: int) -> None:
+        buffer = qal.ALuint()
+        for _ in range(count):
+            qal.qalSourceUnqueueBuffers(self.stream_source, 1, ctypes.byref(buffer))
+            self._delete_buffer(buffer)
+
+    def _source_int(self, source, param: int) -> int:
+        value = qal.ALint()
+        qal.qalGetSourcei(source, param, ctypes.byref(value))
+        return value.value
+
+    def _stream_die(self) -> None:
+        """Stops the stream and drops its buffers."""
+        if not qal.qalSourceStop:
+            return  # OpenAL might not be initialised yet
+        self.stream_playing = False
+        qal.qalSourceStop(self.stream_source)
+        self._unqueue(self._source_int(self.stream_source, qal_h.AL_BUFFERS_QUEUED))
+        self.stream_queued = 0
+
+    def _stream_update(self) -> None:
+        """Drops played stream buffers and restarts the stream if it stopped."""
+        src = self.stream_source
+        if self._source_int(src, qal_h.AL_SOURCE_STATE) == qal_h.AL_STOPPED:
+            self.stream_playing = False
+            # A source that ran dry (a cinematic paused by the menu or
+            # console) stops with its played buffers still queued, and
+            # playing it again would loop the last chunk. Drop them, but
+            # keep the ones queued since the last update: a stopped source
+            # counts every buffer as processed.
+            self._unqueue(max(self._source_int(src, qal_h.AL_BUFFERS_QUEUED)
+                              - self.stream_queued, 0))
+        else:
+            self._unqueue(self._source_int(src, qal_h.AL_BUFFERS_PROCESSED))
+
+        if not self.stream_playing and self._source_int(src, qal_h.AL_BUFFERS_QUEUED):
+            qal.qalSourcePlay(src)
+            self.stream_playing = True
+        self.stream_queued = 0
+
+    def raw_samples(self, samples: int, rate: int, width: int, channels: int,
+                    data, volume: float) -> None:
+        """Queues raw samples (music or a cinematic's sound) on the stream."""
+        size = samples * width * channels
+        buffer = self._gen_buffer(bytes(data), size, al_format(width, channels), rate)
+        qal.qalSourcef(self.stream_source, qal_h.AL_GAIN, min(volume, 1.0))
+        qal.qalSourceQueueBuffers(self.stream_source, 1, ctypes.byref(buffer))
+        self.stream_queued += 1
+        sound_c.s_rawend += samples  # as S_RawSamples() keeps it
+
+    def unqueue_raw_samples(self) -> None:
+        """Drops the queued raw samples (music stops on silence)."""
+        self._stream_die()
+
+    # -- every frame ------------------------------------------------------
+
+    def update(self) -> None:
+        sound_c.paintedtime = cl_main.cls.realtime
+
+        # Without an output device skip the frame, after paintedtime moved
+        # on: otherwise sound and game drift apart.
+        if not qal.QAL_RecoverLostDevice():
+            return
+
+        # the listener
+        orientation = (qal.ALfloat * 6)(*al_vector(sound_c.listener_forward),
+                                        *al_vector(sound_c.listener_up))
+        qal.qalListener3f(qal_h.AL_POSITION, *al_vector(sound_c.listener_origin))
+        qal.qalListenerfv(qal_h.AL_ORIENTATION, orientation)
+
+        if sound_c.s_reverb_preset.value == -2:
+            self.apply_reverb()
+        elif sound_c.s_reverb_preset.value >= 0:
+            self.set_reverb(int(sound_c.s_reverb_preset.value))
+
+        if sound_c.s_doppler.value:
+            velocity = np.zeros((3,), dtype=np.float32)
+            cl_entities.CL_GetViewVelocity(velocity)
+            shared_c.VectorScale(velocity, METERS_PER_UNIT, velocity)
+            qal.qalListener3f(qal_h.AL_VELOCITY, *al_vector(velocity))
+
+        # the channels: drop the finished ones and move the others
+        state = qal.ALint()
+        for ch in list(self._active_channels()):
+            if ch.autosound:
+                if ch.autoframe != self.frame_count:
+                    self.stop_channel(ch)  # looping sounds are added again each frame
+                    continue
+            else:
+                qal.qalGetError()
+                qal.qalGetSourcei(ch.srcnum, qal_h.AL_SOURCE_STATE, ctypes.byref(state))
+                if qal.qalGetError() != qal_h.AL_NO_ERROR or state.value == qal_h.AL_STOPPED:
+                    self.stop_channel(ch)
+                    continue
+
+            if sound_c.s_show.value:
+                clientserver.Com_Printf(f"{ch.master_vol:3} {ch.sfx.name}\n")
+            self._spatialize(ch)
+
+        self.frame_count += 1
+
+        self._add_loop_sounds()
+        ogg.OGG_Stream()  # the music
+        self._stream_update()
+
+        # start the playsounds that are due
+        while sound_c.s_pendingplays and sound_c.s_pendingplays[0].begin <= sound_c.paintedtime:
+            sound_c.S_IssuePlaysound(sound_c.s_pendingplays[0])
+
+        self._update_underwater_cvars()
+        self._update_reverb_cvar()
+
+    def sound_info(self) -> None:
+        qal.QAL_SoundInfo(True)

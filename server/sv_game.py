@@ -131,7 +131,7 @@ def PF_cprintf (ent, level, fmt, *args): #edict_t *, int, char *, ...
 		msg = fmt
 
 	if ent:
-		sv_send.SV_ClientPrintf (sv_init.svs.clients[n-1], level, msg)
+		sv_send.client_printf (sv_init.svs.clients[n-1], level, msg)
 	else:
 		clientserver.Com_Printf (msg)
 """
@@ -269,7 +269,7 @@ def PF_Configstring(index: int, val: str): #int, const char *
 		movemsg.MSG_WriteChar(sv_init.sv.multicast, common_h.svc_ops_e.svc_configstring.value)
 		movemsg.MSG_WriteConfigString(sv_init.sv.multicast, index, val)
 
-		sv_send.SV_Multicast(shared_c.vec3_origin, shared.multicast_t.MULTICAST_ALL_R)
+		sv_send.multicast(shared_c.vec3_origin, shared.multicast_t.MULTICAST_ALL_R)
 
 
 def PF_WriteChar (c):
@@ -348,7 +348,7 @@ def PF_StartSound (entity, channel, sound_num, volume, attenuation, timeofs): #e
 
 	if not entity:
 		return
-	sv_send.SV_StartSound (None, entity, channel, sound_num, volume, attenuation, timeofs)
+	sv_send.start_sound (None, entity, channel, sound_num, volume, attenuation, timeofs)
 
 """
 /*
@@ -423,9 +423,9 @@ def SV_InitGameProgs ():
 	clientserver.Com_Printf("-------- game initialization -------\n")
 
 	# load a new game dll
-	gimport.multicast = sv_send.SV_Multicast
+	gimport.multicast = sv_send.multicast
 	gimport.unicast = PF_Unicast
-	gimport.bprintf = sv_send.SV_BroadcastPrintf
+	gimport.bprintf = sv_send.broadcast_printf
 	gimport.dprintf = PF_dprintf
 	gimport.cprintf = PF_cprintf
 	gimport.centerprintf = PF_centerprintf
@@ -447,7 +447,7 @@ def SV_InitGameProgs ():
 
 	gimport.configstring = PF_Configstring
 	gimport.sound = PF_StartSound
-	gimport.positioned_sound = sv_send.SV_StartSound
+	gimport.positioned_sound = sv_send.start_sound
 
 	gimport.WriteChar = PF_WriteChar
 	gimport.WriteByte = PF_WriteByte

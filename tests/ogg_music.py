@@ -44,7 +44,7 @@ from backends.unix import system
 from client import cl_main
 from client.vid import glimp_sdl2
 from client.refresh.gl1 import gl1_sdl # the gl1 frame swap (Yamagi's RI_EndFrame)
-from client.sound import ogg, openal, qal
+from client.sound import ogg, qal
 from client.sound import sound as sound_c
 from client.sound.header import local as sound_local
 from client.sound.header import qal as qal_h
@@ -82,9 +82,9 @@ def EF():
 		elif step == 1 and t > 1:
 			assert ogg.player.numsamples > 0, "no samples read, pos {}".format(ogg.player.numsamples)
 			state = qal.ALint()
-			qal.qalGetSourcei(openal.streamSource, qal_h.AL_SOURCE_STATE, ctypes.byref(state))
+			qal.qalGetSourcei(sound_c.backend.stream_source, qal_h.AL_SOURCE_STATE, ctypes.byref(state))
 			assert state.value == AL_PLAYING, "stream source not playing: {:#x}".format(state.value)
-			print("ogg: playing track 2 at", ogg.player.numsamples, "samples,", openal.active_buffers, "buffers queued")
+			print("ogg: playing track 2 at", ogg.player.numsamples, "samples,", sound_c.backend.active_buffers, "buffers queued")
 			ogg.OGG_TogglePlayback()
 			assert ogg.OGG_Status() == vorbis.PAUSE
 			ogg.OGG_TogglePlayback()
@@ -92,7 +92,7 @@ def EF():
 			cvar.Cvar_SetValue("ogg_volume", 0.5)
 			ogg.OGG_Read() # the volume goes with the next samples (S_RawSamples)
 			gain = qal.ALfloat()
-			qal.qalGetSourcef(openal.streamSource, qal_h.AL_GAIN, ctypes.byref(gain))
+			qal.qalGetSourcef(sound_c.backend.stream_source, qal_h.AL_GAIN, ctypes.byref(gain))
 			assert abs(gain.value - 0.5) < 0.01, "volume {}".format(gain.value)
 			print("ogg: pause/resume ok, volume ok")
 			ogg.OGG_SaveState()

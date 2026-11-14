@@ -33,7 +33,7 @@ for name in ("CL_ParseFrame",):
 	def w(*a, _o=o, _n=name):
 		calls[_n] += 1; return _o(*a)
 	setattr(cl_parse, name, w)
-for name in ("SV_WriteFrameToClient", "SV_BuildClientFrame", "SV_SendClientDatagram"):
+for name in ("write_frame_to_client", "build_client_frame", "_send_client_datagram"):
 	mod = sv_entities if hasattr(sv_entities, name) else sv_send
 	o = getattr(mod, name)
 	def w(*a, _o=o, _n=name):

@@ -59,8 +59,7 @@ def EDICT_NUM(n): #define EDICT_NUM(n) ((edict_t *)((byte *)ge->edicts + ge->edi
 	return sv_game.ge.edicts[n]
 
 def CL_EDICT(cl): #define CL_EDICT(cl) EDICT_NUM(1 + ((cl) - svs.clients))
-	from server import sv_init	# Q2PORT: imported here, sv_init imports this header
-	return EDICT_NUM(1 + sv_init.svs.clients.index(cl))
+	return EDICT_NUM(1 + cl.slot)
 
 def CLNUM_EDICT(i): return EDICT_NUM(i + 1) #define CLNUM_EDICT(i) EDICT_NUM(i + 1)
 
@@ -135,8 +134,9 @@ class client_frame_t(object):
 
 class client_t(object):
 
-	def __init__(self):
+	def __init__(self, slot: int = 0):
 
+		self.slot = slot # its index in svs.clients; its edict is slot + 1
 		self.state = client_state_t.cs_free #client_state_t
 
 		self.userinfo = "" #char [MAX_INFO_STRING], name, etc

@@ -57,7 +57,6 @@ HEARTBEAT_SECONDS = 300
 
 master_adr = [common_h.netadr_t() for i in range(server_h.MAX_MASTERS)] #netadr_t [MAX_MASTERS], address of group servers
 
-sv_client = None #client_t *, current client
 
 sv_optimize_sp_loadtime = None #static cvar_t *
 sv_optimize_mp_loadtime = None #static cvar_t *
@@ -152,13 +151,11 @@ def SV_StatusString()->str: #(returns char *)
 def SVC_DirectConnect_NewClient(newcl, adr, qport, userinfo, challenge):
 	# Q2PORT: the code after the gotnewcl label of SVC_DirectConnect (sv_conless.c)
 
-	global sv_client
-
 	# build a new connection
 	# accept the new client
 	# this is the only place a client_t is ever initialized
 	#*newcl = temp;
-	sv_client = newcl
+	sv_init.server.client = newcl
 	ent = server_h.CL_EDICT(newcl)
 	newcl.challenge = challenge # save challenge for checksumming
 
@@ -425,7 +422,7 @@ def SV_CheckTimeouts(): #void
 		if ((cl.state == server_h.client_state_t.cs_connected) or (cl.state == server_h.client_state_t.cs_spawned)) and \
 			(cl.lastmessage < droppoint):
 
-			sv_send.SV_BroadcastPrintf(shared.PRINT_HIGH, "%s timed out\n", cl.name)
+			sv_send.broadcast_printf(shared.PRINT_HIGH, "%s timed out\n", cl.name)
 			SV_DropClient(cl)
 			cl.state = server_h.client_state_t.cs_free # don't bother with zombie state
 
@@ -536,7 +533,7 @@ def SV_Frame(usec: int): #int
 
 	if opt_sendrate:
 
-		sv_send.SV_SendPrepClientMessages()
+		sv_send.send_prep_client_messages()
 
 
 	# move autonomous things around if enough time has passed
@@ -567,16 +564,16 @@ def SV_Frame(usec: int): #int
 	SV_RunGameFrame()
 
 	# send messages back to the clients that had packets read this frame
-	sv_send.SV_SendClientMessages()
+	sv_send.send_client_messages()
 
 	# if not optimizing, send all messages here
 	if not opt_sendrate:
 
-		sv_send.SV_SendPrepClientMessages()
+		sv_send.send_prep_client_messages()
 
 
 	# save the entire world state if recording a serverdemo
-	sv_entities.SV_RecordDemoMessage()
+	sv_entities.record_demo_message()
 
 	# send a heartbeat to the master if needed
 	Master_Heartbeat()

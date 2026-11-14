@@ -66,7 +66,7 @@ def ClientThink(ent, ucmd):
 		sys.stdout.flush(); os._exit(0)
 p_client.ClientThink = ClientThink
 
-o_build = sv_entities.SV_BuildClientFrame
+o_build = sv_entities.build_client_frame
 def SV_BuildClientFrame(cl):
 	o_build(cl)
 	frame = cl.frames[sv_init.sv.framenum & 15]
@@ -76,7 +76,7 @@ def SV_BuildClientFrame(cl):
 		nums.add(s.number)
 	for b in st["bolts"].values():
 		if b["alive"] and b["num"] in nums: b["sent"] += 1
-sv_entities.SV_BuildClientFrame = SV_BuildClientFrame
+sv_entities.build_client_frame = SV_BuildClientFrame
 
 o_cf = cl_main.CL_Frame
 def CL_Frame(*args):

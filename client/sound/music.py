@@ -49,7 +49,7 @@ class _Engine:
 
     _modules = {
         "cl_main": "client.cl_main", "client_h": "client.header.client",
-        "sound_c": "client.sound.sound", "openal": "client.sound.openal",
+        "sound_c": "client.sound.sound",
         "sound_local": "client.sound.header.local", "stb_vorbis": "client.sound.header.stb_vorbis",
         "common_h": "common.header.common",
         "shared": "common.header.shared", "shared_c": "common.shared.shared",
@@ -174,10 +174,10 @@ class MusicPlayer:
         if self.status == vorbis.PLAY and E.sound_c.sound_started == E.sound_local.SS_OAL:
             # Keep 256 OpenAL buffers (about 12 seconds) more than the ones
             # active, against underruns; active_buffers counts sfx and music.
-            openal = E.openal
-            if self.numbufs == 0 or openal.active_buffers < self.numbufs - 256:
-                self.numbufs = openal.active_buffers + 256
-            while openal.active_buffers <= self.numbufs:
+            backend = E.sound_c.backend
+            if self.numbufs == 0 or backend.active_buffers < self.numbufs - 256:
+                self.numbufs = backend.active_buffers + 256
+            while backend.active_buffers <= self.numbufs:
                 self.read()
 
         if self.status == vorbis.PLAY and self.shuffle.modified:

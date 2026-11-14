@@ -117,7 +117,7 @@ known_sfx = [] #static sfx_t [MAX_SFX]
 for i in range(MAX_SFX):
 	known_sfx.append(sound_local.sfx_t())
 sound_started = sound_local.SS_NOT #sndstarted_t
-backend = None # client/sound/backend.py's SoundBackend while the sound system runs
+backend: sound_backend.SoundBackend | None = None # the backend while the sound system runs
 sound = sound_local.sound_t() #sound_t
 s_registering = False #static qboolean
 s_active = False #qboolean
@@ -1310,7 +1310,7 @@ def S_Init(): #void
 	global s_volume, s_khz, s_loadas8bit, s_mixahead, s_show, s_testsound, s_ambient
 	global s_underwater, s_underwater_gain_hf, s_doppler, s_ps_sorting, s_reverb_preset
 	global s_occlusion_strength, s_feedback_kind
-	global sound_started, num_sfx, paintedtime, sound_max, s_active, backend
+	global sound_started, num_sfx, paintedtime, sound_max, s_active, backend, s_numchannels
 
 	#cvar_t *cv;
 
@@ -1349,10 +1349,11 @@ def S_Init(): #void
 	# OpenAL is the only backend (client/sound/backend.py): without it, no sound
 	cv = cvar.Cvar_Get("s_openal", "1", shared.CVAR_ARCHIVE)
 
-	if cv.value and openal.AL_Init():
+	backend = openal.OpenALBackend.start() if cv.value else None
+	if backend is not None:
 
 		sound_started = sound_local.SS_OAL
-		backend = sound_backend.openal_backend()
+		s_numchannels = backend.num_channels
 
 	else:
 
