@@ -148,7 +148,7 @@ def CL_SendConnectPacket ():
 	cvar.userinfo_modified = False
 
 	netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "connect {:d} {:d} {:d} \"{}\"\n".format(
-		common_h.PROTOCOL_VERSION, port, cl_main.cls.challenge, cvar.Cvar_Userinfo()).encode('ascii') )
+		common_h.PROTOCOL_VERSION, port, cl_main.cls.challenge, cvar.Cvar_Userinfo()).encode('latin-1', 'replace') ) # Q2PORT: latin-1, the C's strings are bytes (ascii failed on others)
 
 
 """
@@ -258,12 +258,12 @@ def CL_Rcon_f ():
 
 	message += b"rcon "
 
-	message += cl_main.rcon_client_password.string.encode('ascii')
+	message += cl_main.rcon_client_password.string.encode('latin-1', 'replace') # Q2PORT: latin-1, the C's strings are bytes (ascii failed on others)
 	message += b" "
 
 	for i in range(1, cmdparser.Cmd_Argc()):
 	
-		message += cmdparser.Cmd_Argv(i).encode('ascii')
+		message += cmdparser.Cmd_Argv(i).encode('latin-1', 'replace') # Q2PORT: latin-1, the C's strings are bytes (ascii failed on others)
 		message += b" "
 	
 	if cl_main.cls.state.value >= client_h.connstate_t.ca_connected.value:
@@ -706,7 +706,7 @@ def CL_ConnectionlessPacket ():
 	# echo request from server
 	if c == "echo":
 	
-		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, netchan.net_from, "{}".format(cmdparser.Cmd_Argv(1)).encode('ascii') )
+		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, netchan.net_from, "{}".format(cmdparser.Cmd_Argv(1)).encode('latin-1', 'replace') ) # Q2PORT: latin-1, the C's strings are bytes (ascii failed on others)
 		return
 	
 	clientserver.Com_Printf ("Unknown command.\n")

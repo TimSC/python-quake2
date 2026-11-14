@@ -1408,12 +1408,19 @@ def CM_LoadMap (name, clientload): #char *, qboolean (returns cmodel_t *, unsign
 	last_checksum = md4.Com_BlockChecksum (buf, length) # LittleLong (Com_BlockChecksum (buf, length)); Q2PORT: already a host int
 	checksum = last_checksum
 
+	if length < files_h.dheader_t.packed_size(): # Q2PORT: the C reads the header past a short file
+		clientserver.Com_Error (shared.ERR_DROP, "CMod_LoadBrushModel: {} is too short ({} bytes)".format(name, length))
+
 	header = files_h.dheader_t()
 	header.parse(buf)
 
 	if header.version != files_h.BSPVERSION:
 		clientserver.Com_Error (shared.ERR_DROP, "CMod_LoadBrushModel: {} has wrong version number ({} should be {})".format( \
 			name, header.version, files_h.BSPVERSION))
+
+	if header.BadLump(length) >= 0: # Q2PORT: see dheader_t.BadLump()
+		clientserver.Com_Error (shared.ERR_DROP, "CMod_LoadBrushModel: {} has lump {} past the end of the file".format(
+			name, header.BadLump(length)))
 
 	cmod_base = buf
 

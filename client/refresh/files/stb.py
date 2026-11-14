@@ -486,7 +486,7 @@ def R_LoadImage(name, namewe, ext, type, r_retexturing, load_image): #const char
 			palette = None
 			width, height, bitsPerPixel = 0, 0, 8
 
-			pic, palette, width, height = pcx.LoadPCX (namewe) # Q2PORT: always 8 bits per pixel
+			pic, palette, width, height, bitsPerPixel = pcx.LoadPCX (namewe)
 			if pic is None:
 				return None
 

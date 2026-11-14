@@ -25,7 +25,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 """
 from __future__ import annotations
 
-import io
 import struct
 import numpy as np
 
@@ -57,7 +56,7 @@ class dpackfile_t(object):
 		self.filepos, self.filelen = None, None # int
 
 	def read(self, fi):
-		self.name = fi.read(56).decode("ascii").replace("\x00", "", -1)
+		self.name = fi.read(56).decode("latin-1").replace("\x00", "", -1) # Q2PORT: latin-1, the C's names are bytes (ascii failed on others)
 
 		self.filepos, self.filelen = struct.unpack('<ll', fi.read(8))
 
@@ -107,6 +106,11 @@ class pcx_t (object):
 
 	def Read(self, buff):
 
+		# Q2PORT: the C casts the file to pcx_t; returns False if it is too
+		# short for the header (the callers check the size first)
+		if len(buff) < 128:
+			return False
+
 		self.manufacturer, self.version, self.encoding, self.bits_per_pixel = struct.unpack("<BBBB", buff[:4])
 		self.xmin = struct.unpack("<H", buff[4:6])[0]
 		self.ymin = struct.unpack("<H", buff[6:8])[0]
@@ -125,66 +129,7 @@ class pcx_t (object):
 		self.filler = buff[70:128]
 		self.data = buff[128:]
 
-		if (self.manufacturer != 0x0a
-			or self.version != 5
-			or self.encoding != 1
-			or self.bits_per_pixel != 8
-			or self.xmax >= 640
-			or self.ymax >= 480):
-		
-			return False
 		return True
-
-	def Decompress(self, buff):
-
-		ok = self.Read(buff)
-		if not ok: return None, None, None, None
-
-		pic = bytearray((self.ymax+1) * (self.xmax+1))
-		
-		palette = buff[-256*3:]
-		width = self.xmax+1
-		height = self.ymax+1
-
-		# Q2PORT: Pillow's PCX decoder (in C) gives the same pixels as the loop below when the
-		# rows have no padding (bytes_per_line == width). Otherwise use the loop, which, like
-		# the C, decodes width pixels per row and ignores bytes_per_line.
-		if self.color_planes == 1 and self.bytes_per_line == width and self.xmin == 0 and self.ymin == 0:
-			try:
-				from PIL import Image
-				im = Image.open(io.BytesIO(bytes(buff)))
-				im.load()
-				if im.mode == "P" and im.size == (width, height):
-					return bytearray(im.tobytes()), palette, width, height
-			except (OSError, ValueError, SyntaxError):
-				pass	# Pillow could not decode it: fall back to the loop
-
-		y = 0
-		cursor = 0
-		picCursor = 0
-		for y in range(self.ymax+1):
-			picCursor = y * (self.xmax + 1)
-		
-			x = 0
-			while x <= self.xmax:
-				
-				dataByte = self.data[cursor]
-				cursor += 1
-
-				if (dataByte & 0xC0) == 0xC0:
-				
-					runLength = dataByte & 0x3F
-					dataByte = self.data[cursor]
-					cursor += 1
-				
-				else:
-					runLength = 1
-
-				for r in range(runLength):
-					pic[picCursor + x] = dataByte
-					x += 1
-
-		return pic, palette, width, height
 
 """
 ========================================================================
@@ -278,10 +223,18 @@ class dsprite_t(object):
 		self.numframes = None
 		self.frames = []
 
+	@classmethod
+	def packed_size(cls): # Q2PORT: the header, without frames[1]
+		return 12
+
 	def load(self, buff):
+		# Q2PORT: reads only the frames that are in buff (the C would read
+		# past the end); Mod_LoadSP2() checks len(frames)
 		self.ident, self.version, self.numframes = struct.unpack("<3i", buff[:12])
 		cursor = 12
 		for _ in range(self.numframes):
+			if cursor + 16 + MAX_SKINNAME > len(buff):
+				break
 			width, height, origin_x, origin_y = struct.unpack("<4i", buff[cursor:cursor+16])
 			cursor += 16
 			name_bytes = buff[cursor:cursor+MAX_SKINNAME]
@@ -291,7 +244,7 @@ class dsprite_t(object):
 			frame.height = height
 			frame.origin_x = origin_x
 			frame.origin_y = origin_y
-			frame.name = name_bytes.split(b"\x00", 1)[0].decode("ascii", "ignore")
+			frame.name = name_bytes.split(b"\x00", 1)[0].decode("latin-1") # Q2PORT: latin-1, the C's strings are bytes
 			self.frames.append(frame)
 
 
@@ -370,7 +323,7 @@ class miptex_t(object):
 
 	def load(self, buff):
 
-		self.name = buff[:32].decode('ascii').rstrip('\x00')
+		self.name = buff[:32].decode('latin-1').rstrip('\x00') # Q2PORT: latin-1, the C's names are bytes (ascii failed on others)
 		self.width = shared_c.LittleLong(buff[32:36])
 		self.height = shared_c.LittleLong(buff[36:40])
 		self.offsets = []
@@ -378,7 +331,7 @@ class miptex_t(object):
 		for i in range(4):
 			self.offsets.append(shared_c.LittleLong(buff[c:c+4]))
 			c += 4
-		self.animname = buff[56:88].decode('ascii').rstrip('\x00')
+		self.animname = buff[56:88].decode('latin-1').rstrip('\x00') # Q2PORT: latin-1, the C's names are bytes (ascii failed on others)
 		self.flags = shared_c.LittleSLong(buff[88:92])		
 		self.contents = shared_c.LittleSLong(buff[92:96])
 		self.value = shared_c.LittleSLong(buff[96:100])
@@ -626,7 +579,7 @@ class dheader_t(object):
 
 	@classmethod
 	def packed_size(cls):
-		return 8 * lump_t.packed_size() * HEADER_LUMPS
+		return 8 + lump_t.packed_size() * HEADER_LUMPS
 
 	def parse(self, buf: bytes|bytearray):
 		
@@ -637,6 +590,16 @@ class dheader_t(object):
 		for i in range(HEADER_LUMPS):
 			self.lumps.append(lump_t(*struct.unpack("<II", buf[cursor:cursor+8])))
 			cursor += 8
+
+	def BadLump(self, length: int)->int:
+
+		# Q2PORT: the C reads a lump that goes past the end of the file from
+		# beyond the buffer; the loaders check this first. Returns the first
+		# such lump, or -1.
+		for i in range(HEADER_LUMPS):
+			if self.lumps[i].fileofs + self.lumps[i].filelen > length:
+				return i
+		return -1
 
 
 class dmodel_t(object):
@@ -829,7 +792,7 @@ class texinfo_t(object):
 
 		self.flags = shared_c.LittleSLong(buff[32:36])
 		self.value = shared_c.LittleSLong(buff[36:40])
-		self.texture = buff[40:72].decode("ascii").rstrip('\x00')
+		self.texture = buff[40:72].decode("latin-1").rstrip('\x00') # Q2PORT: latin-1, the C's names are bytes (ascii failed on others)
 		self.nexttexinfo = shared_c.LittleSLong(buff[72:])
 
 

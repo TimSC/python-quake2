@@ -188,7 +188,11 @@ def Sys_ConsoleOutput (string): #char *
 	if nostdout and nostdout.value:
 		return
 
-	print (string, end="")
+	# Q2PORT: the C writes the bytes as they are; the text is latin-1, one
+	# character per byte (see Sys_ConsoleInput), so encode it back that way
+	sys.stdout.flush()
+	sys.stdout.buffer.write(string.encode("latin-1", "replace")) # fputs(string, stdout);
+	sys.stdout.buffer.flush()
 
 
 Sys_Microseconds_first = None #static struct timespec first

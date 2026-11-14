@@ -319,10 +319,10 @@ def CL_Record_f ():
 	movemsg.MSG_WriteLong (buf, common_h.PROTOCOL_VERSION)
 	movemsg.MSG_WriteLong (buf, 0x10000 + cl.servercount)
 	movemsg.MSG_WriteByte (buf, 1)	# demos are always attract loops
-	movemsg.MSG_WriteString (buf, cl.gamedir.encode('ascii'))
+	movemsg.MSG_WriteString (buf, cl.gamedir.encode('latin-1', 'replace')) # Q2PORT: latin-1, the C's strings are bytes (ascii failed on others)
 	movemsg.MSG_WriteShort (buf, cl.playernum)
 
-	movemsg.MSG_WriteString (buf, cl.configstrings[shared.CS_NAME].encode('ascii'))
+	movemsg.MSG_WriteString (buf, cl.configstrings[shared.CS_NAME].encode('latin-1', 'replace')) # Q2PORT: latin-1, the C's strings are bytes (ascii failed on others)
 
 	# configstrings
 	for i in range(shared.MAX_CONFIGSTRINGS):

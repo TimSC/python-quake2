@@ -96,7 +96,7 @@ def SZ_Print (buf: common_h.sizebuf_t, data): #char *
 	#int		len;
 	assert isinstance(data, str)
 	
-	data = data.encode('ascii')
+	data = data.encode('latin-1', 'replace') # Q2PORT: latin-1, the C's strings are bytes (ascii failed on others)
 	length = len(data)+1
 
 	if buf.cursize > 0:

@@ -173,7 +173,9 @@ def CL_RequestNextDownload(): #void
 						cl_main.precache_check += 1
 						continue # couldn't load it
 					
-					if shared_c.LittleLong(cl_main.precache_model[:4]) != files_h.IDALIASHEADER:
+					# Q2PORT: a file shorter than the header is not an alias model (the C reads past it)
+					if (length < files_h.dmdl_t.packed_size() or
+						shared_c.LittleLong(cl_main.precache_model[:4]) != files_h.IDALIASHEADER):
 						# not an alias model
 						filesystem.FS_FreeFile(cl_main.precache_model)
 						cl_main.precache_model = None
@@ -647,7 +649,7 @@ def CL_Download_f(): #void
 	cl_main.cls.downloadtempname += ".tmp"
 
 	movemsg.MSG_WriteByte(cl_main.cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value)
-	movemsg.MSG_WriteString(cl_main.cls.netchan.message, ("download %s" % cl_main.cls.downloadname).encode("ascii"))
+	movemsg.MSG_WriteString(cl_main.cls.netchan.message, ("download %s" % cl_main.cls.downloadname).encode("latin-1", "replace")) # Q2PORT: latin-1, the C's strings are bytes
 
 	cl_main.cls.downloadnumber += 1
 

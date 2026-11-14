@@ -612,7 +612,7 @@ def CL_SendCmd(): #void
 		cl_main.CL_FixUpGender()
 		cvar.userinfo_modified = False
 		movemsg.MSG_WriteByte(cl_main.cls.netchan.message, common_h.clc_ops_e.clc_userinfo.value)
-		movemsg.MSG_WriteString(cl_main.cls.netchan.message, cvar.Cvar_Userinfo().encode('ascii'))
+		movemsg.MSG_WriteString(cl_main.cls.netchan.message, cvar.Cvar_Userinfo().encode('latin-1', 'replace')) # Q2PORT: latin-1, the C's strings are bytes (ascii failed on others)
 
 
 	szone.SZ_Init(buf, 128) # SZ_Init(&buf, data, sizeof(data));

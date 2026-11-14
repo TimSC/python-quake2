@@ -40,9 +40,15 @@ iff_data = None #static byte *
 iff_chunk_len = 0 #static int
 iff_buf = None # the wav buffer the pointers above index into
 
+class _Truncated(Exception): # Q2PORT: a read past the end of the file, see GetWavinfo()
+	pass
+
 def GetLittleShort()->int: #void (returns static short)
 
 	global data_p
+
+	if data_p + 2 > iff_end: # Q2PORT: the C reads past the buffer
+		raise _Truncated()
 
 	val = 0 #short
 
@@ -56,6 +62,9 @@ def GetLittleShort()->int: #void (returns static short)
 def GetLittleLong()->int: #void (returns static int)
 
 	global data_p
+
+	if data_p + 4 > iff_end: # Q2PORT: the C reads past the buffer
+		raise _Truncated()
 
 	val = 0 #int
 
@@ -104,6 +113,16 @@ def FindChunk(name: bytes): #char * (static)
 	FindNextChunk(name)
 
 def GetWavinfo(name: str, wav: bytes, wavlength: int)->sound_local.wavinfo_t: #char *, byte *, int (returns wavinfo_t)
+
+	# Q2PORT: a file that ends inside a header field is damaged (the C reads
+	# past the buffer): it gives an empty info, which S_LoadSound() refuses
+	try:
+		return _GetWavinfo(name, wav, wavlength)
+	except _Truncated:
+		clientserver.Com_Printf("{}: {} is truncated\n".format("GetWavinfo", name))
+		return sound_local.wavinfo_t()
+
+def _GetWavinfo(name: str, wav: bytes, wavlength: int)->sound_local.wavinfo_t: #char *, byte *, int (returns wavinfo_t)
 
 	global data_p, iff_data, iff_end, iff_buf
 

@@ -88,8 +88,8 @@ def Cmd_Wait_f ():
 =============================================================================
 """
 cmd_text = common_h.sizebuf_t()
-cmd_text_maxsize=8192
-defer_text_buf=b"" #byte[8192];
+cmd_text_maxsize=32768 # byte cmd_text_buf[32768]
+defer_text_buf=b"" #char [32768]
 """
 ============
 Cbuf_Init
@@ -119,7 +119,11 @@ def Cbuf_AddText (text): #char *
 		clientserver.Com_Printf ("Cbuf_AddText: overflow\n")
 		return
 	
-	szone.SZ_Write(cmd_text, text.encode('ascii'))
+	# Q2PORT: the C's command text is bytes. The text is kept as latin-1, where
+	# every byte is one character (config files are read that way); a
+	# character outside latin-1 (e.g. typed in the terminal) becomes '?'
+	# instead of an error.
+	szone.SZ_Write(cmd_text, text.encode('latin-1', errors='replace'))
 
 """
 ============
@@ -168,7 +172,7 @@ def Cbuf_InsertFromDefer ():
 	global defer_text_buf
 
 	if defer_text_buf:
-		Cbuf_InsertText (defer_text_buf.decode("ascii"))
+		Cbuf_InsertText (defer_text_buf.decode("latin-1")) # Q2PORT: latin-1, see Cbuf_AddText()
 		defer_text_buf = b""
 
 """
@@ -257,7 +261,7 @@ def Cbuf_Execute ():
 			assert len(cmd_text.data) == cmd_text.cursize
 		
 # execute the command line
-		Cmd_ExecuteString (line.decode('ascii'))
+		Cmd_ExecuteString (line.decode('latin-1')) # Q2PORT: latin-1, see Cbuf_AddText()
 		
 		if cmd_wait > 0:
 
@@ -389,7 +393,7 @@ def Cmd_Exec_f ():
 		clientserver.Com_Printf ("couldn't exec {}\n".format(Cmd_Argv(1)))
 		return
 	
-	data = data.decode("ascii")
+	data = bytes(data).decode("latin-1") # Q2PORT: the C reads the file as bytes; latin-1 keeps every byte
 
 	clientserver.Com_Printf ("execing %s.\n", Cmd_Argv(1))
 
@@ -468,7 +472,7 @@ def Cmd_Alias_f ():
 	if alias is None:
 	
 		alias = cmdalias_t()
-		cmd_alias.append(alias)
+		cmd_alias.insert(0, alias) # a->next = cmd_alias; cmd_alias = a;
 	
 	alias.name = s
 
@@ -640,7 +644,8 @@ def Cmd_TokenizeString (text, macroExpand): #char *, qboolean
 
 	while 1:
 		# skip whitespace up to a /n
-		while cursor < len(text) and text[cursor].strip() == '' and text[cursor] != '\n':
+		while cursor < len(text) and text[cursor] <= ' ' and text[cursor] != '\n': # *text <= ' '
+
 			cursor += 1
 		
 		if cursor >= len(text):

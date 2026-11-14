@@ -444,6 +444,10 @@ def Mod_LoadBrushModel(mod, buffer, modfilelen): #gl3model_t *, void *, int
 
 		clientserver.Com_Error(shared.ERR_DROP, "Loaded a brush model after the world")
 
+	if modfilelen < files_h.dheader_t.packed_size(): # Q2PORT: the C reads the header past a short file
+		clientserver.Com_Error(shared.ERR_DROP, "{}: {} is too short ({} bytes)".format(
+				"Mod_LoadBrushModel", mod.name, modfilelen))
+
 	header = files_h.dheader_t()
 	header.parse(buffer)
 
@@ -453,6 +457,11 @@ def Mod_LoadBrushModel(mod, buffer, modfilelen): #gl3model_t *, void *, int
 
 		clientserver.Com_Error(shared.ERR_DROP, "{}: {} has wrong version number ({} should be {})".format(
 				"Mod_LoadBrushModel", mod.name, i, files_h.BSPVERSION))
+
+	if header.BadLump(modfilelen) >= 0: # Q2PORT: see dheader_t.BadLump()
+
+		clientserver.Com_Error(shared.ERR_DROP, "{}: {} has lump {} past the end of the file".format(
+				"Mod_LoadBrushModel", mod.name, header.BadLump(modfilelen)))
 
 	# swap all the lumps
 	mod_base = buffer
@@ -594,7 +603,7 @@ def Mod_ForName(name, parent_model, crash): #const char *, gl3model_t *, qboolea
 		return None
 
 	# call the apropriate loader
-	ident = shared_c.LittleLong(buf[:4])
+	ident = shared_c.LittleLong(buf[:4]) if modfilelen >= 4 else 0 # Q2PORT: the C reads past a file under 4 bytes
 	if ident == files_h.IDALIASHEADER:
 
 		type_ = [0] # Q2PORT: the files_models loaders set the type's int value

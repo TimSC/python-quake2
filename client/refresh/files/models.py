@@ -42,6 +42,10 @@ Mod_LoadAliasModel/Mod_LoadMD2
 """
 def Mod_LoadMD2(mod_name, buff, modfilelen, mins, maxs, skins, find_image, type): #const char *, const void *, int, vec3_t, vec3_t, struct image_s **, findimage_t, modtype_t * (returns void *)
 
+	if modfilelen < files_h.dmdl_t.packed_size(): # Q2PORT: the C reads the header past a short file
+		clientserver.Com_Printf("{}: model {} file size({}) too small, should be {}\n".format("Mod_LoadMD2", mod_name, modfilelen, files_h.dmdl_t.packed_size()))
+		return None
+
 	header = files_h.dmdl_t()
 	header.load(buff)
 
@@ -185,6 +189,10 @@ support for .sp2 sprites
 """
 def Mod_LoadSP2(mod_name, buff, modfilelen, skins, find_image, type): #const char *, const void *, int, struct image_s **, findimage_t, modtype_t * (returns void *)
 
+	if modfilelen < files_h.dsprite_t.packed_size(): # Q2PORT: the C reads the header past a short file
+		clientserver.Com_Printf("{}: model {} file size({}) too small\n".format("Mod_LoadSP2", mod_name, modfilelen))
+		return None
+
 	sprite = files_h.dsprite_t()
 	sprite.load(buff)
 
@@ -196,6 +204,11 @@ def Mod_LoadSP2(mod_name, buff, modfilelen, skins, find_image, type): #const cha
 		clientserver.Com_Printf("{} has too many frames ({} > {}), extra frames will be ignored\n".format(mod_name, sprite.numframes, files_h.MAX_MD2SKINS))
 		sprite.numframes = files_h.MAX_MD2SKINS
 
+	if len(sprite.frames) < sprite.numframes: # Q2PORT: the C reads the frames past a short file
+		clientserver.Com_Printf("{}: model {} file size({}) too small\n".format("Mod_LoadSP2", mod_name, modfilelen))
+		return None
+
+	# byte swap everything
 	for i in range(sprite.numframes):
 		skins[i] = find_image(sprite.frames[i].name, ref_shared.imagetype_t.it_sprite)
 
