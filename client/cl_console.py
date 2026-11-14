@@ -66,26 +66,6 @@ extern	int		key_linepos;
 		
 """
 
-def DrawString (x: int, y: int, s: str): #int, int, char *
-
-	i = 0 # index into s
-	while i < len(s) and s[i] != '\0': # while (*s)
-	
-		vid.re.DrawChar (x, y, ord(s[i]))
-		x+=8
-		i+=1 # s++
-	
-
-def DrawAltString (x: int, y: int, s: str): #int, int, char *
-
-	i = 0 # index into s
-	while i < len(s) and s[i] != '\0': # while (*s)
-	
-		vid.re.DrawChar (x, y, ord(s[i]) ^ 0x80)
-		x+=8
-		i+=1 # s++
-	
-
 def DrawStringScaled(x: int, y: int, s: str, factor: float): #int, int, const char *, float
 
 	for ch in s: # while (*s)

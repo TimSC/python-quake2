@@ -31,6 +31,7 @@ import numpy as np
 import OpenGL.GL as GL
 from OpenGL.GL import glGetString
 from client import ref
+from client.refresh import renderer
 from client.vid.header import ref as ref_h
 from client.refresh.gl1 import gl1_draw, gl1_image, gl1_misc, gl1_model, gl1_warp, gl1_surf, gl1_mesh, gl1_light, \
 	gl1_scrap, gl1_buffer, gl1_sdl, gl1_lightmap, qgl
@@ -2099,63 +2100,45 @@ def RI_EndWorldRenderpass(): #void (returns qboolean) (static)
 
 	return True
 
-def GetRefAPI(imp): #refimport_t (returns refexport_t)
+def GetRefAPI(imp): #refimport_t (returns client.refresh.renderer.Renderer)
 
 	global ri
 
-	re = ref.refexport_t() # = {0}
-
 	ri = imp
-
-	re.api_version = ref.API_VERSION
-	#re.framework_version = RI_GetSDLVersion(); Q2PORT: the port's refexport_t has no framework_version
-
-	# Q2PORT: the port's client still calls id's re.Init(hinstance, wndproc) and
-	# checks for -1
-	re.Init = lambda hinstance, wndproc: 0 if RI_Init() else -1 # RI_Init
-	re.Shutdown = RI_Shutdown
-	re.PrepareForWindow = gl1_sdl.RI_PrepareForWindow
-	re.InitContext = gl1_sdl.RI_InitContext
-	re.GetDrawableSize = gl1_sdl.RI_GetDrawableSize
-	re.ShutdownContext = gl1_sdl.RI_ShutdownContext
-	re.IsVSyncActive = gl1_sdl.RI_IsVSyncActive
-	re.BeginRegistration = gl1_model.RI_BeginRegistration
-	re.RegisterModel = gl1_model.RI_RegisterModel
-	re.RegisterSkin = gl1_image.RI_RegisterSkin
-	re.RegisterPic = gl1_draw.RDraw_FindPic # Q2PORT: id's refexport_t
-
-	re.SetSky = gl1_warp.RI_SetSky
-	re.EndRegistration = gl1_model.RI_EndRegistration
-
-	re.RenderFrame = RI_RenderFrame
-
-	re.DrawFindPic = gl1_draw.RDraw_FindPic
-
-	re.DrawGetPicSize = gl1_draw.RDraw_GetPicSize
-	#re.DrawPic = Draw_Pic;
-	re.DrawPicScaled = gl1_draw.RDraw_PicScaled
-	re.DrawPicScaledCol = gl1_draw.RDraw_PicScaledCol
-	re.DrawStretchPic = gl1_draw.RDraw_StretchPic
-	#re.DrawChar = Draw_Char;
-	re.DrawCharScaled = gl1_draw.RDraw_CharScaled
-	re.DrawTileClear = gl1_draw.RDraw_TileClear
-	re.DrawFill = gl1_draw.RDraw_Fill
-	re.DrawFadeScreen = gl1_draw.RDraw_FadeScreen
-
-	re.DrawStretchRaw = gl1_draw.RDraw_StretchRaw
-
-	re.SetPalette = RI_SetPalette
-	re.BeginFrame = RI_BeginFrame
-	re.EndWorldRenderpass = RI_EndWorldRenderpass
-	re.EndFrame = gl1_sdl.RI_EndFrame
-
-	re.AppActivate = lambda active: None # Q2PORT: id's refexport_t; Yamagi's has no AppActivate
 
 	# Tell the client that we're unsing the
 	# new renderer restart API.
 	ri.Vid_RequestRestart(ref_h.ref_restart_t.RESTART_NO)
 
-	return re
+	return renderer.Renderer(
+		init=RI_Init,
+		shutdown=RI_Shutdown,
+		prepare_for_window=gl1_sdl.RI_PrepareForWindow,
+		init_context=gl1_sdl.RI_InitContext,
+		get_drawable_size=gl1_sdl.RI_GetDrawableSize,
+		shutdown_context=gl1_sdl.RI_ShutdownContext,
+		is_vsync_active=gl1_sdl.RI_IsVSyncActive,
+		begin_registration=gl1_model.RI_BeginRegistration,
+		register_model=gl1_model.RI_RegisterModel,
+		register_skin=gl1_image.RI_RegisterSkin,
+		set_sky=gl1_warp.RI_SetSky,
+		end_registration=gl1_model.RI_EndRegistration,
+		render_frame=RI_RenderFrame,
+		find_pic=gl1_draw.RDraw_FindPic,
+		pic_size=gl1_draw.RDraw_GetPicSize,
+		draw_pic_scaled=gl1_draw.RDraw_PicScaled,
+		draw_pic_scaled_col=gl1_draw.RDraw_PicScaledCol,
+		draw_stretch_pic=gl1_draw.RDraw_StretchPic,
+		draw_char_scaled=gl1_draw.RDraw_CharScaled,
+		draw_tile_clear=gl1_draw.RDraw_TileClear,
+		draw_fill=gl1_draw.RDraw_Fill,
+		draw_fade_screen=gl1_draw.RDraw_FadeScreen,
+		draw_stretch_raw=gl1_draw.RDraw_StretchRaw,
+		set_palette=RI_SetPalette,
+		begin_frame=RI_BeginFrame,
+		end_world_renderpass=RI_EndWorldRenderpass,
+		end_frame=gl1_sdl.RI_EndFrame,
+	)
 
 #ifdef DEBUG
 #void glCheckError_(const char *file, const char *function, int line)

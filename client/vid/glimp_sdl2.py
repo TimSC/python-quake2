@@ -497,7 +497,7 @@ def GLimp_InitGraphics(fullscreen: int, pwidth: int, pheight: int)->bool: #int, 
 	# Is the surface used?
 	if window:
 
-		vid.re.ShutdownContext()
+		vid.re.shutdown_context()
 		ShutdownGraphics()
 
 		window = None
@@ -511,7 +511,7 @@ def GLimp_InitGraphics(fullscreen: int, pwidth: int, pheight: int)->bool: #int, 
 	# FIXME: This is no longer necessary, the renderer
 	# could and should pass the flags when calling this
 	# function.
-	flags = vid.re.PrepareForWindow()
+	flags = vid.re.prepare_for_window()
 
 	if flags == -1:
 
@@ -596,7 +596,7 @@ def GLimp_InitGraphics(fullscreen: int, pwidth: int, pheight: int)->bool: #int, 
 		clientserver.Com_Printf("Real display mode: {}x{}@{}\n".format(mode.w, mode.h, mode.refresh_rate))
 
 	# Initialize rendering context.
-	if not vid.re.InitContext(window):
+	if not vid.re.init_context(window):
 
 		# InitContext() should have logged an error.
 		return False
@@ -612,7 +612,7 @@ def GLimp_InitGraphics(fullscreen: int, pwidth: int, pheight: int)->bool: #int, 
 
 		if fullscreen != 2:
 
-			vid.viddef.width, vid.viddef.height = vid.re.GetDrawableSize()
+			vid.viddef.width, vid.viddef.height = vid.re.get_drawable_size()
 
 		else:
 
@@ -620,7 +620,7 @@ def GLimp_InitGraphics(fullscreen: int, pwidth: int, pheight: int)->bool: #int, 
 
 			if r_mode.value == -2:
 
-				vid.viddef.width, vid.viddef.height = vid.re.GetDrawableSize()
+				vid.viddef.width, vid.viddef.height = vid.re.get_drawable_size()
 
 			else:
 

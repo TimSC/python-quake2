@@ -46,7 +46,7 @@ from client.header import client as client_h
 from client.sound import ogg
 from client.sound import openal
 from client.sound import qal
-from client.sound import sdl as sound_sdl
+from client.sound import backend as sound_backend
 from client.sound import wave
 from client.sound.header import local as sound_local
 
@@ -117,6 +117,7 @@ known_sfx = [] #static sfx_t [MAX_SFX]
 for i in range(MAX_SFX):
 	known_sfx.append(sound_local.sfx_t())
 sound_started = sound_local.SS_NOT #sndstarted_t
+backend = None # client/sound/backend.py's SoundBackend while the sound system runs
 sound = sound_local.sound_t() #sound_t
 s_registering = False #static qboolean
 s_active = False #qboolean
@@ -466,25 +467,11 @@ def S_LoadSound(s: sound_local.sfx_t)->sound_local.sfxcache_t: #sfx_t * (returns
 	begin_length, end_length, attack_length, fade_length = S_GetStatistics(data[info.dataofs:], info.samples,
 		info.width, info.channels, sound_volume)
 
-	#if USE_OPENAL
-	if sound_started == sound_local.SS_OAL:
+	if backend is not None:
 
-		sc = openal.AL_UploadSfx(s, info, data[info.dataofs:], sound_volume,
+		sc = backend.upload_sfx(s, info, data[info.dataofs:], sound_volume,
 						  begin_length, end_length,
 						  attack_length, fade_length)
-
-	else:
-	#endif
-
-		if sound_started == sound_local.SS_SDL:
-
-			if not sound_sdl.SDL_Cache(s, info, data[info.dataofs:], sound_volume,
-						  begin_length, end_length,
-						  attack_length, fade_length):
-
-				clientserver.Com_Printf("Pansen!\n")
-				filesystem.FS_FreeFile(data)
-				return None
 
 	filesystem.FS_FreeFile(data)
 	return sc
@@ -820,12 +807,10 @@ def S_PickChannel(entnum: int, entchannel: int)->sound_local.channel_t: #int, in
 
 	ch = channels[first_to_die]
 
-	#if USE_OPENAL
-	if (sound_started == sound_local.SS_OAL) and ch.sfx:
+	if backend is not None and ch.sfx:
 
 		# Make sure the channel is dead
-		openal.AL_StopChannel(ch)
-	#endif
+		backend.stop_channel(ch)
 
 	ch.clear() # memset(ch, 0, sizeof(*ch));
 	return ch
@@ -914,20 +899,9 @@ def S_IssuePlaysound(ps: sound_local.playsound_t): #playsound_t *
 	shared.VectorCopy(ps.origin, ch.origin)
 	ch.fixed_origin = ps.fixed_origin
 
-	#if USE_OPENAL
-	if sound_started == sound_local.SS_OAL:
+	if backend is not None:
 
-		# This is clamped to 1.0 in AL_PlayChannel()
-		ch.oal_vol = ps.volume * (s_volume.value)
-		openal.AL_PlayChannel(ch)
-
-	else:
-	#endif
-
-		if sound_started == sound_local.SS_SDL:
-
-			ch.master_vol = int(ps.volume)
-			sound_sdl.SDL_Spatialize(ch)
+		backend.start_channel(ch, ps.volume, s_volume.value)
 
 	ch.pos = 0
 	ch.end = paintedtime + sc.length
@@ -1030,19 +1004,9 @@ def S_StartSound(origin, entnum: int, entchannel: int, sfx: sound_local.sfx_t,
 	ps.attenuation = attenuation
 	ps.sfx = sfx
 
-	#if USE_OPENAL
-	if sound_started == sound_local.SS_OAL:
+	if backend is not None:
 
-		ps.begin = int(paintedtime + timeofs * 1000) # unsigned
-		ps.volume = fvol
-
-	else:
-	#endif
-
-		if sound_started == sound_local.SS_SDL:
-
-			ps.begin = sound_sdl.SDL_DriftBeginofs(timeofs)
-			ps.volume = fvol * 255
+		ps.begin, ps.volume = backend.playsound_start(timeofs, fvol, paintedtime)
 
 	if _game is None:
 
@@ -1125,17 +1089,9 @@ def S_StopAllSounds(): #void
 
 		s_freeplays.insert(0, s_playsounds[i]) # linked in after &s_freeplays
 
-	#if USE_OPENAL
-	if sound_started == sound_local.SS_OAL:
+	if backend is not None:
 
-		openal.AL_StopAllChannels()
-
-	else:
-	#endif
-
-		if sound_started == sound_local.SS_SDL:
-
-			sound_sdl.SDL_ClearBuffer()
+		backend.stop_all_channels()
 
 	# clear all the channels
 	for ch in channels:
@@ -1191,17 +1147,9 @@ def S_RawSamples(samples: int, rate: int, width: int,
 
 		s_rawend = paintedtime
 
-	#if USE_OPENAL
-	if sound_started == sound_local.SS_OAL:
+	if backend is not None:
 
-		openal.AL_RawSamples(samples, rate, width, channels, data, volume)
-
-	else:
-	#endif
-
-		if sound_started == sound_local.SS_SDL:
-
-			sound_sdl.SDL_RawSamples(samples, rate, width, channels, data, volume)
+		backend.raw_samples(samples, rate, width, channels, data, volume)
 
 """
  * Calls the update functions of the
@@ -1223,17 +1171,9 @@ def S_Update(origin, forward, right, up): #vec3_t, vec3_t, vec3_t, vec3_t
 	shared.VectorCopy(right, listener_right)
 	shared.VectorCopy(up, listener_up)
 
-	#if USE_OPENAL
-	if sound_started == sound_local.SS_OAL:
+	if backend is not None:
 
-		openal.AL_Update()
-
-	else:
-	#endif
-
-		if sound_started == sound_local.SS_SDL:
-
-			sound_sdl.SDL_Update()
+		backend.update()
 
 """
  * Plays one sample. Called
@@ -1344,15 +1284,9 @@ def S_SoundInfo_f(): #void (static)
 		clientserver.Com_Printf("Sound system not started\n")
 		return
 
-	#if USE_OPENAL
-	if sound_started == sound_local.SS_OAL:
+	if backend is not None:
 
-		qal.QAL_SoundInfo(True)
-
-	else:
-	#endif
-
-		sound_sdl.SDL_SoundInfo()
+		backend.sound_info()
 
 """
  * Activate or deactivate sound backend
@@ -1376,7 +1310,7 @@ def S_Init(): #void
 	global s_volume, s_khz, s_loadas8bit, s_mixahead, s_show, s_testsound, s_ambient
 	global s_underwater, s_underwater_gain_hf, s_doppler, s_ps_sorting, s_reverb_preset
 	global s_occlusion_strength, s_feedback_kind
-	global sound_started, num_sfx, paintedtime, sound_max, s_active
+	global sound_started, num_sfx, paintedtime, sound_max, s_active, backend
 
 	#cvar_t *cv;
 
@@ -1412,24 +1346,19 @@ def S_Init(): #void
 	cmdparser.Cmd_AddCommand("soundlist", S_SoundList)
 	cmdparser.Cmd_AddCommand("soundinfo", S_SoundInfo_f)
 
-	#if USE_OPENAL
+	# OpenAL is the only backend (client/sound/backend.py): without it, no sound
 	cv = cvar.Cvar_Get("s_openal", "1", shared.CVAR_ARCHIVE)
 
 	if cv.value and openal.AL_Init():
 
 		sound_started = sound_local.SS_OAL
+		backend = sound_backend.openal_backend()
 
 	else:
-	#endif
 
-		if sound_sdl.SDL_BackendInit():
-
-			sound_started = sound_local.SS_SDL
-
-		else:
-
-			sound_started = sound_local.SS_NOT
-			return
+		clientserver.Com_Printf("SDL audio backend is not available, there is no software mixer.\n")
+		sound_started = sound_local.SS_NOT
+		return
 
 	num_sfx = 0
 	paintedtime = 0
@@ -1449,7 +1378,7 @@ def S_Init(): #void
 """
 def S_Shutdown(): #void
 
-	global num_sfx, sound_started, s_numchannels
+	global num_sfx, sound_started, s_numchannels, backend
 
 	#int i;
 	#sfx_t *sfx;
@@ -1469,11 +1398,9 @@ def S_Shutdown(): #void
 
 			continue
 
-		#if USE_OPENAL
-		if sound_started == sound_local.SS_OAL:
+		if backend is not None:
 
-			openal.AL_DeleteSfx(sfx)
-		#endif
+			backend.delete_sfx(sfx)
 
 		#if (sfx->cache) Z_Free(sfx->cache);
 		#if (sfx->truename) Z_Free(sfx->truename);
@@ -1482,19 +1409,12 @@ def S_Shutdown(): #void
 		sfx.clear() # memset(known_sfx, 0, sizeof(known_sfx));
 	num_sfx = 0
 
-	#if USE_OPENAL
-	if sound_started == sound_local.SS_OAL:
+	if backend is not None:
 
-		openal.AL_Shutdown()
-
-	else:
-	#endif
-
-		if sound_started == sound_local.SS_SDL:
-
-			sound_sdl.SDL_BackendShutdown()
+		backend.shutdown()
 
 	sound_started = sound_local.SS_NOT
+	backend = None
 	s_numchannels = 0
 
 	cmdparser.Cmd_RemoveCommand("soundlist")

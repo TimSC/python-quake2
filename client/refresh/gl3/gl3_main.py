@@ -40,6 +40,7 @@ from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
 from client import ref
+from client.refresh import renderer
 from client.vid.header import ref as ref_h
 from client.refresh import ref_shared
 from client.refresh.files import pcx as files_pcx
@@ -1886,68 +1887,42 @@ def GL3_EndWorldRenderpass(): #void (returns qboolean)
 
 	return True
 
-# Q2PORT: shims between the port's refexport_t (id's interface) and the gl3
-# functions with Yamagi's signatures
-
-def RI_Init(hinstance, hWnd): #void *, void * (returns int)
-
-	# id's re.Init(hinstance, wndproc), vid.py checks for -1
-	if not GL3_Init():
-		return -1
-	return 0
-
-def GetRefAPI(imp): #refimport_t (returns refexport_t)
+def GetRefAPI(imp): #refimport_t (returns client.refresh.renderer.Renderer)
 
 	global ri
 
-	re = ref.refexport_t() # = {0}
-
 	ri = imp
-
-	re.api_version = ref.API_VERSION
-	#re.framework_version = GL3_GetSDLVersion(); Q2PORT: the port's refexport_t has no framework_version
-
-	re.Init = RI_Init # GL3_Init
-	re.Shutdown = GL3_Shutdown
-	re.PrepareForWindow = gl3_sdl.GL3_PrepareForWindow
-	re.InitContext = gl3_sdl.GL3_InitContext
-	re.GetDrawableSize = gl3_sdl.GL3_GetDrawableSize
-	re.ShutdownContext = gl3_sdl.GL3_ShutdownContext
-	re.IsVSyncActive = gl3_sdl.GL3_IsVsyncActive
-
-	re.BeginRegistration = gl3_model.GL3_BeginRegistration
-	re.RegisterModel = gl3_model.GL3_RegisterModel
-	re.RegisterSkin = gl3_image.GL3_RegisterSkin
-	re.RegisterPic = gl3_draw.GL3_Draw_FindPic # Q2PORT: id's refexport_t
-
-	re.SetSky = gl3_warp.GL3_SetSky
-	re.EndRegistration = gl3_model.GL3_EndRegistration
-
-	re.RenderFrame = GL3_RenderFrame
-
-	re.DrawFindPic = gl3_draw.GL3_Draw_FindPic
-	re.DrawGetPicSize = gl3_draw.GL3_Draw_GetPicSize
-
-	re.DrawPicScaled = gl3_draw.GL3_Draw_PicScaled
-	re.DrawPicScaledCol = gl3_draw.GL3_Draw_PicScaledCol
-	re.DrawStretchPic = gl3_draw.GL3_Draw_StretchPic
-
-	re.DrawCharScaled = gl3_draw.GL3_Draw_CharScaled
-	re.DrawTileClear = gl3_draw.GL3_Draw_TileClear
-	re.DrawFill = gl3_draw.GL3_Draw_Fill
-	re.DrawFadeScreen = gl3_draw.GL3_Draw_FadeScreen
-
-	re.DrawStretchRaw = gl3_draw.GL3_Draw_StretchRaw
-	re.SetPalette = GL3_SetPalette
-
-	re.BeginFrame = GL3_BeginFrame
-	re.EndWorldRenderpass = GL3_EndWorldRenderpass
-	re.EndFrame = gl3_draw.GL3_EndFrame
-
-	re.AppActivate = lambda active: None # Q2PORT: id's refexport_t; Yamagi's has no AppActivate
 
 	# Tell the client that we're unsing the
 	# new renderer restart API.
 	ri.Vid_RequestRestart(ref_h.ref_restart_t.RESTART_NO)
 
-	return re
+	return renderer.Renderer(
+		init=GL3_Init,
+		shutdown=GL3_Shutdown,
+		prepare_for_window=gl3_sdl.GL3_PrepareForWindow,
+		init_context=gl3_sdl.GL3_InitContext,
+		get_drawable_size=gl3_sdl.GL3_GetDrawableSize,
+		shutdown_context=gl3_sdl.GL3_ShutdownContext,
+		is_vsync_active=gl3_sdl.GL3_IsVsyncActive,
+		begin_registration=gl3_model.GL3_BeginRegistration,
+		register_model=gl3_model.GL3_RegisterModel,
+		register_skin=gl3_image.GL3_RegisterSkin,
+		set_sky=gl3_warp.GL3_SetSky,
+		end_registration=gl3_model.GL3_EndRegistration,
+		render_frame=GL3_RenderFrame,
+		find_pic=gl3_draw.GL3_Draw_FindPic,
+		pic_size=gl3_draw.GL3_Draw_GetPicSize,
+		draw_pic_scaled=gl3_draw.GL3_Draw_PicScaled,
+		draw_pic_scaled_col=gl3_draw.GL3_Draw_PicScaledCol,
+		draw_stretch_pic=gl3_draw.GL3_Draw_StretchPic,
+		draw_char_scaled=gl3_draw.GL3_Draw_CharScaled,
+		draw_tile_clear=gl3_draw.GL3_Draw_TileClear,
+		draw_fill=gl3_draw.GL3_Draw_Fill,
+		draw_fade_screen=gl3_draw.GL3_Draw_FadeScreen,
+		draw_stretch_raw=gl3_draw.GL3_Draw_StretchRaw,
+		set_palette=GL3_SetPalette,
+		begin_frame=GL3_BeginFrame,
+		end_world_renderpass=GL3_EndWorldRenderpass,
+		end_frame=gl3_draw.GL3_EndFrame,
+	)

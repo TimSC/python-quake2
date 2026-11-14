@@ -328,7 +328,7 @@ def OGG_Stream(): #void
 
 	if ogg_status == vorbis.PLAY:
 
-		#ifdef USE_OPENAL
+		# the music is streamed through OpenAL (client/sound/backend.py)
 		if sound_c.sound_started == sound_local.SS_OAL:
 
 			# Calculate the number of buffers used
@@ -347,18 +347,6 @@ def OGG_Stream(): #void
 
 				OGG_Read()
 
-		else: # using SDL
-		#endif
-
-			if sound_c.sound_started == sound_local.SS_SDL:
-
-				# Read that number samples into the buffer, that
-				# were played since the last call to this function.
-				# This keeps the buffer at all times at an "optimal"
-				# fill level.
-				while sound_c.paintedtime + sound_local.MAX_RAW_SAMPLES - 2048 > sound_c.s_rawend:
-
-					OGG_Read()
 
 	if ogg_status == vorbis.PLAY and ogg_shuffle.modified:
 
@@ -578,10 +566,8 @@ def OGG_Stop(): #void
 	if ogg_status == vorbis.STOP:
 		return
 
-	#ifdef USE_OPENAL
-	if sound_c.sound_started == sound_local.SS_OAL:
-		openal.AL_UnqueueRawSamples()
-	#endif
+	if sound_c.backend is not None:
+		sound_c.backend.unqueue_raw_samples()
 
 	stb_vorbis.stb_vorbis_close(ogg_file)
 	ogg_status = vorbis.STOP
@@ -599,10 +585,8 @@ def OGG_TogglePlayback(): #void (static)
 		ogg_status = vorbis.PAUSE
 		ogg_numbufs = 0
 
-		#ifdef USE_OPENAL
-		if sound_c.sound_started == sound_local.SS_OAL:
-			openal.AL_UnqueueRawSamples()
-		#endif
+		if sound_c.backend is not None:
+			sound_c.backend.unqueue_raw_samples()
 
 	elif ogg_status == vorbis.PAUSE:
 		ogg_status = vorbis.PLAY

@@ -34,6 +34,7 @@ from client.sound import sound as sound_c
 from client import cl_keyboard
 from client import cl_tempentities
 from client import ref
+from client.refresh import renderer
 from client.vid.header import ref as ref_h
 from client.vid import glimp_sdl2
 from backends.generic import misc
@@ -295,8 +296,8 @@ class viddef_t(object):
 
 viddef = viddef_t() # global video state; used by other modules
 
-# Struct with the pointers exported by the renderer.
-re = ref.refexport_t()
+# The loaded renderer's entry points (client/refresh/renderer.py), None when none is loaded.
+re: renderer.Renderer | None = None
 
 # Handle / pointer the the loaded renderer DLL.
 reflib_handle = None #void *, the renderer is a python module
@@ -362,11 +363,11 @@ def VID_ShutdownRenderer(): #void
 	if ref_active:
 
 		# shut down the renderer
-		re.Shutdown()
+		re.shutdown()
 		glimp_sdl2.GLimp_ShutdownGraphics()
 		# Sys_FreeLibrary(reflib_handle); the renderer is a python module
 		reflib_handle = None
-		re = ref.refexport_t() # memset (&re, 0, sizeof(re));
+		re = None
 
 		cl_tempentities.CL_ClearTEntModels()
 
@@ -456,24 +457,16 @@ def VID_LoadRenderer(): #void (returns qboolean)
 	ref_active = True
 
 	# let's check if we've got a compatible renderer.
-	if re.api_version is not None and re.api_version != ref.API_VERSION: # API_VERSION
+	if re.api_version != renderer.API_VERSION:
 
 		clientserver.Com_Printf("{} has incompatible api_version {}!\n".format(reflib_name, re.api_version))
 
 		VID_ShutdownRenderer()
 
 		return False
-	elif False: # re.framework_version != GLimp_GetFrameworkVersion(), the old renderer has no framework_version
-
-		clientserver.Com_Printf("{} has incompatible sdl_version {}!\n".format(reflib_name, re.framework_version))
-
-		VID_ShutdownRenderer()
-
-		return False
 
 	# everything seems okay, initialize it.
-	# Q2PORT: id's re.Init(0, 0)
-	if re.Init( 0, 0 ) == -1:
+	if not re.init():
 
 		VID_ShutdownRenderer()
 
@@ -625,13 +618,13 @@ def R_BeginRegistration(map_: str): #const char *
 
 	if ref_active:
 
-		re.BeginRegistration(map_)
+		re.begin_registration(map_)
 
 def R_RegisterModel(name: str): #const char * (returns struct model_s*)
 
 	if ref_active:
 
-		return re.RegisterModel(name)
+		return re.register_model(name)
 
 
 	return None
@@ -640,7 +633,7 @@ def R_RegisterSkin(name: str): #const char * (returns struct image_s*)
 
 	if ref_active:
 
-		return re.RegisterSkin(name)
+		return re.register_skin(name)
 
 
 	return None
@@ -649,25 +642,25 @@ def R_SetSky(name: str, rotate: float, axis): #const char *, float, vec3_t
 
 	if ref_active:
 
-		re.SetSky(name, rotate, axis)
+		re.set_sky(name, rotate, axis)
 
 def R_EndRegistration(): #void
 
 	if ref_active:
 
-		re.EndRegistration()
+		re.end_registration()
 
 def R_RenderFrame(fd): #refdef_t *
 
 	if ref_active:
 
-		re.RenderFrame(fd)
+		re.render_frame(fd)
 
 def Draw_FindPic(name: str): #const char * (returns struct image_s*)
 
 	if ref_active:
 
-		return re.DrawFindPic(name)
+		return re.find_pic(name)
 
 
 	return None
@@ -678,7 +671,7 @@ def Draw_GetPicSize(name: str): #int *, int *, const char *
 
 	if ref_active:
 
-		return re.DrawGetPicSize(name)
+		return re.pic_size(name)
 
 
 	return 0, 0
@@ -687,77 +680,67 @@ def Draw_StretchPic(x: int, y: int, w: int, h: int, name: str): #int, int, int, 
 
 	if ref_active:
 
-		re.DrawStretchPic(x, y, w, h, name)
+		re.draw_stretch_pic(x, y, w, h, name)
 
 def Draw_PicScaled(x: int, y: int, pic: str, factor: float): #int, int, const char *, float
 
 	if ref_active:
 
-		re.DrawPicScaled(x, y, pic, factor)
+		re.draw_pic_scaled(x, y, pic, factor)
 
 def Draw_PicScaledCol(x: int, y: int, pic: str, factor: float, color): #int, int, const char *, float, const float[3]
 
 	if ref_active:
 
-		if re.DrawPicScaledCol:
-
-			re.DrawPicScaledCol(x, y, pic, factor, color)
-
-		else:
-
-			re.DrawPicScaled(x, y, pic, factor)
+		re.draw_pic_scaled_col(x, y, pic, factor, color)
 
 def Draw_CharScaled(x: int, y: int, num: int, scale: float): #int, int, int, float
 
 	if ref_active:
 
-		re.DrawCharScaled(x, y, num, scale)
+		re.draw_char_scaled(x, y, num, scale)
 
 def Draw_TileClear(x: int, y: int, w: int, h: int, name: str): #int, int, int, int, const char *
 
 	if ref_active:
 
-		re.DrawTileClear(x, y, w, h, name)
+		re.draw_tile_clear(x, y, w, h, name)
 
 def Draw_Fill(x: int, y: int, w: int, h: int, c: int): #int, int, int, int
 
 	if ref_active:
 
-		re.DrawFill(x, y, w, h, c)
+		re.draw_fill(x, y, w, h, c)
 
 def Draw_FadeScreen(): #void
 
 	if ref_active:
 
-		re.DrawFadeScreen()
+		re.draw_fade_screen()
 
 def Draw_StretchRaw(x: int, y: int, w: int, h: int, cols: int, rows: int, data, bits: int): #int, int, int, int, int, int, const byte *, int
 
 	if ref_active:
 
-		re.DrawStretchRaw(x, y, w, h, cols, rows, data) # Q2PORT: id's renderer takes 8-bit data only (no bits)
+		re.draw_stretch_raw(x, y, w, h, cols, rows, data) # the cinematics are 8-bit
 
 def R_SetPalette(palette): #const unsigned char *
 
 	if ref_active:
 
-		re.SetPalette(palette)
+		re.set_palette(palette)
 
 def R_BeginFrame(camera_separation: float): #float
 
 	if ref_active:
 
-		re.BeginFrame(camera_separation)
+		re.begin_frame(camera_separation)
 
 def R_EndWorldRenderpass()->bool: #void (returns qboolean)
 
 	if ref_active:
 
-		if re.EndWorldRenderpass is not None: # Q2PORT: id's renderer (gl1) has no render passes
-
-			return re.EndWorldRenderpass()
-
-		return True
+		return re.end_world_renderpass()
 
 
 	return False
@@ -766,17 +749,13 @@ def R_EndFrame(): #void
 
 	if ref_active:
 
-		re.EndFrame()
+		re.end_frame()
 
 def R_IsVSyncActive()->bool: #void (returns qboolean)
 
 	if ref_active:
 
-		if re.IsVSyncActive is not None: # Q2PORT: id's renderer (gl1) doesn't report it
-
-			return re.IsVSyncActive()
-
-		return False
+		return re.is_vsync_active()
 
 
 	return False

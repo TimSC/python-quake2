@@ -182,76 +182,7 @@ API_VERSION = 30 # Q2PORT: Yamagi's API number (id used 3); the renderer reports
 #
 # these are the functions exported by the refresh module
 #
-class refexport_t(object):
-
-	def __init__(self):
-
-		# if api_version is different, the dll cannot be used
-		self.api_version = None #int
-
-		# called when the library is loaded
-		self.Init = None #qboolean (*) ( void *hinstance, void *wndproc )
-
-		# called before the library is unloaded
-		self.Shutdown = None #void (*) (void)
-
-		# All data that will be used in a level should be
-		# registered before rendering any frames to prevent disk hits,
-		# but they can still be registered at a later time
-		# if necessary.
-		#
-		# EndRegistration will free any remaining data that wasn't registered.
-		# Any model_s or skin_s pointers from before the BeginRegistration
-		# are no longer valid after EndRegistration.
-		#
-		# Skins and images need to be differentiated, because skins
-		# are flood filled to eliminate mip map edge errors, and pics have
-		# an implicit "pics/" prepended to the name. (a pic name that starts with a
-		# slash will not use the "pics/" prefix or the ".pcx" postfix)
-		self.BeginRegistration = None #void (*) (char *map)
-		self.RegisterModel = None #struct model_s *(*) (char *name)
-		self.RegisterSkin = None #struct image_s *(*) (char *name)
-		self.RegisterPic = None #struct image_s *(*) (char *name)
-		self.SetSky = None #void	(*) (char *name, float rotate, vec3_t axis)
-		self.EndRegistration = None #void (*) (void)
-
-		self.RenderFrame = None #void (*) (refdef_t *fd)
-
-		self.DrawGetPicSize = None #void (*) (int *w, int *h, char *name)	# will return 0 0 if not found
-		self.DrawPic = None #void (*) (int x, int y, char *name)
-		self.DrawStretchPic = None #void (*) (int x, int y, int w, int h, char *name)
-		self.DrawChar = None #void (*) (int x, int y, int c)
-		self.DrawCharScaled = None #void (*) (int x, int y, int num, float scale), Q2PORT: from Yamagi's refexport_t
-		self.DrawPicScaled = None #void (*) (int x, int y, const char *pic, float factor)
-		self.DrawPicScaledCol = None #void (*) (int x, int y, const char *pic, float factor, const float color[3])
-		self.DrawFindPic = None #image_t * (*) (const char *name)
-		self.DrawTileClear = None #void (*) (int x, int y, int w, int h, char *name)
-		self.DrawFill = None #void (*) (int x, int y, int w, int h, int c)
-		self.DrawFadeScreen = None #void (*) (void)
-
-		# Draw images for cinematic rendering (which can have a different palette). Note that calls
-		self.DrawStretchRaw = None #void (*) (int x, int y, int w, int h, int cols, int rows, byte *data)
-
-		#
-		# video mode and refresh state management entry points
-		#
-		self.CinematicSetPalette = None #void (*)( const unsigned char *palette)	# NULL = game palette
-		self.BeginFrame = None #void (*)( float camera_separation )
-		self.EndFrame = None #void (*) (void)
-
-		self.AppActivate = None #void (*)( qboolean activate )
-
-		# Q2PORT: from Yamagi's refexport_t (vid/header/ref.h), for renderers that
-		# have them (gl3); None means the renderer doesn't (gl1, until group 15)
-		self.PrepareForWindow = None #int (*)(void), called by GLimp_InitGraphics() before creating window, returns flags for SDL window creation, returns -1 on error
-		self.InitContext = None #int (*)(void* sdl_window), called by GLimp_InitGraphics() *after* creating window, passing the SDL_Window* (void* so we don't spill SDL.h here), returns true (1) on success
-		self.GetDrawableSize = None #void (*)(int* width, int* height), called by GLimp_InitGraphics() *after* creating render context. Returns the actual drawable size in the width and height variables. This may be different from the window size due to high dpi awareness.
-		self.ShutdownContext = None #void (*)(void), shuts down rendering (OpenGL) context.
-		self.IsVSyncActive = None #qboolean (*)(void), returns true if vsync is active, else false
-		self.EndWorldRenderpass = None #qboolean (*) (void)
-
-
-
+# refexport_t is client/refresh/renderer.py's Renderer
 #
 # these are the functions imported by the refresh module
 #

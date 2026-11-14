@@ -411,7 +411,7 @@ should land together.
     - **The rest of the engine file system** (handles, raw paths, links,
       listings) moves to `q2data.filesystem` with the client and server
       steps, which use it.
-- [ ] **4. Renderers** (in progress):
+- [x] **4. Renderers:**
   - **Where sharing pays off:** gl1's and gl3's files were compared line by
     line. Only the model loaders were mostly alike (72%); the others share
     40% or less (warp 40%, light 35%, mesh 31%, image 28%, surf 26%, main
@@ -437,10 +437,48 @@ should land together.
         pass;
       - 4 unit tests load the box-room fixture through the cache with
         stand-in hooks.
-  - **Left:** the `Renderer` protocol in place of the `re`/`ri` tables, gl1
-    and gl3 as classes, and sharing the light and warp code where the two
-    really do the same thing.
-- [ ] 5. Sound
+  - **Done, the renderer interface:** `client/refresh/renderer.py` has
+    `Renderer`.
+    - **What it is:** a typed, frozen dataclass of a renderer's entry
+      points, with PEP 8 names (`init`, `render_frame`, `draw_pic_scaled`,
+      ...). It replaces both `refexport_t` tables, id's and Yamagi's.
+    - **How it's used:** each renderer's `GetRefAPI` returns one; `vid.py`
+      and `glimp_sdl2.py` call its methods, and `vid.re` is `None` when no
+      renderer is loaded.
+    - **Removed:** the id-era entries the client no longer used
+      (`RegisterPic`, `AppActivate`, `DrawChar`/`DrawPic` and the console's
+      unscaled `DrawString`), gl3's `RI_Init(hinstance, wndproc)` shim, and
+      the "renderer may lack this" checks.
+    - **Checked:**
+      - gl1 and gl3 are pixel-identical;
+      - switching renderers at run time (gl1 → gl3 → gl1) works;
+      - the renderer tests pass;
+      - a unit test checks both renderers provide every entry point.
+  - **Evaluated, not done:**
+    - **The renderers' internals as classes:** the two renderers (about
+      10,000 lines) keep their module-level state for now; the client only
+      sees the `Renderer`.
+    - **Sharing the sky clipping and light point code:** the two
+      renderers' versions are the same algorithm (65–76% alike) but differ
+      in float detail. gl3 sums with numpy, gl1 one vertex at a time in
+      float32. Sharing one would change the other's output, for about 100
+      lines saved.
+- [ ] **5. Sound** (in progress):
+  - **Done, the sound backend:** `client/sound/backend.py` has
+    `SoundBackend`.
+    - **What it is:** a backend's entry points (upload/delete a sound,
+      start/stop channels, a playsound's start time, raw samples, update,
+      info, shutdown).
+    - **What it replaces:** every OpenAL/SDL branch in `sound.py`, which is
+      now a call on `backend` (None when the sound system isn't running).
+      `openal_backend()` is the one backend.
+    - **Removed:** the `sdl.py` stub, which only ever failed to start, and
+      `ogg.py`'s dead SDL branch. Without OpenAL there is still no sound,
+      with the same message.
+    - **Checked:** the music test (with audio), cinematics, `snd_restart`,
+      `soundinfo`, `play`, and `s_openal 0`.
+  - **Left:** the OpenAL code and the OGG player as objects; the channels
+    and playsound lists as plain data.
 - [ ] 6. Server
 - [ ] 7. Client
 - [ ] 8. Game
