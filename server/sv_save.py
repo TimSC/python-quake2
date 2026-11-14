@@ -503,7 +503,7 @@ def SV_Savegame_f ():
 		clientserver.Com_Printf ("Can't save to 'current'\n")
 		return
 
-	if int(sv_main.maxclients.value) == 1 and server_h.CL_EDICT(sv_init.svs.clients[0]).client.ps.stats[shared.STAT_HEALTH] <= 0:
+	if sv_init.server.maxclients == 1 and server_h.CL_EDICT(sv_init.svs.clients[0]).client.ps.stats[shared.STAT_HEALTH] <= 0:
 		clientserver.Com_Printf ("\nCan't savegame while dead!\n")
 		return
 

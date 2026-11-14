@@ -92,12 +92,12 @@ def rcon_command(args: list[str]) -> str:
 
 
 def _maxclients() -> int:
-    return int(sv_main.maxclients.value)
+    return sv_init.server.maxclients
 
 
 def _status(req: Request) -> None:
     """Everything qplug or qspy can see: the server info and the players."""
-    req.reply("print\n" + sv_main.SV_StatusString())
+    req.reply("print\n" + sv_main.status_string())
 
 
 def _ack(req: Request) -> None:
@@ -110,11 +110,11 @@ def _info(req: Request) -> None:
         return  # ignore in single player
 
     if req.int_arg(1) != PROTOCOL_VERSION:
-        text = f"{sv_main.hostname.string}: wrong version\n"[:INFO_REPLY_SIZE - 1]
+        text = f"{sv_init.server.cvars.hostname.string}: wrong version\n"[:INFO_REPLY_SIZE - 1]
     else:
         clients = sv_init.svs.clients[:_maxclients()]
         count = sum(cl.state.value >= server_h.client_state_t.cs_connected.value for cl in clients)
-        text = info_line(sv_main.hostname.string, sv_init.sv.name, count, _maxclients())
+        text = info_line(sv_init.server.cvars.hostname.string, sv_init.sv.name, count, _maxclients())
     req.reply("info\n" + text)
 
 
@@ -179,7 +179,7 @@ def _direct_connect(req: Request) -> None:
                     f"{network.NET_AdrToString(adr)}:reconnect rejected : too soon\n")
                 return
             clientserver.Com_Printf(f"{network.NET_AdrToString(adr)}:reconnect\n")
-            sv_main.SVC_DirectConnect_NewClient(cl, adr, qport, userinfo, challenge)
+            sv_main.accept_client(cl, adr, qport, userinfo, challenge)
             return
 
     newcl = next((cl for cl in clients if cl.state == server_h.client_state_t.cs_free), None)
@@ -188,11 +188,11 @@ def _direct_connect(req: Request) -> None:
         clientserver.Com_DPrintf("Rejected a connection.\n")
         return
 
-    sv_main.SVC_DirectConnect_NewClient(newcl, adr, qport, userinfo, challenge)
+    sv_main.accept_client(newcl, adr, qport, userinfo, challenge)
 
 
 def _rcon_valid(req: Request) -> bool:
-    password = sv_main.rcon_password.string
+    password = sv_init.server.cvars.rcon_password.string
     return bool(password) and req.arg(1) == password
 
 

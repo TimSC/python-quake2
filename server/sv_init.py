@@ -61,7 +61,7 @@ from client import cl_screen
 ALLOC_ENTITIES_MIN = 32
 MAX_SV_ENTNUM = 32767 #SHRT_MAX
 
-server = context.Server() # the server: the C's sv and svs, and the current client
+server = context.server # the server: the C's sv and svs, and the current client
 svs = server.persistent # persistant server info
 sv = server.level # local server
 
@@ -221,7 +221,7 @@ def SV_CheckForSavegame(isautosave: bool): #qboolean
 	int i;
 	"""
 
-	if sv_main.sv_noreload.value:
+	if context.server.cvars.noreload.value:
 
 		return
 
@@ -292,7 +292,7 @@ def SV_SpawnServer(server: str, spawnpoint: str, serverstate: server_h.server_st
 	clientserver.Com_SetServerState(sv.state.value)
 
 	# wipe the entire per-level structure
-	sv_main.SV_ClearBaselines()
+	sv_main.clear_baselines()
 	sv.clear() #memset(&sv, 0, sizeof(sv));
 	svs.realtime = 0
 	sv.loadgame = loadgame
@@ -303,8 +303,8 @@ def SV_SpawnServer(server: str, spawnpoint: str, serverstate: server_h.server_st
 
 	if cvar.Cvar_VariableValue("deathmatch"):
 
-		sv.configstrings[shared.CS_AIRACCEL] = "%g" % sv_main.sv_airaccelerate.value
-		pmove.pm_airaccelerate = sv_main.sv_airaccelerate.value
+		sv.configstrings[shared.CS_AIRACCEL] = "%g" % context.server.cvars.airaccelerate.value
+		pmove.pm_airaccelerate = context.server.cvars.airaccelerate.value
 
 	else:
 
@@ -317,7 +317,7 @@ def SV_SpawnServer(server: str, spawnpoint: str, serverstate: server_h.server_st
 	sv.name = server
 
 	# leave slots at start for clients only
-	for i in range(int(sv_main.maxclients.value)):
+	for i in range(context.server.maxclients):
 
 		# needs to reconnect
 		if svs.clients[i].state.value > server_h.client_state_t.cs_connected.value:
@@ -489,18 +489,18 @@ def SV_InitGame(): #void
 	# init clients
 	if gamemode == server_h.GAMEMODE_DM:
 
-		if sv_main.maxclients.value <= 1:
+		if context.server.cvars.maxclients.value <= 1:
 
 			cvar.Cvar_FullSet("maxclients", "8", shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
 
-		elif sv_main.maxclients.value > shared.MAX_CLIENTS:
+		elif context.server.cvars.maxclients.value > shared.MAX_CLIENTS:
 
 			cvar.Cvar_FullSet("maxclients", "%i" % shared.MAX_CLIENTS, shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
 
 
 	elif gamemode == server_h.GAMEMODE_COOP:
 
-		if (sv_main.maxclients.value <= 1) or (sv_main.maxclients.value > 4):
+		if (context.server.cvars.maxclients.value <= 1) or (context.server.cvars.maxclients.value > 4):
 
 			cvar.Cvar_FullSet("maxclients", "4", shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
 
@@ -512,8 +512,8 @@ def SV_InitGame(): #void
 
 	svs.gamemode = gamemode
 	svs.spawncount = rand.randk()
-	server.make_clients(int(sv_main.maxclients.value)) #Z_Malloc(sizeof(client_t) * maxclients->value);
-	svs.num_client_entities = int(sv_main.maxclients.value * common_h.UPDATE_BACKUP * 64)
+	server.make_clients(context.server.maxclients) #Z_Malloc(sizeof(client_t) * maxclients->value);
+	svs.num_client_entities = int(context.server.cvars.maxclients.value * common_h.UPDATE_BACKUP * 64)
 	svs.client_entities = [shared.entity_state_t() for i in range(svs.num_client_entities)]
 
 	# init network stuff
@@ -525,12 +525,12 @@ def SV_InitGame(): #void
 
 		else:
 
-			network.NET_Config((sv_main.maxclients.value > 1))
+			network.NET_Config((context.server.cvars.maxclients.value > 1))
 
 
 	else:
 
-		network.NET_Config((sv_main.maxclients.value > 1))
+		network.NET_Config((context.server.cvars.maxclients.value > 1))
 
 
 	# heartbeats will always be sent to the id master
@@ -538,12 +538,12 @@ def SV_InitGame(): #void
 	idmaster = "192.246.40.37:%i" % common_h.PORT_MASTER
 	adr = network.NET_StringToAdr(idmaster)
 	if adr is not None:
-		sv_main.master_adr[0] = adr
+		context.server.masters[0] = adr
 
 	# init game
 	sv_game.SV_InitGameProgs()
 
-	for i in range(int(sv_main.maxclients.value)):
+	for i in range(context.server.maxclients):
 
 		server_h.CLNUM_EDICT(i).s.number = i + 1
 		svs.clients[i].lastcmd = shared.usercmd_t() #memset(&svs.clients[i].lastcmd, 0, sizeof(svs.clients[i].lastcmd));
@@ -661,7 +661,7 @@ def SV_Map(attractloop: bool, levelstring: str, loadgame: bool, isautosave: bool
 		sv_send.broadcast_command("changing\n")
 
 		# for some reason calling send messages here causes a lengthy reconnect delay
-		if not (sv_main.SV_Optimizations() & server_h.OPTIMIZE_RECONNECT):
+		if not (sv_main.optimizations() & server_h.OPTIMIZE_RECONNECT):
 
 			sv_send.send_client_messages()
 			sv_send.send_prep_client_messages()

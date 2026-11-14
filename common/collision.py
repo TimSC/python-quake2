@@ -1147,9 +1147,9 @@ def CMod_LoadEntityString(l, name): #const lump_t *, const char *
 
 	global map_entitystring, numentitychars
 
-	from server import sv_main	# Q2PORT: imported here; sv_entfile is the server's cvar
+	from server import context	# Q2PORT: imported here; sv_entfile is the server's cvar
 
-	if sv_main.sv_entfile is not None and sv_main.sv_entfile.value:
+	if context.server.cvars is not None and context.server.cvars.entfile.value:
 
 		#char *buffer = NULL, entname[256];
 		#size_t nameLen;

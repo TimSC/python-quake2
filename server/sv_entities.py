@@ -125,7 +125,7 @@ def write_frame_to_client(client: server_h.client_t, msg: common_h.sizebuf_t) ->
 
     baselines = sv.baselines[:sv.numbaselines]
     write_packet_entities(frame_entities(oldframe), frame_entities(frame), msg,
-                          baselines, int(sv_main.maxclients.value))
+                          baselines, sv_init.server.maxclients)
 
 
 def fat_pvs(org: np.ndarray) -> bytearray:

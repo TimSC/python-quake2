@@ -563,38 +563,47 @@ should land together.
       and the server demo.
     - **Also checked:** chat, a suicide, `kick` and the prints on a
       dedicated server with a client.
-  - **Left:** moving the 230 `sv_init.sv`/`svs` uses and the server cvars
-    onto the `Server`, and the server's remaining C-style modules
-    (`sv_main`, `sv_user`, `sv_cmd`, `sv_init`, `sv_game`, `sv_save`,
-    `sv_world`).
+  - **Done, what clients send:** `server/sv_user.py` in PEP 8.
+    - **What it has:** `execute_client_message` (user info, moves,
+      string commands) with `_read_move` (the checksum and the replay of
+      dropped moves), and `USER_COMMANDS`, a table of the sign-on, download
+      and other client commands; each handler takes the client.
+      `download_allowed` holds zoid's download rules.
+    - **Checked:** the test suite (sign-on, save/load, a dedicated server),
+      and a map downloaded over UDP from a dedicated server: identical to
+      the server's, and the client entered the game on it.
+  - **Done, the operator commands:** `server/sv_cmd.py` in PEP 8, with
+    the commands as one table; `find_client` and `status_line` are pure.
+    - **Fixed, two crashes:** `kick` and `dumpuser` crashed the server on
+      a slot like `1abc` (`int()`; the C's strtol reads 1) and on an empty
+      name (`s[0]`).
+    - **Fixed, `setmaster`:** after a bad address the C parses the next
+      ones into the wrong slot (`master_adr[i]`, not `[slot]`).
+    - **Kept:** the server demo's multicast buffer stays 64 KB; the C's
+      `MAX_MSGLEN` one overflows (a fatal error) on a busy frame.
+    - **Checked:** each command on a dedicated server (with odd
+      arguments), `status`/`dumpuser`/`kick`/console `say` with a client,
+      and `gamemap` to `BASE2` and back (saved as `base2.sav`).
+  - **Done, the server frame:** `server/sv_main.py` in PEP 8.
+    - **What it has:** the engine's entry points (`SV_Init`, `SV_Frame`,
+      `SV_Shutdown`, kept under their C names), and `drop_client`,
+      `accept_client`, `userinfo_changed`, `status_string` and
+      `optimizations`.
+    - **The cvars:** the server's 21 cvars are a `ServerCvars` on the
+      `Server` (`server.cvars`, made by `SV_Init`); `server.maxclients`
+      is the slot count, and `server.masters` the master addresses. The
+      module globals are gone, here and in their users (the client's
+      download code and the collision code's entity files too).
+    - `context.server` is the one server, so `sv_init` (where `server` is
+      also a map name) can reach it.
+    - **Checked:** the test suite (`walk_test` and `fire_test` time out
+      now and then under the machine's load, and pass when run again).
+  - **Left:** the 230 `sv_init.sv`/`svs` uses (C names for
+    `server.level`/`persistent`), and the server's remaining C-style
+    modules (`sv_init`, `sv_game`, `sv_save`, `sv_world`).
 - [ ] 7. Client
 - [ ] 8. Game
 - [ ] 9. Final layout and packaging
-
-## Fixes to apply to the yquake2 branch
-
-Bugs found while reworking this branch that the `yquake2` branch still has
-(checked against it). Applied there, they are `Q2PORT` fixes or follow
-Yamagi's C.
-
-- [ ] **`serverrecord` crashes the server** (`server/sv_entities.py`,
-  `SV_RecordDemoMessage`): `shared_c.LittleLong(buf.cursize)` unpacks
-  bytes, so an int raises `TypeError` on the first recorded frame. Write
-  the length with `struct.pack("<i", buf.cursize)`. (Playing the demo
-  back is then refused with "msglen > MAX_MSGLEN", as in Yamagi.)
-- [ ] **The `info` reply is aligned wrongly** (`server/sv_conless.py`,
-  `SVC_Info`): `"{:16s} {:8s} {}/{}"` left-aligns the fields; the C's
-  `"%16s %8s %2i/%2i"` right-aligns them and pads the counts to 2. The C
-  also cuts the reply at 63 characters (`char string[64]`).
-- [ ] **Number arguments of connectionless packets** (`SVC_Info`,
-  `SVC_DirectConnect`): a value that isn't a number becomes `None`,
-  where the C's `strtol` gives 0 or the leading digits (`"12abc"` is 12).
-  In `SVC_DirectConnect` one bad value also makes both qport and
-  challenge `None`. `shared_c.atoi` parses as the C does.
-- [ ] **Lengths the C caps** (`SVC_DirectConnect`, `SVC_RemoteCommand`):
-  the userinfo is not cut at `MAX_INFO_STRING - 1` before the `ip` key is
-  added (`Q_strlcpy`), and the rcon command is not cut at 1023
-  characters (`char remaining[1024]`).
 
 ## Following Yamagi
 
@@ -604,6 +613,8 @@ Yamagi's C.
   (`scripts/yq_*.py`) and `docs/yquake2_plan.md`. They stay as history.
 - **Upstream's version:** the `yquake2/` checkout (pinned at `4e2ad5e7`)
   stays as the reference for behaviour.
+- **Bugs this branch finds that the `yquake2` branch shares:** listed in
+  `docs/yquake2_fixes.md`, to apply there.
 
 ## Risks
 

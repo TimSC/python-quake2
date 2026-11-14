@@ -39,7 +39,7 @@ from common import movemsg
 from common import collision
 from client.curl import download
 from common import cvar
-from server import sv_main
+from server import context
 from client import cl_main
 from client import cl_parse
 from client import cl_view
@@ -132,17 +132,17 @@ def CL_RequestNextDownload(): #void
 	if cl_main.cls.state != client_h.connstate_t.ca_connected:
 		return
 
-	if not sv_main.allow_download.value and cl_main.precache_check < ENV_CNT:
+	if not context.server.cvars.allow_download.value and cl_main.precache_check < ENV_CNT:
 		cl_main.precache_check = ENV_CNT
 
 	if cl_main.precache_check == shared.CS_MODELS: # confirm map
 		cl_main.precache_check = shared.CS_MODELS+2 # 0 isn't used
-		if sv_main.allow_download_maps.value:
+		if context.server.cvars.allow_download_maps.value:
 			if not CL_CheckOrDownloadFile(cl_main.cl.configstrings[shared.CS_MODELS+1]):
 				return # started a download
 	
 	if cl_main.precache_check >= shared.CS_MODELS and cl_main.precache_check < shared.CS_MODELS+shared.MAX_MODELS:
-		if sv_main.allow_download_models.value:
+		if context.server.cvars.allow_download_models.value:
 			while (cl_main.precache_check < shared.CS_MODELS+shared.MAX_MODELS and
 				cl_main.cl.configstrings[cl_main.precache_check]):
 				if (cl_main.cl.configstrings[cl_main.precache_check][0] == '*' or
@@ -217,7 +217,7 @@ def CL_RequestNextDownload(): #void
 		cl_main.precache_check = shared.CS_SOUNDS
 	
 	if cl_main.precache_check >= shared.CS_SOUNDS and cl_main.precache_check < shared.CS_SOUNDS+shared.MAX_SOUNDS: 
-		if sv_main.allow_download_sounds.value:
+		if context.server.cvars.allow_download_sounds.value:
 			if cl_main.precache_check == shared.CS_SOUNDS:
 				cl_main.precache_check += 1 # zero is blank
 			while (cl_main.precache_check < shared.CS_SOUNDS+shared.MAX_SOUNDS and
@@ -249,7 +249,7 @@ def CL_RequestNextDownload(): #void
 	# model, weapon model and skin
 	# so precache_check is now *3
 	if cl_main.precache_check >= shared.CS_PLAYERSKINS and cl_main.precache_check < shared.CS_PLAYERSKINS + shared.MAX_CLIENTS * PLAYER_MULT:
-		if sv_main.allow_download_players.value:
+		if context.server.cvars.allow_download_players.value:
 			while cl_main.precache_check < shared.CS_PLAYERSKINS + shared.MAX_CLIENTS * PLAYER_MULT:
 				#int i, n;
 				#char model[MAX_QPATH], skin[MAX_QPATH], *p;
@@ -356,7 +356,7 @@ def CL_RequestNextDownload(): #void
 		return
 
 	if cl_main.precache_check > ENV_CNT and cl_main.precache_check < TEXTURE_CNT:
-		if sv_main.allow_download.value and sv_main.allow_download_maps.value:
+		if context.server.cvars.allow_download.value and context.server.cvars.allow_download_maps.value:
 			while cl_main.precache_check < TEXTURE_CNT:
 				n = cl_main.precache_check - ENV_CNT - 1
 				cl_main.precache_check += 1
@@ -382,7 +382,7 @@ def CL_RequestNextDownload(): #void
 		#extern int			numtexinfo;
 		#extern mapsurface_t	map_surfaces[];
 
-		if sv_main.allow_download.value and sv_main.allow_download_maps.value:
+		if context.server.cvars.allow_download.value and context.server.cvars.allow_download_maps.value:
 			while cl_main.precache_tex < collision.numtexinfo:
 				#char fn[MAX_OSPATH];
 

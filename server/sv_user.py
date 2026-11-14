@@ -1,787 +1,469 @@
+"""What clients send the server (Yamagi's sv_user.c).
+
+``execute_client_message`` reads a client's packet: user info, its moves
+(checksummed, and replayed for dropped packets) and string commands. The
+string commands the server knows are the ``USER_COMMANDS``: the sign-on
+sequence (``new``, ``configstrings``, ``baselines``, ``begin``),
+downloads, ``nextserver``, ``disconnect`` and ``info``; the game gets the
+others.
+
+Copyright (C) 1997-2001 Id Software, Inc.; GPL version 2 or later.
 """
-Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or (at
-your option) any later version.
-
-This program is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
-
-=======================================================================
-
-Server side user (player entity) moving.
-
-=======================================================================
-"""
 from __future__ import annotations
 
+from collections.abc import Callable
+
+from common import (
+    argproc,
+    clientserver,
+    cmdparser,
+    crc,
+    cvar,
+    entity_delta,
+    filesystem,
+    movemsg,
+    netchan,
+    szone,
+    usercmd_delta,
+)
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
-from common import argproc
-from common import clientserver
-from common import cmdparser
-from common import crc
-from common import cvar
-from common import filesystem
-from common import movemsg
-from common import usercmd_delta
-from common import entity_delta
-from common import szone
-from common import netchan
+from server import sv_game, sv_init, sv_main
 from server.header import server as server_h
-from server import sv_game
-from server import sv_init
-from server import sv_main
 
-"""
-#include "header/server.h"
-"""
+CS = server_h.client_state_t
+SS = server_h.server_state_t
+SVC = common_h.svc_ops_e
+CLC = common_h.clc_ops_e
 
-MAX_STRINGCMDS = 8
+MAX_STRINGCMDS = 8  # string commands a packet may run
 
-CMD_MARGIN = 40 # space in message reserved for command
-SAFE_MARGIN = 24 # space reserved for more data added elsewhere
+CMD_MARGIN = 40  # message space kept for a command
+SAFE_MARGIN = 24  # message space kept for more data added elsewhere
 
+DOWNLOAD_CHUNK = 1024
 
-def SV_BeginDemoserver(): #void
 
-	#char name[MAX_OSPATH];
+def _stufftext(msg: common_h.sizebuf_t, text: str) -> None:
+    movemsg.MSG_WriteByte(msg, SVC.svc_stufftext.value)
+    movemsg.MSG_WriteString(msg, text)
 
-	name = "demos/{}".format(sv_init.sv.name)
-	length, sv_init.sv.demofile = filesystem.FS_FOpenFile(name, False)
 
-	if not sv_init.sv.demofile:
+def _arg_int(i: int) -> int:
+    return shared_c.atoi(cmdparser.Cmd_Argv(i))
 
-		clientserver.Com_Error(shared.ERR_DROP, "Couldn't open %s\n", name)
 
-"""
- * Sends the first message from the server to a connected client.
- * This will be sent on the initial connection and upon each server load.
-"""
-def SV_New_f(): #void
+def _same_level() -> bool:
+    """Whether the command's spawn count is this level's (not one changed while connecting)."""
+    return cmdparser.Cmd_Argc() > 1 and _arg_int(1) == sv_init.svs.spawncount
 
-	"""
-	static char *gamedir;
-	int playernum;
-	"""
 
-	clientserver.Com_DPrintf("New() from %s\n", sv_init.server.client.name)
+def _start_arg() -> int:
+    return max(_arg_int(2), 0) if cmdparser.Cmd_Argc() > 2 else 0
 
-	if sv_init.server.client.state != server_h.client_state_t.cs_connected:
 
-		clientserver.Com_Printf("New not valid -- already spawned\n")
-		return
+def _begin_demo_server() -> None:
+    name = f"demos/{sv_init.sv.name}"
+    _, sv_init.sv.demofile = filesystem.FS_FOpenFile(name, False)
+    if not sv_init.sv.demofile:
+        clientserver.Com_Error(shared.ERR_DROP, "Couldn't open %s\n", name)
 
 
-	# demo servers just dump the file message
-	if sv_init.sv.state == server_h.server_state_t.ss_demo:
-
-		SV_BeginDemoserver()
-		return
-
-
-	# serverdata needs to go over for all types of servers
-	# to make sure the protocol is right, and to set the gamedir
-	gamedir = cvar.Cvar_VariableString("gamedir")
-
-	# send the serverdata
-	movemsg.MSG_WriteByte(sv_init.server.client.netchan.message, common_h.svc_ops_e.svc_serverdata.value)
-	movemsg.MSG_WriteLong(sv_init.server.client.netchan.message, common_h.PROTOCOL_VERSION)
-	movemsg.MSG_WriteLong(sv_init.server.client.netchan.message, sv_init.svs.spawncount)
-	movemsg.MSG_WriteByte(sv_init.server.client.netchan.message, 1 if sv_init.sv.attractloop else 0)
-	movemsg.MSG_WriteString(sv_init.server.client.netchan.message, gamedir)
-
-	if (sv_init.sv.state == server_h.server_state_t.ss_cinematic) or (sv_init.sv.state == server_h.server_state_t.ss_pic):
-
-		playernum = -1
-
-	else:
-
-		playernum = sv_init.server.client.slot #sv_client - svs.clients;
-
-
-	movemsg.MSG_WriteShort(sv_init.server.client.netchan.message, playernum)
-
-	# send full levelname
-	movemsg.MSG_WriteString(sv_init.server.client.netchan.message, sv_init.sv.configstrings[shared.CS_NAME])
-
-	# game server
-	if sv_init.sv.state == server_h.server_state_t.ss_game:
-
-		# set up the entity for the client
-		server_h.CLNUM_EDICT(playernum).s.number = playernum + 1
-		sv_init.server.client.lastcmd = shared.usercmd_t() #memset(&sv_client->lastcmd, 0, sizeof(sv_client->lastcmd));
-
-		# begin fetching configstrings
-		movemsg.MSG_WriteByte(sv_init.server.client.netchan.message, common_h.svc_ops_e.svc_stufftext.value)
-		movemsg.MSG_WriteString(sv_init.server.client.netchan.message,
-				"cmd configstrings %i 0\n" % sv_init.svs.spawncount)
-
-def _EnoughSpaceInBuffer(msg: common_h.sizebuf_t, datalen: int, is_opt: int)->bool: #const sizebuf_t *, size_t, int (returns static qboolean)
-
-	# original check logic
-	if not is_opt and (msg.cursize >= (common_h.MAX_MSGLEN // 2)):
-
-		return False
-
-
-	if (msg.cursize + datalen) > \
-		(common_h.MAX_MSGLEN - (CMD_MARGIN + SAFE_MARGIN)):
-
-		return False
-
-
-	return True
-
-def PrintOverflowConfigstrings(): #void
-
-	"""
-	int i, n;
-	"""
-
-	n = len(sv_init.sv.configstrings_overflow) #StringList_Len(&sv.configstrings_overflow);
-
-	if not n:
-
-		return
-
-
-	clientserver.Com_Printf("Failed to load %i resources: configstrings overflowed\n", n)
-
-	for i in range(n):
-
-		clientserver.Com_Printf("  %s\n", sv_init.sv.configstrings_overflow[i])
-
-# Wrote this function because the optimizer was replacing
-# strlen(cs) / sizeof(sv.configstrings[i]) with 0
-# which is not the correct result for the statusbar string
-def _NumIndexSkips(start: int, end: int)->int: #int, int (returns static int)
-	# Q2PORT: a configstring that fills its MAX_QPATH buffer (no NUL in the last byte) runs into
-	# the next one, as the statusbar program does; Python strings hold the whole text in the
-	# first index, so the indexes it spills into are the ones its length covers
-
-	"""
-	int i;
-	"""
-
-	i = start
-	while i < (end - 1) and len(sv_init.sv.configstrings[start]) >= (shared.MAX_QPATH * (i - start + 1)):
-
-		i += 1
-
-
-	return i - start
-
-def SV_AddBaselines(start: int, allow_zero: bool): #int, qboolean
-
-	"""
-	sizebuf_t *msg;
-	int i, is_opt;
-	"""
-
-	if start < 0:
-
-		start = 0
-
-
-	msg = sv_init.server.client.netchan.message
-	is_opt = sv_main.SV_Optimizations() & server_h.OPTIMIZE_MSGUTIL
-
-	i = start
-	while i < sv_init.sv.numbaselines:
-
-		base = sv_init.sv.baselines[i]
-
-		if base.modelindex or base.sound or base.effects:
-
-			if not _EnoughSpaceInBuffer(msg,
-				entity_delta.delta_size(None, base, True, True), is_opt):
-
-				break
-
-
-			movemsg.MSG_WriteByte(msg, common_h.svc_ops_e.svc_spawnbaseline.value)
-			entity_delta.write_delta(None, base, msg, True, True)
-
-		i += 1
-
-
-	if not allow_zero and \
-		(i == start) and (i < sv_init.sv.numbaselines):
-
-		clientserver.Com_Printf("%s: skipping index %i: too big to send\n",
-			"SV_AddBaselines", i)
-		i += 1
-
-
-	# send next command
-	if i >= sv_init.sv.numbaselines:
-
-		movemsg.MSG_WriteByte(msg, common_h.svc_ops_e.svc_stufftext.value)
-		movemsg.MSG_WriteString(msg,
-				"precache %i\n" % sv_init.svs.spawncount)
-
-	else:
-
-		movemsg.MSG_WriteByte(msg, common_h.svc_ops_e.svc_stufftext.value)
-		movemsg.MSG_WriteString(msg,
-				"cmd baselines %i %i\n" % (sv_init.svs.spawncount, i))
-
-def SV_Configstrings_f(): #void
-
-	"""
-	const char *cs;
-	sizebuf_t *msg;
-	int i, start;
-	int opt;
-	"""
-
-	start = shared_c.atoi(cmdparser.Cmd_Argv(2)) if (cmdparser.Cmd_Argc() > 2) else 0
-
-	clientserver.Com_DPrintf("Configstrings(%i) from %s\n", start, sv_init.server.client.name)
-
-	if sv_init.server.client.state != server_h.client_state_t.cs_connected:
-
-		clientserver.Com_Printf("configstrings not valid -- already spawned\n")
-		return
-
-
-	# handle the case of a level changing while a client was connecting
-	if (cmdparser.Cmd_Argc() <= 1) or \
-		(shared_c.atoi(cmdparser.Cmd_Argv(1)) != sv_init.svs.spawncount):
-
-		clientserver.Com_Printf("SV_Configstrings_f from different level\n")
-		SV_New_f()
-		return
-
-
-	if start < 0:
-
-		start = 0
-
-
-	msg = sv_init.server.client.netchan.message
-	opt = sv_main.SV_Optimizations()
-	i = start
-
-	while i < shared.MAX_CONFIGSTRINGS:
-
-		cs = sv_init.sv.configstrings[i]
-
-		if cs != "":
-
-			if not _EnoughSpaceInBuffer(msg, movemsg.MSG_ConfigString_Size(cs), opt & server_h.OPTIMIZE_MSGUTIL):
-
-				break
-
-
-			movemsg.MSG_WriteByte(msg, common_h.svc_ops_e.svc_configstring.value)
-			movemsg.MSG_WriteConfigString(msg, i, cs)
-
-
-		# statusbar code is sent as one big string
-		if (opt & server_h.OPTIMIZE_HUDSEND) and \
-			(i >= shared.CS_STATUSBAR) and (i < shared.CS_STATUSBAR_END):
-
-			i += 1 + _NumIndexSkips(i, shared.CS_STATUSBAR_END)
-
-		else:
-
-			i += 1
-
-
-
-	if (i == start) and (i < shared.MAX_CONFIGSTRINGS):
-
-		clientserver.Com_Printf("%s: skipping index %i: too big to send\n",
-			"SV_Configstrings_f", i)
-
-		# statusbar code is sent as one big string
-		if (opt & server_h.OPTIMIZE_HUDSEND) and \
-			(i >= shared.CS_STATUSBAR) and (i < shared.CS_STATUSBAR_END):
-
-			i += 1 + _NumIndexSkips(i, shared.CS_STATUSBAR_END)
-
-		else:
-
-			i += 1
-
-
-
-	# send next command
-	if i >= shared.MAX_CONFIGSTRINGS:
-
-		PrintOverflowConfigstrings()
-
-		if opt & server_h.OPTIMIZE_CSBASE:
-
-			# try use remainder of packet for baselines
-			SV_AddBaselines(0, True)
-
-		else:
-
-			movemsg.MSG_WriteByte(msg, common_h.svc_ops_e.svc_stufftext.value)
-			movemsg.MSG_WriteString(msg, "cmd baselines %i 0\n" % sv_init.svs.spawncount)
-
-
-	else:
-
-		movemsg.MSG_WriteByte(msg, common_h.svc_ops_e.svc_stufftext.value)
-		movemsg.MSG_WriteString(msg,
-			"cmd configstrings %i %i\n" % (sv_init.svs.spawncount, i))
-
-def SV_Baselines_f(): #void
-
-	start = shared_c.atoi(cmdparser.Cmd_Argv(2)) if (cmdparser.Cmd_Argc() > 2) else 0
-
-	clientserver.Com_DPrintf("Baselines(%i) from %s\n", start, sv_init.server.client.name)
-
-	if sv_init.server.client.state != server_h.client_state_t.cs_connected:
-
-		clientserver.Com_Printf("baselines not valid -- already spawned\n")
-		return
-
-
-	# handle the case of a level changing while a client was connecting
-	if (cmdparser.Cmd_Argc() <= 1) or \
-		(shared_c.atoi(cmdparser.Cmd_Argv(1)) != sv_init.svs.spawncount):
-
-		clientserver.Com_Printf("SV_Baselines_f from different level\n")
-		SV_New_f()
-		return
-
-
-	SV_AddBaselines(start, False)
-
-def SV_Begin_f(): #void
-
-	clientserver.Com_DPrintf("Begin() from %s\n", sv_init.server.client.name)
-
-	# handle the case of a level changing while a client was connecting
-	if shared_c.atoi(cmdparser.Cmd_Argv(1)) != sv_init.svs.spawncount:
-
-		clientserver.Com_Printf("SV_Begin_f from different level\n")
-		SV_New_f()
-		return
-
-
-	sv_init.server.client.state = server_h.client_state_t.cs_spawned
-
-	# call the game begin function
-	sv_game.ge.ClientBegin(sv_init.server.player)
-
-	cmdparser.Cbuf_InsertFromDefer()
-
-def SV_NextDownload_f(): #void
-
-	"""
-	int r;
-	int percent;
-	int size;
-	"""
-
-	if not sv_init.server.client.download:
-
-		return
-
-
-	r = sv_init.server.client.downloadsize - sv_init.server.client.downloadcount
-
-	if r > 1024:
-
-		r = 1024
-
-
-	movemsg.MSG_WriteByte(sv_init.server.client.netchan.message, common_h.svc_ops_e.svc_download.value)
-	movemsg.MSG_WriteShort(sv_init.server.client.netchan.message, r)
-
-	sv_init.server.client.downloadcount += r
-	size = sv_init.server.client.downloadsize
-
-	if not size:
-
-		size = 1
-
-
-	percent = sv_init.server.client.downloadcount * 100 // size
-	movemsg.MSG_WriteByte(sv_init.server.client.netchan.message, percent)
-	szone.SZ_Write(sv_init.server.client.netchan.message,
-			sv_init.server.client.download[sv_init.server.client.downloadcount - r:sv_init.server.client.downloadcount])
-
-	if sv_init.server.client.downloadcount != sv_init.server.client.downloadsize:
-
-		return
-
-
-	filesystem.FS_FreeFile(sv_init.server.client.download)
-	sv_init.server.client.download = None
-
-def SV_BeginDownload_f(): #void
-
-	"""
-	char *name;
-	extern cvar_t *allow_download;
-	extern cvar_t *allow_download_players;
-	extern cvar_t *allow_download_models;
-	extern cvar_t *allow_download_sounds;
-	extern cvar_t *allow_download_maps;
-	extern qboolean file_from_protected_pak;
-	int offset = 0;
-	"""
-	offset = 0
-
-	name = cmdparser.Cmd_Argv(1)
-
-	if cmdparser.Cmd_Argc() > 2:
-
-		offset = shared_c.atoi(cmdparser.Cmd_Argv(2)) # downloaded offset
-
-		if offset < 0: # Q2PORT: fix, the C reads before the start of the file for a negative offset
-
-			offset = 0
-
-
-	# hacked by zoid to allow more conrol over download
-	# first off, no .. or global allow check
-	if ".." in name or "\\" in name or ":" in name or not sv_main.allow_download.value \
-		or (name[:1] == '.') \
-		or (name[:1] == '/') \
-		or ((name[:8] == "players/") and not sv_main.allow_download_players.value) \
-		or ((name[:7] == "models/") and not sv_main.allow_download_models.value) \
-		or ((name[:6] == "sound/") and not sv_main.allow_download_sounds.value) \
-		or ((name[:5] == "maps/") and not sv_main.allow_download_maps.value) \
-		or "/" not in name:
-		# leading dot is no good
-		# leading slash bad as well, must be in subdir
-		# next up, skin check
-		# now models
-		# now sounds
-		# now maps (note special case for maps, must not be in pak)
-		# MUST be in a subdirectory
-
-		movemsg.MSG_WriteByte(sv_init.server.client.netchan.message, common_h.svc_ops_e.svc_download.value)
-		movemsg.MSG_WriteShort(sv_init.server.client.netchan.message, -1)
-		movemsg.MSG_WriteByte(sv_init.server.client.netchan.message, 0)
-		return
-
-
-	if sv_init.server.client.download:
-
-		filesystem.FS_FreeFile(sv_init.server.client.download)
-
-
-	sv_init.server.client.downloadsize, sv_init.server.client.download = filesystem.FS_LoadFile(name)
-	sv_init.server.client.downloadcount = offset
-
-	if offset > sv_init.server.client.downloadsize:
-
-		sv_init.server.client.downloadcount = sv_init.server.client.downloadsize
-
-
-	if not sv_init.server.client.download or ((name[:5] == "maps/") and filesystem.file_from_protected_pak):
-
-		clientserver.Com_DPrintf("Couldn't download %s to %s\n", name, sv_init.server.client.name)
-
-		if sv_init.server.client.download:
-
-			filesystem.FS_FreeFile(sv_init.server.client.download)
-			sv_init.server.client.download = None
-
-
-		movemsg.MSG_WriteByte(sv_init.server.client.netchan.message, common_h.svc_ops_e.svc_download.value)
-		movemsg.MSG_WriteShort(sv_init.server.client.netchan.message, -1)
-		movemsg.MSG_WriteByte(sv_init.server.client.netchan.message, 0)
-		return
-
-
-	SV_NextDownload_f()
-	clientserver.Com_DPrintf("Downloading %s to %s\n", name, sv_init.server.client.name)
-
-"""
- * The client is going to disconnect, so remove the connection immediately
-"""
-def SV_Disconnect_f(): #void
-
-	sv_main.SV_DropClient(sv_init.server.client)
-
-"""
- * Dumps the serverinfo info string
-"""
-def SV_ShowServerinfo_f(): #void
-
-	argproc.Info_Print(cvar.Cvar_Serverinfo())
-
-def SV_Nextserver(): #void
-
-	"""
-	const char *v;
-	"""
-
-	if (sv_init.sv.state == server_h.server_state_t.ss_game) or \
-		((sv_init.sv.state == server_h.server_state_t.ss_pic) and
-		 not cvar.Cvar_VariableValue("coop")):
-
-		return # can't nextserver while playing a normal game
-
-
-	sv_init.svs.spawncount += 1 # make sure another doesn't sneak in
-	v = cvar.Cvar_VariableString("nextserver")
-
-	if not v:
-
-		cmdparser.Cbuf_AddText("killserver\n")
-
-	else:
-
-		cmdparser.Cbuf_AddText(v)
-		cmdparser.Cbuf_AddText("\n")
-
-
-	cvar.Cvar_Set("nextserver", "")
-
-"""
- * A cinematic has completed or been aborted by a client, so move
- * to the next server,
-"""
-def SV_Nextserver_f(): #void
-
-	if shared_c.atoi(cmdparser.Cmd_Argv(1)) != sv_init.svs.spawncount:
-
-		clientserver.Com_DPrintf("Nextserver() from wrong level, from %s\n", sv_init.server.client.name)
-		return # leftover from last server
-
-
-	clientserver.Com_DPrintf("Nextserver() from %s\n", sv_init.server.client.name)
-
-	SV_Nextserver()
-
-class ucmd_t(object):
-
-	def __init__(self, name, func):
-
-		self.name = name #char *
-		self.func = func #void (*func)(void);
-
-ucmds = [
-	# auto issued
-	ucmd_t("new", SV_New_f),
-	ucmd_t("configstrings", SV_Configstrings_f),
-	ucmd_t("baselines", SV_Baselines_f),
-	ucmd_t("begin", SV_Begin_f),
-	ucmd_t("nextserver", SV_Nextserver_f),
-	ucmd_t("disconnect", SV_Disconnect_f),
-
-	# issued by hand at client consoles
-	ucmd_t("info", SV_ShowServerinfo_f),
-
-	ucmd_t("download", SV_BeginDownload_f),
-	ucmd_t("nextdl", SV_NextDownload_f),
-
-	#{NULL, NULL}
-]
-
-def SV_ExecuteUserCommand(s: str): #char *
-
-	"""
-	ucmd_t *u;
-	"""
-
-	# Security Fix... This is being set to false so that client's can't
-	# macro expand variables on the server.  It seems unlikely that a
-	# client ever ought to need to be able to do this...
-	cmdparser.Cmd_TokenizeString(s, False)
-	sv_init.server.set_client(sv_init.server.client)
-
-	found = None
-	for u in ucmds:
-
-		if cmdparser.Cmd_Argv(0) == u.name:
-
-			u.func()
-			found = u
-			break
-
-
-
-	if found is None and (sv_init.sv.state == server_h.server_state_t.ss_game):
-
-		sv_game.ge.ClientCommand(sv_init.server.player)
-
-def SV_ClientThink(cl: server_h.client_t, cmd: shared.usercmd_t): #client_t *, usercmd_t *
-
-	cl.commandMsec -= cmd.msec
-
-	if (cl.commandMsec < 0) and sv_main.sv_enforcetime.value:
-
-		clientserver.Com_DPrintf("commandMsec underflow from %s\n", cl.name)
-		return
-
-
-	sv_game.ge.ClientThink(server_h.CL_EDICT(cl), cmd)
-
-"""
- * The current net_message is parsed for the given client
-"""
-def SV_ExecuteClientMessage(cl: server_h.client_t): #client_t *
-
-	"""
-	int c;
-	char *s;
-
-	usercmd_t nullcmd;
-	usercmd_t oldest, oldcmd, newcmd;
-	int net_drop;
-	int stringCmdCount;
-	int checksum, calculatedChecksum;
-	int checksumIndex;
-	qboolean move_issued;
-	int lastframe;
-	"""
-
-	sv_init.server.set_client(cl)
-
-	# only allow one move command
-	move_issued = False
-	stringCmdCount = 0
-
-	while 1:
-
-		if netchan.net_message.readcount > netchan.net_message.cursize:
-
-			clientserver.Com_Printf("SV_ReadClientMessage: badread\n")
-			sv_main.SV_DropClient(cl)
-			return
-
-
-		c = movemsg.MSG_ReadByte(netchan.net_message)
-
-		if c == -1:
-
-			break
-
-
-		# Q2PORT: the switch; a C 'break' out of a case falls to the end of the if chain
-		if c == common_h.clc_ops_e.clc_nop.value:
-			pass
-
-		elif c == common_h.clc_ops_e.clc_userinfo.value:
-			cl.userinfo = movemsg.MSG_ReadString(netchan.net_message)[:shared.MAX_INFO_STRING - 1]
-			sv_main.SV_UserinfoChanged(cl)
-
-		elif c == common_h.clc_ops_e.clc_move.value:
-
-			if move_issued:
-
-				return # someone is trying to cheat...
-
-
-			move_issued = True
-			checksumIndex = netchan.net_message.readcount
-			checksum = movemsg.MSG_ReadByte(netchan.net_message)
-			lastframe = movemsg.MSG_ReadSLong(netchan.net_message) # Q2PORT: signed, as the C's int MSG_ReadLong() (-1 is no frame yet)
-
-			if lastframe != cl.lastframe:
-
-				cl.lastframe = lastframe
-
-				if cl.lastframe > 0:
-
-					cl.frame_latency[cl.lastframe & (server_h.LATENCY_COUNTS - 1)] = \
-						sv_init.svs.realtime - cl.frames[cl.lastframe & common_h.UPDATE_MASK].senttime
-
-
-
-			nullcmd = shared.usercmd_t() #memset(&nullcmd, 0, sizeof(nullcmd));
-			oldest = shared.usercmd_t()
-			oldcmd = shared.usercmd_t()
-			newcmd = shared.usercmd_t()
-			usercmd_delta.read_delta(netchan.net_message, nullcmd, oldest)
-			usercmd_delta.read_delta(netchan.net_message, oldest, oldcmd)
-			usercmd_delta.read_delta(netchan.net_message, oldcmd, newcmd)
-
-			if cl.state != server_h.client_state_t.cs_spawned:
-
-				cl.lastframe = -1
-				continue	# break;
-
-
-			# Q2PORT: a move cut short by the end of the packet; the C checksums the
-			# garbage past it in its buffer, which fails (the python buffer ends there)
-			if netchan.net_message.readcount > netchan.net_message.cursize:
-
-				clientserver.Com_DPrintf("Failed command checksum for %s (truncated move)\n", cl.name)
-				return
-
-
-			# if the checksum fails, ignore the rest of the packet
-			calculatedChecksum = crc.COM_BlockSequenceCRCByte(
-				netchan.net_message.data, checksumIndex + 1,
-				netchan.net_message.readcount - checksumIndex - 1,
-				cl.netchan.incoming_sequence)[0]
-
-			if calculatedChecksum != checksum:
-
-				clientserver.Com_DPrintf("Failed command checksum for %s (%d != %d)/%d\n",
-						cl.name, calculatedChecksum, checksum,
-						cl.netchan.incoming_sequence)
-				return
-
-
-			if not sv_main.sv_paused.value:
-
-				net_drop = cl.netchan.dropped
-
-				if net_drop < 20:
-
-					while net_drop > 2:
-
-						SV_ClientThink(cl, cl.lastcmd)
-
-						net_drop -= 1
-
-
-					if net_drop > 1:
-
-						SV_ClientThink(cl, oldest)
-
-
-					if net_drop > 0:
-
-						SV_ClientThink(cl, oldcmd)
-
-
-
-				SV_ClientThink(cl, newcmd)
-
-
-			cl.lastcmd = newcmd
-
-		elif c == common_h.clc_ops_e.clc_stringcmd.value:
-			s = movemsg.MSG_ReadString(netchan.net_message)
-
-			# malicious users may try using too many string commands
-			stringCmdCount += 1
-			if stringCmdCount < MAX_STRINGCMDS:
-
-				SV_ExecuteUserCommand(s)
-
-
-			if cl.state == server_h.client_state_t.cs_zombie:
-
-				return # disconnect command
-
-		else:
-			clientserver.Com_Printf("SV_ReadClientMessage: unknown command char\n")
-			sv_main.SV_DropClient(cl)
-			return
+def _new(cl: server_h.client_t) -> None:
+    """The server's first message to a client, on connecting and on each level."""
+    clientserver.Com_DPrintf("New() from %s\n", cl.name)
+    if cl.state != CS.cs_connected:
+        clientserver.Com_Printf("New not valid -- already spawned\n")
+        return
+
+    sv = sv_init.sv
+    if sv.state == SS.ss_demo:
+        _begin_demo_server()  # demo servers just send the file
+        return
+
+    # the serverdata, for every kind of server: the protocol and the game directory
+    msg = cl.netchan.message
+    movemsg.MSG_WriteByte(msg, SVC.svc_serverdata.value)
+    movemsg.MSG_WriteLong(msg, common_h.PROTOCOL_VERSION)
+    movemsg.MSG_WriteLong(msg, sv_init.svs.spawncount)
+    movemsg.MSG_WriteByte(msg, 1 if sv.attractloop else 0)
+    movemsg.MSG_WriteString(msg, cvar.Cvar_VariableString("gamedir"))
+
+    playernum = -1 if sv.state in (SS.ss_cinematic, SS.ss_pic) else cl.slot
+    movemsg.MSG_WriteShort(msg, playernum)
+    movemsg.MSG_WriteString(msg, sv.configstrings[shared.CS_NAME])  # the full level name
+
+    if sv.state == SS.ss_game:
+        server_h.CLNUM_EDICT(playernum).s.number = playernum + 1
+        cl.lastcmd = shared.usercmd_t()
+        _stufftext(msg, f"cmd configstrings {sv_init.svs.spawncount} 0\n")
+
+
+def _enough_space(msg: common_h.sizebuf_t, size: int, optimized: int) -> bool:
+    """Whether size more bytes fit in a sign-on message."""
+    if not optimized and msg.cursize >= common_h.MAX_MSGLEN // 2:
+        return False
+    return msg.cursize + size <= common_h.MAX_MSGLEN - (CMD_MARGIN + SAFE_MARGIN)
+
+
+def _print_overflowed_configstrings() -> None:
+    overflow = sv_init.sv.configstrings_overflow
+    if not overflow:
+        return
+    clientserver.Com_Printf("Failed to load %i resources: configstrings overflowed\n",
+                            len(overflow))
+    for name in overflow:
+        clientserver.Com_Printf("  %s\n", name)
+
+
+def _index_skips(start: int, end: int) -> int:
+    """The configstrings after start that its text runs into.
+
+    A configstring that fills its MAX_QPATH buffer runs into the next ones,
+    as the statusbar program does. Here the whole text is in the first
+    index, and the ones its length covers are skipped.
+    """
+    length = len(sv_init.sv.configstrings[start])
+    i = start
+    while i < end - 1 and length >= shared.MAX_QPATH * (i - start + 1):
+        i += 1
+    return i - start
+
+
+def _next_configstring(i: int, opt: int) -> int:
+    # the statusbar program goes as one string
+    if opt & server_h.OPTIMIZE_HUDSEND and shared.CS_STATUSBAR <= i < shared.CS_STATUSBAR_END:
+        return i + 1 + _index_skips(i, shared.CS_STATUSBAR_END)
+    return i + 1
+
+
+def _add_baselines(cl: server_h.client_t, start: int, allow_zero: bool) -> None:
+    """Sends the entity baselines from start that fit, and the next command."""
+    sv = sv_init.sv
+    msg = cl.netchan.message
+    optimized = sv_main.optimizations() & server_h.OPTIMIZE_MSGUTIL
+    start = max(start, 0)
+
+    i = start
+    while i < sv.numbaselines:
+        base = sv.baselines[i]
+        if base.modelindex or base.sound or base.effects:
+            if not _enough_space(msg, entity_delta.delta_size(None, base, True, True), optimized):
+                break
+            movemsg.MSG_WriteByte(msg, SVC.svc_spawnbaseline.value)
+            entity_delta.write_delta(None, base, msg, True, True)
+        i += 1
+
+    if not allow_zero and i == start and i < sv.numbaselines:
+        clientserver.Com_Printf("%s: skipping index %i: too big to send\n", "SV_AddBaselines", i)
+        i += 1
+
+    if i >= sv.numbaselines:
+        _stufftext(msg, f"precache {sv_init.svs.spawncount}\n")
+    else:
+        _stufftext(msg, f"cmd baselines {sv_init.svs.spawncount} {i}\n")
+
+
+def _configstrings(cl: server_h.client_t) -> None:
+    """Sends the configstrings from the given index that fit, and the next command."""
+    start = _start_arg()
+    clientserver.Com_DPrintf("Configstrings(%i) from %s\n", start, cl.name)
+    if cl.state != CS.cs_connected:
+        clientserver.Com_Printf("configstrings not valid -- already spawned\n")
+        return
+    if not _same_level():
+        clientserver.Com_Printf("SV_Configstrings_f from different level\n")
+        _new(cl)
+        return
+
+    msg = cl.netchan.message
+    opt = sv_main.optimizations()
+    i = start
+    while i < shared.MAX_CONFIGSTRINGS:
+        cs = sv_init.sv.configstrings[i]
+        if cs != "":
+            if not _enough_space(msg, movemsg.MSG_ConfigString_Size(cs),
+                                 opt & server_h.OPTIMIZE_MSGUTIL):
+                break
+            movemsg.MSG_WriteByte(msg, SVC.svc_configstring.value)
+            movemsg.MSG_WriteConfigString(msg, i, cs)
+        i = _next_configstring(i, opt)
+
+    if i == start and i < shared.MAX_CONFIGSTRINGS:
+        clientserver.Com_Printf("%s: skipping index %i: too big to send\n",
+                                "SV_Configstrings_f", i)
+        i = _next_configstring(i, opt)
+
+    if i < shared.MAX_CONFIGSTRINGS:
+        _stufftext(msg, f"cmd configstrings {sv_init.svs.spawncount} {i}\n")
+        return
+
+    _print_overflowed_configstrings()
+    if opt & server_h.OPTIMIZE_CSBASE:
+        _add_baselines(cl, 0, True)  # the rest of the packet for baselines
+    else:
+        _stufftext(msg, f"cmd baselines {sv_init.svs.spawncount} 0\n")
+
+
+def _baselines(cl: server_h.client_t) -> None:
+    start = _start_arg()
+    clientserver.Com_DPrintf("Baselines(%i) from %s\n", start, cl.name)
+    if cl.state != CS.cs_connected:
+        clientserver.Com_Printf("baselines not valid -- already spawned\n")
+        return
+    if not _same_level():
+        clientserver.Com_Printf("SV_Baselines_f from different level\n")
+        _new(cl)
+        return
+    _add_baselines(cl, start, False)
+
+
+def _begin(cl: server_h.client_t) -> None:
+    """The client has everything: it enters the game."""
+    clientserver.Com_DPrintf("Begin() from %s\n", cl.name)
+    if _arg_int(1) != sv_init.svs.spawncount:
+        clientserver.Com_Printf("SV_Begin_f from different level\n")
+        _new(cl)
+        return
+
+    cl.state = CS.cs_spawned
+    sv_game.ge.ClientBegin(sv_init.server.player)
+    cmdparser.Cbuf_InsertFromDefer()
+
+
+def _write_download_refusal(msg: common_h.sizebuf_t) -> None:
+    movemsg.MSG_WriteByte(msg, SVC.svc_download.value)
+    movemsg.MSG_WriteShort(msg, -1)
+    movemsg.MSG_WriteByte(msg, 0)
+
+
+def _next_download(cl: server_h.client_t) -> None:
+    """Sends the next chunk of the client's download."""
+    if not cl.download:
+        return
+
+    n = min(cl.downloadsize - cl.downloadcount, DOWNLOAD_CHUNK)
+    msg = cl.netchan.message
+    movemsg.MSG_WriteByte(msg, SVC.svc_download.value)
+    movemsg.MSG_WriteShort(msg, n)
+
+    cl.downloadcount += n
+    movemsg.MSG_WriteByte(msg, cl.downloadcount * 100 // (cl.downloadsize or 1))  # percent
+    szone.SZ_Write(msg, cl.download[cl.downloadcount - n:cl.downloadcount])
+
+    if cl.downloadcount == cl.downloadsize:
+        filesystem.FS_FreeFile(cl.download)
+        cl.download = None
+
+
+def download_allowed(name: str) -> bool:
+    """Whether the allow_download cvars let a client download a file (zoid's rules)."""
+    if ".." in name or "\\" in name or ":" in name or not sv_init.server.cvars.allow_download.value:
+        return False
+    if name[:1] in (".", "/"):
+        return False  # no leading dot, and it must be relative
+    for prefix, allowed in (("players/", sv_init.server.cvars.allow_download_players),
+                            ("models/", sv_init.server.cvars.allow_download_models),
+                            ("sound/", sv_init.server.cvars.allow_download_sounds),
+                            ("maps/", sv_init.server.cvars.allow_download_maps)):
+        if name.startswith(prefix) and not allowed.value:
+            return False
+    return "/" in name  # it must be in a directory
+
+
+def _begin_download(cl: server_h.client_t) -> None:
+    """Starts a download (from an offset, to resume one)."""
+    name = cmdparser.Cmd_Argv(1)
+    offset = max(_arg_int(2), 0) if cmdparser.Cmd_Argc() > 2 else 0
+
+    if not download_allowed(name):
+        _write_download_refusal(cl.netchan.message)
+        return
+
+    if cl.download:
+        filesystem.FS_FreeFile(cl.download)
+
+    cl.downloadsize, cl.download = filesystem.FS_LoadFile(name)
+    cl.downloadcount = min(offset, cl.downloadsize)
+
+    # maps from the game's own paks can't be downloaded
+    if not cl.download or (name.startswith("maps/") and filesystem.file_from_protected_pak):
+        clientserver.Com_DPrintf("Couldn't download %s to %s\n", name, cl.name)
+        if cl.download:
+            filesystem.FS_FreeFile(cl.download)
+            cl.download = None
+        _write_download_refusal(cl.netchan.message)
+        return
+
+    _next_download(cl)
+    clientserver.Com_DPrintf("Downloading %s to %s\n", name, cl.name)
+
+
+def _disconnect(cl: server_h.client_t) -> None:
+    sv_main.drop_client(cl)
+
+
+def _show_serverinfo(cl: server_h.client_t) -> None:
+    argproc.Info_Print(cvar.Cvar_Serverinfo())
+
+
+def SV_Nextserver() -> None:  # noqa: N802
+    """Goes on to the nextserver cvar's command (after a cinematic, demo or end picture)."""
+    sv = sv_init.sv
+    if sv.state == SS.ss_game or (sv.state == SS.ss_pic and not cvar.Cvar_VariableValue("coop")):
+        return  # not while playing a normal game
+
+    sv_init.svs.spawncount += 1  # so another doesn't sneak in
+    v = cvar.Cvar_VariableString("nextserver")
+    cmdparser.Cbuf_AddText(f"{v}\n" if v else "killserver\n")
+    cvar.Cvar_Set("nextserver", "")
+
+
+def _nextserver(cl: server_h.client_t) -> None:
+    """A client finished or skipped a cinematic."""
+    if _arg_int(1) != sv_init.svs.spawncount:
+        clientserver.Com_DPrintf("Nextserver() from wrong level, from %s\n", cl.name)
+        return  # left over from the last server
+    clientserver.Com_DPrintf("Nextserver() from %s\n", cl.name)
+    SV_Nextserver()
+
+
+USER_COMMANDS: dict[str, Callable[[server_h.client_t], None]] = {
+    # sent by the client itself
+    "new": _new,
+    "configstrings": _configstrings,
+    "baselines": _baselines,
+    "begin": _begin,
+    "nextserver": _nextserver,
+    "disconnect": _disconnect,
+    # typed at the client's console
+    "info": _show_serverinfo,
+    "download": _begin_download,
+    "nextdl": _next_download,
+}
+
+
+def execute_user_command(cl: server_h.client_t, text: str) -> None:
+    """Runs a client's string command, or hands it to the game."""
+    # no $cvar expansion: clients mustn't read the server's cvars
+    cmdparser.Cmd_TokenizeString(text, False)
+    sv_init.server.set_client(cl)
+
+    handler = USER_COMMANDS.get(cmdparser.Cmd_Argv(0))
+    if handler is not None:
+        handler(cl)
+    elif sv_init.sv.state == SS.ss_game:
+        sv_game.ge.ClientCommand(sv_init.server.player)
+
+
+def _client_think(cl: server_h.client_t, cmd: shared.usercmd_t) -> None:
+    cl.commandMsec -= cmd.msec
+    if cl.commandMsec < 0 and sv_init.server.cvars.enforcetime.value:
+        clientserver.Com_DPrintf("commandMsec underflow from %s\n", cl.name)
+        return
+    sv_game.ge.ClientThink(server_h.CL_EDICT(cl), cmd)
+
+
+def _read_move(cl: server_h.client_t, msg: common_h.sizebuf_t) -> bool:
+    """Reads a move and runs it (and the ones lost with dropped packets).
+
+    False when the rest of the packet is to be ignored (a bad checksum).
+    """
+    checksum_index = msg.readcount
+    checksum = movemsg.MSG_ReadByte(msg)
+    lastframe = movemsg.MSG_ReadSLong(msg)  # signed: -1 is no frame yet
+
+    if lastframe != cl.lastframe:
+        cl.lastframe = lastframe
+        if cl.lastframe > 0:
+            cl.frame_latency[cl.lastframe & (server_h.LATENCY_COUNTS - 1)] = \
+                sv_init.svs.realtime - cl.frames[cl.lastframe & common_h.UPDATE_MASK].senttime
+
+    oldest = shared.usercmd_t()
+    oldcmd = shared.usercmd_t()
+    newcmd = shared.usercmd_t()
+    usercmd_delta.read_delta(msg, shared.usercmd_t(), oldest)
+    usercmd_delta.read_delta(msg, oldest, oldcmd)
+    usercmd_delta.read_delta(msg, oldcmd, newcmd)
+
+    if cl.state != CS.cs_spawned:
+        cl.lastframe = -1
+        return True
+
+    if msg.readcount > msg.cursize:
+        # cut short by the end of the packet (the C checksums what lies
+        # past it in its buffer, which fails)
+        clientserver.Com_DPrintf("Failed command checksum for %s (truncated move)\n", cl.name)
+        return False
+
+    calculated = crc.COM_BlockSequenceCRCByte(msg.data, checksum_index + 1,
+                                              msg.readcount - checksum_index - 1,
+                                              cl.netchan.incoming_sequence)[0]
+    if calculated != checksum:
+        clientserver.Com_DPrintf("Failed command checksum for %s (%d != %d)/%d\n",
+                                 cl.name, calculated, checksum, cl.netchan.incoming_sequence)
+        return False
+
+    if not sv_init.server.cvars.paused.value:
+        dropped = cl.netchan.dropped
+        if dropped < 20:
+            # replay what the dropped packets carried
+            for _ in range(dropped - 2):
+                _client_think(cl, cl.lastcmd)
+            if dropped > 1:
+                _client_think(cl, oldest)
+            if dropped > 0:
+                _client_think(cl, oldcmd)
+        _client_think(cl, newcmd)
+
+    cl.lastcmd = newcmd
+    return True
+
+
+def execute_client_message(cl: server_h.client_t) -> None:
+    """Reads the client's packet in net_message."""
+    sv_init.server.set_client(cl)
+    msg = netchan.net_message
+
+    move_issued = False  # one move a packet
+    string_commands = 0
+
+    while True:
+        if msg.readcount > msg.cursize:
+            clientserver.Com_Printf("SV_ReadClientMessage: badread\n")
+            sv_main.drop_client(cl)
+            return
+
+        c = movemsg.MSG_ReadByte(msg)
+        if c == -1:
+            break
+
+        if c == CLC.clc_nop.value:
+            pass
+
+        elif c == CLC.clc_userinfo.value:
+            cl.userinfo = movemsg.MSG_ReadString(msg)[:shared.MAX_INFO_STRING - 1]
+            sv_main.userinfo_changed(cl)
+
+        elif c == CLC.clc_move.value:
+            if move_issued:
+                return  # someone is trying to cheat
+            move_issued = True
+            if not _read_move(cl, msg):
+                return
+
+        elif c == CLC.clc_stringcmd.value:
+            text = movemsg.MSG_ReadString(msg)
+            # against floods of string commands
+            string_commands += 1
+            if string_commands < MAX_STRINGCMDS:
+                execute_user_command(cl, text)
+            if cl.state == CS.cs_zombie:
+                return  # it disconnected
+
+        else:
+            clientserver.Com_Printf("SV_ReadClientMessage: unknown command char\n")
+            sv_main.drop_client(cl)
+            return

@@ -75,7 +75,7 @@ def PF_Unicast (ent, reliable): #edict_t *, qboolean
 		return
 
 	p = server_h.NUM_FOR_EDICT (ent)
-	if p < 1 or p > int(sv_main.maxclients.value):
+	if p < 1 or p > sv_init.server.maxclients:
 		return
 
 	client = sv_init.svs.clients[p-1]
@@ -122,7 +122,7 @@ def PF_cprintf (ent, level, fmt, *args): #edict_t *, int, char *, ...
 	n = 0
 	if ent:
 		n = server_h.NUM_FOR_EDICT (ent)
-		if n < 1 or n > int(sv_main.maxclients.value):
+		if n < 1 or n > sv_init.server.maxclients:
 			clientserver.Com_Error (common_h.ERR_DROP, "cprintf to a non-client")
 
 	if args:
@@ -149,7 +149,7 @@ def PF_centerprintf (ent, fmt, *args): #edict_t *, char *, ...
 	#int n
 
 	n = server_h.NUM_FOR_EDICT (ent)
-	if n < 1 or n > int(sv_main.maxclients.value):
+	if n < 1 or n > sv_init.server.maxclients:
 		return	# Com_Error (qcommon.ERR_DROP, "centerprintf to a non-client")
 
 	if args:

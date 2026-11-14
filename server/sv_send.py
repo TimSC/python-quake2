@@ -44,7 +44,7 @@ _MULTICASTS = {
 
 
 def _clients() -> list[server_h.client_t]:
-    return sv_init.svs.clients[:int(sv_main.maxclients.value)]
+    return sv_init.svs.clients[:sv_init.server.maxclients]
 
 
 def _write_print(msg: common_h.sizebuf_t, level: int, text: str) -> None:
@@ -284,7 +284,7 @@ def _rate_drop(c: server_h.client_t) -> bool:
 
 def _next_demo_chunk() -> bytes | None:
     """The next message of the demo the server plays; None at its end."""
-    if sv_main.sv_paused.value:
+    if sv_init.server.cvars.paused.value:
         return b""
 
     data = filesystem.FS_FRead(4, 1, sv_init.sv.demofile)
@@ -305,7 +305,7 @@ def _send_disconnect(c: server_h.client_t) -> None:
     szone.SZ_Clear(c.netchan.message)
     szone.SZ_Clear(c.datagram)
     broadcast_printf(shared.PRINT_HIGH, "%s overflowed\n", c.name)
-    sv_main.SV_DropClient(c)
+    sv_main.drop_client(c)
     netchan.Netchan_Transmit(c.netchan, b"")
 
 
