@@ -135,7 +135,7 @@ map_visibility = None
 map_vis = files_h.dvis_t()
 
 numentitychars: int = None
-map_entitystring = None
+map_entitystring = "" # char [MAX_MAP_ENTSTRING]; empty, as the C's zeroed array
 
 numareas: int = 1
 map_areas = []
@@ -1368,7 +1368,7 @@ def CM_LoadMap (name, clientload): #char *, qboolean (returns cmodel_t *, unsign
 
 	map_noareas = cvar.Cvar_Get ("map_noareas", "0", 0)
 
-	if map_name == name and (clientload or int(cvar.Cvar_VariableValue ("flushmap"))):
+	if map_name == name and (clientload or not cvar.Cvar_VariableValue ("flushmap")): # Q2PORT: fix, the C's !Cvar_VariableValue (the port reloaded unless flushmap was set)
 	
 		checksum = last_checksum
 		if not clientload:
@@ -1386,7 +1386,7 @@ def CM_LoadMap (name, clientload): #char *, qboolean (returns cmodel_t *, unsign
 	numcmodels = 0
 	numvisibility = 0
 	numentitychars = 0
-	map_entitystring = None
+	map_entitystring = "" # map_entitystring[0] = 0; Q2PORT: fix, None made SpawnEntities() return early, which left the level of the last game (a crash in a second new game)
 	map_name = None
 
 	if name is None or len(name) == 0:
