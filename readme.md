@@ -34,6 +34,22 @@ The game keeps running after every step. The plan and the order of the
 steps are in [docs/pythonic_plan.md](docs/pythonic_plan.md). Until a part
 has been reworked, it still reads like the C it came from.
 
+## Other branches
+
+The earlier stages of the port live on as their own branches. Both keep the
+structure of the C they were ported from, so they can be read side by side
+with it.
+
+| Branch | Ported from | Use it to |
+|---|---|---|
+| [`original`](https://github.com/TimSC/python-quake2/tree/original) | id Software's Quake II 3.21 C source | see the first port, which follows id's C line by line (file names, function names, globals and layout) |
+| [`yquake2`](https://github.com/TimSC/python-quake2/tree/yquake2) | Yamagi Quake II's C source | compare the Python with Yamagi's C: each C file has a Python file at the same path, with the same functions in the same order |
+
+On `yquake2`, a change made only in the Python (a fix, or something C does
+differently) is marked with a `Q2PORT` comment. Bugs found on this branch
+that `yquake2` shares are listed in
+[docs/yquake2_fixes.md](docs/yquake2_fixes.md).
+
 ## Features
 
 - Single player and deathmatch on the original maps, with all monsters,
@@ -60,8 +76,10 @@ Not included:
 - Python 3.12 or later.
 - The packages in `requirements.txt`: pyglet, PyOpenGL, numpy, Pillow and
   pycurl.
-- The OpenAL library (`libopenal.so.1`) for sound. FFmpeg's libraries, which
-  pyglet loads, for OGG music.
+- For sound, the system's OpenAL library (`libopenal.so.1`, e.g. the
+  `libopenal1` package). The game loads it itself; pip's pyglet doesn't
+  include it.
+- For OGG music, FFmpeg's libraries, which pyglet loads.
 - The Quake II game data.
 
 ## Setup
