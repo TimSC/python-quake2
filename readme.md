@@ -16,6 +16,36 @@ rely on the base games textures.
 About 5% of the code was ported by hand; the rest was ported with the
 help of ChatGPT, Claude and qwen.
 
+## This branch: the port of id's original source
+
+The `original` branch is the first stage of the port. It follows id
+Software's Quake II 3.21 C source, as released in 2001, with none of the
+later fixes made by the source ports:
+
+- **Layout:** id's tree, file for file: `qcommon/cmodel.c` becomes
+  `qcommon/cmodel.py`, `ref_gl/gl_rmain.c` becomes `ref_gl/gl_rmain.py`.
+  A header whose name would clash with its `.c` file gets an `_h` suffix
+  (`gl_model.h` becomes `ref_gl/gl_model_h.py`).
+- **Code:** C names, function order and global variables, with the C's
+  types in comments, so the Python can be read side by side with the C.
+- **Behaviour:** id's, bugs included, except where a `Q2PORT` comment marks
+  a change made only in the port.
+
+It is kept to show the port as a direct translation of id's code. For
+Yamagi's fixes and features, or for the engine as ordinary Python, see the
+branches below.
+
+## Other branches
+
+This ports based on this branch:
+
+| Branch | What it is | Use it to |
+|---|---|---|
+| [`yquake2`](https://github.com/TimSC/python-quake2/tree/yquake2) | the port moved to [Yamagi Quake II](https://github.com/yquake2/yquake2)'s C source, with its bug fixes and features (the OpenGL 3 renderer, OGG music, HTTP downloads, IPv6), still structured like the C | compare the Python with Yamagi's C: each C file has a Python file at the same path, with the same functions in the same order |
+| [`pythonic`](https://github.com/TimSC/python-quake2/tree/pythonic) | a rewrite of the `yquake2` branch into ordinary Python: PEP 8, type hints, objects instead of globals, and `q2data`, a separate library for reading Quake II data | read or build on the engine as Python, without the C structure |
+
+The later branches use pyglet and OpenAL in place of pygame.
+
 ## Status
 
 - The single player game runs: maps load, monsters fight, items, doors, lifts
