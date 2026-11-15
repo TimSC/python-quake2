@@ -12,8 +12,6 @@ OpenAL library and owns the device and context.
 
 from __future__ import annotations
 
-import ctypes
-
 import numpy as np
 
 from client import cl_entities, cl_main
@@ -199,15 +197,15 @@ class OpenALBackend:
     def __init__(self) -> None:
         self.active_buffers = 0  # OpenAL buffers in use: sounds and queued raw samples
         self.sources: list[int] = []  # one per channel
-        self.stream_source = qal.ALuint()
+        self.stream_source = 0
         self.stream_playing = False
         # buffers raw_samples() queued since the last stream update
         self.stream_queued = 0
         self.frame_count = 0
-        self.underwater_filter = qal.ALuint()
-        self.occlusion_filter = qal.ALuint()
-        self.reverb_effect = qal.ALuint()
-        self.reverb_slot = qal.ALuint()
+        self.underwater_filter = 0
+        self.occlusion_filter = 0
+        self.reverb_effect = 0
+        self.reverb_slot = 0
         self.last_reverb = -1
         self.underwater_enabled = False
 
@@ -226,7 +224,7 @@ class OpenALBackend:
 
         backend = cls()
         qal.qalGetError()
-        qal.qalGenSources(1, ctypes.byref(backend.stream_source))
+        backend.stream_source = qal.qalGenSources(1)[0]
         if qal.qalGetError() != qal_h.AL_NO_ERROR:
             clientserver.Com_Printf("ERROR: Couldn't get a single Source.\n")
             qal.QAL_Shutdown()
@@ -234,11 +232,9 @@ class OpenALBackend:
 
         # one source less than MAX_CHANNELS: the stream has one
         while len(backend.sources) < sound_local.MAX_CHANNELS - 1:
-            source = qal.ALuint()
-            qal.qalGenSources(1, ctypes.byref(source))
+            backend.sources.append(qal.qalGenSources(1)[0])
             if qal.qalGetError() != qal_h.AL_NO_ERROR:
                 break
-            backend.sources.append(source.value)
 
         if len(backend.sources) < MIN_CHANNELS - 1:
             clientserver.Com_Printf(f"ERROR: Required at least {MIN_CHANNELS} sources, "
@@ -274,78 +270,77 @@ class OpenALBackend:
         qal.qalSourcei(src, qal_h.AL_LOOPING, qal_h.AL_FALSE)
         qal.qalSourcei(src, qal_h.AL_SOURCE_RELATIVE, qal_h.AL_TRUE)
 
-    def _make_lowpass(self, flt: ctypes.c_uint, what: str) -> bool:
-        """Makes a low-pass filter in flt (0 if it can't)."""
-        flt.value = 0
+    def _make_lowpass(self, what: str) -> tuple[int, bool]:
+        """Makes a low-pass filter (name, ok); name is 0 if it can't."""
         if not _efx_available():
-            return False
-        qal.qalGenFilters(1, ctypes.byref(flt))
+            return 0, False
+        flt = qal.qalGenFilters(1)[0]
         if qal.qalGetError() != qal_h.AL_NO_ERROR:
             clientserver.Com_Printf(f"Couldn't generate {what}!\n")
-            return False
+            return 0, False
         qal.qalFilteri(flt, qal_h.AL_FILTER_TYPE, qal_h.AL_FILTER_LOWPASS)
         if qal.qalGetError() != qal_h.AL_NO_ERROR:
+            # Yamagi keeps the filter name when the low pass type fails
             clientserver.Com_Printf("Low pass filter is not supported!\n")
-            return False
+            return flt, False
         qal.qalFilterf(flt, qal_h.AL_LOWPASS_GAIN, qal_h.AL_LOWPASS_DEFAULT_GAIN)
-        return True
+        return flt, True
 
     def _init_underwater_filter(self) -> None:
-        # Yamagi keeps the filter name when the low pass type fails
-        if self._make_lowpass(self.underwater_filter, "an OpenAL filter"):
+        self.underwater_filter, ok = self._make_lowpass("an OpenAL filter")
+        if ok:
             sound_c.s_underwater.modified = True
             sound_c.s_underwater_gain_hf.modified = True
 
     def _init_occlusion_filter(self) -> None:
-        if self._make_lowpass(self.occlusion_filter, "occlusion filter"):
+        self.occlusion_filter, ok = self._make_lowpass("occlusion filter")
+        if ok:
             qal.qalFilterf(self.occlusion_filter, qal_h.AL_LOWPASS_GAINHF,
                            qal_h.AL_LOWPASS_DEFAULT_GAINHF)
         else:
-            self.occlusion_filter.value = 0
+            self.occlusion_filter = 0
 
     def _init_reverb_effect(self) -> None:
         if not _efx_available():
             return
-        qal.qalGenEffects(1, ctypes.byref(self.reverb_effect))
+        self.reverb_effect = qal.qalGenEffects(1)[0]
         if qal.qalGetError() != qal_h.AL_NO_ERROR:
             clientserver.Com_Printf("Couldn't generate an OpenAL effect!\n")
             return
-        qal.qalGenAuxiliaryEffectSlots(1, ctypes.byref(self.reverb_slot))
+        self.reverb_slot = qal.qalGenAuxiliaryEffectSlots(1)[0]
         if qal.qalGetError() != qal_h.AL_NO_ERROR:
             clientserver.Com_Printf("Couldn't generate an OpenAL auxiliary effect slot!\n")
             return
-        qal.qalEffecti(self.reverb_effect.value, qal_h.AL_EFFECT_TYPE, qal_h.AL_EFFECT_REVERB)
+        qal.qalEffecti(self.reverb_effect, qal_h.AL_EFFECT_TYPE, qal_h.AL_EFFECT_REVERB)
         self.set_reverb(int(sound_c.s_reverb_preset.value))
 
     def shutdown(self) -> None:
         clientserver.Com_Printf("Shutting down OpenAL.\n")
         self.stop_all_channels()
 
-        qal.qalDeleteSources(1, ctypes.byref(self.stream_source))
+        qal.qalDeleteSources(1, [self.stream_source])
         if qal.qalDeleteFilters:  # missing without ALC_EXT_EFX
-            qal.qalDeleteFilters(1, ctypes.byref(self.underwater_filter))
-            qal.qalDeleteFilters(1, ctypes.byref(self.occlusion_filter))
-            qal.qalDeleteAuxiliaryEffectSlots(1, ctypes.byref(self.reverb_slot))
-            qal.qalDeleteEffects(1, ctypes.byref(self.reverb_effect))
+            qal.qalDeleteFilters(1, [self.underwater_filter])
+            qal.qalDeleteFilters(1, [self.occlusion_filter])
+            qal.qalDeleteAuxiliaryEffectSlots(1, [self.reverb_slot])
+            qal.qalDeleteEffects(1, [self.reverb_effect])
 
         if self.sources:
-            names = (qal.ALuint * len(self.sources))(*self.sources)
-            qal.qalDeleteSources(len(self.sources), names)
+            qal.qalDeleteSources(len(self.sources), self.sources)
             self.sources = []
 
         qal.QAL_Shutdown()
 
     # -- sounds -----------------------------------------------------------
 
-    def _gen_buffer(self, data: bytes, size: int, fmt: int, rate: int) -> qal.ALuint:
-        name = qal.ALuint()
-        qal.qalGenBuffers(1, ctypes.byref(name))
+    def _gen_buffer(self, data: bytes, size: int, fmt: int, rate: int) -> int:
+        name = qal.qalGenBuffers(1)[0]
         qal.qalBufferData(name, fmt, data, size, rate)
         self.active_buffers += 1
         return name
 
-    def _delete_buffer(self, name: qal.ALuint) -> None:
-        qal.qalDeleteBuffers(1, ctypes.byref(name))
+    def _delete_buffer(self, name: int) -> None:
+        qal.qalDeleteBuffers(1, [name])
         self.active_buffers -= 1
 
     def upload_sfx(self, s: sound_local.sfx_t, info: sound_local.wavinfo_t, data, volume: int,
@@ -371,7 +366,7 @@ class OpenALBackend:
         sc.loopstart = info.loopstart
         sc.width = info.width
         sc.size = size
-        sc.bufnum = name.value
+        sc.bufnum = name
         sc.stereo = info.channels - 1
         sc.volume = int(volume)
         sc.begin = int(begin_length * 1000 / info.rate)
@@ -383,7 +378,7 @@ class OpenALBackend:
     def delete_sfx(self, s: sound_local.sfx_t) -> None:
         """Deletes a sound's buffer (the sound system frees the cache)."""
         if s.cache:
-            self._delete_buffer(qal.ALuint(s.cache.bufnum))
+            self._delete_buffer(s.cache.bufnum)
 
     # -- reverb -----------------------------------------------------------
 
@@ -396,7 +391,7 @@ class OpenALBackend:
         reverb = REVERB_PRESETS[preset][1]
         self.last_reverb = preset
 
-        effect = self.reverb_effect.value
+        effect = self.reverb_effect
         for param, value in (
             (qal_h.AL_REVERB_DENSITY, reverb.flDensity),
             (qal_h.AL_REVERB_DIFFUSION, reverb.flDiffusion),
@@ -413,11 +408,11 @@ class OpenALBackend:
         ):
             qal.qalEffectf(effect, param, value)
         qal.qalEffecti(effect, qal_h.AL_REVERB_DECAY_HFLIMIT, reverb.iDecayHFLimit)
-        qal.qalAuxiliaryEffectSloti(self.reverb_slot.value, qal_h.AL_EFFECTSLOT_EFFECT, effect)
+        qal.qalAuxiliaryEffectSloti(self.reverb_slot, qal_h.AL_EFFECTSLOT_EFFECT, effect)
 
     def apply_reverb(self) -> None:
         """Picks a reverb preset by the size of the space around the listener."""
-        if self.reverb_effect.value == 0:
+        if self.reverb_effect == 0:
             return
 
         average = 0.0
@@ -461,20 +456,20 @@ class OpenALBackend:
 
     def underwater(self) -> None:
         """The listener went under water: muffle every source."""
-        if not self.underwater_enabled or self.underwater_filter.value == 0:
+        if not self.underwater_enabled or self.underwater_filter == 0:
             return
-        self._set_direct_filter(self.underwater_filter.value)
+        self._set_direct_filter(self.underwater_filter)
         self.set_reverb(UNDERWATER_REVERB)
 
     def overwater(self) -> None:
         """The listener came out of the water."""
-        if not self.underwater_enabled or self.underwater_filter.value == 0:
+        if not self.underwater_enabled or self.underwater_filter == 0:
             return
         self._set_direct_filter(qal_h.AL_FILTER_NULL)
         self.set_reverb(int(sound_c.s_reverb_preset.value))
 
     def _update_underwater_cvars(self) -> None:
-        if self.underwater_filter.value == 0:
+        if self.underwater_filter == 0:
             return
 
         update = False
@@ -493,7 +488,7 @@ class OpenALBackend:
         qal.qalFilterf(self.underwater_filter, qal_h.AL_LOWPASS_GAINHF, gain_hf)
 
         under = self.underwater_enabled and sound_c.snd_is_underwater
-        self._set_direct_filter(self.underwater_filter.value if under else 0)
+        self._set_direct_filter(self.underwater_filter if under else 0)
 
     # -- channels ---------------------------------------------------------
 
@@ -519,7 +514,7 @@ class OpenALBackend:
 
         occluded = False
         strength = sound_c.s_occlusion_strength.value
-        if not sound_c.snd_is_underwater and strength and self.occlusion_filter.value != 0:
+        if not sound_c.snd_is_underwater and strength and self.occlusion_filter != 0:
             trace = collision.CM_BoxTrace(origin, sound_c.listener_origin, _ZERO, _ZERO,
                                           0, shared.MASK_PLAYERSOLID)
             if trace.fraction < 1.0:
@@ -536,7 +531,7 @@ class OpenALBackend:
                 gain_hf = min(max(gain_hf, qal_h.AL_LOWPASS_MIN_GAINHF),
                               qal_h.AL_LOWPASS_MAX_GAINHF)
                 qal.qalFilterf(self.occlusion_filter, qal_h.AL_LOWPASS_GAINHF, gain_hf)
-                qal.qalSourcei(ch.srcnum, qal_h.AL_DIRECT_FILTER, self.occlusion_filter.value)
+                qal.qalSourcei(ch.srcnum, qal_h.AL_DIRECT_FILTER, self.occlusion_filter)
                 occluded = True
 
         reverb = False
@@ -545,7 +540,7 @@ class OpenALBackend:
                 qal.qalSourcei(ch.srcnum, qal_h.AL_DIRECT_FILTER, 0)
             if sound_c.s_reverb_preset.value != -1:
                 qal.qalSource3i(ch.srcnum, qal_h.AL_AUXILIARY_SEND_FILTER,
-                                self.reverb_slot.value, 0, qal_h.AL_FILTER_NULL)
+                                self.reverb_slot, 0, qal_h.AL_FILTER_NULL)
                 reverb = True
         if not reverb:
             qal.qalSource3i(ch.srcnum, qal_h.AL_AUXILIARY_SEND_FILTER, 0, 0, qal_h.AL_FILTER_NULL)
@@ -654,20 +649,16 @@ class OpenALBackend:
     # -- raw samples (music, cinematics) ------------------------------------
 
     def _unqueue(self, count: int) -> None:
-        buffer = qal.ALuint()
-        for _ in range(count):
-            qal.qalSourceUnqueueBuffers(self.stream_source, 1, ctypes.byref(buffer))
+        for buffer in qal.qalSourceUnqueueBuffers(self.stream_source, count):
             self._delete_buffer(buffer)
 
     def _source_int(self, source, param: int) -> int:
-        value = qal.ALint()
-        qal.qalGetSourcei(source, param, ctypes.byref(value))
-        return value.value
+        return qal.qalGetSourcei(source, param)
 
     def _stream_die(self) -> None:
         """Stops the stream and drops its buffers."""
-        if not qal.qalSourceStop:
-            return  # OpenAL might not be initialised yet
+        if not qal.device:  # OpenAL might not be initialised yet
+            return
         self.stream_playing = False
         qal.qalSourceStop(self.stream_source)
         self._unqueue(self._source_int(self.stream_source, qal_h.AL_BUFFERS_QUEUED))
@@ -699,7 +690,7 @@ class OpenALBackend:
         size = samples * width * channels
         buffer = self._gen_buffer(bytes(data), size, al_format(width, channels), rate)
         qal.qalSourcef(self.stream_source, qal_h.AL_GAIN, min(volume, 1.0))
-        qal.qalSourceQueueBuffers(self.stream_source, 1, ctypes.byref(buffer))
+        qal.qalSourceQueueBuffers(self.stream_source, 1, [buffer])
         self.stream_queued += 1
         sound_c.s_rawend += samples  # as S_RawSamples() keeps it
 
@@ -718,8 +709,8 @@ class OpenALBackend:
             return
 
         # the listener
-        orientation = (qal.ALfloat * 6)(*al_vector(sound_c.listener_forward),
-                                        *al_vector(sound_c.listener_up))
+        orientation = [*al_vector(sound_c.listener_forward),
+                       *al_vector(sound_c.listener_up)]
         qal.qalListener3f(qal_h.AL_POSITION, *al_vector(sound_c.listener_origin))
         qal.qalListenerfv(qal_h.AL_ORIENTATION, orientation)
 
@@ -735,7 +726,6 @@ class OpenALBackend:
             qal.qalListener3f(qal_h.AL_VELOCITY, *al_vector(velocity))
 
         # the channels: drop the finished ones and move the others
-        state = qal.ALint()
         for ch in list(self._active_channels()):
             if ch.autosound:
                 if ch.autoframe != self.frame_count:
@@ -743,8 +733,8 @@ class OpenALBackend:
                     continue
             else:
                 qal.qalGetError()
-                qal.qalGetSourcei(ch.srcnum, qal_h.AL_SOURCE_STATE, ctypes.byref(state))
-                if qal.qalGetError() != qal_h.AL_NO_ERROR or state.value == qal_h.AL_STOPPED:
+                state = qal.qalGetSourcei(ch.srcnum, qal_h.AL_SOURCE_STATE)
+                if qal.qalGetError() != qal_h.AL_NO_ERROR or state == qal_h.AL_STOPPED:
                     self.stop_channel(ch)
                     continue
 
