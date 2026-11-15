@@ -39,7 +39,6 @@ for name in ["02.ogg", "03.ogg"]:
 subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", os.path.join(MUSICDIR, "02.ogg"), "-t", "1", "-ac", "1", "-c:a", "libvorbis", "-q:a", "5", OGGSAMPLE], check=True)
 print("ogg: music staged in", MUSICDIR)
 
-import ctypes
 from backends.unix import system
 from client import cl_main
 from client.vid import glimp_sdl2
@@ -81,9 +80,8 @@ def EF():
 			st["t0"] = time.time()
 		elif step == 1 and t > 1:
 			assert ogg.ogg_numsamples > 0, "no samples read, pos {}".format(ogg.ogg_numsamples)
-			state = qal.ALint()
-			qal.qalGetSourcei(openal.streamSource, qal_h.AL_SOURCE_STATE, ctypes.byref(state))
-			assert state.value == AL_PLAYING, "stream source not playing: {:#x}".format(state.value)
+			state = qal.qalGetSourcei(openal.streamSource, qal_h.AL_SOURCE_STATE)
+			assert state == AL_PLAYING, "stream source not playing: {:#x}".format(state)
 			print("ogg: playing track 2 at", ogg.ogg_numsamples, "samples,", openal.active_buffers, "buffers queued")
 			ogg.OGG_TogglePlayback()
 			assert ogg.OGG_Status() == vorbis.PAUSE
@@ -91,9 +89,8 @@ def EF():
 			assert ogg.OGG_Status() == vorbis.PLAY
 			cvar.Cvar_SetValue("ogg_volume", 0.5)
 			ogg.OGG_Read() # the volume goes with the next samples (S_RawSamples)
-			gain = qal.ALfloat()
-			qal.qalGetSourcef(openal.streamSource, qal_h.AL_GAIN, ctypes.byref(gain))
-			assert abs(gain.value - 0.5) < 0.01, "volume {}".format(gain.value)
+			gain = qal.qalGetSourcef(openal.streamSource, qal_h.AL_GAIN)
+			assert abs(gain - 0.5) < 0.01, "volume {}".format(gain)
 			print("ogg: pause/resume ok, volume ok")
 			ogg.OGG_SaveState()
 			assert ogg.ogg_saved_state.saved

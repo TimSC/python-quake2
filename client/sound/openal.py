@@ -33,8 +33,6 @@
 """
 from __future__ import annotations
 
-import ctypes
-
 import numpy as np
 
 from common import clientserver
@@ -87,13 +85,13 @@ active_buffers = 0 #int
 # Locals
 streamPlaying = False #static qboolean
 streamQueued = 0 # Q2PORT: buffers AL_RawSamples() queued since the last AL_StreamUpdate()
-s_srcnums = (qal.ALuint * (sound_local.MAX_CHANNELS - 1))() #static ALuint [MAX_CHANNELS - 1]
-streamSource = qal.ALuint() #static ALuint
+s_srcnums = [0] * (sound_local.MAX_CHANNELS - 1) #static ALuint [MAX_CHANNELS - 1]
+streamSource = 0 #static ALuint
 s_framecount = 0 #static int
-underwaterFilter = qal.ALuint() #static ALuint
-occlusionFilter = qal.ALuint() #static ALuint
-ReverbEffect = (qal.ALuint * QAL_EFX_MAX)() #static ALuint [QAL_EFX_MAX]
-ReverbEffectSlot = (qal.ALuint * QAL_EFX_MAX)() #static ALuint [QAL_EFX_MAX]
+underwaterFilter = 0 #static ALuint
+occlusionFilter = 0 #static ALuint
+ReverbEffect = [0] * QAL_EFX_MAX #static ALuint [QAL_EFX_MAX]
+ReverbEffectSlot = [0] * QAL_EFX_MAX #static ALuint [QAL_EFX_MAX]
 lastreverteffect = -1 #static int, just some invalid index value
 snd_is_underwater_enabled = False #static qboolean
 
@@ -106,10 +104,8 @@ def AL_StreamDie(): #void (static)
 
 	global streamPlaying, active_buffers, streamQueued
 
-	numBuffers = qal.ALint() #int
-
 	# openal might not be initialised yet
-	if not qal.qalSourceStop:
+	if not qal.device: # Q2PORT: the C checks qalSourceStop != NULL
 
 		return
 
@@ -117,15 +113,14 @@ def AL_StreamDie(): #void (static)
 	qal.qalSourceStop(streamSource)
 
 	# Un-queue any buffers, and delete them
-	qal.qalGetSourcei(streamSource, qal_h.AL_BUFFERS_QUEUED, ctypes.byref(numBuffers))
+	numBuffers = qal.qalGetSourcei(streamSource, qal_h.AL_BUFFERS_QUEUED) #int
 
-	while numBuffers.value:
+	while numBuffers:
 
-		numBuffers.value -= 1 # while (numBuffers--)
+		numBuffers -= 1 # while (numBuffers--)
 
-		buffer = qal.ALuint() #ALuint
-		qal.qalSourceUnqueueBuffers(streamSource, 1, ctypes.byref(buffer))
-		qal.qalDeleteBuffers(1, ctypes.byref(buffer))
+		buffer = qal.qalSourceUnqueueBuffers(streamSource, 1)[0]
+		qal.qalDeleteBuffers(1, [buffer])
 		active_buffers -= 1
 
 	streamQueued = 0 # Q2PORT
@@ -138,12 +133,12 @@ def AL_StreamUpdate(): #void (static)
 
 	global streamPlaying, active_buffers, streamQueued
 
-	numBuffers = qal.ALint() #int
-	state = qal.ALint() #ALint
+	#int numBuffers;
+	#int state;
 
-	qal.qalGetSourcei(streamSource, qal_h.AL_SOURCE_STATE, ctypes.byref(state))
+	state = qal.qalGetSourcei(streamSource, qal_h.AL_SOURCE_STATE) #ALint
 
-	if state.value == qal_h.AL_STOPPED:
+	if state == qal_h.AL_STOPPED:
 
 		streamPlaying = False
 
@@ -152,36 +147,34 @@ def AL_StreamUpdate(): #void (static)
 		# qalSourcePlay() below restarted them, looping the last chunk of sound.
 		# Un-queue them, but keep the ones AL_RawSamples() queued since the last
 		# update: a stopped source counts every buffer as processed.
-		qal.qalGetSourcei(streamSource, qal_h.AL_BUFFERS_QUEUED, ctypes.byref(numBuffers))
-		numBuffers.value -= streamQueued
+		numBuffers = qal.qalGetSourcei(streamSource, qal_h.AL_BUFFERS_QUEUED) #int
+		numBuffers -= streamQueued
 
-		while numBuffers.value > 0:
+		while numBuffers > 0:
 
-			numBuffers.value -= 1
+			numBuffers -= 1
 
-			buffer = qal.ALuint() #ALuint
-			qal.qalSourceUnqueueBuffers(streamSource, 1, ctypes.byref(buffer))
-			qal.qalDeleteBuffers(1, ctypes.byref(buffer))
+			buffer = qal.qalSourceUnqueueBuffers(streamSource, 1)[0]
+			qal.qalDeleteBuffers(1, [buffer])
 			active_buffers -= 1
 
 	else:
 
 		# Un-queue any already pleyed buffers and delete them
-		qal.qalGetSourcei(streamSource, qal_h.AL_BUFFERS_PROCESSED, ctypes.byref(numBuffers))
+		numBuffers = qal.qalGetSourcei(streamSource, qal_h.AL_BUFFERS_PROCESSED) #int
 
-		while numBuffers.value:
+		while numBuffers:
 
-			numBuffers.value -= 1 # while (numBuffers--)
+			numBuffers -= 1 # while (numBuffers--)
 
-			buffer = qal.ALuint() #ALuint
-			qal.qalSourceUnqueueBuffers(streamSource, 1, ctypes.byref(buffer))
-			qal.qalDeleteBuffers(1, ctypes.byref(buffer))
+			buffer = qal.qalSourceUnqueueBuffers(streamSource, 1)[0]
+			qal.qalDeleteBuffers(1, [buffer])
 			active_buffers -= 1
 
 	# Start the streamSource playing if necessary
-	qal.qalGetSourcei(streamSource, qal_h.AL_BUFFERS_QUEUED, ctypes.byref(numBuffers))
+	numBuffers = qal.qalGetSourcei(streamSource, qal_h.AL_BUFFERS_QUEUED) #int
 
-	if not streamPlaying and numBuffers.value:
+	if not streamPlaying and numBuffers:
 
 		qal.qalSourcePlay(streamSource)
 		streamPlaying = True
@@ -229,7 +222,7 @@ def AL_UploadSfx(s: sound_local.sfx_t, s_info: sound_local.wavinfo_t, data, volu
 	#sfxcache_t *sc;
 	#ALsizei size;
 	#ALenum format;
-	name = qal.ALuint() #ALuint
+	#ALuint name;
 
 	size = s_info.samples * s_info.width
 
@@ -241,7 +234,7 @@ def AL_UploadSfx(s: sound_local.sfx_t, s_info: sound_local.wavinfo_t, data, volu
 		return None
 
 	qal.qalGetError()
-	qal.qalGenBuffers(1, ctypes.byref(name))
+	name = qal.qalGenBuffers(1)[0]
 	qal.qalBufferData(name, format, bytes(data[:size]), size, s_info.rate)
 	active_buffers += 1
 
@@ -255,7 +248,7 @@ def AL_UploadSfx(s: sound_local.sfx_t, s_info: sound_local.wavinfo_t, data, volu
 	sc.loopstart = s_info.loopstart
 	sc.width = s_info.width
 	sc.size = size
-	sc.bufnum = name.value
+	sc.bufnum = name
 	sc.stereo = s_info.channels - 1
 	sc.volume = int(volume) # short
 	sc.begin = int(begin_length * 1000 / s_info.rate)
@@ -283,8 +276,8 @@ def AL_DeleteSfx(s: sound_local.sfx_t): #sfx_t *
 
 		return
 
-	name = qal.ALuint(sc.bufnum)
-	qal.qalDeleteBuffers(1, ctypes.byref(name))
+	name = sc.bufnum
+	qal.qalDeleteBuffers(1, [name])
 	active_buffers -= 1
 
 # -----------------------------------------------------------------
@@ -655,7 +648,7 @@ def AL_Spatialize(ch: sound_local.channel_t): #channel_t * (static)
 
 		if (not sound_c.snd_is_underwater and
 			sound_c.s_occlusion_strength.value and
-			occlusionFilter.value != 0):
+			occlusionFilter != 0):
 
 			#trace_t trace;
 			mins = np.zeros((3,), dtype=np.float32) #vec3_t
@@ -686,7 +679,7 @@ def AL_Spatialize(ch: sound_local.channel_t): #channel_t * (static)
 					qal_h.AL_LOWPASS_MAX_GAINHF)
 				qal.qalFilterf(occlusionFilter, qal_h.AL_LOWPASS_GAINHF, gain_hf)
 
-				qal.qalSourcei(ch.srcnum, qal_h.AL_DIRECT_FILTER, occlusionFilter.value)
+				qal.qalSourcei(ch.srcnum, qal_h.AL_DIRECT_FILTER, occlusionFilter)
 
 				source_occluded = True
 
@@ -945,14 +938,15 @@ def AL_RawSamples(samples: int, rate: int, width: int, channels: int,
 
 	global active_buffers, streamQueued
 
-	buffer = qal.ALuint() #ALuint
+	#ALuint buffer;
+	#ALuint format;
 	format = 0 #ALuint
 
 	# Work out format
 	format = AL_GetFormat(width, channels)
 
 	# Create a buffer, and stuff the data into it
-	qal.qalGenBuffers(1, ctypes.byref(buffer))
+	buffer = qal.qalGenBuffers(1)[0]
 	qal.qalBufferData(buffer, format, bytes(data),
 			(samples * width * channels), rate)
 	active_buffers += 1
@@ -965,7 +959,7 @@ def AL_RawSamples(samples: int, rate: int, width: int, channels: int,
 	qal.qalSourcef(streamSource, qal_h.AL_GAIN, volume)
 
 	# Shove the data onto the streamSource
-	qal.qalSourceQueueBuffers(streamSource, 1, ctypes.byref(buffer))
+	qal.qalSourceQueueBuffers(streamSource, 1, [buffer])
 	streamQueued += 1 # Q2PORT
 
 	# emulate behavior of S_RawSamples for s_rawend
@@ -1026,7 +1020,7 @@ def AL_UpdateUnderwater(): #void (static)
 	update = False #qboolean
 	#ALuint filter;
 
-	if underwaterFilter.value == 0:
+	if underwaterFilter == 0:
 		return
 
 	if sound_c.s_underwater.modified:
@@ -1052,7 +1046,7 @@ def AL_UpdateUnderwater(): #void (static)
 	qal.qalFilterf(underwaterFilter, qal_h.AL_LOWPASS_GAINHF, gain_hf)
 
 	if snd_is_underwater_enabled and sound_c.snd_is_underwater:
-		filter = underwaterFilter.value
+		filter = underwaterFilter
 	else:
 		filter = 0
 
@@ -1069,7 +1063,7 @@ def AL_Update(): #void
 
 	#int i;
 	#channel_t *ch;
-	orientation = (qal.ALfloat * 6)() #vec_t [6]
+	orientation = [0.0] * 6 #vec_t [6]
 	listener_velocity = np.zeros((3,), dtype=np.float32) #vec3_t
 
 	sound_c.paintedtime = cl_main.cls.realtime
@@ -1119,12 +1113,12 @@ def AL_Update(): #void
 
 		else:
 
-			state = qal.ALint() #ALenum
+			#ALenum state;
 
 			qal.qalGetError()
-			qal.qalGetSourcei(ch.srcnum, qal_h.AL_SOURCE_STATE, ctypes.byref(state))
+			state = qal.qalGetSourcei(ch.srcnum, qal_h.AL_SOURCE_STATE) #ALenum
 
-			if (qal.qalGetError() != qal_h.AL_NO_ERROR) or (state.value == qal_h.AL_STOPPED):
+			if (qal.qalGetError() != qal_h.AL_NO_ERROR) or (state == qal_h.AL_STOPPED):
 
 				AL_StopChannel(ch)
 				continue
@@ -1163,13 +1157,13 @@ def AL_Underwater(): #void
 
 		return
 
-	if underwaterFilter.value == 0:
+	if underwaterFilter == 0:
 		return
 
 	# Apply to all sources
 	for i in range(sound_c.s_numchannels):
 
-		qal.qalSourcei(s_srcnums[i], qal_h.AL_DIRECT_FILTER, underwaterFilter.value)
+		qal.qalSourcei(s_srcnums[i], qal_h.AL_DIRECT_FILTER, underwaterFilter)
 
 	AL_SetReverb(22)
 
@@ -1184,7 +1178,7 @@ def AL_Overwater(): #void
 
 		return
 
-	if underwaterFilter.value == 0:
+	if underwaterFilter == 0:
 
 		return
 
@@ -1231,13 +1225,15 @@ def AL_Efx_Enabled()->bool: #void (returns static qboolean)
 """
 def AL_InitUnderwaterFilter(): #void (static)
 
-	underwaterFilter.value = 0
+	global underwaterFilter
+
+	underwaterFilter = 0
 
 	if not AL_Efx_Enabled():
 		return
 
 	# Generate a filter
-	qal.qalGenFilters(1, ctypes.byref(underwaterFilter))
+	underwaterFilter = qal.qalGenFilters(1)[0]
 
 	if qal.qalGetError() != qal_h.AL_NO_ERROR:
 
@@ -1262,12 +1258,14 @@ def AL_InitUnderwaterFilter(): #void (static)
 """
 def AL_InitOcclusionFilter(): #void (static)
 
-	occlusionFilter.value = 0
+	global occlusionFilter
+
+	occlusionFilter = 0
 
 	if not AL_Efx_Enabled():
 		return
 
-	qal.qalGenFilters(1, ctypes.byref(occlusionFilter))
+	occlusionFilter = qal.qalGenFilters(1)[0]
 
 	if qal.qalGetError() != qal_h.AL_NO_ERROR:
 
@@ -1279,7 +1277,7 @@ def AL_InitOcclusionFilter(): #void (static)
 	if qal.qalGetError() != qal_h.AL_NO_ERROR:
 
 		clientserver.Com_Printf("Low pass filter is not supported!\n")
-		occlusionFilter.value = 0
+		occlusionFilter = 0
 		return
 
 	qal.qalFilterf(occlusionFilter, qal_h.AL_LOWPASS_GAIN, qal_h.AL_LOWPASS_DEFAULT_GAIN)
@@ -1290,13 +1288,13 @@ def AL_InitReverbEffect(): #void (static)
 	if not AL_Efx_Enabled():
 		return
 
-	qal.qalGenEffects(QAL_EFX_MAX, ReverbEffect)
+	ReverbEffect[:] = qal.qalGenEffects(QAL_EFX_MAX)
 	if qal.qalGetError() != qal_h.AL_NO_ERROR:
 
 		clientserver.Com_Printf("Couldn't generate an OpenAL effect!\n")
 		return
 
-	qal.qalGenAuxiliaryEffectSlots(QAL_EFX_MAX, ReverbEffectSlot)
+	ReverbEffectSlot[:] = qal.qalGenAuxiliaryEffectSlots(QAL_EFX_MAX)
 	if qal.qalGetError() != qal_h.AL_NO_ERROR:
 
 		clientserver.Com_Printf("Couldn't generate an OpenAL auxiliary effect slot!\n")
@@ -1309,6 +1307,8 @@ def AL_InitReverbEffect(): #void (static)
  * Initializes the OpenAL backend
 """
 def AL_Init()->bool: #void (returns qboolean)
+
+	global streamSource
 
 	#int i;
 
@@ -1326,7 +1326,7 @@ def AL_Init()->bool: #void (returns qboolean)
 
 	# generate source names
 	qal.qalGetError()
-	qal.qalGenSources(1, ctypes.byref(streamSource))
+	streamSource = qal.qalGenSources(1)[0]
 
 	if qal.qalGetError() != qal_h.AL_NO_ERROR:
 
@@ -1340,9 +1340,7 @@ def AL_Init()->bool: #void (returns qboolean)
 		i = 0
 		while i < sound_local.MAX_CHANNELS - 1:
 
-			source = qal.ALuint()
-			qal.qalGenSources(1, ctypes.byref(source)) # &s_srcnums[i]
-			s_srcnums[i] = source.value
+			s_srcnums[i] = qal.qalGenSources(1)[0] # &s_srcnums[i]
 
 			if qal.qalGetError() != qal_h.AL_NO_ERROR:
 
@@ -1378,14 +1376,16 @@ def AL_Init()->bool: #void (returns qboolean)
 """
 def AL_Shutdown(): #void
 
+	global s_srcnums
+
 	clientserver.Com_Printf("Shutting down OpenAL.\n")
 
 	AL_StopAllChannels()
 
-	qal.qalDeleteSources(1, ctypes.byref(streamSource))
-	if qal.qalDeleteFilters: # Q2PORT: NULL without ALC_EXT_EFX, the C would crash
-		qal.qalDeleteFilters(1, ctypes.byref(underwaterFilter))
-		qal.qalDeleteFilters(1, ctypes.byref(occlusionFilter))
+	qal.qalDeleteSources(1, [streamSource])
+	if qal.qalDeleteFilters: # Q2PORT: None without ALC_EXT_EFX, the C would crash
+		qal.qalDeleteFilters(1, [underwaterFilter])
+		qal.qalDeleteFilters(1, [occlusionFilter])
 		qal.qalDeleteAuxiliaryEffectSlots(QAL_EFX_MAX, ReverbEffectSlot)
 		qal.qalDeleteEffects(QAL_EFX_MAX, ReverbEffect)
 
@@ -1393,7 +1393,7 @@ def AL_Shutdown(): #void
 
 		# delete source names
 		qal.qalDeleteSources(sound_c.s_numchannels, s_srcnums)
-		ctypes.memset(s_srcnums, 0, ctypes.sizeof(s_srcnums))
+		s_srcnums = [0] * (sound_local.MAX_CHANNELS - 1)
 		sound_c.s_numchannels = 0
 
 	qal.QAL_Shutdown()

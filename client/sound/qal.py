@@ -27,16 +27,21 @@
  * other platforms may need an own implementation. This source file
  * was taken from Q2Pro and modified by the YQ2 authors.
  *
+ * Q2PORT: the OpenAL library is the one bundled with the openal-py
+ * package (openal_py._core, a typed layer over libopenal), so loading
+ * and dlsym'ing it with ctypes/Sys_LoadLibrary is gone. The qal* /
+ * qalc* names stay, as thin adapters, so openal.py reads like the C.
+ * The C's "qalGetError(); ...; if qalGetError() != 0" pattern is kept
+ * by recording the _core ALLError code in _last_error.
+ *
  * =======================================================================
 """
 from __future__ import annotations
 
-import ctypes
-from ctypes import c_int, c_uint, c_float, c_double, c_char_p, c_void_p, c_ubyte, POINTER
+import openal_py
+from openal_py import _core
 
-from backends.unix import system
 from common import clientserver
-from common import cmdparser
 from common import cvar
 from common.header import shared
 from common.shared import shared as shared_c
@@ -60,255 +65,248 @@ device = None #static ALCdevice *
 al_device = None #static cvar_t *
 al_driver = None #static cvar_t *
 hasAlcExtDisconnect = False #static qboolean
-handle = None #static void *
 
-# Q2PORT: the ctypes types of the AL typedefs (al.h, alc.h)
-ALboolean = c_ubyte
-ALchar = ctypes.c_char
-ALint = c_int
-ALuint = c_uint
-ALsizei = c_int
-ALenum = c_int
-ALfloat = c_float
-ALdouble = c_double
-ALvoid_p = c_void_p
-ALCboolean = c_ubyte
-ALCint = c_int
-ALCenum = c_int
-ALCsizei = c_int
-ALCdevice_p = c_void_p
-ALCcontext_p = c_void_p
+# Q2PORT: the AL error code qalGetError() returns. The _core calls raise
+# an ALLError on failure and each qal* adapter records the code here.
+_last_error = 0 #int
 
-# Q2PORT: the prototypes of the LPAL... function pointer types (al.h, alc.h, efx.h);
-# name -> (return type, argument types). The string getters return a pointer, as
-# alcGetString's device lists are several NUL terminated strings in a row.
-_prototypes = {
-	"alcCreateContext": (ALCcontext_p, [ALCdevice_p, POINTER(ALCint)]),
-	"alcMakeContextCurrent": (ALCboolean, [ALCcontext_p]),
-	"alcProcessContext": (None, [ALCcontext_p]),
-	"alcSuspendContext": (None, [ALCcontext_p]),
-	"alcDestroyContext": (None, [ALCcontext_p]),
-	"alcGetCurrentContext": (ALCcontext_p, []),
-	"alcGetContextsDevice": (ALCdevice_p, [ALCcontext_p]),
-	"alcOpenDevice": (ALCdevice_p, [c_char_p]),
-	"alcCloseDevice": (ALCboolean, [ALCdevice_p]),
-	"alcGetError": (ALCenum, [ALCdevice_p]),
-	"alcIsExtensionPresent": (ALCboolean, [ALCdevice_p, c_char_p]),
-	"alcGetProcAddress": (c_void_p, [ALCdevice_p, c_char_p]),
-	"alcGetEnumValue": (ALCenum, [ALCdevice_p, c_char_p]),
-	"alcGetString": (c_void_p, [ALCdevice_p, ALCenum]),
-	"alcGetIntegerv": (None, [ALCdevice_p, ALCenum, ALCsizei, POINTER(ALCint)]),
-	"alcCaptureOpenDevice": (ALCdevice_p, [c_char_p, c_uint, ALCenum, ALCsizei]),
-	"alcCaptureCloseDevice": (ALCboolean, [ALCdevice_p]),
-	"alcCaptureStart": (None, [ALCdevice_p]),
-	"alcCaptureStop": (None, [ALCdevice_p]),
-	"alcCaptureSamples": (None, [ALCdevice_p, c_void_p, ALCsizei]),
+# Q2PORT: the EFX qal* names, in the C's order
+_efx = ["GenFilters", "Filteri", "Filterf", "DeleteFilters", "AuxiliaryEffectSloti",
+	"GenEffects", "GenAuxiliaryEffectSlots", "Effectf", "Effecti", "Effectfv",
+	"DeleteAuxiliaryEffectSlots", "DeleteEffects"]
 
-	"alEnable": (None, [ALenum]),
-	"alDisable": (None, [ALenum]),
-	"alIsEnabled": (ALboolean, [ALenum]),
-	"alGetString": (c_void_p, [ALenum]),
-	"alGetBooleanv": (None, [ALenum, POINTER(ALboolean)]),
-	"alGetIntegerv": (None, [ALenum, POINTER(ALint)]),
-	"alGetFloatv": (None, [ALenum, POINTER(ALfloat)]),
-	"alGetDoublev": (None, [ALenum, POINTER(ALdouble)]),
-	"alGetBoolean": (ALboolean, [ALenum]),
-	"alGetInteger": (ALint, [ALenum]),
-	"alGetFloat": (ALfloat, [ALenum]),
-	"alGetDouble": (ALdouble, [ALenum]),
-	"alGetError": (ALenum, []),
-	"alIsExtensionPresent": (ALboolean, [c_char_p]),
-	"alGetProcAddress": (c_void_p, [c_char_p]),
-	"alGetEnumValue": (ALenum, [c_char_p]),
-	"alListenerf": (None, [ALenum, ALfloat]),
-	"alListener3f": (None, [ALenum, ALfloat, ALfloat, ALfloat]),
-	"alListenerfv": (None, [ALenum, POINTER(ALfloat)]),
-	"alListeneri": (None, [ALenum, ALint]),
-	"alListener3i": (None, [ALenum, ALint, ALint, ALint]),
-	"alListeneriv": (None, [ALenum, POINTER(ALint)]),
-	"alGetListenerf": (None, [ALenum, POINTER(ALfloat)]),
-	"alGetListener3f": (None, [ALenum, POINTER(ALfloat), POINTER(ALfloat), POINTER(ALfloat)]),
-	"alGetListenerfv": (None, [ALenum, POINTER(ALfloat)]),
-	"alGetListeneri": (None, [ALenum, POINTER(ALint)]),
-	"alGetListener3i": (None, [ALenum, POINTER(ALint), POINTER(ALint), POINTER(ALint)]),
-	"alGetListeneriv": (None, [ALenum, POINTER(ALint)]),
-	"alGenSources": (None, [ALsizei, POINTER(ALuint)]),
-	"alDeleteSources": (None, [ALsizei, POINTER(ALuint)]),
-	"alIsSource": (ALboolean, [ALuint]),
-	"alSourcef": (None, [ALuint, ALenum, ALfloat]),
-	"alSource3f": (None, [ALuint, ALenum, ALfloat, ALfloat, ALfloat]),
-	"alSourcefv": (None, [ALuint, ALenum, POINTER(ALfloat)]),
-	"alSourcei": (None, [ALuint, ALenum, ALint]),
-	"alSource3i": (None, [ALuint, ALenum, ALint, ALint, ALint]),
-	"alSourceiv": (None, [ALuint, ALenum, POINTER(ALint)]),
-	"alGetSourcef": (None, [ALuint, ALenum, POINTER(ALfloat)]),
-	"alGetSource3f": (None, [ALuint, ALenum, POINTER(ALfloat), POINTER(ALfloat), POINTER(ALfloat)]),
-	"alGetSourcefv": (None, [ALuint, ALenum, POINTER(ALfloat)]),
-	"alGetSourcei": (None, [ALuint, ALenum, POINTER(ALint)]),
-	"alGetSource3i": (None, [ALuint, ALenum, POINTER(ALint), POINTER(ALint), POINTER(ALint)]),
-	"alGetSourceiv": (None, [ALuint, ALenum, POINTER(ALint)]),
-	"alSourcePlayv": (None, [ALsizei, POINTER(ALuint)]),
-	"alSourceStopv": (None, [ALsizei, POINTER(ALuint)]),
-	"alSourceRewindv": (None, [ALsizei, POINTER(ALuint)]),
-	"alSourcePausev": (None, [ALsizei, POINTER(ALuint)]),
-	"alSourcePlay": (None, [ALuint]),
-	"alSourceStop": (None, [ALuint]),
-	"alSourceRewind": (None, [ALuint]),
-	"alSourcePause": (None, [ALuint]),
-	"alSourceQueueBuffers": (None, [ALuint, ALsizei, POINTER(ALuint)]),
-	"alSourceUnqueueBuffers": (None, [ALuint, ALsizei, POINTER(ALuint)]),
-	"alGenBuffers": (None, [ALsizei, POINTER(ALuint)]),
-	"alDeleteBuffers": (None, [ALsizei, POINTER(ALuint)]),
-	"alIsBuffer": (ALboolean, [ALuint]),
-	"alBufferData": (None, [ALuint, ALenum, ALvoid_p, ALsizei, ALsizei]),
-	"alBufferf": (None, [ALuint, ALenum, ALfloat]),
-	"alBuffer3f": (None, [ALuint, ALenum, ALfloat, ALfloat, ALfloat]),
-	"alBufferfv": (None, [ALuint, ALenum, POINTER(ALfloat)]),
-	"alBufferi": (None, [ALuint, ALenum, ALint]),
-	"alBuffer3i": (None, [ALuint, ALenum, ALint, ALint, ALint]),
-	"alBufferiv": (None, [ALuint, ALenum, POINTER(ALint)]),
-	"alGetBufferf": (None, [ALuint, ALenum, POINTER(ALfloat)]),
-	"alGetBuffer3f": (None, [ALuint, ALenum, POINTER(ALfloat), POINTER(ALfloat), POINTER(ALfloat)]),
-	"alGetBufferfv": (None, [ALuint, ALenum, POINTER(ALfloat)]),
-	"alGetBufferi": (None, [ALuint, ALenum, POINTER(ALint)]),
-	"alGetBuffer3i": (None, [ALuint, ALenum, POINTER(ALint), POINTER(ALint), POINTER(ALint)]),
-	"alGetBufferiv": (None, [ALuint, ALenum, POINTER(ALint)]),
-	"alDopplerFactor": (None, [ALfloat]),
-	"alDopplerVelocity": (None, [ALfloat]),
-	"alSpeedOfSound": (None, [ALfloat]),
-	"alDistanceModel": (None, [ALenum]),
+def _qal(f):
 
-	# efx.h
-	"alGenFilters": (None, [ALsizei, POINTER(ALuint)]),
-	"alFilteri": (None, [ALuint, ALenum, ALint]),
-	"alFilterf": (None, [ALuint, ALenum, ALfloat]),
-	"alDeleteFilters": (None, [ALsizei, POINTER(ALuint)]),
-	"alGenEffects": (None, [ALsizei, POINTER(ALuint)]),
-	"alEffectf": (None, [ALuint, ALenum, ALfloat]),
-	"alEffecti": (None, [ALuint, ALenum, ALint]),
-	"alEffectfv": (None, [ALuint, ALenum, POINTER(ALfloat)]),
-	"alAuxiliaryEffectSloti": (None, [ALuint, ALenum, ALint]),
-	"alGenAuxiliaryEffectSlots": (None, [ALsizei, POINTER(ALuint)]),
-	"alDeleteAuxiliaryEffectSlots": (None, [ALsizei, POINTER(ALuint)]),
-	"alDeleteEffects": (None, [ALsizei, POINTER(ALuint)]),
-}
+	# Q2PORT: wraps a _core call: on failure record the AL error code
+	# (instead of raising) so the C's qalGetError() polling still works
+	def wrapper(*args):
 
-# Function pointers for OpenAL management
-qalcCreateContext = None #static LPALCCREATECONTEXT
-qalcMakeContextCurrent = None #static LPALCMAKECONTEXTCURRENT
-qalcProcessContext = None #static LPALCPROCESSCONTEXT
-qalcSuspendContext = None #static LPALCSUSPENDCONTEXT
-qalcDestroyContext = None #static LPALCDESTROYCONTEXT
-qalcGetCurrentContext = None #static LPALCGETCURRENTCONTEXT
-qalcGetContextsDevice = None #static LPALCGETCONTEXTSDEVICE
-qalcOpenDevice = None #static LPALCOPENDEVICE
-qalcCloseDevice = None #static LPALCCLOSEDEVICE
-qalcGetError = None #static LPALCGETERROR
-qalcIsExtensionPresent = None #static LPALCISEXTENSIONPRESENT
-qalcGetProcAddress = None #static LPALCGETPROCADDRESS
-qalcGetEnumValue = None #static LPALCGETENUMVALUE
-qalcGetString = None #static LPALCGETSTRING
-qalcGetIntegerv = None #static LPALCGETINTEGERV
-qalcCaptureOpenDevice = None #static LPALCCAPTUREOPENDEVICE
-qalcCaptureCloseDevice = None #static LPALCCAPTURECLOSEDEVICE
-qalcCaptureStart = None #static LPALCCAPTURESTART
-qalcCaptureStop = None #static LPALCCAPTURESTOP
-qalcCaptureSamples = None #static LPALCCAPTURESAMPLES
+		global _last_error
 
-# Declaration of function pointers used
-# to connect OpenAL to our internal API
-qalEnable = None #LPALENABLE
-qalDisable = None #LPALDISABLE
-qalIsEnabled = None #LPALISENABLED
-qalGetString = None #LPALGETSTRING
-qalGetBooleanv = None #LPALGETBOOLEANV
-qalGetIntegerv = None #LPALGETINTEGERV
-qalGetFloatv = None #LPALGETFLOATV
-qalGetDoublev = None #LPALGETDOUBLEV
-qalGetBoolean = None #LPALGETBOOLEAN
-qalGetInteger = None #LPALGETINTEGER
-qalGetFloat = None #LPALGETFLOAT
-qalGetDouble = None #LPALGETDOUBLE
-qalGetError = None #LPALGETERROR
-qalIsExtensionPresent = None #LPALISEXTENSIONPRESENT
-qalGetProcAddress = None #LPALGETPROCADDRESS
-qalGetEnumValue = None #LPALGETENUMVALUE
-qalListenerf = None #LPALLISTENERF
-qalListener3f = None #LPALLISTENER3F
-qalListenerfv = None #LPALLISTENERFV
-qalListeneri = None #LPALLISTENERI
-qalListener3i = None #LPALLISTENER3I
-qalListeneriv = None #LPALLISTENERIV
-qalGetListenerf = None #LPALGETLISTENERF
-qalGetListener3f = None #LPALGETLISTENER3F
-qalGetListenerfv = None #LPALGETLISTENERFV
-qalGetListeneri = None #LPALGETLISTENERI
-qalGetListener3i = None #LPALGETLISTENER3I
-qalGetListeneriv = None #LPALGETLISTENERIV
-qalGenSources = None #LPALGENSOURCES
-qalDeleteSources = None #LPALDELETESOURCES
-qalIsSource = None #LPALISSOURCE
-qalSourcef = None #LPALSOURCEF
-qalSource3f = None #LPALSOURCE3F
-qalSourcefv = None #LPALSOURCEFV
-qalSourcei = None #LPALSOURCEI
-qalSource3i = None #LPALSOURCE3I
-qalSourceiv = None #LPALSOURCEIV
-qalGetSourcef = None #LPALGETSOURCEF
-qalGetSource3f = None #LPALGETSOURCE3F
-qalGetSourcefv = None #LPALGETSOURCEFV
-qalGetSourcei = None #LPALGETSOURCEI
-qalGetSource3i = None #LPALGETSOURCE3I
-qalGetSourceiv = None #LPALGETSOURCEIV
-qalSourcePlayv = None #LPALSOURCEPLAYV
-qalSourceStopv = None #LPALSOURCESTOPV
-qalSourceRewindv = None #LPALSOURCEREWINDV
-qalSourcePausev = None #LPALSOURCEPAUSEV
-qalSourcePlay = None #LPALSOURCEPLAY
-qalSourceStop = None #LPALSOURCESTOP
-qalSourceRewind = None #LPALSOURCEREWIND
-qalSourcePause = None #LPALSOURCEPAUSE
-qalSourceQueueBuffers = None #LPALSOURCEQUEUEBUFFERS
-qalSourceUnqueueBuffers = None #LPALSOURCEUNQUEUEBUFFERS
-qalGenBuffers = None #LPALGENBUFFERS
-qalDeleteBuffers = None #LPALDELETEBUFFERS
-qalIsBuffer = None #LPALISBUFFER
-qalBufferData = None #LPALBUFFERDATA
-qalBufferf = None #LPALBUFFERF
-qalBuffer3f = None #LPALBUFFER3F
-qalBufferfv = None #LPALBUFFERFV
-qalBufferi = None #LPALBUFFERI
-qalBuffer3i = None #LPALBUFFER3I
-qalBufferiv = None #LPALBUFFERIV
-qalGetBufferf = None #LPALGETBUFFERF
-qalGetBuffer3f = None #LPALGETBUFFER3F
-qalGetBufferfv = None #LPALGETBUFFERFV
-qalGetBufferi = None #LPALGETBUFFERI
-qalGetBuffer3i = None #LPALGETBUFFER3I
-qalGetBufferiv = None #LPALGETBUFFERIV
-qalDopplerFactor = None #LPALDOPPLERFACTOR
-qalDopplerVelocity = None #LPALDOPPLERVELOCITY
-qalSpeedOfSound = None #LPALSPEEDOFSOUND
-qalDistanceModel = None #LPALDISTANCEMODEL
-qalGenFilters = None #LPALGENFILTERS
-qalFilteri = None #LPALFILTERI
-qalFilterf = None #LPALFILTERF
-qalDeleteFilters = None #LPALDELETEFILTERS
-qalGenEffects = None #LPALGENEFFECTS
-qalEffectf = None #LPALEFFECTF
-qalEffecti = None #LPALEFFECTI
-qalEffectfv = None #LPALEFFECTFV
-qalAuxiliaryEffectSloti = None #LPALAUXILIARYEFFECTSLOTI
-qalGenAuxiliaryEffectSlots = None #LPALGENAUXILIARYEFFECTSLOTS
-qalDeleteAuxiliaryEffectSlots = None #LPALDELETEAUXILIARYEFFECTSLOTS
-qalDeleteEffects = None #LPALDELETEEFFECTS
+		try:
 
-def _string(p)->str:
+			return f(*args)
 
-	# Q2PORT: a const char * from OpenAL as a str (NULL is None)
-	if not p:
-		return None
-	return ctypes.string_at(p).decode("utf-8", "replace")
+		except openal_py.ALLError as e:
+
+			_last_error = e.code
+			return None
+
+	return wrapper
+
+def qalGetError()->int: # (returns ALenum)
+
+	global _last_error
+
+	e = _last_error
+	_last_error = 0
+	return e
+
+# Q2PORT: the qal* function pointers of the C are thin adapters over
+# openal_py._core, keeping the C names and argument order. (The C
+# pointers nobody here calls, like qalGetBooleanv, are left out.)
+
+@_qal
+def qalIsExtensionPresent(name): #const char * (returns ALboolean)
+
+	return _core.is_extension_present(name.decode("ascii") if isinstance(name, bytes) else name)
+
+@_qal
+def qalListenerf(pname, value): #ALenum, ALfloat
+
+	_core.listener_set(pname, float(value))
+
+@_qal
+def qalListener3f(pname, x, y, z): #ALenum, ALfloat, ALfloat, ALfloat
+
+	_core.listener_set(pname, (x, y, z))
+
+@_qal
+def qalListenerfv(pname, values): #ALenum, ALfloat *
+
+	_core.listener_set(pname, list(values))
+
+@_qal
+def qalListeneri(pname, value): #ALenum, ALint
+
+	_core.listener_set(pname, int(value))
+
+@_qal
+def qalListener3i(pname, x, y, z): #ALenum, ALint, ALint, ALint
+
+	_core.listener_set(pname, (int(x), int(y), int(z)))
+
+@_qal
+def qalGenSources(n): #ALsizei (returns ALuint *)
+
+	return _core.gen_sources(n)
+
+@_qal
+def qalDeleteSources(n, sources): #ALsizei, ALuint *
+
+	_core.delete_sources(list(sources))
+
+@_qal
+def qalIsSource(source): #ALuint (returns ALboolean)
+
+	return _core.is_source(source)
+
+@_qal
+def qalSourcef(source, pname, value): #ALuint, ALenum, ALfloat
+
+	_core.source_set(source, pname, float(value))
+
+@_qal
+def qalSource3f(source, pname, x, y, z): #ALuint, ALenum, ALfloat, ALfloat, ALfloat
+
+	_core.source_set(source, pname, (float(x), float(y), float(z)))
+
+@_qal
+def qalSourcei(source, pname, value): #ALuint, ALenum, ALint
+
+	_core.source_set(source, pname, int(value))
+
+@_qal
+def qalSource3i(source, pname, x, y, z): #ALuint, ALenum, ALint, ALint, ALint
+
+	_core.source_set(source, pname, (int(x), int(y), int(z)))
+
+@_qal
+def qalSourcePlay(source): #ALuint
+
+	_core.source_play(source)
+
+@_qal
+def qalSourceStop(source): #ALuint
+
+	_core.source_stop(source)
+
+@_qal
+def qalSourcePause(source): #ALuint
+
+	_core.source_pause(source)
+
+@_qal
+def qalGetSourcef(source, pname): #ALuint, ALenum (returns ALfloat)
+
+	return _core.source_get(source, pname)
+
+@_qal
+def qalGetSource3f(source, pname): #ALuint, ALenum (returns ALfloat *)
+
+	return _core.source_get(source, pname, 3)
+
+@_qal
+def qalGetSourcei(source, pname): #ALuint, ALenum (returns ALint)
+
+	return _core.source_geti(source, pname)
+
+@_qal
+def qalSourceQueueBuffers(source, n, buffers): #ALuint, ALsizei, ALuint *
+
+	_core.source_queue_buffers(source, list(buffers))
+
+@_qal
+def qalSourceUnqueueBuffers(source, n): #ALuint, ALsizei (returns ALuint *)
+
+	return _core.source_unqueue_buffers(source, n)
+
+@_qal
+def qalGenBuffers(n): #ALsizei (returns ALuint *)
+
+	return _core.gen_buffers(n)
+
+@_qal
+def qalDeleteBuffers(n, buffers): #ALsizei, ALuint *
+
+	_core.delete_buffers(list(buffers))
+
+@_qal
+def qalIsBuffer(buffer): #ALuint (returns ALboolean)
+
+	return _core.is_buffer(buffer)
+
+@_qal
+def qalBufferData(buffer, format, data, size, freq): #ALuint, ALenum, const ALvoid *, ALsizei, ALsizei
+
+	_core.buffer_data(buffer, format, data, freq)
+
+@_qal
+def qalDopplerFactor(value): #ALfloat
+
+	_core.doppler_factor(value)
+
+@_qal
+def qalDopplerVelocity(value): #ALfloat
+
+	_core.doppler_velocity(value)
+
+@_qal
+def qalDistanceModel(model): #ALenum
+
+	_core.distance_model(model)
+
+# EFX (AL_EXT_EFX), the C fetches them via qalGetProcAddress or keeps
+# them NULL
+@_qal
+def qalGenFilters(n): #ALsizei (returns ALuint *)
+
+	return _core.gen_filters(n)
+
+@_qal
+def qalFilteri(f, pname, value): #ALuint, ALenum, ALint
+
+	_core.filter_set(f, pname, int(value))
+
+@_qal
+def qalFilterf(f, pname, value): #ALuint, ALenum, ALfloat
+
+	_core.filter_set(f, pname, float(value))
+
+@_qal
+def qalDeleteFilters(n, filters): #ALsizei, ALuint *
+
+	_core.delete_filters(list(filters))
+
+@_qal
+def qalGenEffects(n): #ALsizei (returns ALuint *)
+
+	return _core.gen_effects(n)
+
+@_qal
+def qalEffectf(e, pname, value): #ALuint, ALenum, ALfloat
+
+	_core.effect_set(e, pname, float(value))
+
+@_qal
+def qalEffecti(e, pname, value): #ALuint, ALenum, ALint
+
+	_core.effect_set(e, pname, int(value))
+
+@_qal
+def qalEffectfv(e, pname, values): #ALuint, ALenum, ALfloat *
+
+	_core.effect_set(e, pname, list(values))
+
+@_qal
+def qalAuxiliaryEffectSloti(slot, pname, value): #ALuint, ALenum, ALint
+
+	_core.auxiliary_effect_slot_set(slot, pname, int(value))
+
+@_qal
+def qalGenAuxiliaryEffectSlots(n): #ALsizei (returns ALuint *)
+
+	return _core.gen_auxiliary_effect_slots(n)
+
+@_qal
+def qalDeleteAuxiliaryEffectSlots(n, slots): #ALsizei, ALuint *
+
+	_core.delete_auxiliary_effect_slots(list(slots))
+
+@_qal
+def qalDeleteEffects(n, effects): #ALsizei, ALuint *
+
+	_core.delete_effects(list(effects))
 
 """
  * Gives information over the OpenAL implementation and
@@ -319,15 +317,15 @@ def QAL_SoundInfo(show_ext: bool): #qboolean
 	Printf_Ext = clientserver.Com_Printf if show_ext else clientserver.Com_DPrintf #void (*)(const char *msg, ...)
 
 	clientserver.Com_Printf("OpenAL features:\n")
-	clientserver.Com_Printf("AL_VENDOR: {}\n".format(_string(qalGetString(qal_h.AL_VENDOR))))
-	clientserver.Com_Printf("AL_RENDERER: {}\n".format(_string(qalGetString(qal_h.AL_RENDERER))))
-	clientserver.Com_Printf("AL_VERSION: {}\n".format(_string(qalGetString(qal_h.AL_VERSION))))
-	Printf_Ext("AL_EXTENSIONS: {}\n".format(_string(qalGetString(qal_h.AL_EXTENSIONS))))
-	clientserver.Com_Printf("AL_EXTENSIONS number: {}\n".format(shared_c.Word_Count(_string(qalGetString(qal_h.AL_EXTENSIONS)))))
+	clientserver.Com_Printf("AL_VENDOR: {}\n".format(_core.get_string(qal_h.AL_VENDOR)))
+	clientserver.Com_Printf("AL_RENDERER: {}\n".format(_core.get_string(qal_h.AL_RENDERER)))
+	clientserver.Com_Printf("AL_VERSION: {}\n".format(_core.get_string(qal_h.AL_VERSION)))
+	Printf_Ext("AL_EXTENSIONS: {}\n".format(_core.get_string(qal_h.AL_EXTENSIONS)))
+	clientserver.Com_Printf("AL_EXTENSIONS number: {}\n".format(shared_c.Word_Count(_core.get_string(qal_h.AL_EXTENSIONS))))
 
-	if qalcIsExtensionPresent(None, b"ALC_ENUMERATE_ALL_EXT"):
+	if _core.is_alc_extension_present("ALC_ENUMERATE_ALL_EXT", None):
 
-		devs = qalcGetString(None, qal_h.ALC_ALL_DEVICES_SPECIFIER) #const char *
+		devs = _core.alc_get_string(None, qal_h.ALC_ALL_DEVICES_SPECIFIER) #const char *
 
 		clientserver.Com_Printf("\nAvailable OpenAL devices:\n")
 
@@ -339,15 +337,16 @@ def QAL_SoundInfo(show_ext: bool): #qboolean
 
 		else:
 
-			while devs and ctypes.string_at(devs, 1) != b"\0": # while (devs && *devs)
+			for dev in devs.split("\x00"): # Q2PORT: the C walks the NUL separated list
 
-				dev = ctypes.string_at(devs)
-				clientserver.Com_Printf("- {}\n".format(dev.decode("utf-8", "replace")))
-				devs += len(dev) + 1
+				if not dev:
+					continue
 
-	if qalcIsExtensionPresent(None, b"ALC_ENUMERATE_ALL_EXT"):
+				clientserver.Com_Printf("- {}\n".format(dev))
 
-		devs = _string(qalcGetString(device, qal_h.ALC_DEVICE_SPECIFIER)) #const char *
+	if _core.is_alc_extension_present("ALC_ENUMERATE_ALL_EXT", None):
+
+		devs = _core.get_device_spec(device) #const char *
 
 		clientserver.Com_Printf("\nCurrent OpenAL device:\n")
 
@@ -383,10 +382,9 @@ def QAL_RecoverLostDevice()->bool: #void (returns qboolean)
 
 	if discoCount == 0:
 
-		connected = ALCint() #ALCint
-		qalcGetIntegerv(device, qal_h.ALC_CONNECTED, 1, ctypes.byref(connected))
+		connected = _core.get_integer(device, qal_h.ALC_CONNECTED) #ALCint
 
-		if not connected.value:
+		if not connected:
 
 			discoCount += 1
 			return False
@@ -406,95 +404,43 @@ def QAL_RecoverLostDevice()->bool: #void (returns qboolean)
 
 		else:
 
+			# Q2PORT: the C's Cbuf_AddText("snd_restart\n")
+			from common import cmdparser
 			cmdparser.Cbuf_AddText("snd_restart\n")
 			discoCount = 0
 			return False
 
-_management = ["CreateContext", "MakeContextCurrent", "ProcessContext", "SuspendContext",
-	"DestroyContext", "GetCurrentContext", "GetContextsDevice", "OpenDevice", "CloseDevice",
-	"GetError", "IsExtensionPresent", "GetProcAddress", "GetEnumValue", "GetString",
-	"GetIntegerv", "CaptureOpenDevice", "CaptureCloseDevice", "CaptureStart", "CaptureStop",
-	"CaptureSamples"] # Q2PORT: the qalc* names, in the C's order
-
-_api = ["Enable", "Disable", "IsEnabled", "GetString", "GetBooleanv", "GetIntegerv",
-	"GetFloatv", "GetDoublev", "GetBoolean", "GetInteger", "GetFloat", "GetDouble", "GetError",
-	"IsExtensionPresent", "GetProcAddress", "GetEnumValue", "Listenerf", "Listener3f",
-	"Listenerfv", "Listeneri", "Listener3i", "Listeneriv", "GetListenerf", "GetListener3f",
-	"GetListenerfv", "GetListeneri", "GetListener3i", "GetListeneriv", "GenSources",
-	"DeleteSources", "IsSource", "Sourcef", "Source3f", "Sourcefv", "Sourcei", "Source3i",
-	"Sourceiv", "GetSourcef", "GetSource3f", "GetSourcefv", "GetSourcei", "GetSource3i",
-	"GetSourceiv", "SourcePlayv", "SourceStopv", "SourceRewindv", "SourcePausev", "SourcePlay",
-	"SourceStop", "SourceRewind", "SourcePause", "SourceQueueBuffers", "SourceUnqueueBuffers",
-	"GenBuffers", "DeleteBuffers", "IsBuffer", "BufferData", "Bufferf", "Buffer3f", "Bufferfv",
-	"Bufferi", "Buffer3i", "Bufferiv", "GetBufferf", "GetBuffer3f", "GetBufferfv", "GetBufferi",
-	"GetBuffer3i", "GetBufferiv", "DopplerFactor", "DopplerVelocity", "SpeedOfSound",
-	"DistanceModel"] # Q2PORT: the qal* names, in the C's order
-
-_efx = ["GenFilters", "Filteri", "Filterf", "DeleteFilters", "AuxiliaryEffectSloti",
-	"GenEffects", "GenAuxiliaryEffectSlots", "Effectf", "Effecti", "Effectfv",
-	"DeleteAuxiliaryEffectSlots", "DeleteEffects"] # Q2PORT: the EFX qal* names, in the C's order
-
 """
  * Shuts OpenAL down, frees all context and
- * device handles and unloads the shared lib.
+ * device handles.
 """
 def QAL_Shutdown(): #void
 
-	global context, device, handle
+	global context, device
 
 	if context:
 
-		qalcMakeContextCurrent( None )
-		qalcDestroyContext( context )
+		_core.make_context_current(None)
+		_core.destroy_context(context)
 		context = None
 
 	if device:
 
-		qalcCloseDevice( device )
+		_core.close_device(device)
 		device = None
 
-	# Disconnect function pointers used
-	# for OpenAL management calls
-	# Q2PORT: qalcCreateContext = NULL; ... for each of them
-	for name in _management:
-		globals()["qalc" + name] = None
-
-	# Disconnect OpenAL
-	# function pointers
-	# Q2PORT: qalEnable = NULL; ... for each of them, and the C's four filter ones
-	for name in _api + ["GenFilters", "Filteri", "Filterf", "DeleteFilters"]:
+	# Disconnect the EFX function pointers
+	# Q2PORT: the C sets qalc* / qal* to NULL, here the EFX adapters to None
+	for name in _efx:
 		globals()["qal" + name] = None
 
-	if handle:
-
-		# Unload the shared lib
-		system.Sys_FreeLibrary(handle)
-		handle = None
-
-def ALSYMBOL(handle, sym: str):
-
-	# #define ALSYMBOL(handle, sym) Sys_GetProcAddress(handle, #sym)
-	func = system.Sys_GetProcAddress(handle, sym)
-	if func is not None:
-		func.restype, func.argtypes = _prototypes[sym] # Q2PORT: the LPAL... type the C assigns it to
-	return func
-
-def _qalGetProcAddress(name: str):
-
-	# (LPAL...)qalGetProcAddress(name), Q2PORT: the pointer as a ctypes function
-	address = qalGetProcAddress(name.encode("ascii"))
-	if not address:
-		return None
-	restype, argtypes = _prototypes[name]
-	return ctypes.CFUNCTYPE(restype, *argtypes)(address)
-
 """
- * Loads the OpenAL shared lib, creates
+ * Loads the OpenAL library, creates
  * a context and device handle.
 """
 def QAL_Init()->bool: #void (returns qboolean)
 
-	global al_device, al_driver, handle, device, context, hasAlcExtDisconnect
+	global al_device, al_driver, device, context, hasAlcExtDisconnect
 
 	al_device = cvar.Cvar_Get("al_device", "", shared.CVAR_ARCHIVE)
 
@@ -506,36 +452,20 @@ def QAL_Init()->bool: #void (returns qboolean)
 		clientserver.Com_Printf("al_driver must not contain '..', ':', '/' or '\\': {}\n".format(al_driver.string))
 		return False
 
-	# Load the library
-	clientserver.Com_Printf("Loading library: {}\n".format(al_driver.string))
-
-	_entry, handle = system.Sys_LoadLibrary(al_driver.string, None)
-
-	if not handle:
-
-		clientserver.Com_Printf("Loading {} failed! Disabling OpenAL.\n".format(al_driver.string))
-		return False
-
-	# Connect function pointers to management functions
-	# Q2PORT: qalcCreateContext = ALSYMBOL(handle, alcCreateContext); ... for each of them
-	for name in _management:
-		globals()["qalc" + name] = ALSYMBOL(handle, "alc" + name)
-
-	# Connect function pointers to
-	# to OpenAL API functions
-	# Q2PORT: qalEnable = ALSYMBOL(handle, alEnable); ... for each of them
-	for name in _api:
-		globals()["qal" + name] = ALSYMBOL(handle, "al" + name)
+	# Q2PORT: the library is the one bundled with the openal-py package;
+	# al_driver is kept for compatibility.
+	clientserver.Com_Printf("OpenAL library: {}\n".format(openal_py.library_path()))
 
 	# Open the OpenAL device
 	clientserver.Com_Printf("...opening OpenAL device: ")
 
-	device = qalcOpenDevice(al_device.string.encode("utf-8") if al_device.string else None)
+	try:
 
-	if not device:
+		device = _core.open_device(al_device.string if al_device.string else None)
+
+	except openal_py.ALLError:
 
 		clientserver.Com_DPrintf("failed\n")
-		QAL_Shutdown()
 		return False
 
 	clientserver.Com_Printf("ok\n")
@@ -543,8 +473,11 @@ def QAL_Init()->bool: #void (returns qboolean)
 	# Create the OpenAL context
 	clientserver.Com_Printf("...creating OpenAL context: ")
 
-	context = qalcCreateContext(device, None)
-	if not context:
+	try:
+
+		context = _core.create_context(device, None)
+
+	except openal_py.ALLError:
 
 		clientserver.Com_DPrintf("failed\n")
 		QAL_Shutdown()
@@ -555,21 +488,20 @@ def QAL_Init()->bool: #void (returns qboolean)
 	# Set the created context as current context
 	clientserver.Com_Printf("...making context current: ")
 
-	if not qalcMakeContextCurrent(context):
+	if not _core.make_context_current(context):
 
 		clientserver.Com_DPrintf("failed\n")
 		QAL_Shutdown()
 		return False
 
-	if qalcIsExtensionPresent(device, b"ALC_EXT_EFX") != qal_h.AL_FALSE:
+	# Connect the EFX function pointers, or keep them None
+	# Q2PORT: the C dlsyms them on ALC_EXT_EFX, else sets them to NULL
+	if _core.is_alc_extension_present("ALC_EXT_EFX", device):
 
-		# Q2PORT: qalGenFilters = (LPALGENFILTERS)qalGetProcAddress("alGenFilters"); ... for each of them
-		for name in _efx:
-			globals()["qal" + name] = _qalGetProcAddress("al" + name)
+		pass
 
 	else:
 
-		# Q2PORT: qalGenFilters = NULL; ... for each of them
 		for name in _efx:
 			globals()["qal" + name] = None
 
@@ -581,9 +513,7 @@ def QAL_Init()->bool: #void (returns qboolean)
 	clientserver.Com_Printf("\n")
 
 	#  Check extensions
-	if qalcIsExtensionPresent(device, b"ALC_EXT_disconnect") != qal_h.AL_FALSE:
-
-		hasAlcExtDisconnect = True
+	hasAlcExtDisconnect = _core.is_alc_extension_present("ALC_EXT_disconnect", device)
 
 	return True
 
