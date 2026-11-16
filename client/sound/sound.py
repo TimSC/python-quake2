@@ -45,7 +45,6 @@ from client import cl_main
 from client.header import client as client_h
 from client.sound import ogg
 from client.sound import openal
-from client.sound import qal
 from client.sound import backend as sound_backend
 from client.sound import wave
 from client.sound.header import local as sound_local

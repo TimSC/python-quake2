@@ -144,7 +144,8 @@ The self-contained loading library (step 1 of the plan).
 ## Dependencies
 
 - **Runtime:** in `requirements.txt` (pyglet, PyOpenGL, numpy, Pillow,
-  pycurl). Sound needs `libopenal.so.1`, and OGG music needs FFmpeg's
+  pycurl, openal-py). The openal-py wheel bundles OpenAL Soft (with a system
+  library fallback), and OGG music needs FFmpeg's
   libraries, which pyglet loads.
 - **Development:** in `requirements-dev.txt` (pytest).
 - The port stays pure Python, with no compiled extensions or build step.

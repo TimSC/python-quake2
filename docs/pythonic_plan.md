@@ -507,6 +507,21 @@ should land together.
     - **Checked:** the music test, cinematics, the integration tests, and a
       run of base1 with automatic and fixed reverb, occlusion, doppler, an
       unknown preset, `snd_restart` and `soundinfo`.
+  - **PyPI OpenAL binding:** require `openal-py>=0.1.0,<0.2`, using its
+    bundled OpenAL Soft with system-library fallback. Sound effects use the
+    `AudioEngine`/`Sound`/`Voice` facade, with a voice-creation hook for Quake's
+    attenuation and EFX routes. Music and cinematics keep their queued PCM timing
+    through public `Source`/`Buffer` objects. The `_core` adapters and
+    `client/sound/qal.py` are removed; channels and caches retain voices/sounds.
+    Exceptions replace error polling. Shutdown stops voices before closing
+    effects, sounds, the context and device.
+    Unit tests use generated PCM and the null driver to check streaming,
+    underruns, filters, restart, device recovery and initialization failures.
+    - **Checked:** unit tests, focused lint/type/static checks, the game tests,
+      the C harnesses, and the music test (including `snd_restart`). The full
+      static scan still fails on missing imports in the untracked
+      `py-modern-opengl/` experiments. A 500-frame `demo1.dm2` timedemo sample
+      with sound on the null driver gave 58.5 fps before and 60.0 fps after.
   - **Not done:** the channels and playsounds stay module lists in
     `sound.py` (already plain classes); they move with the client's
     context object in step 7.

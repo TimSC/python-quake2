@@ -43,14 +43,13 @@ from backends.unix import system
 from client import cl_main
 from client.vid import glimp_sdl2
 from client.refresh.gl1 import gl1_sdl # the gl1 frame swap (Yamagi's RI_EndFrame)
-from client.sound import ogg, qal
+from client.sound import ogg
 from client.sound import sound as sound_c
 from client.sound.header import local as sound_local
-from client.sound.header import qal as qal_h
+from openal_py import SourceState
 from client.sound.header import vorbis
-from common import cvar
+from common import cmdparser, cvar
 
-AL_PLAYING = 0x1012 # al.h; Yamagi's code doesn't use it, so header/qal.py hasn't got it
 
 st = {"t0": None, "step": 0}
 
@@ -72,16 +71,16 @@ def EF():
 			s = sound_local.sfx_t()
 			s.name = "misc/oggtest.wav"
 			sc = sound_c.S_LoadSound(s)
-			assert sc is not None and sc.bufnum and qal.qalIsBuffer(sc.bufnum), "ogg sample not loaded"
-			print("ogg: sample loaded into OpenAL buffer", sc.bufnum, "length", sc.length, "ms")
+			assert sc is not None and sc.sound and not sc.sound.closed, "ogg sample not loaded"
+			print("ogg: sample loaded into OpenAL buffer", sc.sound, "length", sc.length, "ms")
 			ogg.OGG_PlayTrack("2", True, True)
 			assert ogg.OGG_Status() == vorbis.PLAY
 			st["step"] = 1
 			st["t0"] = time.time()
 		elif step == 1 and t > 1:
 			assert ogg.player.numsamples > 0, "no samples read, pos {}".format(ogg.player.numsamples)
-			state = qal.qalGetSourcei(sound_c.backend.stream_source, qal_h.AL_SOURCE_STATE)
-			assert state == AL_PLAYING, "stream source not playing: {:#x}".format(state)
+			state = sound_c.backend.stream_source.state
+			assert state == SourceState.PLAYING, "stream source not playing: {:#x}".format(state)
 			print("ogg: playing track 2 at", ogg.player.numsamples, "samples,", sound_c.backend.active_buffers, "buffers queued")
 			ogg.OGG_TogglePlayback()
 			assert ogg.OGG_Status() == vorbis.PAUSE
@@ -89,7 +88,7 @@ def EF():
 			assert ogg.OGG_Status() == vorbis.PLAY
 			cvar.Cvar_SetValue("ogg_volume", 0.5)
 			ogg.OGG_Read() # the volume goes with the next samples (S_RawSamples)
-			gain = qal.qalGetSourcef(sound_c.backend.stream_source, qal_h.AL_GAIN)
+			gain = sound_c.backend.stream_source.gain
 			assert abs(gain - 0.5) < 0.01, "volume {}".format(gain)
 			print("ogg: pause/resume ok, volume ok")
 			ogg.OGG_SaveState()
@@ -102,6 +101,17 @@ def EF():
 			st["step"] = 2
 			st["t0"] = time.time()
 		elif step == 2 and t > 1:
+			st["old_backend"] = sound_c.backend
+			cmdparser.Cbuf_AddText("snd_restart\n")
+			st["step"] = 3
+			st["t0"] = time.time()
+		elif step == 3 and t > 2:
+			assert sound_c.backend is not st["old_backend"]
+			assert st["old_backend"].context.closed
+			assert st["old_backend"].device.closed
+			assert sound_c.backend.stream_source.state == SourceState.PLAYING
+			assert sound_c.backend.underwater_filter is not None
+			print("ogg: snd_restart recovered playback and effects")
 			ogg.OGG_PlayTrack("3", False, True)
 			assert ogg.player.curfile == 3
 			ogg.OGG_Shutdown()

@@ -27,6 +27,10 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+	from openal_py import Sound, Voice
 
 import numpy as np
 
@@ -60,7 +64,7 @@ class sfxcache_t(object):
 		self.width = 0 #int
 		#if USE_OPENAL
 		self.size = 0 #int
-		self.bufnum = 0 #int
+		self.sound: "Sound | None" = None
 		#endif
 		self.stereo = 0 #int
 
@@ -173,7 +177,7 @@ class channel_t(object):
 		#if USE_OPENAL
 		self.autoframe = 0 #int
 		self.oal_vol = 0.0 #float
-		self.srcnum = 0 #int
+		self.voice: "Voice | None" = None
 		#endif
 
 """

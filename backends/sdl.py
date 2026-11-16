@@ -14,7 +14,7 @@ The differences from SDL that the callers see:
  - pyglet reports key symbols, not scancodes. The scancodes come from the
    symbol through a US layout table.
  - adaptive vsync (swap interval -1) isn't supported.
-Sound is not here: it is OpenAL (client/sound/qal.py, openal.py).
+Sound is not here: it is OpenAL (client/sound/openal.py).
 """
 from __future__ import annotations
 

@@ -3,24 +3,26 @@
 Copyright (C) 1997-2005 Id Software, Inc., (C) 2010 skuller.net,
 (C) 2005 Stuart Dalton; GPL version 2 or later (see the other files).
 
-``OpenALBackend`` plays the sound system's channels on OpenAL sources (one
-per channel, plus one for streamed raw samples: music and cinematics),
+``OpenALBackend`` plays the sound system's channels through AudioEngine
+voices, plus one source for streamed raw samples (music and cinematics),
 moves the listener, and applies the EFX effects: the underwater low-pass
-filter, distance occlusion and the reverb presets. ``qal.py`` loads the
-OpenAL library and owns the device and context.
+filter, distance occlusion and the reverb presets. AudioEngine owns static
+sounds and voices; the backend owns the stream, effects and playback device.
 """
 
-from __future__ import annotations
+from collections.abc import Callable, Iterator, Sequence
+from typing import Any, Self
 
 import numpy as np
+import openal_py as al
 
 from client import cl_entities, cl_main
 from client.header import client as client_h
-from client.sound import ogg, qal
+from client.sound import ogg
 from client.sound import sound as sound_c
 from client.sound.header import local as sound_local
 from client.sound.header import qal as qal_h
-from common import clientserver, collision
+from common import clientserver, cmdparser, collision, cvar
 from common.header import shared
 from common.shared import shared as shared_c
 
@@ -163,25 +165,17 @@ _REVERB_DIRECTIONS = np.array([
 _ZERO = np.zeros((3,), dtype=np.float32)
 
 
-def al_vector(v) -> tuple[float, float, float]:
+def al_vector(v: Sequence[float] | np.ndarray) -> tuple[float, float, float]:
     """A Quake vector in OpenAL's coordinates."""
     return float(-v[1]), float(v[2]), float(-v[0])
 
 
-def al_format(width: int, channels: int) -> int:
+def al_format(width: int, channels: int) -> al.AudioFormat:
     """The OpenAL buffer format for a sample width (bytes) and channel count."""
     return {
-        (1, 1): qal_h.AL_FORMAT_MONO8, (1, 2): qal_h.AL_FORMAT_STEREO8,
-        (2, 1): qal_h.AL_FORMAT_MONO16, (2, 2): qal_h.AL_FORMAT_STEREO16,
-    }.get((width, channels), qal_h.AL_FORMAT_MONO8)
-
-
-def _efx_available() -> bool:
-    return all((
-        qal.qalAuxiliaryEffectSloti, qal.qalDeleteAuxiliaryEffectSlots, qal.qalDeleteEffects,
-        qal.qalDeleteFilters, qal.qalEffectf, qal.qalEffecti, qal.qalFilterf, qal.qalFilteri,
-        qal.qalGenAuxiliaryEffectSlots, qal.qalGenEffects, qal.qalGenFilters,
-    ))
+        (1, 1): al.AudioFormat.MONO8, (1, 2): al.AudioFormat.STEREO8,
+        (2, 1): al.AudioFormat.MONO16, (2, 2): al.AudioFormat.STEREO16,
+    }.get((width, channels), al.AudioFormat.MONO8)
 
 
 def _from_listener(ch: sound_local.channel_t) -> bool:
@@ -189,176 +183,207 @@ def _from_listener(ch: sound_local.channel_t) -> bool:
     return ch.entnum == -1 or ch.entnum == cl_main.cl.playernum + 1 or not ch.dist_mult
 
 
+class ChannelAudioEngine(al.AudioEngine):
+    """Configure Quake's attenuation and effect routes before a voice starts."""
+
+    configure_voice: Callable[[al.Voice], None] | None = None
+
+    def _create_voice(self, sound: al.Sound, source: al.Source) -> al.Voice:
+        voice = super()._create_voice(sound, source)
+        if self.configure_voice is not None:
+            self.configure_voice(voice)
+        return voice
+
+
 class OpenALBackend:
     """The sound backend on OpenAL (see client/sound/backend.py)."""
 
-    name = "openal"
+    name: str = "openal"
 
-    def __init__(self) -> None:
-        self.active_buffers = 0  # OpenAL buffers in use: sounds and queued raw samples
-        self.sources: list[int] = []  # one per channel
-        self.stream_source = 0
-        self.stream_playing = False
-        # buffers raw_samples() queued since the last stream update
-        self.stream_queued = 0
-        self.frame_count = 0
-        self.underwater_filter = 0
-        self.occlusion_filter = 0
-        self.reverb_effect = 0
-        self.reverb_slot = 0
-        self.last_reverb = -1
-        self.underwater_enabled = False
+    def __init__(self, audio: ChannelAudioEngine) -> None:
+        self.audio: ChannelAudioEngine = audio
+        self.device: al.Device = audio.device
+        self.context: al.Context = audio.context
+        self.has_disconnect: bool = self.device.supports("ALC_EXT_disconnect")
+        self.channel_count: int = 0
+        self.stream_source: al.Source = self.context.create_source(
+            relative=True, rolloff_factor=0.0)
+        self.stream_playing: bool = False
+        self.stream_queued: int = 0
+        self.frame_count: int = 0
+        self.underwater_filter: al.Filter | None = None
+        self.occlusion_filter: al.Filter | None = None
+        self.reverb_effect: al.Effect | None = None
+        self.reverb_slot: al.AuxiliaryEffectSlot | None = None
+        self.last_reverb: int = -1
+        self.underwater_enabled: bool = False
+        self.disconnect_frames: int = 0
+        self.buffers: set[al.Buffer] = set()
+        self.sounds: set[al.Sound] = set()
 
     @classmethod
-    def start(cls) -> OpenALBackend | None:
-        """Opens OpenAL and makes the sources; None (with a message) if it can't."""
-        if not qal.QAL_Init():
+    def start(cls) -> Self | None:
+        """Open the device and sources; report failures through the console."""
+        selected = cvar.Cvar_Get("al_device", "", shared.CVAR_ARCHIVE)
+        driver = cvar.Cvar_Get("al_driver", "libopenal.so.1", shared.CVAR_ARCHIVE)
+        assert selected is not None and driver is not None
+        if ".." in driver.string or any(c in driver.string for c in ":/\\"):
+            clientserver.Com_Printf(
+                "al_driver must not contain '..', ':', '/' or '\\': "
+                f"{driver.string}\n")
+            return None
+
+        clientserver.Com_Printf(f"OpenAL library: {al.library_path()}\n")
+        device = None
+        audio = None
+        backend = None
+        try:
+            clientserver.Com_Printf("...opening OpenAL device: ")
+            device = al.Device.open(selected.string or None)
+            clientserver.Com_Printf("ok\n...creating OpenAL context: ")
+            audio = ChannelAudioEngine(device=device, max_voices=sound_local.MAX_CHANNELS - 1)
+            context = audio.context
+            clientserver.Com_Printf("ok\n...making context current: ")
+            # The game owns the process's playback context on the frame thread.
+            # Pyglet uses its silent driver and only decodes music.
+            context.make_current()
+            clientserver.Com_Printf("ok\n\n")
+            if not context.supports("AL_EXT_LINEAR_DISTANCE"):
+                clientserver.Com_Printf(
+                    "ERROR: Required AL_EXT_LINEAR_DISTANCE extension is missing.\n")
+                audio.close()
+                device.close()
+                return None
+
+            backend = cls(audio)
+            # Probe the same minimum capacity as Yamagi, then let AudioEngine
+            # allocate and reclaim voices as channels start and finish.
+            probes: list[al.Source] = []
+            try:
+                while len(probes) < sound_local.MAX_CHANNELS - 1:
+                    try:
+                        probes.append(context.create_source())
+                    except al.ALLError:
+                        break
+                backend.channel_count = len(probes)
+            finally:
+                for source in probes:
+                    source.close()
+            if backend.channel_count < MIN_CHANNELS - 1:
+                clientserver.Com_Printf(f"ERROR: Required at least {MIN_CHANNELS} sources, "
+                                        f"but got {backend.channel_count + 1}.\n")
+                backend.shutdown()
+                return None
+
+            backend._init_underwater_filter()
+            backend._init_occlusion_filter()
+            backend._init_reverb_effect()
+            if sound_c.s_doppler.value:
+                context.doppler_factor = 2.0  # exaggerated, realistic is barely noticeable
+            context.distance_model = al.DistanceModel.LINEAR_CLAMPED
+            backend._sound_info(False)
+            clientserver.Com_Printf(f"Number of OpenAL sources: {backend.channel_count}\n\n")
+            return backend
+        except (al.OpenALError, al.LifecycleError) as error:
+            clientserver.Com_DPrintf(f"failed: {error}\n")
+            if backend is not None:
+                backend.shutdown()
+            else:
+                if audio is not None:
+                    audio.close()
+                if device is not None:
+                    device.close()
             clientserver.Com_Printf("ERROR: OpenAL failed to initialize.\n")
             return None
 
-        if not qal.qalIsExtensionPresent(b"AL_EXT_LINEAR_DISTANCE"):
-            clientserver.Com_Printf(
-                "ERROR: Required AL_EXT_LINEAR_DISTANCE extension is missing.\n")
-            qal.QAL_Shutdown()
-            return None
-
-        backend = cls()
-        qal.qalGetError()
-        backend.stream_source = qal.qalGenSources(1)[0]
-        if qal.qalGetError() != qal_h.AL_NO_ERROR:
-            clientserver.Com_Printf("ERROR: Couldn't get a single Source.\n")
-            qal.QAL_Shutdown()
-            return None
-
-        # one source less than MAX_CHANNELS: the stream has one
-        while len(backend.sources) < sound_local.MAX_CHANNELS - 1:
-            backend.sources.append(qal.qalGenSources(1)[0])
-            if qal.qalGetError() != qal_h.AL_NO_ERROR:
-                break
-
-        if len(backend.sources) < MIN_CHANNELS - 1:
-            clientserver.Com_Printf(f"ERROR: Required at least {MIN_CHANNELS} sources, "
-                                    f"but got {len(backend.sources) + 1}.\n")
-            qal.QAL_Shutdown()
-            return None
-
-        backend._init_stream_source()
-        backend._init_underwater_filter()
-        backend._init_occlusion_filter()
-        backend._init_reverb_effect()
-
-        clientserver.Com_Printf(f"Number of OpenAL sources: {len(backend.sources)}\n\n")
-
-        if sound_c.s_doppler.value:
-            qal.qalDopplerFactor(2.0)  # exaggerated, realistic is barely noticeable
-        qal.qalDistanceModel(qal_h.AL_LINEAR_DISTANCE_CLAMPED)
-        return backend
+    @property
+    def active_buffers(self) -> int:
+        return len(self.buffers) + len(self.sounds)
 
     @property
     def num_channels(self) -> int:
-        return len(self.sources)
+        return self.channel_count
 
-    # -- setup ------------------------------------------------------------
-
-    def _init_stream_source(self) -> None:
-        src = self.stream_source
-        qal.qalSource3f(src, qal_h.AL_POSITION, 0.0, 0.0, 0.0)
-        qal.qalSource3f(src, qal_h.AL_VELOCITY, 0.0, 0.0, 0.0)
-        qal.qalSource3f(src, qal_h.AL_DIRECTION, 0.0, 0.0, 0.0)
-        qal.qalSourcef(src, qal_h.AL_ROLLOFF_FACTOR, 0.0)
-        qal.qalSourcei(src, qal_h.AL_BUFFER, 0)
-        qal.qalSourcei(src, qal_h.AL_LOOPING, qal_h.AL_FALSE)
-        qal.qalSourcei(src, qal_h.AL_SOURCE_RELATIVE, qal_h.AL_TRUE)
-
-    def _make_lowpass(self, what: str) -> tuple[int, bool]:
-        """Makes a low-pass filter (name, ok); name is 0 if it can't."""
-        if not _efx_available():
-            return 0, False
-        flt = qal.qalGenFilters(1)[0]
-        if qal.qalGetError() != qal_h.AL_NO_ERROR:
+    def _make_lowpass(self, what: str) -> al.Filter | None:
+        if not self.device.supports("ALC_EXT_EFX"):
+            return None
+        try:
+            return self.context.create_filter(al.FilterType.LOWPASS, gain=1.0, gain_hf=1.0)
+        except (al.ALLError, NotImplementedError):
             clientserver.Com_Printf(f"Couldn't generate {what}!\n")
-            return 0, False
-        qal.qalFilteri(flt, qal_h.AL_FILTER_TYPE, qal_h.AL_FILTER_LOWPASS)
-        if qal.qalGetError() != qal_h.AL_NO_ERROR:
-            # Yamagi keeps the filter name when the low pass type fails
-            clientserver.Com_Printf("Low pass filter is not supported!\n")
-            return flt, False
-        qal.qalFilterf(flt, qal_h.AL_LOWPASS_GAIN, qal_h.AL_LOWPASS_DEFAULT_GAIN)
-        return flt, True
+            return None
 
     def _init_underwater_filter(self) -> None:
-        self.underwater_filter, ok = self._make_lowpass("an OpenAL filter")
-        if ok:
+        self.underwater_filter = self._make_lowpass("an OpenAL filter")
+        if self.underwater_filter is not None:
             sound_c.s_underwater.modified = True
             sound_c.s_underwater_gain_hf.modified = True
 
     def _init_occlusion_filter(self) -> None:
-        self.occlusion_filter, ok = self._make_lowpass("occlusion filter")
-        if ok:
-            qal.qalFilterf(self.occlusion_filter, qal_h.AL_LOWPASS_GAINHF,
-                           qal_h.AL_LOWPASS_DEFAULT_GAINHF)
-        else:
-            self.occlusion_filter = 0
+        self.occlusion_filter = self._make_lowpass("occlusion filter")
 
     def _init_reverb_effect(self) -> None:
-        if not _efx_available():
+        if not self.device.supports("ALC_EXT_EFX"):
             return
-        self.reverb_effect = qal.qalGenEffects(1)[0]
-        if qal.qalGetError() != qal_h.AL_NO_ERROR:
-            clientserver.Com_Printf("Couldn't generate an OpenAL effect!\n")
-            return
-        self.reverb_slot = qal.qalGenAuxiliaryEffectSlots(1)[0]
-        if qal.qalGetError() != qal_h.AL_NO_ERROR:
-            clientserver.Com_Printf("Couldn't generate an OpenAL auxiliary effect slot!\n")
-            return
-        qal.qalEffecti(self.reverb_effect, qal_h.AL_EFFECT_TYPE, qal_h.AL_EFFECT_REVERB)
-        self.set_reverb(int(sound_c.s_reverb_preset.value))
+        try:
+            self.reverb_effect = self.context.create_effect(al.EffectType.REVERB)
+            self.reverb_slot = self.context.create_effect_slot(effect=self.reverb_effect)
+            self.set_reverb(int(sound_c.s_reverb_preset.value))
+        except (al.ALLError, NotImplementedError):
+            clientserver.Com_Printf("Couldn't generate an OpenAL reverb effect!\n")
+            if self.reverb_slot is not None:
+                self.reverb_slot.close()
+                self.reverb_slot = None
+            if self.reverb_effect is not None:
+                self.reverb_effect.close()
+                self.reverb_effect = None
 
     def shutdown(self) -> None:
+        if self.context.closed:
+            return
         clientserver.Com_Printf("Shutting down OpenAL.\n")
         self.stop_all_channels()
-
-        qal.qalDeleteSources(1, [self.stream_source])
-        if qal.qalDeleteFilters:  # missing without ALC_EXT_EFX
-            qal.qalDeleteFilters(1, [self.underwater_filter])
-            qal.qalDeleteFilters(1, [self.occlusion_filter])
-            qal.qalDeleteAuxiliaryEffectSlots(1, [self.reverb_slot])
-            qal.qalDeleteEffects(1, [self.reverb_effect])
-
-        if self.sources:
-            qal.qalDeleteSources(len(self.sources), self.sources)
-            self.sources = []
-
-        qal.QAL_Shutdown()
+        # Sources retain their buffers and effect routes. Release them first.
+        self.stream_source.close()
+        self.audio.stop_all()
+        for buffer in list(self.buffers):
+            self._delete_buffer(buffer)
+        for resource in (self.reverb_slot, self.reverb_effect,
+                         self.underwater_filter, self.occlusion_filter):
+            if resource is not None:
+                resource.close()
+        self.audio.close()
+        self.sounds.clear()
+        self.device.close()
 
     # -- sounds -----------------------------------------------------------
 
-    def _gen_buffer(self, data: bytes, size: int, fmt: int, rate: int) -> int:
-        name = qal.qalGenBuffers(1)[0]
-        qal.qalBufferData(name, fmt, data, size, rate)
-        self.active_buffers += 1
-        return name
+    def _gen_buffer(self, data: bytes, size: int, fmt: int, rate: int) -> al.Buffer:
+        buffer = self.context.buffer_from_pcm(data[:size], format=fmt, sample_rate=rate)
+        self.buffers.add(buffer)
+        return buffer
 
-    def _delete_buffer(self, name: int) -> None:
-        qal.qalDeleteBuffers(1, [name])
-        self.active_buffers -= 1
+    def _delete_buffer(self, buffer: al.Buffer) -> None:
+        buffer.close()
+        self.buffers.discard(buffer)
 
-    def upload_sfx(self, s: sound_local.sfx_t, info: sound_local.wavinfo_t, data, volume: int,
+    def upload_sfx(self, s: sound_local.sfx_t, info: sound_local.wavinfo_t, data: Any, volume: int,
                    begin_length: int, end_length: int,
                    attack_length: int, fade_length: int) -> sound_local.sfxcache_t | None:
         """Uploads a sound to an OpenAL buffer and gives it a placeholder cache.
 
-        The cache holds no samples, only the buffer name and the lengths
+        The cache holds no samples, only the Sound object and the lengths
         (in milliseconds) the sound system needs.
         """
         size = info.samples * info.width
         if not size:
             return None
 
-        qal.qalGetError()
-        name = self._gen_buffer(bytes(data[:size]), size, al_format(info.width, info.channels),
-                                info.rate)
-        if qal.qalGetError() != qal_h.AL_NO_ERROR:
+        try:
+            sound = self.audio.sound_from_pcm(bytes(data[:size]),
+                                              format=al_format(info.width, info.channels),
+                                              sample_rate=info.rate)
+        except al.ALLError:
             return None
 
         sc = s.cache = sound_local.sfxcache_t()
@@ -366,7 +391,8 @@ class OpenALBackend:
         sc.loopstart = info.loopstart
         sc.width = info.width
         sc.size = size
-        sc.bufnum = name
+        sc.sound = sound
+        self.sounds.add(sound)
         sc.stereo = info.channels - 1
         sc.volume = int(volume)
         sc.begin = int(begin_length * 1000 / info.rate)
@@ -377,8 +403,9 @@ class OpenALBackend:
 
     def delete_sfx(self, s: sound_local.sfx_t) -> None:
         """Deletes a sound's buffer (the sound system frees the cache)."""
-        if s.cache:
-            self._delete_buffer(s.cache.bufnum)
+        if s.cache and s.cache.sound is not None:
+            s.cache.sound.close()
+            self.sounds.discard(s.cache.sound)
 
     # -- reverb -----------------------------------------------------------
 
@@ -386,33 +413,33 @@ class OpenALBackend:
         """Sets the reverb effect to a preset, unless it's set already."""
         if preset == self.last_reverb or not 0 <= preset < len(REVERB_PRESETS):
             return
-        if not qal.qalEffectf:
+        if self.reverb_effect is None or self.reverb_slot is None:
             return  # no EFX
         reverb = REVERB_PRESETS[preset][1]
         self.last_reverb = preset
 
         effect = self.reverb_effect
         for param, value in (
-            (qal_h.AL_REVERB_DENSITY, reverb.flDensity),
-            (qal_h.AL_REVERB_DIFFUSION, reverb.flDiffusion),
-            (qal_h.AL_REVERB_GAIN, reverb.flGain),
-            (qal_h.AL_REVERB_GAINHF, reverb.flGainHF),
-            (qal_h.AL_REVERB_DECAY_TIME, reverb.flDecayTime),
-            (qal_h.AL_REVERB_DECAY_HFRATIO, reverb.flDecayHFRatio),
-            (qal_h.AL_REVERB_REFLECTIONS_GAIN, reverb.flReflectionsGain),
-            (qal_h.AL_REVERB_REFLECTIONS_DELAY, reverb.flReflectionsDelay),
-            (qal_h.AL_REVERB_LATE_REVERB_GAIN, reverb.flLateReverbGain),
-            (qal_h.AL_REVERB_LATE_REVERB_DELAY, reverb.flLateReverbDelay),
-            (qal_h.AL_REVERB_AIR_ABSORPTION_GAINHF, reverb.flAirAbsorptionGainHF),
-            (qal_h.AL_REVERB_ROOM_ROLLOFF_FACTOR, reverb.flRoomRolloffFactor),
+            ('density', reverb.flDensity),
+            ('diffusion', reverb.flDiffusion),
+            ('gain', reverb.flGain),
+            ('gain_hf', reverb.flGainHF),
+            ('decay_time', reverb.flDecayTime),
+            ('decay_hf_ratio', reverb.flDecayHFRatio),
+            ('reflections_gain', reverb.flReflectionsGain),
+            ('reflections_delay', reverb.flReflectionsDelay),
+            ('late_reverb_gain', reverb.flLateReverbGain),
+            ('late_reverb_delay', reverb.flLateReverbDelay),
+            ('air_absorption_gain_hf', reverb.flAirAbsorptionGainHF),
+            ('room_rolloff_factor', reverb.flRoomRolloffFactor),
         ):
-            qal.qalEffectf(effect, param, value)
-        qal.qalEffecti(effect, qal_h.AL_REVERB_DECAY_HFLIMIT, reverb.iDecayHFLimit)
-        qal.qalAuxiliaryEffectSloti(self.reverb_slot, qal_h.AL_EFFECTSLOT_EFFECT, effect)
+            effect.parameters[param] = value
+        effect.parameters["decay_hf_limit"] = reverb.iDecayHFLimit
+        self.reverb_slot.refresh()
 
     def apply_reverb(self) -> None:
         """Picks a reverb preset by the size of the space around the listener."""
-        if self.reverb_effect == 0:
+        if self.reverb_effect is None:
             return
 
         average = 0.0
@@ -450,26 +477,26 @@ class OpenALBackend:
 
     # -- underwater -------------------------------------------------------
 
-    def _set_direct_filter(self, flt: int) -> None:
-        for source in self.sources:
-            qal.qalSourcei(source, qal_h.AL_DIRECT_FILTER, flt)
+    def _set_direct_filter(self, flt: al.Filter | None) -> None:
+        for voice in self.audio.voices:
+            voice.source.direct_filter = flt
 
     def underwater(self) -> None:
         """The listener went under water: muffle every source."""
-        if not self.underwater_enabled or self.underwater_filter == 0:
+        if not self.underwater_enabled or self.underwater_filter is None:
             return
         self._set_direct_filter(self.underwater_filter)
         self.set_reverb(UNDERWATER_REVERB)
 
     def overwater(self) -> None:
         """The listener came out of the water."""
-        if not self.underwater_enabled or self.underwater_filter == 0:
+        if not self.underwater_enabled or self.underwater_filter is None:
             return
-        self._set_direct_filter(qal_h.AL_FILTER_NULL)
+        self._set_direct_filter(None)
         self.set_reverb(int(sound_c.s_reverb_preset.value))
 
     def _update_underwater_cvars(self) -> None:
-        if self.underwater_filter == 0:
+        if self.underwater_filter is None:
             return
 
         update = False
@@ -485,10 +512,10 @@ class OpenALBackend:
 
         gain_hf = min(max(sound_c.s_underwater_gain_hf.value, qal_h.AL_LOWPASS_MIN_GAINHF),
                       qal_h.AL_LOWPASS_MAX_GAINHF)
-        qal.qalFilterf(self.underwater_filter, qal_h.AL_LOWPASS_GAINHF, gain_hf)
+        self.underwater_filter.parameters["gain_hf"] = gain_hf
 
         under = self.underwater_enabled and sound_c.snd_is_underwater
-        self._set_direct_filter(self.underwater_filter if under else 0)
+        self._set_direct_filter(self.underwater_filter if under else None)
 
     # -- channels ---------------------------------------------------------
 
@@ -496,25 +523,27 @@ class OpenALBackend:
         """Moves a channel's source to where its sound comes from."""
         if _from_listener(ch):
             return  # relative, at the listener (see start_channel())
+        assert ch.voice is not None
+        source = ch.voice.source
 
         origin = np.zeros((3,), dtype=np.float32)
         if ch.fixed_origin:
             shared.VectorCopy(ch.origin, origin)
-            qal.qalSource3f(ch.srcnum, qal_h.AL_POSITION, *al_vector(origin))
+            ch.voice.position = al_vector(origin)
             return
 
         sound_c.GetEntitySoundOrigin(ch.entnum, sound_c.listener_origin, origin)
-        qal.qalSource3f(ch.srcnum, qal_h.AL_POSITION, *al_vector(origin))
+        ch.voice.position = al_vector(origin)
 
         if sound_c.s_doppler.value:
             velocity = np.zeros((3,), dtype=np.float32)
             cl_entities.CL_GetEntitySoundVelocity(ch.entnum, velocity)
             shared_c.VectorScale(velocity, METERS_PER_UNIT, velocity)
-            qal.qalSource3f(ch.srcnum, qal_h.AL_VELOCITY, *al_vector(velocity))
+            source.velocity = al_vector(velocity)
 
         occluded = False
         strength = sound_c.s_occlusion_strength.value
-        if not sound_c.snd_is_underwater and strength and self.occlusion_filter != 0:
+        if not sound_c.snd_is_underwater and strength and self.occlusion_filter is not None:
             trace = collision.CM_BoxTrace(origin, sound_c.listener_origin, _ZERO, _ZERO,
                                           0, shared.MASK_PLAYERSOLID)
             if trace.fraction < 1.0:
@@ -523,56 +552,49 @@ class OpenALBackend:
                 dist = shared_c.VectorLength(distance)
 
                 gain = 1.0 - ((dist / 1000) * (1.0 - strength))
-                qal.qalSourcef(ch.srcnum, qal_h.AL_GAIN, min(max(gain, 0), 1))
+                ch.voice.gain = min(max(gain, 0), 1)
 
                 # high frequencies fade with distance, but keep enough for
                 # HRTF's spatial cues
                 gain_hf = 1.0 - (0.5 * strength * min(dist / 1000.0, 1.0))
                 gain_hf = min(max(gain_hf, qal_h.AL_LOWPASS_MIN_GAINHF),
                               qal_h.AL_LOWPASS_MAX_GAINHF)
-                qal.qalFilterf(self.occlusion_filter, qal_h.AL_LOWPASS_GAINHF, gain_hf)
-                qal.qalSourcei(ch.srcnum, qal_h.AL_DIRECT_FILTER, self.occlusion_filter)
+                self.occlusion_filter.parameters["gain_hf"] = float(gain_hf)
+                source.direct_filter = self.occlusion_filter
                 occluded = True
 
         reverb = False
         if not occluded:
-            if not sound_c.snd_is_underwater:
-                qal.qalSourcei(ch.srcnum, qal_h.AL_DIRECT_FILTER, 0)
-            if sound_c.s_reverb_preset.value != -1:
-                qal.qalSource3i(ch.srcnum, qal_h.AL_AUXILIARY_SEND_FILTER,
-                                self.reverb_slot, 0, qal_h.AL_FILTER_NULL)
+            if not sound_c.snd_is_underwater and self.occlusion_filter is not None:
+                source.direct_filter = None
+            if sound_c.s_reverb_preset.value != -1 and self.reverb_slot is not None:
+                source.set_send(0, self.reverb_slot)
                 reverb = True
-        if not reverb:
-            qal.qalSource3i(ch.srcnum, qal_h.AL_AUXILIARY_SEND_FILTER, 0, 0, qal_h.AL_FILTER_NULL)
+        if not reverb and self.reverb_slot is not None:
+            source.set_send(0, None)
+
+    def _configure_channel(self, ch: sound_local.channel_t, voice: al.Voice) -> None:
+        ch.voice = voice
+        source = voice.source
+        source.reference_distance = sound_local.SOUND_FULLVOLUME
+        source.max_distance = 8192
+        source.rolloff_factor = ch.dist_mult * (8192 - sound_local.SOUND_FULLVOLUME)
+        if (self.underwater_enabled and sound_c.snd_is_underwater
+                and self.underwater_filter is not None):
+            source.direct_filter = self.underwater_filter
+        self._spatialize(ch)
 
     def _play(self, ch: sound_local.channel_t) -> None:
         if sound_c.s_show.value > 1:
-            clientserver.Com_Printf("{}: {}\n".format("AL_PlayChannel", ch.sfx.name))
-
-        vol = min(ch.oal_vol, 1.0)
-        ch.srcnum = src = self.sources[sound_c.channels.index(ch)]
-
-        qal.qalGetError()
-        qal.qalSourcef(src, qal_h.AL_REFERENCE_DISTANCE, sound_local.SOUND_FULLVOLUME)
-        qal.qalSourcef(src, qal_h.AL_MAX_DISTANCE, 8192)
-        qal.qalSourcef(src, qal_h.AL_ROLLOFF_FACTOR,
-                       ch.dist_mult * (8192 - sound_local.SOUND_FULLVOLUME))
-        qal.qalSourcef(src, qal_h.AL_GAIN, vol)
-        qal.qalSourcei(src, qal_h.AL_BUFFER, ch.sfx.cache.bufnum)
-        qal.qalSourcei(src, qal_h.AL_LOOPING, qal_h.AL_TRUE if ch.autosound else qal_h.AL_FALSE)
-
-        if _from_listener(ch):
-            # at the listener, at full volume
-            qal.qalSource3f(src, qal_h.AL_POSITION, 0.0, 0.0, 0.0)
-            qal.qalSourcei(src, qal_h.AL_SOURCE_RELATIVE, qal_h.AL_TRUE)
-        else:
-            qal.qalSourcei(src, qal_h.AL_SOURCE_RELATIVE, qal_h.AL_FALSE)
-
-        self._spatialize(ch)
-        qal.qalSourcePlay(src)
-
-        if qal.qalGetError() != qal_h.AL_NO_ERROR:
+            clientserver.Com_Printf(f"AL_PlayChannel: {ch.sfx.name}\n")
+        self.audio.configure_voice = lambda voice: self._configure_channel(ch, voice)
+        try:
+            ch.voice = self.audio.play(ch.sfx.cache.sound, gain=min(ch.oal_vol, 1.0),
+                                       looping=bool(ch.autosound), relative=_from_listener(ch))
+        except (al.ALLError, al.ResourceInUseError):
             self.stop_channel(ch)  # don't keep a broken channel
+        finally:
+            self.audio.configure_voice = None
 
     def start_channel(self, ch: sound_local.channel_t, volume: float, master: float) -> None:
         ch.oal_vol = volume * master  # clamped to 1.0 in _play()
@@ -581,11 +603,11 @@ class OpenALBackend:
     def stop_channel(self, ch: sound_local.channel_t) -> None:
         if sound_c.s_show.value > 1:
             clientserver.Com_Printf("{}: {}\n".format("AL_StopChannel", ch.sfx.name))
-        qal.qalSourceStop(ch.srcnum)
-        qal.qalSourcei(ch.srcnum, qal_h.AL_BUFFER, qal_h.AL_NONE)
+        if ch.voice is not None:
+            ch.voice.stop()
         ch.clear()
 
-    def _active_channels(self):
+    def _active_channels(self) -> Iterator[sound_local.channel_t]:
         return (ch for ch in sound_c.channels[:sound_c.s_numchannels] if ch.sfx)
 
     def stop_all_channels(self) -> None:
@@ -597,7 +619,9 @@ class OpenALBackend:
     def playsound_start(self, timeofs: float, volume: float, painted: int) -> tuple[int, float]:
         return int(painted + timeofs * 1000), volume  # OpenAL counts in milliseconds
 
-    def _find_looping_sound(self, entnum: int, sfx: sound_local.sfx_t):
+    def _find_looping_sound(
+        self, entnum: int, sfx: sound_local.sfx_t,
+    ) -> sound_local.channel_t | None:
         for ch in self._active_channels():
             if ch.autosound and ch.entnum == entnum and ch.sfx is sfx:
                 return ch
@@ -649,48 +673,45 @@ class OpenALBackend:
     # -- raw samples (music, cinematics) ------------------------------------
 
     def _unqueue(self, count: int) -> None:
-        for buffer in qal.qalSourceUnqueueBuffers(self.stream_source, count):
+        for buffer in self.stream_source.unqueue_buffers(count):
             self._delete_buffer(buffer)
-
-    def _source_int(self, source, param: int) -> int:
-        return qal.qalGetSourcei(source, param)
 
     def _stream_die(self) -> None:
         """Stops the stream and drops its buffers."""
-        if not qal.device:  # OpenAL might not be initialised yet
+        if self.context.closed:  # OpenAL might not be initialised yet
             return
         self.stream_playing = False
-        qal.qalSourceStop(self.stream_source)
-        self._unqueue(self._source_int(self.stream_source, qal_h.AL_BUFFERS_QUEUED))
+        self.stream_source.stop()
+        self._unqueue(self.stream_source.buffers_queued)
         self.stream_queued = 0
 
     def _stream_update(self) -> None:
         """Drops played stream buffers and restarts the stream if it stopped."""
         src = self.stream_source
-        if self._source_int(src, qal_h.AL_SOURCE_STATE) == qal_h.AL_STOPPED:
+        if src.state == al.SourceState.STOPPED:
             self.stream_playing = False
             # A source that ran dry (a cinematic paused by the menu or
             # console) stops with its played buffers still queued, and
             # playing it again would loop the last chunk. Drop them, but
             # keep the ones queued since the last update: a stopped source
             # counts every buffer as processed.
-            self._unqueue(max(self._source_int(src, qal_h.AL_BUFFERS_QUEUED)
+            self._unqueue(max(src.buffers_queued
                               - self.stream_queued, 0))
         else:
-            self._unqueue(self._source_int(src, qal_h.AL_BUFFERS_PROCESSED))
+            self._unqueue(src.buffers_processed)
 
-        if not self.stream_playing and self._source_int(src, qal_h.AL_BUFFERS_QUEUED):
-            qal.qalSourcePlay(src)
+        if not self.stream_playing and src.buffers_queued:
+            src.play()
             self.stream_playing = True
         self.stream_queued = 0
 
     def raw_samples(self, samples: int, rate: int, width: int, channels: int,
-                    data, volume: float) -> None:
+                    data: Any, volume: float) -> None:
         """Queues raw samples (music or a cinematic's sound) on the stream."""
         size = samples * width * channels
         buffer = self._gen_buffer(bytes(data), size, al_format(width, channels), rate)
-        qal.qalSourcef(self.stream_source, qal_h.AL_GAIN, min(volume, 1.0))
-        qal.qalSourceQueueBuffers(self.stream_source, 1, [buffer])
+        self.stream_source.gain = min(volume, 1.0)
+        self.stream_source.queue_buffers([buffer])
         self.stream_queued += 1
         sound_c.s_rawend += samples  # as S_RawSamples() keeps it
 
@@ -705,14 +726,14 @@ class OpenALBackend:
 
         # Without an output device skip the frame, after paintedtime moved
         # on: otherwise sound and game drift apart.
-        if not qal.QAL_RecoverLostDevice():
+        if not self._recover_lost_device():
             return
 
         # the listener
-        orientation = [*al_vector(sound_c.listener_forward),
-                       *al_vector(sound_c.listener_up)]
-        qal.qalListener3f(qal_h.AL_POSITION, *al_vector(sound_c.listener_origin))
-        qal.qalListenerfv(qal_h.AL_ORIENTATION, orientation)
+        listener = self.context.listener
+        listener.position = al_vector(sound_c.listener_origin)
+        listener.orientation = (al_vector(sound_c.listener_forward),
+                                al_vector(sound_c.listener_up))
 
         if sound_c.s_reverb_preset.value == -2:
             self.apply_reverb()
@@ -723,8 +744,9 @@ class OpenALBackend:
             velocity = np.zeros((3,), dtype=np.float32)
             cl_entities.CL_GetViewVelocity(velocity)
             shared_c.VectorScale(velocity, METERS_PER_UNIT, velocity)
-            qal.qalListener3f(qal_h.AL_VELOCITY, *al_vector(velocity))
+            listener.velocity = al_vector(velocity)
 
+        self.audio.update()
         # the channels: drop the finished ones and move the others
         for ch in list(self._active_channels()):
             if ch.autosound:
@@ -732,9 +754,7 @@ class OpenALBackend:
                     self.stop_channel(ch)  # looping sounds are added again each frame
                     continue
             else:
-                qal.qalGetError()
-                state = qal.qalGetSourcei(ch.srcnum, qal_h.AL_SOURCE_STATE)
-                if qal.qalGetError() != qal_h.AL_NO_ERROR or state == qal_h.AL_STOPPED:
+                if ch.voice is None or ch.voice.closed:
                     self.stop_channel(ch)
                     continue
 
@@ -756,4 +776,34 @@ class OpenALBackend:
         self._update_reverb_cvar()
 
     def sound_info(self) -> None:
-        qal.QAL_SoundInfo(True)
+        self._sound_info(True)
+
+    def _sound_info(self, show_extensions: bool) -> None:
+        output = clientserver.Com_Printf if show_extensions else clientserver.Com_DPrintf
+        extensions = " ".join(sorted(self.context.extensions))
+        clientserver.Com_Printf("OpenAL features:\n")
+        for name, value in (("AL_VENDOR", self.context.vendor),
+                            ("AL_RENDERER", self.context.renderer),
+                            ("AL_VERSION", self.context.version)):
+            clientserver.Com_Printf(f"{name}: {value}\n")
+        output(f"AL_EXTENSIONS: {extensions}\n")
+        clientserver.Com_Printf(f"AL_EXTENSIONS number: {len(self.context.extensions)}\n")
+        if self.device.supports("ALC_ENUMERATE_ALL_EXT"):
+            clientserver.Com_Printf("\nAvailable OpenAL devices:\n")
+            for name in al.enumerate_devices():
+                clientserver.Com_Printf(f"- {name}\n")
+            clientserver.Com_Printf(f"\nCurrent OpenAL device:\n- {self.device.spec}\n")
+
+    def _recover_lost_device(self) -> bool:
+        if not self.has_disconnect:
+            return True
+        if not self.disconnect_frames:
+            if self.device.get_parameter("ALC_CONNECTED"):
+                return True
+            self.disconnect_frames = 1
+        elif self.disconnect_frames < int(cvar.Cvar_VariableValue("cl_maxfps") * 2.5):
+            self.disconnect_frames += 1
+        else:
+            cmdparser.Cbuf_AddText("snd_restart\n")
+            self.disconnect_frames = 0
+        return False

@@ -74,11 +74,14 @@ Not included:
 ## Requirements
 
 - Python 3.12 or later.
-- The packages in `requirements.txt`: pyglet, PyOpenGL, numpy, Pillow and
-  pycurl.
-- For sound, the system's OpenAL library (`libopenal.so.1`, e.g. the
-  `libopenal1` package). The game loads it itself; pip's pyglet doesn't
-  include it.
+- The packages in `requirements.txt`: pyglet, PyOpenGL, numpy, Pillow,
+  pycurl and openal-py.
+- Sound uses the PyPI `openal-py` wheel, which bundles OpenAL Soft.
+  The backend uses `AudioEngine`, `Sound` and `Voice` for sound effects,
+  with public source and effect objects for streaming and spatial audio.
+  It can fall back to the system's OpenAL library (`libopenal.so.1`, e.g.
+  the `libopenal1` package). Set `OPENAL_PY_LIBRARY` to select a library
+  explicitly; `al_driver` remains for config compatibility.
 - For OGG music, FFmpeg's libraries, which pyglet loads.
 - The Quake II game data.
 
