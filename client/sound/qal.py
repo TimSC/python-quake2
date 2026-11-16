@@ -27,25 +27,23 @@
  * other platforms may need an own implementation. This source file
  * was taken from Q2Pro and modified by the YQ2 authors.
  *
- * Q2PORT: the OpenAL library is the one bundled with the openal-py
- * package (openal_py._core, a typed layer over libopenal), so loading
- * and dlsym'ing it with ctypes/Sys_LoadLibrary is gone. The qal* /
- * qalc* names stay, as thin adapters, so openal.py reads like the C.
- * The C's "qalGetError(); ...; if qalGetError() != 0" pattern is kept
- * by recording the _core ALLError code in _last_error.
+ * Q2PORT: openal-py's AudioEngine owns static sounds and voices. The
+ * QAL entry points still own device/context startup, shutdown and recovery;
+ * OpenAL parameters and EFX use the library's public object API.
  *
  * =======================================================================
 """
 from __future__ import annotations
 
+import typing
+
 import openal_py
-from openal_py import _core
 
 from common import clientserver
 from common import cvar
 from common.header import shared
 from common.shared import shared as shared_c
-from client.sound.header import qal as qal_h
+from client.sound.header import local as sound_local
 
 #ifdef USE_OPENAL
 
@@ -60,253 +58,26 @@ from client.sound.header import qal as qal_h
 # DEFAULT_OPENAL_DRIVER is defined at compile time via the compiler
 DEFAULT_OPENAL_DRIVER = "libopenal.so.1"
 
-context = None #static ALCcontext *
-device = None #static ALCdevice *
+context: openal_py.Context | None = None #static ALCcontext *
+device: openal_py.Device | None = None #static ALCdevice *
 al_device = None #static cvar_t *
 al_driver = None #static cvar_t *
 hasAlcExtDisconnect = False #static qboolean
 
-# Q2PORT: the AL error code qalGetError() returns. The _core calls raise
-# an ALLError on failure and each qal* adapter records the code here.
-_last_error = 0 #int
+class QALAudioEngine(openal_py.AudioEngine):
 
-# Q2PORT: the EFX qal* names, in the C's order
-_efx = ["GenFilters", "Filteri", "Filterf", "DeleteFilters", "AuxiliaryEffectSloti",
-	"GenEffects", "GenAuxiliaryEffectSlots", "Effectf", "Effecti", "Effectfv",
-	"DeleteAuxiliaryEffectSlots", "DeleteEffects"]
+	# Q2PORT: AudioEngine's hook configures attenuation and EFX before play().
+	configure_voice: typing.Callable[[openal_py.Voice], None] | None = None
 
-def _qal(f):
+	def _create_voice(self, sound: openal_py.Sound, source: openal_py.Source)->openal_py.Voice:
 
-	# Q2PORT: wraps a _core call: on failure record the AL error code
-	# (instead of raising) so the C's qalGetError() polling still works
-	def wrapper(*args):
+		voice = super()._create_voice(sound, source)
+		if self.configure_voice is not None:
+			self.configure_voice(voice)
+		return voice
 
-		global _last_error
 
-		try:
-
-			return f(*args)
-
-		except openal_py.ALLError as e:
-
-			_last_error = e.code
-			return None
-
-	return wrapper
-
-def qalGetError()->int: # (returns ALenum)
-
-	global _last_error
-
-	e = _last_error
-	_last_error = 0
-	return e
-
-# Q2PORT: the qal* function pointers of the C are thin adapters over
-# openal_py._core, keeping the C names and argument order. (The C
-# pointers nobody here calls, like qalGetBooleanv, are left out.)
-
-@_qal
-def qalIsExtensionPresent(name): #const char * (returns ALboolean)
-
-	return _core.is_extension_present(name.decode("ascii") if isinstance(name, bytes) else name)
-
-@_qal
-def qalListenerf(pname, value): #ALenum, ALfloat
-
-	_core.listener_set(pname, float(value))
-
-@_qal
-def qalListener3f(pname, x, y, z): #ALenum, ALfloat, ALfloat, ALfloat
-
-	_core.listener_set(pname, (x, y, z))
-
-@_qal
-def qalListenerfv(pname, values): #ALenum, ALfloat *
-
-	_core.listener_set(pname, list(values))
-
-@_qal
-def qalListeneri(pname, value): #ALenum, ALint
-
-	_core.listener_set(pname, int(value))
-
-@_qal
-def qalListener3i(pname, x, y, z): #ALenum, ALint, ALint, ALint
-
-	_core.listener_set(pname, (int(x), int(y), int(z)))
-
-@_qal
-def qalGenSources(n): #ALsizei (returns ALuint *)
-
-	return _core.gen_sources(n)
-
-@_qal
-def qalDeleteSources(n, sources): #ALsizei, ALuint *
-
-	_core.delete_sources(list(sources))
-
-@_qal
-def qalIsSource(source): #ALuint (returns ALboolean)
-
-	return _core.is_source(source)
-
-@_qal
-def qalSourcef(source, pname, value): #ALuint, ALenum, ALfloat
-
-	_core.source_set(source, pname, float(value))
-
-@_qal
-def qalSource3f(source, pname, x, y, z): #ALuint, ALenum, ALfloat, ALfloat, ALfloat
-
-	_core.source_set(source, pname, (float(x), float(y), float(z)))
-
-@_qal
-def qalSourcei(source, pname, value): #ALuint, ALenum, ALint
-
-	_core.source_set(source, pname, int(value))
-
-@_qal
-def qalSource3i(source, pname, x, y, z): #ALuint, ALenum, ALint, ALint, ALint
-
-	_core.source_set(source, pname, (int(x), int(y), int(z)))
-
-@_qal
-def qalSourcePlay(source): #ALuint
-
-	_core.source_play(source)
-
-@_qal
-def qalSourceStop(source): #ALuint
-
-	_core.source_stop(source)
-
-@_qal
-def qalSourcePause(source): #ALuint
-
-	_core.source_pause(source)
-
-@_qal
-def qalGetSourcef(source, pname): #ALuint, ALenum (returns ALfloat)
-
-	return _core.source_get(source, pname)
-
-@_qal
-def qalGetSource3f(source, pname): #ALuint, ALenum (returns ALfloat *)
-
-	return _core.source_get(source, pname, 3)
-
-@_qal
-def qalGetSourcei(source, pname): #ALuint, ALenum (returns ALint)
-
-	return _core.source_geti(source, pname)
-
-@_qal
-def qalSourceQueueBuffers(source, n, buffers): #ALuint, ALsizei, ALuint *
-
-	_core.source_queue_buffers(source, list(buffers))
-
-@_qal
-def qalSourceUnqueueBuffers(source, n): #ALuint, ALsizei (returns ALuint *)
-
-	return _core.source_unqueue_buffers(source, n)
-
-@_qal
-def qalGenBuffers(n): #ALsizei (returns ALuint *)
-
-	return _core.gen_buffers(n)
-
-@_qal
-def qalDeleteBuffers(n, buffers): #ALsizei, ALuint *
-
-	_core.delete_buffers(list(buffers))
-
-@_qal
-def qalIsBuffer(buffer): #ALuint (returns ALboolean)
-
-	return _core.is_buffer(buffer)
-
-@_qal
-def qalBufferData(buffer, format, data, size, freq): #ALuint, ALenum, const ALvoid *, ALsizei, ALsizei
-
-	_core.buffer_data(buffer, format, data, freq)
-
-@_qal
-def qalDopplerFactor(value): #ALfloat
-
-	_core.doppler_factor(value)
-
-@_qal
-def qalDopplerVelocity(value): #ALfloat
-
-	_core.doppler_velocity(value)
-
-@_qal
-def qalDistanceModel(model): #ALenum
-
-	_core.distance_model(model)
-
-# EFX (AL_EXT_EFX), the C fetches them via qalGetProcAddress or keeps
-# them NULL
-@_qal
-def qalGenFilters(n): #ALsizei (returns ALuint *)
-
-	return _core.gen_filters(n)
-
-@_qal
-def qalFilteri(f, pname, value): #ALuint, ALenum, ALint
-
-	_core.filter_set(f, pname, int(value))
-
-@_qal
-def qalFilterf(f, pname, value): #ALuint, ALenum, ALfloat
-
-	_core.filter_set(f, pname, float(value))
-
-@_qal
-def qalDeleteFilters(n, filters): #ALsizei, ALuint *
-
-	_core.delete_filters(list(filters))
-
-@_qal
-def qalGenEffects(n): #ALsizei (returns ALuint *)
-
-	return _core.gen_effects(n)
-
-@_qal
-def qalEffectf(e, pname, value): #ALuint, ALenum, ALfloat
-
-	_core.effect_set(e, pname, float(value))
-
-@_qal
-def qalEffecti(e, pname, value): #ALuint, ALenum, ALint
-
-	_core.effect_set(e, pname, int(value))
-
-@_qal
-def qalEffectfv(e, pname, values): #ALuint, ALenum, ALfloat *
-
-	_core.effect_set(e, pname, list(values))
-
-@_qal
-def qalAuxiliaryEffectSloti(slot, pname, value): #ALuint, ALenum, ALint
-
-	_core.auxiliary_effect_slot_set(slot, pname, int(value))
-
-@_qal
-def qalGenAuxiliaryEffectSlots(n): #ALsizei (returns ALuint *)
-
-	return _core.gen_auxiliary_effect_slots(n)
-
-@_qal
-def qalDeleteAuxiliaryEffectSlots(n, slots): #ALsizei, ALuint *
-
-	_core.delete_auxiliary_effect_slots(list(slots))
-
-@_qal
-def qalDeleteEffects(n, effects): #ALsizei, ALuint *
-
-	_core.delete_effects(list(effects))
+audio: QALAudioEngine | None = None
 
 """
  * Gives information over the OpenAL implementation and
@@ -317,19 +88,19 @@ def QAL_SoundInfo(show_ext: bool): #qboolean
 	Printf_Ext = clientserver.Com_Printf if show_ext else clientserver.Com_DPrintf #void (*)(const char *msg, ...)
 
 	clientserver.Com_Printf("OpenAL features:\n")
-	clientserver.Com_Printf("AL_VENDOR: {}\n".format(_core.get_string(qal_h.AL_VENDOR)))
-	clientserver.Com_Printf("AL_RENDERER: {}\n".format(_core.get_string(qal_h.AL_RENDERER)))
-	clientserver.Com_Printf("AL_VERSION: {}\n".format(_core.get_string(qal_h.AL_VERSION)))
-	Printf_Ext("AL_EXTENSIONS: {}\n".format(_core.get_string(qal_h.AL_EXTENSIONS)))
-	clientserver.Com_Printf("AL_EXTENSIONS number: {}\n".format(shared_c.Word_Count(_core.get_string(qal_h.AL_EXTENSIONS))))
+	clientserver.Com_Printf("AL_VENDOR: {}\n".format(context.vendor))
+	clientserver.Com_Printf("AL_RENDERER: {}\n".format(context.renderer))
+	clientserver.Com_Printf("AL_VERSION: {}\n".format(context.version))
+	Printf_Ext("AL_EXTENSIONS: {}\n".format(" ".join(sorted(context.extensions))))
+	clientserver.Com_Printf("AL_EXTENSIONS number: {}\n".format(shared_c.Word_Count(" ".join(sorted(context.extensions)))))
 
-	if _core.is_alc_extension_present("ALC_ENUMERATE_ALL_EXT", None):
+	if device.supports("ALC_ENUMERATE_ALL_EXT"):
 
-		devs = _core.alc_get_string(None, qal_h.ALC_ALL_DEVICES_SPECIFIER) #const char *
+		devs = openal_py.enumerate_devices() #const char *
 
 		clientserver.Com_Printf("\nAvailable OpenAL devices:\n")
 
-		if devs is None:
+		if not devs:
 
 			clientserver.Com_Printf("- No devices found. Depending on your\n")
 			clientserver.Com_Printf("  platform this may be expected and\n")
@@ -337,20 +108,20 @@ def QAL_SoundInfo(show_ext: bool): #qboolean
 
 		else:
 
-			for dev in devs.split("\x00"): # Q2PORT: the C walks the NUL separated list
+			for dev in devs:
 
 				if not dev:
 					continue
 
 				clientserver.Com_Printf("- {}\n".format(dev))
 
-	if _core.is_alc_extension_present("ALC_ENUMERATE_ALL_EXT", None):
+	if device.supports("ALC_ENUMERATE_ALL_EXT"):
 
-		devs = _core.get_device_spec(device) #const char *
+		devs = device.spec #const char *
 
 		clientserver.Com_Printf("\nCurrent OpenAL device:\n")
 
-		if devs is None:
+		if not devs:
 
 			clientserver.Com_Printf("- No OpenAL device in use\n")
 
@@ -382,7 +153,7 @@ def QAL_RecoverLostDevice()->bool: #void (returns qboolean)
 
 	if discoCount == 0:
 
-		connected = _core.get_integer(device, qal_h.ALC_CONNECTED) #ALCint
+		connected = device.get_parameter("ALC_CONNECTED") #ALCint
 
 		if not connected:
 
@@ -416,23 +187,21 @@ def QAL_RecoverLostDevice()->bool: #void (returns qboolean)
 """
 def QAL_Shutdown(): #void
 
-	global context, device
+	global audio, context, device, hasAlcExtDisconnect, discoCount
 
-	if context:
+	if audio is not None:
 
-		_core.make_context_current(None)
-		_core.destroy_context(context)
+		audio.close()
+		audio = None
 		context = None
 
-	if device:
+	if device is not None:
 
-		_core.close_device(device)
+		device.close()
 		device = None
 
-	# Disconnect the EFX function pointers
-	# Q2PORT: the C sets qalc* / qal* to NULL, here the EFX adapters to None
-	for name in _efx:
-		globals()["qal" + name] = None
+	hasAlcExtDisconnect = False
+	discoCount = 0
 
 """
  * Loads the OpenAL library, creates
@@ -440,7 +209,7 @@ def QAL_Shutdown(): #void
 """
 def QAL_Init()->bool: #void (returns qboolean)
 
-	global al_device, al_driver, device, context, hasAlcExtDisconnect
+	global al_device, al_driver, device, context, audio, hasAlcExtDisconnect
 
 	al_device = cvar.Cvar_Get("al_device", "", shared.CVAR_ARCHIVE)
 
@@ -461,9 +230,9 @@ def QAL_Init()->bool: #void (returns qboolean)
 
 	try:
 
-		device = _core.open_device(al_device.string if al_device.string else None)
+		device = openal_py.Device.open(al_device.string or None)
 
-	except openal_py.ALLError:
+	except (openal_py.OpenALError, openal_py.LifecycleError):
 
 		clientserver.Com_DPrintf("failed\n")
 		return False
@@ -475,9 +244,10 @@ def QAL_Init()->bool: #void (returns qboolean)
 
 	try:
 
-		context = _core.create_context(device, None)
+		audio = QALAudioEngine(device=device, max_voices=sound_local.MAX_CHANNELS - 1)
+		context = audio.context
 
-	except openal_py.ALLError:
+	except (openal_py.OpenALError, openal_py.LifecycleError):
 
 		clientserver.Com_DPrintf("failed\n")
 		QAL_Shutdown()
@@ -488,22 +258,17 @@ def QAL_Init()->bool: #void (returns qboolean)
 	# Set the created context as current context
 	clientserver.Com_Printf("...making context current: ")
 
-	if not _core.make_context_current(context):
+	try:
+
+		# Q2PORT: the frame thread owns playback. Pyglet only decodes music
+		# and uses its silent driver, so it cannot replace this context.
+		context.make_current()
+
+	except (openal_py.OpenALError, openal_py.LifecycleError):
 
 		clientserver.Com_DPrintf("failed\n")
 		QAL_Shutdown()
 		return False
-
-	# Connect the EFX function pointers, or keep them None
-	# Q2PORT: the C dlsyms them on ALC_EXT_EFX, else sets them to NULL
-	if _core.is_alc_extension_present("ALC_EXT_EFX", device):
-
-		pass
-
-	else:
-
-		for name in _efx:
-			globals()["qal" + name] = None
 
 	clientserver.Com_Printf("ok\n")
 
@@ -513,7 +278,7 @@ def QAL_Init()->bool: #void (returns qboolean)
 	clientserver.Com_Printf("\n")
 
 	#  Check extensions
-	hasAlcExtDisconnect = _core.is_alc_extension_present("ALC_EXT_disconnect", device)
+	hasAlcExtDisconnect = device.supports("ALC_EXT_disconnect")
 
 	return True
 

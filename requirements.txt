@@ -3,4 +3,4 @@ pyopengl
 numpy
 pillow
 pycurl
-openal-py
+openal-py>=0.1.0,<0.2

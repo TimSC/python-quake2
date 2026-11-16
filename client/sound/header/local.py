@@ -60,7 +60,7 @@ class sfxcache_t(object):
 		self.width = 0 #int
 		#if USE_OPENAL
 		self.size = 0 #int
-		self.bufnum = 0 #int
+		self.bufnum = None # Q2PORT: openal_py.Sound
 		#endif
 		self.stereo = 0 #int
 
@@ -173,7 +173,7 @@ class channel_t(object):
 		#if USE_OPENAL
 		self.autoframe = 0 #int
 		self.oal_vol = 0.0 #float
-		self.srcnum = 0 #int
+		self.srcnum = None # Q2PORT: openal_py.Voice
 		#endif
 
 """

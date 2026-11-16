@@ -148,7 +148,7 @@ The order follows dependencies: each group only depends on groups above it.
 | 10 | Client core | `client/cl_main.c`, `cl_network.c`, `cl_download.c`, `cl_parse.c`, `cl_entities.c`, `cl_prediction.c`, `cl_input.c`, `cl_keyboard.c`, `cl_console.c`, `cl_screen.c`, `cl_view.c`, `cl_inventory.c`, `cl_cin.c`, `client/header/*.h` | `client/cl_*.py`, `keys.py`, `console.py`, `client.py` | Several splits and renames | Connect, play, demos, cinematics, `timedemo` |
 | 11 | Client effects | `cl_effects.c`, `cl_lights.c`, `cl_particles.c`, `cl_tempentities.c` | `cl_fx.py`, `cl_newfx.py`, `cl_tent.py` | Split differently | Screenshots of effects |
 | 12 | Menus | `client/menu/menu.c`, `qmenu.c`, `videomenu.c` | `client/menu.py`, `qmenu.py`, `linux/vid_menu.py` | Moves to `client/menu/` | Every menu opens; settings apply |
-| 13 | Sound | `client/sound/sound.c`, `wave.c`, `ogg.c`, `openal.c`, `qal.c` | `client/snd_*.py`, `linux/snd_linux.py` | **Moved** to `client/sound/` (`sound.py`, `openal.py`, `qal.py`, `wave.py`, `ogg.py`, `header/local.py`, `header/qal.py`); OpenAL is the back end (ctypes on `libopenal.so.1`), `sdl.c` is not ported (`SDL_BackendInit` fails). Music is decoded by `header/stb_vorbis.py` (pyglet's FFmpeg decoder in place of stb_vorbis) and queued through `S_RawSamples`, as the C does. Test `tests/ogg_music.py` | Sounds, loops, sexed sounds, cinematic sound, music |
+| 13 | Sound | `client/sound/sound.c`, `wave.c`, `ogg.c`, `openal.c`, `qal.c` | `client/snd_*.py`, `linux/snd_linux.py` | **Moved** to `client/sound/` (`sound.py`, `openal.py`, `qal.py`, `wave.py`, `ogg.py`, `header/local.py`, `header/qal.py`); OpenAL is the back end (openal-py's high-level API), `sdl.c` is not ported (`SDL_BackendInit` fails). Music is decoded by `header/stb_vorbis.py` (pyglet's FFmpeg decoder in place of stb_vorbis) and queued through `S_RawSamples`, as the C does. Test `tests/ogg_music.py` | Sounds, loops, sexed sounds, cinematic sound, music |
 | 14 | Platform layer | `client/vid/vid.c`, `glimp_sdl2.c`, `client/input/sdl2.c`, `backends/unix/*.c`, `backends/generic/misc.c` | `linux/*.py` | Restructure: Yamagi's `vid`/`glimp`/`backends`. The SDL calls go to `backends/sdl.py` (SDL 2 on pyglet; pygame before) | Window, video modes, input, mouse grab, quit |
 | 15 | Renderer: gl1 (OpenGL 1) | `client/refresh/gl1/*.c`, `client/refresh/files/*.c`, `client/refresh/ref_shared.h`, `client/vid/header/ref.h` | `ref_gl/*.py` | Faithful re-port of Yamagi's `gl1/`, replacing `ref_gl/`; Yamagi's approach as written, no `Q2PORT` speed-ups carried over (performance is a later pass) | Screenshots match; `timedemo`; extensions off |
 | 16 | Renderer: gl3 (modern OpenGL) | `client/refresh/gl3/*.c` | none (new) | New: Yamagi's gl3 renderer with GLSL shaders, selected at start up alongside gl1 | Screenshots look right on base maps; `timedemo`; renderer switch at start up |
@@ -234,9 +234,27 @@ The current `ref_gl/` keeps the game running until group 15 replaces it.
   - **Fix:** both functions return early when `ogg_enabled` is None,
     marked `Q2PORT: fix`.
 - **Known Q2PORT differences:**
-  - OpenAL is called through ctypes on `libopenal.so.1`. `QAL_Shutdown`
-    checks that `qalDeleteFilters` is set, as it is NULL without
-    `ALC_EXT_EFX`.
+  - OpenAL uses the PyPI `openal-py>=0.1.0,<0.2` wheel and its bundled
+    OpenAL Soft (with system-library fallback). `qal.py` keeps the
+    `QAL_Init`/`QAL_Shutdown`/device recovery boundary and owns an
+    `AudioEngine`; `openal.py` keeps its `AL_*` functions, order and globals.
+    Cached `bufnum` values are `Sound` objects, channel `srcnum` values are
+    `Voice` objects, and the source slots follow the frontend's channel slots.
+    A voice-creation hook sets attenuation and EFX before playback starts.
+    Music/cinematics keep their explicit PCM queues through public source
+    and buffer objects. Private `_core` calls and the `qal*` adapters are gone.
+    EFX objects are optional and are recreated after `snd_restart`.
+    `tests/unit_openal.py` runs without game data or audio hardware (the null
+    driver); `tests/ogg_music.py` also checks playback across `snd_restart`.
+    - **Checked:** all ten focused audio tests and the changed modules' static
+      checks pass. The game checks pass, with walk/fire rerun using
+      `cl_loadpaused 0` after their initial timeouts. The full static scan still
+      reports missing imports in the untracked `py-modern-opengl/` experiments.
+      Timedemo results varied under background load; performance comparison
+      remains inconclusive, and further profiling was stopped at user request.
+    - **Stream cleanup:** an unplayed queue is detached before releasing its
+      buffers (OpenAL does not mark it processed on stop). Rejected gain values
+      retain the previous gain, and rejected PCM buffers are released.
   - Ogg Vorbis is decoded by pyglet's FFmpeg decoder behind
     `header/stb_vorbis.py`'s stb_vorbis API.
   - `S_GetVolume`/`S_GetStatistics` use numpy for their sample loops.

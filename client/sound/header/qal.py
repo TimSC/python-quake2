@@ -36,8 +36,8 @@ from __future__ import annotations
 #include "AL/efx-presets.h"
 
 # Q2PORT: the values of the OpenAL headers (al.h, alc.h, alext.h, efx.h) the
-# sound code uses, and the reverb presets of efx-presets.h. The function
-# pointers (qalEnable, ...) are the module globals of client/sound/qal.py.
+# sound code uses, and the reverb presets of efx-presets.h. Public
+# openal-py objects replace the C's function pointers.
 
 ALC_ALL_DEVICES_SPECIFIER = 0x1013 # alc.h
 ALC_CONNECTED = 0x313 # alext.h
@@ -252,7 +252,7 @@ EFX_REVERB_PRESET_SMALLWATERROOM = EFXEAXREVERBPROPERTIES(1.0000, 0.7000, 0.3162
 *  the qal API to the OpenAL API */
 extern LPALENABLE qalEnable;
 ...
-(Q2PORT: the qal* function pointers are client/sound/qal.py's globals)
+(Q2PORT: public openal-py objects replace the qal* function pointers)
 
 void QAL_SoundInfo(qboolean show_ext);
 qboolean QAL_RecoverLostDevice(void);

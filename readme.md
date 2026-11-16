@@ -4,8 +4,8 @@ A port of the id Software Quake II engine (version 3.21) from C to Python. It
 follows the original source closely: each `.c` file maps to a `.py` file with
 the same path, and functions keep their names, order and global variables, so
 the port can be compared with the C line by line. The renderer is the OpenGL
-one (`ref_gl`), and the platform layer uses pygame for the window, input and
-sound.
+one (`ref_gl`), and the platform layer uses pyglet for the window and input,
+with openal-py for sound.
 
 This is the Quake2 game engine without the maps, textures and models which are 
 proprietary. If you purchase the official game, it includes the
@@ -70,12 +70,19 @@ Not ported, or out of scope for now:
 
 - the software renderer (`ref_soft`), the Capture the Flag mod (`ctf`), and
   platforms other than Linux (`win32`, `irix`, `solaris`)
-- the C sound mixer (pygame does the playback) and CD audio
+- the C software sound mixer (OpenAL does the playback) and CD audio
 
 ## Requirements
 
 - Python 3 (developed and tested with 3.12)
-- The packages in `requirements.txt`: pygame, PyOpenGL, numpy and Pillow.
+- The packages in `requirements.txt`: pyglet, PyOpenGL, numpy, Pillow,
+  pycurl and openal-py.
+- Sound uses the PyPI `openal-py` wheel (0.1.x), which bundles OpenAL Soft.
+  Sound effects use its `AudioEngine`, `Sound` and `Voice` API; streaming
+  and effects use public source and EFX objects. The binding can fall back
+  to system OpenAL (`libopenal.so.1` on Linux). `OPENAL_PY_LIBRARY` selects
+  a library explicitly; the `al_driver` cvar remains for config compatibility.
+- OGG music decoding needs FFmpeg's libraries, which pyglet loads.
 - The Quake II game data (`baseq2/pak0.pak` and so on), from a copy of the
   game you own. It is not included.
 

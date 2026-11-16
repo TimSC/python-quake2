@@ -80,8 +80,8 @@ Code not yet moved still follows id's layout (historical rules):
 - Only the Linux platform layer (`linux/`) is ported. `main.py` just
   calls `sys_linux.main()`.
 - Sound plays through OpenAL (`client/sound/openal.py` and `qal.py`, with
-  ctypes). The C software mixer (Yamagi's `sdl.c` backend) is deliberately
-  left unported.
+  openal-py's high-level API). The C software mixer (Yamagi's `sdl.c`
+  backend) is deliberately left unported.
 - Keep the id Software GPL header at the top of each file as a `"""`
   docstring. Under it, keep the original file comment and `#include`
   lines as text, for example `cvar.c -- dynamic variable tracking` and
@@ -317,9 +317,10 @@ Code not yet moved still follows id's layout (historical rules):
 ## Dependencies
 
 - Runtime dependencies are listed in `requirements.txt` (notably
-  `pyglet`, `numpy` and `PyOpenGL`). Sound needs the OpenAL library
-  (`libopenal.so.1`) and Ogg Vorbis decoding needs FFmpeg's libraries,
-  which pyglet loads. HTTP downloads (`client/curl/`) use `pycurl`, whose
+  `pyglet`, `numpy`, `PyOpenGL` and `openal-py`). The openal-py PyPI
+  wheel bundles OpenAL Soft, with a system-library fallback. Ogg Vorbis
+  decoding needs FFmpeg's libraries, which pyglet loads.
+  HTTP downloads (`client/curl/`) use `pycurl`, whose
   wheels include libcurl.
 
 ## Commits
