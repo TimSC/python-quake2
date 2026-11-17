@@ -3,7 +3,9 @@
 # Tracks 02 and 03 come from $Q2DATA/music/. Any that are missing are copied in
 # from the repo's music/ (named by CD track, see music/README.md) and removed
 # afterwards; music that was already there is left alone.
-import os, sys, shutil, time, atexit, subprocess
+import os, sys, shutil, time, atexit
+
+import soundfile
 os.environ.setdefault("Q2PORT_NOMOUSE", "1")  # no mouse capture (tests)
 sys.argv = ["main.py"] + sys.argv[1:]
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -36,7 +38,9 @@ for name in ["02.ogg", "03.ogg"]:
 	if not os.path.exists(dst):
 		shutil.copy(os.path.join(SRC, name), dst)
 		staged.append(dst)
-subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", os.path.join(MUSICDIR, "02.ogg"), "-t", "1", "-ac", "1", "-c:a", "libvorbis", "-q:a", "5", OGGSAMPLE], check=True)
+with soundfile.SoundFile(os.path.join(MUSICDIR, "02.ogg")) as source:
+	samples = source.read(source.samplerate, dtype='float32', always_2d=True)
+	soundfile.write(OGGSAMPLE, samples.mean(axis=1), source.samplerate, format='OGG', subtype='VORBIS')
 print("ogg: music staged in", MUSICDIR)
 
 from backends.unix import system
@@ -118,7 +122,7 @@ def EF():
 			assert ogg.OGG_Status() == vorbis.STOP and not ogg.player.started
 			print("ogg: done")
 			sys.stdout.flush()
-			os._exit(0)
+			raise SystemExit(0) # system.main shuts down playback before exiting
 	return oe()
 gl1_sdl.RI_EndFrame = EF
 system.main()

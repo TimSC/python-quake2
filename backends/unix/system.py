@@ -715,7 +715,15 @@ def main (): #int argc, char **argv
 
 	# Q2PORT: Yamagi's Qcommon_Init ends by running Qcommon_Mainloop; here it
 	# returns first, so main can set nostdout (until group 14)
-	frame.Qcommon_Mainloop()
+	# Release music, the playback device and the window on the frame thread,
+	# including when an interrupt or a test unwinds the main loop.
+	try:
+		frame.Qcommon_Mainloop()
+	finally:
+		try:
+			cl_main.CL_Shutdown()
+		finally:
+			frame.Qcommon_Shutdown()
 
 """void Sys_CopyProtect(void)
 {

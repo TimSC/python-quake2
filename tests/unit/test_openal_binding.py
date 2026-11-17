@@ -206,10 +206,51 @@ import pytest
     finally:
         backend.shutdown()
     """,
+    """
+    import io
+    import numpy as np
+    import soundfile
+    from client.sound.header import stb_vorbis as vorbis
+
+    encoded = io.BytesIO()
+    samples = np.sin(np.arange(4096) * 0.1).astype(np.float32) * 0.25
+    soundfile.write(encoded, samples, 22050, format='OGG', subtype='VORBIS')
+    data = encoded.getvalue()
+    # Decode while OpenAL owns the current context, then clean up normally.
+    for attempt in range(2):
+        backend = OpenALBackend.start()
+        assert backend is not None
+        decoder = None
+        try:
+            error = [-1]
+            decoder = vorbis.stb_vorbis_open_memory(data, len(data), error, None)
+            assert decoder is not None and error[0] == 0
+            buffer = np.zeros(1024, dtype=np.int16)
+            while True:
+                count = vorbis.stb_vorbis_get_samples_short_interleaved(
+                    decoder, decoder.channels, buffer, len(buffer))
+                if not count:
+                    break
+                backend.raw_samples(count, decoder.sample_rate, 2, decoder.channels,
+                                    buffer[:count].tobytes(), 0.5)
+            assert backend.active_buffers > 0
+            backend._stream_update()
+            assert backend.stream_source.state == al.SourceState.PLAYING
+            # A test or interrupt must unwind before native resources close.
+            raise SystemExit(0)
+        except SystemExit as finished:
+            assert finished.code == 0
+        finally:
+            if decoder is not None:
+                vorbis.stb_vorbis_close(decoder)
+            backend.shutdown()
+        assert decoder.handle.closed
+        assert backend.context.closed and backend.device.closed
+    """,
 ], ids=[
     "restart-and-effects", "channel-and-buffer", "spatial-audio", "stream-underrun",
     "device-failure", "context-failure", "activation-failure", "without-efx",
-    "source-exhaustion", "device-recovery", "finished-voice",
+    "source-exhaustion", "device-recovery", "finished-voice", "soundfile-stream-cleanup",
 ])
 def test_current_openal_binding(scenario: str) -> None:
     # Library selection stays fixed after import. Isolate it from other tests.

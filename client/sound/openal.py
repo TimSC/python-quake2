@@ -245,7 +245,7 @@ class OpenALBackend:
             context = audio.context
             clientserver.Com_Printf("ok\n...making context current: ")
             # The game owns the process's playback context on the frame thread.
-            # Pyglet uses its silent driver and only decodes music.
+            # SoundFile decodes music without creating another playback context.
             context.make_current()
             clientserver.Com_Printf("ok\n\n")
             if not context.supports("AL_EXT_LINEAR_DISTANCE"):

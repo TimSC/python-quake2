@@ -1,6 +1,7 @@
 pyglet
 pyopengl
 numpy
+soundfile>=0.12
 pillow
 pycurl
 openal-py>=0.1.0,<0.2

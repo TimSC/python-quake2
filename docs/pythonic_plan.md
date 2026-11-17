@@ -623,6 +623,14 @@ should land together.
     `server.level`/`persistent`), and the server's remaining C-style
     modules (`sv_init`, `sv_game`, `sv_save`, `sv_world`).
 - [ ] 7. Client
+  - Ogg decoding now uses SoundFile (libsndfile), keeping the decoder adapter
+    and OpenAL streaming interface. Generated audio tests cover block reads,
+    seeking, EOF, mono/stereo, invalid input and file ownership. The music
+    smoke test generates its sample with SoundFile instead of FFmpeg.
+  - The platform main loop now shuts the client and engine down in `finally`,
+    including on interrupts and test exits. The music smoke test unwinds on
+    the frame thread instead of forcing process termination with native audio
+    resources still open. Tests cover shutdown order and queued music cleanup.
 - [ ] 8. Game
 - [ ] 9. Final layout and packaging
 
