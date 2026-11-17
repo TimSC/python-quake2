@@ -76,13 +76,16 @@ Not ported, or out of scope for now:
 
 - Python 3 (developed and tested with 3.12)
 - The packages in `requirements.txt`: pyglet, PyOpenGL, numpy, Pillow,
-  pycurl and openal-py.
+  pycurl, openal-py and SoundFile.
 - Sound uses the PyPI `openal-py` wheel (0.1.x), which bundles OpenAL Soft.
   Sound effects use its `AudioEngine`, `Sound` and `Voice` API; streaming
   and effects use public source and EFX objects. The binding can fall back
   to system OpenAL (`libopenal.so.1` on Linux). `OPENAL_PY_LIBRARY` selects
   a library explicitly; the `al_driver` cvar remains for config compatibility.
-- OGG music decoding needs FFmpeg's libraries, which pyglet loads.
+- OGG music and sound decoding uses SoundFile (libsndfile). Its platform
+  wheels bundle libsndfile; source installations need a system libsndfile.
+  Tracks must be audio-only Ogg Vorbis; Ogg files containing Theora video
+  alongside the audio are not supported by libsndfile.
 - The Quake II game data (`baseq2/pak0.pak` and so on), from a copy of the
   game you own. It is not included.
 
