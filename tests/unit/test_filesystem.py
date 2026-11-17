@@ -1,3 +1,5 @@
+import pathlib
+
 import pytest
 
 from q2data.filesystem import FileSystem
@@ -22,7 +24,7 @@ def game_dir(tmp_path):
 def test_search_order(game_dir):
     fs = FileSystem()
     assert fs.add_game_directory(game_dir) == []
-    names = [p.name.rsplit("/", 1)[-1] for p in fs.search_paths]
+    names = [pathlib.Path(p.name).name for p in fs.search_paths]
     # Each source goes in front, so the order is the reverse of adding:
     # the directory, numbered paks, numbered zips, then other archives.
     assert names == ["mymod.pak", "pak0.pk3", "pak1.pak", "pak0.pak", "baseq2"]
@@ -35,7 +37,7 @@ def test_search_order(game_dir):
 def test_protected_paks(game_dir):
     fs = FileSystem()
     fs.add_game_directory(game_dir)
-    protected = {p.name.rsplit("/", 1)[-1]: p.protected for p in fs.search_paths}
+    protected = {pathlib.Path(p.name).name: p.protected for p in fs.search_paths}
     assert protected == {"mymod.pak": False, "pak0.pk3": False, "pak1.pak": True,
                          "pak0.pak": True, "baseq2": False}
 
@@ -55,7 +57,7 @@ def test_broken_archive_is_reported(game_dir):
     (game_dir / "pak2.pak").write_bytes(b"garbage")
     fs = FileSystem()
     failures = fs.add_game_directory(game_dir)
-    assert [path.rsplit("/", 1)[-1] for path, _ in failures] == ["pak2.pak"]
+    assert [pathlib.Path(path).name for path, _ in failures] == ["pak2.pak"]
     assert fs.read("shared.txt") == b"mymod"
 
 
