@@ -281,6 +281,14 @@ def GL3_InitContext(win): #void* (returns int)
 
 		clientserver.Com_Printf("Successfully loaded OpenGL function pointers using glad, got version {}.{}!\n".format(major, minor))
 
+	# Q2PORT: pyglet can return a compatibility context on Windows even when
+	# core was requested. There gl_PointCoord needs point sprites enabled;
+	# otherwise the round particle shader discards every fragment. In core
+	# contexts point sprites are always enabled and GL_POINT_SPRITE is invalid.
+	if not (GL.glGetIntegerv(GL.GL_CONTEXT_PROFILE_MASK) & GL.GL_CONTEXT_CORE_PROFILE_BIT):
+
+		GL.glEnable(GL.GL_POINT_SPRITE)
+
 	# Q2PORT: GLAD_GL_* are whether the extension is in the context's list
 	numExtensions = GL.glGetIntegerv(GL.GL_NUM_EXTENSIONS)
 	extensions = set(GL.glGetStringi(GL.GL_EXTENSIONS, i).decode("ascii") for i in range(numExtensions))
