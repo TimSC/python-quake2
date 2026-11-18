@@ -412,7 +412,7 @@ def CL_RequestNextDownload(): #void
 	download.dlquirks.filelist = True
 	# #endif
 
-	cl_parse.CL_RegisterSounds ()
+	cl_parse.register_sounds ()
 	cl_view.CL_PrepRefresh ()
 
 	# ensure ClientUserinfoChanged is called on reconnect

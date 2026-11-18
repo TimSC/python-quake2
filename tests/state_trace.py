@@ -28,7 +28,7 @@ def CL_Frame(*args):
 		sys.stdout.flush(); os._exit(0)
 cl_main.CL_Frame = CL_Frame
 orig_rb = movemsg.MSG_ReadByte
-for name in ("CL_ParseFrame",):
+for name in ("parse_frame",):
 	o = getattr(cl_parse, name)
 	def w(*a, _o=o, _n=name):
 		calls[_n] += 1; return _o(*a)

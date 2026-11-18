@@ -454,7 +454,7 @@ def _read_packet() -> None:
         return  # not accepted
 
     try:
-        cl_parse.CL_ParseServerMessage()
+        cl_parse.parse_server_message()
     except errors.DropError:
         raise
     except Exception as err:

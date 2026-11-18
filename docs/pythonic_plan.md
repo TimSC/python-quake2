@@ -702,6 +702,21 @@ should land together.
     - **Checked:** a client named `José` joined a dedicated server, sent
       `rcon status` and `packet ... "info 34"`, and reconnected when the
       server changed map; the test suite; 2 unit tests.
+  - **Done, reading the server's messages:** `client/cl_parse.py` in PEP 8.
+    - **What it has:** `parse_server_message` with `SERVER_COMMANDS`, a
+      table of the `svc_*` commands; `parse_frame` (the delta source,
+      the player state and the entities), `parse_packet_entities` (with
+      an `_OldEntities` walker for the frame the delta is from),
+      `delta_entity`, `parse_server_data`, `parse_configstring`,
+      `load_clientinfo` and `parse_start_sound`.
+    - **Removed:** `S_RegisterSexedModel`, which nothing called (and
+      which still used the renderer's old function table).
+    - **Checked against the old code:** `demo1.dm2` played with
+      `timedemo`, logging the client's state after every message (the
+      frame, the player state, every entity's current and previous state,
+      the configstrings, and every sound started): identical over all 697
+      messages and 375 sounds, and the log repeats exactly between runs.
+      Two clients with different models in a deathmatch saw each other.
 - [ ] 8. Game
 - [ ] 9. Final layout and packaging
 

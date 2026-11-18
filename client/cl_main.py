@@ -506,7 +506,7 @@ def CL_Skins_f(): # (static)
 		cl_screen.SCR_UpdateScreen()
 		sdl2.IN_Update()
 		# pump message loop
-		cl_parse.CL_ParseClientinfo(i)
+		cl_parse.parse_clientinfo(i)
 
 
 """
@@ -590,7 +590,7 @@ def CL_Snd_Restart_f(): #
 	ogg.OGG_SaveState()
 	sound_c.S_Shutdown()
 	sound_c.S_Init()
-	cl_parse.CL_RegisterSounds()
+	cl_parse.register_sounds()
 	ogg.OGG_InitTrackList()
 	ogg.OGG_RecoverState()
 
@@ -632,7 +632,7 @@ def CL_Precache_f(): #void
 		"""
 
 		_, map_checksum = collision.CM_LoadMap(cl.configstrings[shared.CS_MODELS + 1], True)
-		cl_parse.CL_RegisterSounds()
+		cl_parse.register_sounds()
 		cl_view.CL_PrepRefresh()
 		return
 

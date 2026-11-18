@@ -376,11 +376,11 @@ def CL_PrepRefresh(): #void
 
 		if cl_main.cl.configstrings[shared.CS_PLAYERSKINS + i]: # [0]
 
-			cl_parse.CL_ParseClientinfo(i)
+			cl_parse.parse_clientinfo(i)
 
 
 
-	cl_parse.CL_LoadClientinfo(cl_main.cl.baseclientinfo, "unnamed\\male/grunt")
+	cl_parse.load_clientinfo(cl_main.cl.baseclientinfo, "unnamed\\male/grunt")
 
 	# set sky textures and speed
 	clientserver.Com_Printf("sky\r")
