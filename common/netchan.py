@@ -113,7 +113,7 @@ def Netchan_OutOfBandPrint (net_socket: int, adr: common_h.netadr_t, format: str
 	if isinstance(format, (bytes, bytearray)):
 		format = format.decode("latin-1")
 	string = (format % args) if args else format
-	string = string.encode("latin-1")[:common_h.MAX_MSGLEN - 4 - 1]
+	string = string.encode("latin-1", "replace")[:common_h.MAX_MSGLEN - 4 - 1] # Q2PORT: a character outside latin-1 becomes ? (it raised)
 
 	Netchan_OutOfBand (net_socket, adr, string)
 

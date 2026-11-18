@@ -55,8 +55,8 @@ MAX_SAVE_TOKEN_CHARS = 128
 SV_OUTPUTBUF_LENGTH = (common_h.MAX_MSGLEN - 16)
 
 def EDICT_NUM(n): #define EDICT_NUM(n) ((edict_t *)((byte *)ge->edicts + ge->edict_size * (n)))
-	from server import sv_game	# Q2PORT: imported here; sv_game's import chain needs this header loaded first
-	return sv_game.ge.edicts[n]
+	from server import context	# imported here: the server header is loaded first
+	return context.server.game.edicts[n]
 
 def CL_EDICT(cl): #define CL_EDICT(cl) EDICT_NUM(1 + ((cl) - svs.clients))
 	return EDICT_NUM(1 + cl.slot)
@@ -64,8 +64,8 @@ def CL_EDICT(cl): #define CL_EDICT(cl) EDICT_NUM(1 + ((cl) - svs.clients))
 def CLNUM_EDICT(i): return EDICT_NUM(i + 1) #define CLNUM_EDICT(i) EDICT_NUM(i + 1)
 
 def NUM_FOR_EDICT(e): #define NUM_FOR_EDICT(e) (((byte *)(e) - (byte *)ge->edicts) / ge->edict_size)
-	from server import sv_game	# Q2PORT: imported here; sv_game's import chain needs this header loaded first
-	return sv_game.ge.edicts.index(e)
+	from server import context	# imported here: the server header is loaded first
+	return context.server.game.edicts.index(e)
 
 class server_state_t(Enum):
 

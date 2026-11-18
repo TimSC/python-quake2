@@ -1,674 +1,373 @@
+"""Starting games and maps (Yamagi's sv_init.c).
+
+``start_map`` handles the ``map`` syntax (``[*]<map>$<spawnpoint>+<next>``,
+and cinematics, demos and pictures); ``new_game`` sets the server up for a
+new game (the game mode, the client slots, the network and the game);
+``spawn_server`` loads a level and spawns its entities. The index
+functions give the game the configstring slot of a model, sound or image.
+
+``server`` is the one server (see ``context``); ``sv`` and ``svs`` are its
+level and persistent state under the C's names, which the other server
+modules use.
+
+Copyright (C) 1997-2001 Id Software, Inc.; GPL version 2 or later.
 """
-Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or (at
-your option) any later version.
-
-This program is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
-
-=======================================================================
-
-Server startup.
-
-=======================================================================
-"""
 from __future__ import annotations
 
 import copy
-import struct
-from client import cl_main
+
 from backends.unix import network
+from client import cl_network, cl_screen
+from common import (
+    clientserver,
+    cmdparser,
+    collision,
+    cvar,
+    filesystem,
+    frame,
+    movemsg,
+    pmove,
+    szone,
+)
 from common.header import common as common_h
 from common.header import shared
-from common.shared import shared as shared_c
-from common import clientserver
-from common import filesystem
-from common import cmdparser
-from common import cvar
-from common import frame
-from common import movemsg
-from common import szone
-from common import collision
-from common import pmove
 from common.shared import rand
+from common.shared import shared as shared_c
+from server import context, sv_game, sv_main, sv_save, sv_send, sv_world
 from server.header import server as server_h
-from server import context
-from server import sv_game
-from server import sv_main
-from server import sv_send
-from server import sv_world
-from server import sv_save
-from client import cl_network
-from client import cl_screen
 
-"""
-#include "header/server.h"
-#include <limits.h>
-"""
-
-# initialize the entities array to at least this many entities
-ALLOC_ENTITIES_MIN = 32
-MAX_SV_ENTNUM = 32767 #SHRT_MAX
-
-server = context.server # the server: the C's sv and svs, and the current client
-svs = server.persistent # persistant server info
-sv = server.level # local server
-
-def SV_AllocBaseline(entnum: int)->shared.entity_state_t: #int (returns static entity_state_t *)
-
-	"""
-	int nextpow2;
-	"""
-
-	if (entnum < 0) or (entnum > MAX_SV_ENTNUM):
-
-		return None
-
-
-	if entnum >= sv.numbaselines:
-
-		nextpow2 = shared_c.NextPow2gt(entnum) if (sv.numbaselines or (entnum >= ALLOC_ENTITIES_MIN)) else \
-			ALLOC_ENTITIES_MIN
-
-		#sv.baselines = Z_Realloc(sv.baselines, nextpow2 * sizeof(entity_state_t));
-		while len(sv.baselines) < nextpow2:
-			sv.baselines.append(shared.entity_state_t())
-		sv.numbaselines = nextpow2
-
-
-	return sv.baselines[entnum]
-
-def SV_FindIndex(name: str, start: int, max: int, create: bool)->int: #const char *, int, int, qboolean (returns static int)
-
-	"""
-	size_t len, space;
-	int i;
-	"""
-
-	if name is None or not name:
-
-		return 0
-
-
-	i = 1
-	while i < max and sv.configstrings[start + i]:
-
-		if sv.configstrings[start + i] == name:
-
-			return i
-
-		i += 1
-
-
-	if not create:
-
-		return 0
-
-
-	if i == max:
-
-		if name not in sv.configstrings_overflow:
-
-			if sv.state != server_h.server_state_t.ss_loading:
-
-				clientserver.Com_Printf("Failed to load %s: configstrings overflowed\n", name)
-
-
-			sv.configstrings_overflow.append(name)
-
-
-		return 0
-
-
-	space = shared.MAX_QPATH #sizeof(sv.configstrings[start + i]);
-	length = len(name) #len = Q_strlcpy(sv.configstrings[start + i], name, space);
-
-	if length >= space:
-
-		sv.configstrings[start + i] = ""
-
-		if name not in sv.configstrings_overflow:
-
-			if sv.state != server_h.server_state_t.ss_loading:
-
-				clientserver.Com_Printf("Failed to load %s: configstring too long: %d > %d\n",
-					name, length, space - 1)
-
-
-			sv.configstrings_overflow.append(name)
-
-
-		return 0
-
-
-	sv.configstrings[start + i] = name
-
-	if sv.state != server_h.server_state_t.ss_loading:
-
-		# send the update to everyone
-		movemsg.MSG_WriteChar(sv.multicast, common_h.svc_ops_e.svc_configstring.value)
-		movemsg.MSG_WriteConfigString(sv.multicast, start + i, name)
-		sv_send.multicast(shared_c.vec3_origin, shared.multicast_t.MULTICAST_ALL_R)
-
-
-	return i
-
-def SV_ModelIndex(name: str)->int: #const char * (returns int)
-
-	return SV_FindIndex(name, shared.CS_MODELS, shared.MAX_MODELS, True)
-
-def SV_SoundIndex(name: str)->int: #const char * (returns int)
-
-	return SV_FindIndex(name, shared.CS_SOUNDS, shared.MAX_SOUNDS, True)
-
-def SV_ImageIndex(name: str)->int: #const char * (returns int)
-
-	return SV_FindIndex(name, shared.CS_IMAGES, shared.MAX_IMAGES, True)
-
-"""
- * Entity baselines are used to compress the update messages
- * to the clients -- only the fields that differ from the
- * baseline will be transmitted
-"""
-def SV_CreateBaseline(): #void
-
-	"""
-	entity_state_t *es;
-	edict_t *svent;
-	int entnum;
-	"""
-
-	for entnum in range(1, sv_game.ge.num_edicts):
-
-		svent = server_h.EDICT_NUM(entnum)
-
-		if not svent.inuse:
-
-			continue
-
-
-		if not svent.s.modelindex and not svent.s.sound and not svent.s.effects:
-
-			continue
-
-
-		svent.s.number = entnum
-
-		# take current state as baseline
-		shared.VectorCopy(svent.s.origin, svent.s.old_origin)
-
-		es = SV_AllocBaseline(entnum)
-		if es is not None:
-
-			sv.baselines[entnum] = copy.deepcopy(svent.s) #*es = svent->s;
-
-def SV_CheckForSavegame(isautosave: bool): #qboolean
-
-	"""
-	char name[MAX_OSPATH];
-	FILE *f;
-	int i;
-	"""
-
-	if context.server.cvars.noreload.value:
-
-		return
-
-
-	if cvar.Cvar_VariableValue("deathmatch"):
-
-		return
-
-
-	name = "{}/save/current/{}.sav".format(filesystem.FS_Gamedir(), sv.name)
-	f = filesystem.Q_fopen(name, "rb")
-
-	if f is None:
-
-		return # no savegame
-
-
-	f.close()
-
-	sv_world.SV_ClearWorld()
-
-	# get configstrings and areaportals
-	sv_save.SV_ReadLevelFile()
-
-	if not sv.loadgame or (sv.loadgame and isautosave):
-
-		# coming back to a level after being in a different
-		# level, so run it for ten seconds
-		#server_state_t previousState;
-
-		previousState = sv.state
-		sv.state = server_h.server_state_t.ss_loading
-
-		for i in range(100):
-
-			sv_game.ge.RunFrame()
-
-
-		sv.state = previousState
-
-"""
- * Change the server to a new map, taking all connected
- * clients along with it.
-"""
-def SV_SpawnServer(server: str, spawnpoint: str, serverstate: server_h.server_state_t,
-		attractloop: bool, loadgame: bool, isautosave: bool): #char *, char *, server_state_t, qboolean, qboolean, qboolean
-
-	"""
-	int i;
-	unsigned checksum;
-	"""
-
-	if attractloop:
-
-		cvar.Cvar_Set("paused", "0")
-
-
-	clientserver.Com_Printf("------- server initialization ------\n")
-	clientserver.Com_DPrintf("SpawnServer: %s\n", server)
-
-	if sv.demofile:
-
-		filesystem.FS_FCloseFile(sv.demofile)
-
-
-	svs.spawncount += 1 # any partially connected client will be restarted
-	sv.state = server_h.server_state_t.ss_dead
-	clientserver.Com_SetServerState(sv.state.value)
-
-	# wipe the entire per-level structure
-	sv_main.clear_baselines()
-	sv.clear() #memset(&sv, 0, sizeof(sv));
-	svs.realtime = 0
-	sv.loadgame = loadgame
-	sv.attractloop = attractloop
-
-	# save name for levels that don't set message
-	sv.configstrings[shared.CS_NAME] = server
-
-	if cvar.Cvar_VariableValue("deathmatch"):
-
-		sv.configstrings[shared.CS_AIRACCEL] = "%g" % context.server.cvars.airaccelerate.value
-		pmove.pm_airaccelerate = context.server.cvars.airaccelerate.value
-
-	else:
-
-		sv.configstrings[shared.CS_AIRACCEL] = "0"
-		pmove.pm_airaccelerate = 0
-
-
-	szone.SZ_Init(sv.multicast, common_h.MAX_MSGLEN) #SZ_Init(&sv.multicast, sv.multicast_buf, sizeof(sv.multicast_buf));
-
-	sv.name = server
-
-	# leave slots at start for clients only
-	for i in range(context.server.maxclients):
-
-		# needs to reconnect
-		if svs.clients[i].state.value > server_h.client_state_t.cs_connected.value:
-
-			svs.clients[i].state = server_h.client_state_t.cs_connected
-
-
-		svs.clients[i].lastframe = -1
-
-
-	sv.time = 1000
-
-	sv.name = server
-	sv.configstrings[shared.CS_NAME] = server
-
-	if serverstate != server_h.server_state_t.ss_game:
-
-		sv.models[1], checksum = collision.CM_LoadMap("", False) # no real map
-
-	else:
-
-		sv.configstrings[shared.CS_MODELS + 1] = "maps/{}.bsp".format(server)[:shared.MAX_QPATH - 1]
-		sv.models[1], checksum = collision.CM_LoadMap(sv.configstrings[shared.CS_MODELS + 1],
-				False)
-
-
-	sv.configstrings[shared.CS_MAPCHECKSUM] = "%i" % checksum
-
-	# clear physics interaction links
-	sv_world.SV_ClearWorld()
-
-	for i in range(1, collision.CM_NumInlineModels()):
-
-		sv.configstrings[shared.CS_MODELS + 1 + i] = "*%i" % i
-		sv.models[i + 1] = collision.CM_InlineModel(sv.configstrings[shared.CS_MODELS + 1 + i])
-
-
-	# spawn the rest of the entities on the map
-	sv.state = server_h.server_state_t.ss_loading
-	clientserver.Com_SetServerState(sv.state.value)
-
-	# load and spawn all other entities
-	sv_game.ge.SpawnEntities(sv.name, collision.CM_EntityString(), spawnpoint)
-
-	# run two frames to allow everything to settle
-	sv_game.ge.RunFrame()
-	sv_game.ge.RunFrame()
-
-	# verify game didn't clobber important stuff
-	if checksum != \
-		shared_c.atoi(sv.configstrings[shared.CS_MAPCHECKSUM]):
-
-		clientserver.Com_Error(shared.ERR_DROP, "Game DLL corrupted server configstrings")
-
-
-	# all precaches are complete
-	sv.state = serverstate
-	clientserver.Com_SetServerState(sv.state.value)
-
-	# create a baseline for more efficient communications
-	SV_CreateBaseline()
-
-	# check for a savegame
-	SV_CheckForSavegame(isautosave)
-
-	# set serverinfo variable
-	cvar.Cvar_FullSet("mapname", sv.name, shared.CVAR_SERVERINFO | shared.CVAR_NOSET)
-
-	clientserver.Com_Printf("------------------------------------\n\n")
-
-"""
- * A brand new game has been started
-"""
-def SV_ClearGamemodeCvar(name: str, msg: list, flags: int): #char *, char *, int
-	# Q2PORT: msg is a list the names are appended to
-
-	cvar.Cvar_FullSet(name, "0", flags)
-
-	msg.append(name)
-	msg.append(" ")
-
-def SV_ChooseGamemode()->int: #(returns static int)
-
-	"""
-	char msg[32], *choice;
-	int gamemode;
-	"""
-
-	msg = []
-
-	if cvar.Cvar_VariableValue("deathmatch"):
-
-		if cvar.Cvar_VariableValue("coop"):
-
-			SV_ClearGamemodeCvar("coop", msg, shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
-
-
-		if cvar.Cvar_VariableValue("singleplayer"):
-
-			SV_ClearGamemodeCvar("singleplayer", msg, 0)
-
-
-		choice = "deathmatch"
-		gamemode = server_h.GAMEMODE_DM
-
-	elif cvar.Cvar_VariableValue("coop"):
-
-		if cvar.Cvar_VariableValue("singleplayer"):
-
-			SV_ClearGamemodeCvar("singleplayer", msg, 0)
-
-
-		choice = "coop"
-		gamemode = server_h.GAMEMODE_COOP
-
-	else:
-
-		if frame.dedicated.value and not cvar.Cvar_VariableValue("singleplayer"):
-
-			cvar.Cvar_FullSet("deathmatch", "1", shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
-
-			choice = "deathmatch"
-			gamemode = server_h.GAMEMODE_DM
-
-		else:
-
-			cvar.Cvar_FullSet("singleplayer", "1", shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
-
-			choice = "singleplayer"
-			gamemode = server_h.GAMEMODE_SP
-
-
-
-	if msg:
-
-		clientserver.Com_Printf("Gamemode ambiguity: Chose: %s, ignored: %s\n", choice, "".join(msg))
-
-
-	return gamemode
-
-def SV_InitGame(): #void
-
-	"""
-	int i, gamemode;
-	char idmaster[32];
-	"""
-
-	if svs.initialized:
-
-		# cause any connected clients to reconnect
-		sv_main.SV_Shutdown("Server restarted\n", True)
-
-	#ifndef DEDICATED_ONLY
-	else:
-
-		# make sure the client is down
-		cl_network.CL_Drop()
-		cl_screen.SCR_BeginLoadingPlaque()
-
-	#endif
-
-	# get any latched variable changes (maxclients, etc)
-	cvar.Cvar_GetLatchedVars()
-
-	svs.initialized = True
-
-	gamemode = SV_ChooseGamemode()
-
-	# init clients
-	if gamemode == server_h.GAMEMODE_DM:
-
-		if context.server.cvars.maxclients.value <= 1:
-
-			cvar.Cvar_FullSet("maxclients", "8", shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
-
-		elif context.server.cvars.maxclients.value > shared.MAX_CLIENTS:
-
-			cvar.Cvar_FullSet("maxclients", "%i" % shared.MAX_CLIENTS, shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
-
-
-	elif gamemode == server_h.GAMEMODE_COOP:
-
-		if (context.server.cvars.maxclients.value <= 1) or (context.server.cvars.maxclients.value > 4):
-
-			cvar.Cvar_FullSet("maxclients", "4", shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
-
-
-	else: # non-deathmatch, non-coop is one player
-
-		cvar.Cvar_FullSet("maxclients", "1", shared.CVAR_SERVERINFO | shared.CVAR_LATCH)
-
-
-	svs.gamemode = gamemode
-	svs.spawncount = rand.randk()
-	server.make_clients(context.server.maxclients) #Z_Malloc(sizeof(client_t) * maxclients->value);
-	svs.num_client_entities = int(context.server.cvars.maxclients.value * common_h.UPDATE_BACKUP * 64)
-	svs.client_entities = [shared.entity_state_t() for i in range(svs.num_client_entities)]
-
-	# init network stuff
-	if frame.dedicated.value:
-
-		if gamemode == server_h.GAMEMODE_SP:
-
-			network.NET_Config(True)
-
-		else:
-
-			network.NET_Config((context.server.cvars.maxclients.value > 1))
-
-
-	else:
-
-		network.NET_Config((context.server.cvars.maxclients.value > 1))
-
-
-	# heartbeats will always be sent to the id master
-	svs.last_heartbeat = -99999 # send immediately
-	idmaster = "192.246.40.37:%i" % common_h.PORT_MASTER
-	adr = network.NET_StringToAdr(idmaster)
-	if adr is not None:
-		context.server.masters[0] = adr
-
-	# init game
-	sv_game.SV_InitGameProgs()
-
-	for i in range(context.server.maxclients):
-
-		server_h.CLNUM_EDICT(i).s.number = i + 1
-		svs.clients[i].lastcmd = shared.usercmd_t() #memset(&svs.clients[i].lastcmd, 0, sizeof(svs.clients[i].lastcmd));
-
-"""
- * the full syntax is:
- *
- * map [*]<map>$<startspot>+<nextserver>
- *
- * command from the console or progs.
- * Map can also be a.cin, .pcx, or .dm2 file
- * Nextserver is used to allow a cinematic to play, then proceed to
- * another level:
- *
- *  map tram.cin+jail_e3
-"""
-def SV_Map(attractloop: bool, levelstring: str, loadgame: bool, isautosave: bool = False): #qboolean, char *, qboolean, qboolean
-
-	"""
-	char level[MAX_QPATH];
-	char *ch;
-	size_t l;
-	char spawnpoint[MAX_QPATH];
-	const char *ext;
-	"""
-
-	sv.loadgame = loadgame
-	sv.attractloop = attractloop
-
-	if (sv.state == server_h.server_state_t.ss_dead) and not sv.loadgame:
-
-		SV_InitGame() # the game is just starting
-
-
-	level = levelstring
-
-	# if there is a + in the map, set nextserver to the remainder
-	ch = level.find("+")
-
-	if ch != -1:
-
-		cvar.Cvar_Set("nextserver", "gamemap \"{}\"".format(level[ch + 1:]))
-		level = level[:ch]
-
-	else:
-
-		# use next demo command if list of map commands as empty
-		cvar.Cvar_Set("nextserver", cvar.Cvar_VariableString("nextdemo"))
-		# and cleanup nextdemo
-		cvar.Cvar_Set("nextdemo", "")
-
-
-	# hack for end game screen in coop mode
-	if cvar.Cvar_VariableValue("coop") and not shared_c.Q_stricmp(level, "victory.pcx"):
-
-		cvar.Cvar_Set("nextserver", "gamemap \"*base1\"")
-
-
-	# if there is a $, use the remainder as a spawnpoint
-	ch = level.find("$")
-
-	if ch != -1:
-
-		spawnpoint = level[ch + 1:]
-		level = level[:ch]
-
-	else:
-
-		spawnpoint = ""
-
-
-	# skip the end-of-unit flag if necessary
-	l = len(level)
-
-	if level[:1] == '*':
-
-		level = level[1:]
-		l -= 1
-
-
-	ext = None if (l <= 4) else level[l - 4:]
-
-	if ext is not None and ext == ".cin":
-
-		#ifndef DEDICATED_ONLY
-		cl_screen.SCR_BeginLoadingPlaque() # for local system
-		#endif
-		sv_send.broadcast_command("changing\n")
-		SV_SpawnServer(level, spawnpoint, server_h.server_state_t.ss_cinematic, attractloop, loadgame, isautosave)
-
-	elif ext is not None and ext == ".dm2":
-
-		#ifndef DEDICATED_ONLY
-		cl_screen.SCR_BeginLoadingPlaque() # for local system
-		#endif
-		sv_send.broadcast_command("changing\n")
-		SV_SpawnServer(level, spawnpoint, server_h.server_state_t.ss_demo, attractloop, loadgame, isautosave)
-
-	elif ext is not None and (ext == ".pcx" or
-					ext == ".tga" or
-					ext == ".jpg" or
-					ext == ".png"):
-
-		#ifndef DEDICATED_ONLY
-		cl_screen.SCR_BeginLoadingPlaque() # for local system
-		#endif
-		sv_send.broadcast_command("changing\n")
-		SV_SpawnServer(level, spawnpoint, server_h.server_state_t.ss_pic, attractloop, loadgame, isautosave)
-
-	else:
-
-		#ifndef DEDICATED_ONLY
-		cl_screen.SCR_BeginLoadingPlaque() # for local system
-		#endif
-		sv_send.broadcast_command("changing\n")
-
-		# for some reason calling send messages here causes a lengthy reconnect delay
-		if not (sv_main.optimizations() & server_h.OPTIMIZE_RECONNECT):
-
-			sv_send.send_client_messages()
-			sv_send.send_prep_client_messages()
-
-
-		SV_SpawnServer(level, spawnpoint, server_h.server_state_t.ss_game, attractloop, loadgame, isautosave)
-		cmdparser.Cbuf_CopyToDefer()
-
-
-	sv_send.broadcast_command("reconnect\n")
+SS = server_h.server_state_t
+CS = server_h.client_state_t
+
+ALLOC_ENTITIES_MIN = 32  # the baselines start with at least this many entities
+MAX_SV_ENTNUM = 32767  # SHRT_MAX
+SERVERINFO_LATCH = shared.CVAR_SERVERINFO | shared.CVAR_LATCH
+ID_MASTER = f"192.246.40.37:{common_h.PORT_MASTER}"  # heartbeats always go here
+
+server = context.server
+svs = server.persistent
+sv = server.level
+
+
+def alloc_baseline(entnum: int) -> shared.entity_state_t | None:
+    """An entity's baseline, growing the list in powers of two as the C does."""
+    if entnum < 0 or entnum > MAX_SV_ENTNUM:
+        return None
+    if entnum >= sv.numbaselines:
+        if sv.numbaselines or entnum >= ALLOC_ENTITIES_MIN:
+            size = shared_c.NextPow2gt(entnum)
+        else:
+            size = ALLOC_ENTITIES_MIN
+        while len(sv.baselines) < size:
+            sv.baselines.append(shared.entity_state_t())
+        sv.numbaselines = size
+    return sv.baselines[entnum]
+
+
+def _overflowed(name: str, message: str, *args) -> None:
+    """Notes a resource that didn't fit in the configstrings (printed once, after loading)."""
+    if name not in sv.configstrings_overflow:
+        if sv.state != SS.ss_loading:
+            clientserver.Com_Printf(message, *args)
+        sv.configstrings_overflow.append(name)
+
+
+def find_index(name: str, start: int, count: int, create: bool) -> int:
+    """The configstring slot (from 1) of a resource, given one if create is set; 0 for none."""
+    if not name:
+        return 0
+
+    i = 1
+    while i < count and sv.configstrings[start + i]:
+        if sv.configstrings[start + i] == name:
+            return i
+        i += 1
+
+    if not create:
+        return 0
+    if i == count:
+        _overflowed(name, "Failed to load %s: configstrings overflowed\n", name)
+        return 0
+    if len(name) >= shared.MAX_QPATH:
+        sv.configstrings[start + i] = ""
+        _overflowed(name, "Failed to load %s: configstring too long: %d > %d\n",
+                    name, len(name), shared.MAX_QPATH - 1)
+        return 0
+
+    sv.configstrings[start + i] = name
+    if sv.state != SS.ss_loading:
+        # tell everyone
+        movemsg.MSG_WriteChar(sv.multicast, common_h.svc_ops_e.svc_configstring.value)
+        movemsg.MSG_WriteConfigString(sv.multicast, start + i, name)
+        sv_send.multicast(shared_c.vec3_origin, shared.multicast_t.MULTICAST_ALL_R)
+    return i
+
+
+def model_index(name: str) -> int:
+    return find_index(name, shared.CS_MODELS, shared.MAX_MODELS, True)
+
+
+def sound_index(name: str) -> int:
+    return find_index(name, shared.CS_SOUNDS, shared.MAX_SOUNDS, True)
+
+
+def image_index(name: str) -> int:
+    return find_index(name, shared.CS_IMAGES, shared.MAX_IMAGES, True)
+
+
+def create_baseline() -> None:
+    """The entities' states now, as the baselines their updates are compressed against."""
+    for entnum in range(1, server.game.num_edicts):
+        ent = server_h.EDICT_NUM(entnum)
+        if not ent.inuse:
+            continue
+        if not ent.s.modelindex and not ent.s.sound and not ent.s.effects:
+            continue
+        ent.s.number = entnum
+        shared.VectorCopy(ent.s.origin, ent.s.old_origin)
+        if alloc_baseline(entnum) is not None:
+            sv.baselines[entnum] = copy.deepcopy(ent.s)
+
+
+def check_for_savegame(isautosave: bool) -> None:
+    """Loads the level's state from the current save, if the level was visited."""
+    if server.cvars.noreload.value or cvar.Cvar_VariableValue("deathmatch"):
+        return
+
+    name = f"{filesystem.FS_Gamedir()}/save/current/{sv.name}.sav"
+    f = filesystem.Q_fopen(name, "rb")
+    if f is None:
+        return  # no save
+    f.close()
+
+    sv_world.clear_world()
+    sv_save.read_level_file()  # the configstrings and area portals
+
+    if not sv.loadgame or isautosave:
+        # back in a level after being in another: run it for ten seconds
+        previous = sv.state
+        sv.state = SS.ss_loading
+        for _ in range(100):
+            server.game.RunFrame()
+        sv.state = previous
+
+
+def _set_state(state: server_h.server_state_t) -> None:
+    sv.state = state
+    clientserver.Com_SetServerState(state.value)
+
+
+def spawn_server(name: str, spawnpoint: str, serverstate: server_h.server_state_t,
+                 attractloop: bool, loadgame: bool, isautosave: bool) -> None:
+    """Changes the server to a new level, taking the connected clients along."""
+    if attractloop:
+        cvar.Cvar_Set("paused", "0")
+
+    clientserver.Com_Printf("------- server initialization ------\n")
+    clientserver.Com_DPrintf("SpawnServer: %s\n", name)
+
+    if sv.demofile:
+        filesystem.FS_FCloseFile(sv.demofile)
+
+    svs.spawncount += 1  # any partly connected client restarts
+    _set_state(SS.ss_dead)
+
+    # wipe the level
+    sv_main.clear_baselines()
+    sv.clear()
+    svs.realtime = 0
+    sv.loadgame = loadgame
+    sv.attractloop = attractloop
+
+    sv.configstrings[shared.CS_NAME] = name  # for levels that don't set a message
+    if cvar.Cvar_VariableValue("deathmatch"):
+        airaccelerate = server.cvars.airaccelerate.value
+        sv.configstrings[shared.CS_AIRACCEL] = f"{airaccelerate:g}"
+        pmove.pm_airaccelerate = airaccelerate
+    else:
+        sv.configstrings[shared.CS_AIRACCEL] = "0"
+        pmove.pm_airaccelerate = 0
+
+    szone.SZ_Init(sv.multicast, common_h.MAX_MSGLEN)
+    sv.name = name
+
+    # the first slots are the clients'; they have to reconnect
+    for cl in svs.clients[:server.maxclients]:
+        if cl.state.value > CS.cs_connected.value:
+            cl.state = CS.cs_connected
+        cl.lastframe = -1
+
+    sv.time = 1000
+
+    if serverstate != SS.ss_game:
+        sv.models[1], checksum = collision.CM_LoadMap("", False)  # no real map
+    else:
+        mappath = f"maps/{name}.bsp"[:shared.MAX_QPATH - 1]
+        sv.configstrings[shared.CS_MODELS + 1] = mappath
+        sv.models[1], checksum = collision.CM_LoadMap(mappath, False)
+    sv.configstrings[shared.CS_MAPCHECKSUM] = str(int(checksum))
+
+    sv_world.clear_world()
+    for i in range(1, collision.CM_NumInlineModels()):
+        sv.configstrings[shared.CS_MODELS + 1 + i] = f"*{i}"
+        sv.models[i + 1] = collision.CM_InlineModel(f"*{i}")
+
+    # spawn the entities, and run two frames to let everything settle
+    _set_state(SS.ss_loading)
+    server.game.SpawnEntities(sv.name, collision.CM_EntityString(), spawnpoint)
+    server.game.RunFrame()
+    server.game.RunFrame()
+
+    if checksum != shared_c.atoi(sv.configstrings[shared.CS_MAPCHECKSUM]):
+        clientserver.Com_Error(shared.ERR_DROP, "Game DLL corrupted server configstrings")
+
+    _set_state(serverstate)  # every precache is done
+    create_baseline()
+    check_for_savegame(isautosave)
+
+    cvar.Cvar_FullSet("mapname", sv.name, shared.CVAR_SERVERINFO | shared.CVAR_NOSET)
+    clientserver.Com_Printf("------------------------------------\n\n")
+
+
+def choose_gamemode() -> int:
+    """The game mode from deathmatch, coop and singleplayer; the others are cleared.
+
+    Deathmatch wins over coop, coop over single player; a dedicated server
+    without any is deathmatch.
+    """
+    ignored = []
+
+    def clear(name: str, flags: int) -> None:
+        cvar.Cvar_FullSet(name, "0", flags)
+        ignored.append(name)
+
+    if cvar.Cvar_VariableValue("deathmatch"):
+        if cvar.Cvar_VariableValue("coop"):
+            clear("coop", SERVERINFO_LATCH)
+        if cvar.Cvar_VariableValue("singleplayer"):
+            clear("singleplayer", 0)
+        choice, gamemode = "deathmatch", server_h.GAMEMODE_DM
+    elif cvar.Cvar_VariableValue("coop"):
+        if cvar.Cvar_VariableValue("singleplayer"):
+            clear("singleplayer", 0)
+        choice, gamemode = "coop", server_h.GAMEMODE_COOP
+    elif frame.dedicated.value and not cvar.Cvar_VariableValue("singleplayer"):
+        cvar.Cvar_FullSet("deathmatch", "1", SERVERINFO_LATCH)
+        choice, gamemode = "deathmatch", server_h.GAMEMODE_DM
+    else:
+        cvar.Cvar_FullSet("singleplayer", "1", SERVERINFO_LATCH)
+        choice, gamemode = "singleplayer", server_h.GAMEMODE_SP
+
+    if ignored:
+        clientserver.Com_Printf("Gamemode ambiguity: Chose: %s, ignored: %s\n",
+                                choice, "".join(name + " " for name in ignored))
+    return gamemode
+
+
+def _maxclients_for(gamemode: int) -> str | None:
+    """The maxclients a game mode needs, or None to keep it."""
+    maxclients = server.cvars.maxclients.value
+    if gamemode == server_h.GAMEMODE_DM:
+        if maxclients <= 1:
+            return "8"
+        if maxclients > shared.MAX_CLIENTS:
+            return str(shared.MAX_CLIENTS)
+        return None
+    if gamemode == server_h.GAMEMODE_COOP:
+        return "4" if maxclients <= 1 or maxclients > 4 else None
+    return "1"  # single player
+
+
+def new_game() -> None:
+    """A brand new game: the game mode, the client slots, the network and the game."""
+    if svs.initialized:
+        sv_main.SV_Shutdown("Server restarted\n", True)  # the clients reconnect
+    else:
+        cl_network.drop()  # the local client is down
+        cl_screen.SCR_BeginLoadingPlaque()
+
+    cvar.Cvar_GetLatchedVars()  # maxclients and the like
+    svs.initialized = True
+
+    gamemode = choose_gamemode()
+    maxclients = _maxclients_for(gamemode)
+    if maxclients is not None:
+        cvar.Cvar_FullSet("maxclients", maxclients, SERVERINFO_LATCH)
+
+    svs.gamemode = gamemode
+    svs.spawncount = rand.randk()
+    server.make_clients(server.maxclients)
+    svs.num_client_entities = int(server.cvars.maxclients.value * common_h.UPDATE_BACKUP * 64)
+    svs.client_entities = [shared.entity_state_t() for _ in range(svs.num_client_entities)]
+
+    # a dedicated single player server still listens
+    listen = gamemode == server_h.GAMEMODE_SP if frame.dedicated.value else False
+    network.NET_Config(listen or server.cvars.maxclients.value > 1)
+
+    svs.last_heartbeat = -99999  # a heartbeat at once
+    adr = network.NET_StringToAdr(ID_MASTER)
+    if adr is not None:
+        server.masters[0] = adr
+
+    sv_game.init_game()
+
+    for i in range(server.maxclients):
+        server_h.CLNUM_EDICT(i).s.number = i + 1
+        svs.clients[i].lastcmd = shared.usercmd_t()
+
+
+# the server states of the non-map "levels", by extension
+_MEDIA_STATES = {
+    ".cin": SS.ss_cinematic,
+    ".dm2": SS.ss_demo,
+    ".pcx": SS.ss_pic, ".tga": SS.ss_pic, ".jpg": SS.ss_pic, ".png": SS.ss_pic,
+}
+
+
+def start_map(attractloop: bool, levelstring: str, loadgame: bool,
+              isautosave: bool = False) -> None:
+    """Goes to a map: ``[*]<map>$<spawnpoint>+<next>``.
+
+    The map can also be a cinematic (.cin), a demo (.dm2) or a picture;
+    ``+<next>`` is what comes after it (``map tram.cin+jail_e3``), and a
+    leading '*' starts a new unit.
+    """
+    sv.loadgame = loadgame
+    sv.attractloop = attractloop
+
+    if sv.state == SS.ss_dead and not sv.loadgame:
+        new_game()  # the game is just starting
+
+    level = levelstring
+    if "+" in level:
+        level, following = level.split("+", 1)
+        cvar.Cvar_Set("nextserver", f'gamemap "{following}"')
+    else:
+        # the next demo, if a list of demos is playing
+        cvar.Cvar_Set("nextserver", cvar.Cvar_VariableString("nextdemo"))
+        cvar.Cvar_Set("nextdemo", "")
+
+    # the end game screen in coop
+    if cvar.Cvar_VariableValue("coop") and not shared_c.Q_stricmp(level, "victory.pcx"):
+        cvar.Cvar_Set("nextserver", 'gamemap "*base1"')
+
+    level, _, spawnpoint = level.partition("$")
+    if level[:1] == "*":
+        level = level[1:]  # the end-of-unit flag
+
+    state = _MEDIA_STATES.get(level[-4:]) if len(level) > 4 else None
+
+    cl_screen.SCR_BeginLoadingPlaque()  # for the local client
+    sv_send.broadcast_command("changing\n")
+    if state is not None:
+        spawn_server(level, spawnpoint, state, attractloop, loadgame, isautosave)
+    else:
+        # sending here can mean a long reconnect delay
+        if not sv_main.optimizations() & server_h.OPTIMIZE_RECONNECT:
+            sv_send.send_client_messages()
+            sv_send.send_prep_client_messages()
+        spawn_server(level, spawnpoint, SS.ss_game, attractloop, loadgame, isautosave)
+        cmdparser.Cbuf_CopyToDefer()
+
+    sv_send.broadcast_command("reconnect\n")

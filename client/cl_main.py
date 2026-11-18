@@ -438,7 +438,7 @@ CL_Quit_f
 """
 def CL_Quit_f ():
 
-	cl_network.CL_Disconnect ()
+	cl_network.disconnect ()
 	clientserver.Com_Quit ()
 
 
@@ -726,21 +726,21 @@ def CL_InitLocal(): # (static)
 	download.cl_http_bw_limit_tmout = cvar.Cvar_Get("cl_http_bw_limit_tmout", "0", 0)
 	# #endif
 	# register our commands
-	cmdparser.Cmd_AddCommand("cmd", cl_network.CL_ForwardToServer_f)
+	cmdparser.Cmd_AddCommand("cmd", cl_network.COMMANDS["cmd"])
 	cmdparser.Cmd_AddCommand("pause", CL_Pause_f)
-	cmdparser.Cmd_AddCommand("pingservers", cl_network.CL_PingServers_f)
+	cmdparser.Cmd_AddCommand("pingservers", cl_network.COMMANDS["pingservers"])
 	cmdparser.Cmd_AddCommand("skins", CL_Skins_f)
 	cmdparser.Cmd_AddCommand("userinfo", CL_Userinfo_f)
 	cmdparser.Cmd_AddCommand("snd_restart", CL_Snd_Restart_f)
-	cmdparser.Cmd_AddCommand("changing", cl_network.CL_Changing_f)
-	cmdparser.Cmd_AddCommand("disconnect", cl_network.CL_Disconnect_f)
+	cmdparser.Cmd_AddCommand("changing", cl_network.COMMANDS["changing"])
+	cmdparser.Cmd_AddCommand("disconnect", cl_network.COMMANDS["disconnect"])
 	cmdparser.Cmd_AddCommand("record", CL_Record_f)
 	cmdparser.Cmd_AddCommand("stop", CL_Stop_f)
 	cmdparser.Cmd_AddCommand("quit", CL_Quit_f)
-	cmdparser.Cmd_AddCommand("connect", cl_network.CL_Connect_f)
-	cmdparser.Cmd_AddCommand("reconnect", cl_network.CL_Reconnect_f)
-	cmdparser.Cmd_AddCommand("rcon", cl_network.CL_Rcon_f)
-	cmdparser.Cmd_AddCommand("packet", cl_network.CL_Packet_f)
+	cmdparser.Cmd_AddCommand("connect", cl_network.COMMANDS["connect"])
+	cmdparser.Cmd_AddCommand("reconnect", cl_network.COMMANDS["reconnect"])
+	cmdparser.Cmd_AddCommand("rcon", cl_network.COMMANDS["rcon"])
+	cmdparser.Cmd_AddCommand("packet", cl_network.COMMANDS["packet"])
 	cmdparser.Cmd_AddCommand("setenv", CL_Setenv_f)
 	cmdparser.Cmd_AddCommand("precache", CL_Precache_f)
 	cmdparser.Cmd_AddCommand("download", cl_download.CL_Download_f)
@@ -963,7 +963,7 @@ def CL_Frame(packetdelta: int, renderdelta: int, timedelta: int, packetframe: bo
 	# Update input stuff.
 	if packetframe or renderframe:
 
-		cl_network.CL_ReadPackets()
+		cl_network.read_packets()
 		CL_UpdateWindowedMouse()
 		sdl2.IN_Update()
 		cmdparser.Cbuf_Execute()
@@ -988,7 +988,7 @@ def CL_Frame(packetdelta: int, renderdelta: int, timedelta: int, packetframe: bo
 	if packetframe:
 
 		cl_input.CL_SendCmd()
-		cl_network.CL_CheckForResend()
+		cl_network.check_for_resend()
 
 		# Run HTTP downloads during game.
 		# #ifdef USE_CURL

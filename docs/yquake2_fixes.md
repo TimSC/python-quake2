@@ -48,3 +48,18 @@ Found while applying them, on both branches, and fixed on both:
   encoding), which wasn't caught. `connect`, `rcon_address` and
   `setmaster` all reach it. It now prints the error and refuses the
   address, as the C's failing `getaddrinfo` does.
+
+Found later:
+
+- [ ] **The world-link test never matches** (`server/sv_world.py`,
+  `SV_LinkEdict`): `if ent is sv_game.ge.edicts` compares an edict with
+  the edict list; the C's `ent == ge->edicts` means edict 0, the world.
+  Latent: the world is never linked on the maps tried. Use
+  `ge.edicts[0]`.
+- [ ] **The save comment's month is one too high** (`server/sv_save.py`,
+  `SV_WriteServerFile`): `newtime.tm_mon + 1` copies the C, whose
+  `tm_mon` counts from 0; Python's `time.struct_time` counts from 1, so
+  the load menu shows November as 12. Drop the `+ 1`.
+- [ ] **Copying a save crashes on a missing file** (`CopyFile`):
+  `open(src, "rb")` raises where the C's `fopen` returns NULL and the copy
+  is skipped.

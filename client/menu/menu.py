@@ -2698,7 +2698,7 @@ def StartGame(): # (static)
 
 	if cl_main.cls.state != client_h.connstate_t.ca_disconnected and cl_main.cls.state != client_h.connstate_t.ca_uninitialized:
 
-		cl_network.CL_Disconnect()
+		cl_network.disconnect()
 
 
 	# disable updates and start the cinematic going
@@ -3366,7 +3366,7 @@ def SearchLocalGames(): # (static)
 	# the text box won't show up unless we do a buffer swap
 	vid.R_EndFrame()
 	# send out info packets
-	cl_network.CL_PingServers_f()
+	cl_network.ping_servers()
 
 def SearchLocalGamesFunc(self): #void * (static)
 

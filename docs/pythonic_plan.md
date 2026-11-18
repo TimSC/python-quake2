@@ -525,7 +525,7 @@ should land together.
   - **Not done:** the channels and playsounds stay module lists in
     `sound.py` (already plain classes); they move with the client's
     context object in step 7.
-- [ ] **6. Server** (in progress):
+- [x] **6. Server:**
   - **Done, connectionless packets as a dispatch table:**
     `server/sv_conless.py`.
     - **What it is:** the packet's arguments go in a `Request` (with
@@ -619,10 +619,66 @@ should land together.
       also a map name) can reach it.
     - **Checked:** the test suite (`walk_test` and `fire_test` time out
       now and then under the machine's load, and pass when run again).
-  - **Left:** the 230 `sv_init.sv`/`svs` uses (C names for
-    `server.level`/`persistent`), and the server's remaining C-style
-    modules (`sv_init`, `sv_game`, `sv_save`, `sv_world`).
-- [ ] 7. Client
+  - **Done, entities in the world:** `server/sv_world.py` in PEP 8.
+    - **What it has:** the area tree as `AreaNode`s, each with plain lists
+      of its triggers and solids (the C's linked lists, kept in the same
+      order); `link_edict`, `unlink_edict`, `find_area_edicts` (and the
+      game's `area_edicts`), `trace` and `point_contents`.
+    - **An entity's link:** `ent.area.prev` is the list it is in, which
+      also keeps the game's "is it linked" test working.
+    - **Fixed, a latent bug:** the test for not linking the world compared
+      the entity with the whole edict list (never true). The world is never
+      linked on the maps tried, so nothing changed.
+    - **Checked against the old code:** both kept their own area trees
+      side by side on base1 and base2 with every weapon firing (about
+      80,000 traces, contents and area queries, and 21,000 links per
+      map): no differences. The new code is a little faster (traces
+      4.2 s against 4.6 s, contents 0.67 s against 0.79 s).
+    - **Unit tests:** 5 new ones on the area tree.
+  - **Done, the server's side of the game interface:** `server/sv_game.py`
+    in PEP 8.
+    - **What it has:** `init_game` and `shutdown_game`, and the functions
+      behind the game's `gi` table (`unicast`, `cprintf`, `configstring`,
+      `setmodel`, `in_pvs`/`in_phs`, ...). The table is built from one
+      mapping of `gi` names; its field names stay as they are, as the
+      game's interface, until step 8. The nine `gi.Write*` functions are
+      one helper.
+    - **The game's exports:** the C's `ge` is now `server.game`.
+    - **Checked:** the test suite.
+  - **Done, save games (the server's half):** `server/sv_save.py` in PEP 8.
+    - **What it has:** `wipe_savegame`, `copy_savegame`, the level and
+      server files (`write_level_file`, `read_level_file`,
+      `write_server_file`, `read_server_file`), `save_comment`, the
+      configstrings block (`configstrings_blob`, `parse_configstrings`),
+      and the `save`/`load` commands.
+    - **Fixed, the save comment's month:** it was one too high (November
+      showed as 12): the port added 1 to Python's month, as the C does to
+      its 0-based `tm_mon`.
+    - **Changed on purpose:** a save name with `..`, `/` or `\` is refused.
+      Yamagi only prints "Bad savedir." and goes on with it, so a name
+      could reach outside the save directory.
+    - **Fixed, copying a save:** a missing file is skipped, as the C's
+      failed `fopen` (the port raised an error).
+    - **Checked:** a save made by the code before loads with this code and
+      the other way round; the two codes' saves of the same level are
+      identical but for the comment's date; the test suite; 5 unit tests.
+  - **Done, starting games and maps:** `server/sv_init.py` in PEP 8.
+    - **What it has:** `start_map` (the `map` syntax: `+next`,
+      `$spawnpoint`, the `*` unit flag, and a table of the cinematic, demo
+      and picture extensions), `new_game` (the game mode, the client
+      slots, the network, the game), `spawn_server`, `choose_gamemode`,
+      the configstring index functions and the baselines.
+    - **Checked:** the test suite, new games (the intro cinematic) twice
+      in a row, and the save tests above.
+    - **When tests time out:** `walk_test` and `fire_test` sometimes stop
+      partway under the machine's load (about 14 here); the code before
+      this step stops the same way, and both pass when run again.
+  - **Every server module is now PEP 8.** Left for later steps: the
+    other modules still reach the server's state as `sv_init.sv` and
+    `sv_init.svs` (about 230 uses; the C names for `server.level` and
+    `server.persistent`). Passing the `Server` in instead belongs with the
+    game interface (step 8), which is how the game reaches the server.
+- [ ] **7. Client** (in progress):
   - Ogg decoding now uses SoundFile (libsndfile), keeping the decoder adapter
     and OpenAL streaming interface. Generated audio tests cover block reads,
     seeking, EOF, mono/stereo, invalid input and file ownership. The music
@@ -631,6 +687,21 @@ should land together.
     including on interrupts and test exits. The music smoke test unwinds on
     the frame thread instead of forcing process termination with native audio
     resources still open. Tests cover shutdown order and queued music cleanup.
+  - **Done, the connection to a server:** `client/cl_network.py` in PEP 8.
+    - **What it has:** connecting (`check_for_resend`, the challenge and
+      connect packets), `disconnect` and `drop`, `forward_to_server`,
+      `ping_servers`, `read_packets`, and two tables: `CONNECTIONLESS`
+      (client_connect, info, cmd, print, ping, challenge, echo) and the
+      console `COMMANDS` (`cmd`, `connect`, `reconnect`, `rcon`,
+      `packet`, ...), which `cl_main` adds.
+    - **Fixed:** the connect packet, rcon and echo encoded their text as
+      ASCII, so a name or password with a character like `é` raised an
+      error; they are Latin-1 now, as the C's bytes (`yquake2` has this
+      already). An out-of-band print turns a character outside Latin-1
+      into `?` instead of raising.
+    - **Checked:** a client named `José` joined a dedicated server, sent
+      `rcon status` and `packet ... "info 34"`, and reconnected when the
+      server changed map; the test suite; 2 unit tests.
 - [ ] 8. Game
 - [ ] 9. Final layout and packaging
 

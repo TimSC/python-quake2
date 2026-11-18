@@ -42,7 +42,8 @@ def drop_client(drop: server_h.client_t) -> None:
     movemsg.MSG_WriteByte(drop.netchan.message, SVC.svc_disconnect.value)
 
     if drop.state == CS.cs_spawned:
-        sv_game.ge.ClientDisconnect(server_h.CL_EDICT(drop))  # removes the body, among others
+        # removes the body, among others
+        context.server.game.ClientDisconnect(server_h.CL_EDICT(drop))
 
     if drop.download:
         filesystem.FS_FreeFile(drop.download)
@@ -77,7 +78,7 @@ def accept_client(newcl: server_h.client_t, adr, qport: int, userinfo: str,
     newcl.challenge = challenge  # kept for the checksums
 
     # the game may refuse the client or change its userinfo
-    if not sv_game.ge.ClientConnect(ent, userinfo):
+    if not context.server.game.ClientConnect(ent, userinfo):
         reason = shared_c.Info_ValueForKey(userinfo, "rejmsg")
         refusal = f"print\n{reason}\nConnection refused.\n" if reason else \
             "print\nConnection refused.\n"
@@ -219,7 +220,7 @@ def _prep_world_frame() -> None:
 
     Before the world logic, as the players are handled outside RunFrame.
     """
-    for i in range(sv_game.ge.num_edicts):
+    for i in range(context.server.game.num_edicts):
         server_h.EDICT_NUM(i).s.event = 0
 
 
@@ -235,7 +236,7 @@ def _run_game_frame() -> None:
     sv.time = sv.framenum * 100
 
     if not cvars.paused.value or cvars.maxclients.value > 1:
-        sv_game.ge.RunFrame()
+        context.server.game.RunFrame()
 
         # never more than one frame behind
         if sv.time < sv_init.svs.realtime:
@@ -341,7 +342,8 @@ def _master_shutdown() -> None:
 
 def userinfo_changed(cl: server_h.client_t) -> None:
     """Takes the name and the rate from a client's new userinfo."""
-    sv_game.ge.ClientUserinfoChanged(server_h.CL_EDICT(cl), cl.userinfo)  # the game may change it
+    # the game may change it
+    context.server.game.ClientUserinfoChanged(server_h.CL_EDICT(cl), cl.userinfo)
 
     name = shared_c.Info_ValueForKey(cl.userinfo, "name")[:NAME_SIZE - 1]
     cl.name = "".join(chr(ord(c) & 127) for c in name)  # without the high bit
@@ -427,7 +429,7 @@ def SV_Shutdown(finalmsg: str, reconnect: bool) -> None:  # noqa: N802
         _final_message(finalmsg, reconnect)
 
     _master_shutdown()
-    sv_game.SV_ShutdownGameProgs()
+    sv_game.shutdown_game()
 
     sv = sv_init.sv
     if sv.demofile:

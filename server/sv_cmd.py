@@ -28,7 +28,7 @@ from common import (
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
-from server import sv_game, sv_init, sv_main, sv_save, sv_send
+from server import sv_init, sv_main, sv_save, sv_send
 from server.header import server as server_h
 
 CS = server_h.client_state_t
@@ -125,7 +125,7 @@ def _demo_map() -> None:
     if cmdparser.Cmd_Argc() != 2:
         clientserver.Com_Printf("USAGE: demomap <demoname.dm2>\n")
         return
-    sv_init.SV_Map(True, cmdparser.Cmd_Argv(1), False, False)
+    sv_init.start_map(True, cmdparser.Cmd_Argv(1), False, False)
 
 
 def _save_level_for_return() -> None:
@@ -141,7 +141,7 @@ def _save_level_for_return() -> None:
         was_in_use.append(bool(clent.inuse))
         clent.inuse = False
 
-    sv_save.SV_WriteLevelFile()
+    sv_save.write_level_file()
 
     for i in range(maxclients):
         server_h.CLNUM_EDICT(i).inuse = was_in_use[i]  # for the clients to move over
@@ -184,18 +184,18 @@ def _game_map() -> None:
     filesystem.FS_CreatePath(f"{filesystem.FS_Gamedir()}/save/current/")
 
     if name[:1] == "*":
-        sv_save.SV_WipeSavegame("current")
+        sv_save.wipe_savegame("current")
     elif sv_init.sv.state == server_h.server_state_t.ss_game:
         _save_level_for_return()
 
     name = _map_name_as_file(name)
-    sv_init.SV_Map(False, name, False, False)
+    sv_init.start_map(False, name, False, False)
     sv_init.svs.mapcmd = name[:shared.MAX_TOKEN_CHARS - 1]  # the server state for saves
 
     if not frame.dedicated.value:
         # the autosave
-        sv_save.SV_WriteServerFile(True)
-        sv_save.SV_CopySaveGame("current", "save0")
+        sv_save.write_server_file(True)
+        sv_save.copy_savegame("current", "save0")
 
 
 def _map() -> None:
@@ -213,7 +213,7 @@ def _map() -> None:
             return
 
     sv_init.sv.state = server_h.server_state_t.ss_dead  # don't save the level being left
-    sv_save.SV_WipeSavegame("current")
+    sv_save.wipe_savegame("current")
     _game_map()
 
 
@@ -402,10 +402,10 @@ def _kill_server() -> None:
 
 def _server_command() -> None:
     """``sv ...``: a command for the game."""
-    if not sv_game.ge:
+    if not sv_init.server.game:
         clientserver.Com_Printf("No game loaded.\n")
         return
-    sv_game.ge.ServerCommand()
+    sv_init.server.game.ServerCommand()
 
 
 GAMEMODES = {  # (deathmatch, coop, singleplayer)
@@ -455,8 +455,8 @@ def SV_InitOperatorCommands() -> None:  # noqa: N802
     commands += [
         ("serverrecord", _server_record),
         ("serverstop", _server_stop),
-        ("save", sv_save.SV_Savegame_f),
-        ("load", sv_save.SV_Loadgame_f),
+        ("save", sv_save.savegame_command),
+        ("load", sv_save.loadgame_command),
         ("killserver", _kill_server),
         ("sv", _server_command),
     ]

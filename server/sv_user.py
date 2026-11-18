@@ -30,7 +30,7 @@ from common import (
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
-from server import sv_game, sv_init, sv_main
+from server import sv_init, sv_main
 from server.header import server as server_h
 
 CS = server_h.client_state_t
@@ -229,7 +229,7 @@ def _begin(cl: server_h.client_t) -> None:
         return
 
     cl.state = CS.cs_spawned
-    sv_game.ge.ClientBegin(sv_init.server.player)
+    sv_init.server.game.ClientBegin(sv_init.server.player)
     cmdparser.Cbuf_InsertFromDefer()
 
 
@@ -260,14 +260,15 @@ def _next_download(cl: server_h.client_t) -> None:
 
 def download_allowed(name: str) -> bool:
     """Whether the allow_download cvars let a client download a file (zoid's rules)."""
-    if ".." in name or "\\" in name or ":" in name or not sv_init.server.cvars.allow_download.value:
+    cvars = sv_init.server.cvars
+    if ".." in name or "\\" in name or ":" in name or not cvars.allow_download.value:
         return False
     if name[:1] in (".", "/"):
         return False  # no leading dot, and it must be relative
-    for prefix, allowed in (("players/", sv_init.server.cvars.allow_download_players),
-                            ("models/", sv_init.server.cvars.allow_download_models),
-                            ("sound/", sv_init.server.cvars.allow_download_sounds),
-                            ("maps/", sv_init.server.cvars.allow_download_maps)):
+    for prefix, allowed in (("players/", cvars.allow_download_players),
+                            ("models/", cvars.allow_download_models),
+                            ("sound/", cvars.allow_download_sounds),
+                            ("maps/", cvars.allow_download_maps)):
         if name.startswith(prefix) and not allowed.value:
             return False
     return "/" in name  # it must be in a directory
@@ -355,7 +356,7 @@ def execute_user_command(cl: server_h.client_t, text: str) -> None:
     if handler is not None:
         handler(cl)
     elif sv_init.sv.state == SS.ss_game:
-        sv_game.ge.ClientCommand(sv_init.server.player)
+        sv_init.server.game.ClientCommand(sv_init.server.player)
 
 
 def _client_think(cl: server_h.client_t, cmd: shared.usercmd_t) -> None:
@@ -363,7 +364,7 @@ def _client_think(cl: server_h.client_t, cmd: shared.usercmd_t) -> None:
     if cl.commandMsec < 0 and sv_init.server.cvars.enforcetime.value:
         clientserver.Com_DPrintf("commandMsec underflow from %s\n", cl.name)
         return
-    sv_game.ge.ClientThink(server_h.CL_EDICT(cl), cmd)
+    sv_init.server.game.ClientThink(server_h.CL_EDICT(cl), cmd)
 
 
 def _read_move(cl: server_h.client_t, msg: common_h.sizebuf_t) -> bool:

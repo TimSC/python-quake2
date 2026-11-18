@@ -1,528 +1,298 @@
+"""Save games: the server's half (Yamagi's sv_save.c).
+
+A save directory (``save/<name>/`` in the game directory) holds:
+
+- ``server.ssv``: a 32 byte comment, the map command, and the latched
+  cvars (skill, coop, deathmatch...) as name/value pairs;
+- ``game.ssv``: the game's state (written by the game);
+- per level visited, ``<map>.sv2`` (the configstrings and the area portal
+  state) and ``<map>.sav`` (the level's entities, written by the game).
+
+``current`` is the save of the game being played; ``save`` and ``load``
+copy it to and from a named save, and ``save0`` is the autosave.
+
+Copyright (C) 1997-2001 Id Software, Inc.; GPL version 2 or later.
 """
-Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or (at
-your option) any later version.
-
-This program is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
-
-=======================================================================
-
-Serverside savegame code.
-
-=======================================================================
-"""
 from __future__ import annotations
 
+import glob
 import os
+import shutil
 import time
+
 from backends.unix import system
+from common import clientserver, cmdparser, collision, cvar, filesystem
 from common.header import shared
-from common import clientserver
-from common import cmdparser
-from common import cvar
-from common import filesystem
-from common import collision
+from server import context, sv_init
 from server.header import server as server_h
-from server import sv_cmd
-from server import sv_game
-from server import sv_init
-from server import sv_main
-
-"""
-#include "header/server.h"
-"""
-
-"""
-#include "header/server.h"
-"""
-
-def SV_WipeSavegame (savename): #char *
-
-	#char name[MAX_OSPATH]
-	#char *s
-
-	clientserver.Com_DPrintf("SV_WipeSaveGame({})\n".format(savename))
-
-	name = "{}/save/{}/server.ssv".format(filesystem.FS_Gamedir(), savename)
-	if os.path.exists(name):
-		os.remove(name)
-	name = "{}/save/{}/game.ssv".format(filesystem.FS_Gamedir(), savename)
-	if os.path.exists(name):
-		os.remove(name)
-
-	name = "{}/save/{}/*.sav".format(filesystem.FS_Gamedir(), savename)
-	s = system.Sys_FindFirst(name, 0, 0)
-	while s:
-		os.remove(s)
-		s = system.Sys_FindNext(0, 0)
-	system.Sys_FindClose()
-	name = "{}/save/{}/*.sv2".format(filesystem.FS_Gamedir(), savename)
-	s = system.Sys_FindFirst(name, 0, 0)
-	while s:
-		os.remove(s)
-		s = system.Sys_FindNext(0, 0)
-	system.Sys_FindClose()
-
-
-"""
-/*
-================
-CopyFile
-================
-*/
-"""
-def CopyFile (src, dst): #char *, char *
-
-	#FILE *f1, *f2
-	#int l
-
-	clientserver.Com_DPrintf ("CopyFile ({}, {})\n".format(src, dst))
-
-	f1 = open(src, "rb")
-	if not f1:
-		return
-	f2 = open(dst, "wb")
-	if not f2:
-		f1.close()
-		return
-
-	while True:
-		buffer = f1.read(65536)
-		if not buffer:
-			break
-		f2.write(buffer)
-
-	f1.close()
-	f2.close()
-"""
-/*
-================
-SV_CopySaveGame
-================
-*/
-"""
-def SV_CopySaveGame (src, dst): #char *, char *
-
-	#char name[MAX_OSPATH], name2[MAX_OSPATH]
-	#int l, len
-	#char *found
 
-	clientserver.Com_DPrintf("SV_CopySaveGame({}, {})\n".format(src, dst))
-
-	SV_WipeSavegame (dst)
-
-	# copy the savegame over
-	name = "{}/save/{}/server.ssv".format(filesystem.FS_Gamedir(), src)
-	name2 = "{}/save/{}/server.ssv".format(filesystem.FS_Gamedir(), dst)
-	filesystem.FS_CreatePath (name2)
-	CopyFile (name, name2)
-
-	name = "{}/save/{}/game.ssv".format(filesystem.FS_Gamedir(), src)
-	name2 = "{}/save/{}/game.ssv".format(filesystem.FS_Gamedir(), dst)
-	CopyFile (name, name2)
-
-	# Sys_FindFirst returns the full path
-	name = "{}/save/{}/*.sav".format(filesystem.FS_Gamedir(), src)
-	found = system.Sys_FindFirst(name, 0, 0)
-	while found:
-		name2 = found.replace("/save/{}/".format(src), "/save/{}/".format(dst), 1)
-		CopyFile (found, name2)
-
-		# change sav to sv2
-		CopyFile (found[:-3] + "sv2", name2[:-3] + "sv2")
-
-		found = system.Sys_FindNext(0, 0)
-	system.Sys_FindClose()
-"""
-/*
-==============
-SV_WriteLevelFile
-
-==============
-*/
-"""
-def SV_ConfigStringsBlob()->bytes: #(returns the bytes of sv.configstrings)
-	# Q2PORT: sv.configstrings is char[MAX_CONFIGSTRINGS][MAX_QPATH] in C, written with one fwrite;
-	# the statusbar program is longer than one slot and runs on into the following ones
-
-	blob = bytearray(shared.MAX_CONFIGSTRINGS * shared.MAX_QPATH)
-
-	for i in range(shared.MAX_CONFIGSTRINGS):
-
-		s = sv_init.sv.configstrings[i]
-		if s:
-
-			data = s.encode('latin-1')
-			blob[i * shared.MAX_QPATH:i * shared.MAX_QPATH + len(data)] = data
-			blob[i * shared.MAX_QPATH + len(data)] = 0
-
-
-
-	return bytes(blob)
-
-def SV_WriteLevelFile(): #void
-
-	"""
-	char name[MAX_OSPATH];
-	char workdir[MAX_OSPATH];
-	FILE *f;
-	"""
-
-	clientserver.Com_DPrintf("SV_WriteLevelFile()\n")
-
-	name = "{}/save/current/{}.sv2".format(filesystem.FS_Gamedir(), sv_init.sv.name)
-	f = filesystem.Q_fopen(name, "wb")
-
-	if f is None:
-
-		clientserver.Com_Printf("Failed to open %s\n", name)
-		return
-
-
-	f.write(SV_ConfigStringsBlob()) #fwrite(sv.configstrings, sizeof(sv.configstrings), 1, f);
-	collision.CM_WritePortalState(f)
-	f.close()
-
-	# Q2PORT: Yamagi changes the working directory to save/current and passes the
-	# game a relative name; the port passes the full path and leaves the working directory
-	name = "{}/save/current".format(filesystem.FS_Gamedir())
-	system.Sys_Mkdir(name)
-
-	name = "{}/save/current/{}.sav".format(filesystem.FS_Gamedir(), sv_init.sv.name)
-	sv_game.ge.WriteLevel(name)
-
-def SV_ReadConfigStrings(f): #fileHandle_t
-
-	"""
-	int i;
-	"""
-
-	data = filesystem.FS_Read(shared.MAX_CONFIGSTRINGS * shared.MAX_QPATH, f) #FS_Read(sv.configstrings, sizeof(sv.configstrings), f);
-	data = bytearray(data.ljust(shared.MAX_CONFIGSTRINGS * shared.MAX_QPATH, b'\0'))
-
-	# ensure the configstrings are null terminated
-	for i in range(shared.MAX_CONFIGSTRINGS):
-
-		# only null terminate the last index of the statusbar code section
-		if (i < shared.CS_STATUSBAR) or (i >= (shared.CS_STATUSBAR_END - 1)):
-
-			data[i * shared.MAX_QPATH + shared.MAX_QPATH - 1] = 0
-
-
-
-	# Q2PORT: the C strings in the array; a string that runs on into the following slots
-	# (the statusbar program) is held whole at its first index
-	i = 0
-	while i < shared.MAX_CONFIGSTRINGS:
-
-		start = i * shared.MAX_QPATH
-		end = data.index(0, start)
-		sv_init.sv.configstrings[i] = data[start:end].decode('latin-1')
-		spill = (end - start) // shared.MAX_QPATH
-		for k in range(1, spill + 1):
-			if i + k < shared.MAX_CONFIGSTRINGS:
-				sv_init.sv.configstrings[i + k] = ""
-		i += 1 + spill
-
-"""
-/*
-==============
-SV_ReadLevelFile
-
-==============
-*/
-"""
-def SV_ReadLevelFile(): #void
-
-	"""
-	char name[MAX_OSPATH];
-	char workdir[MAX_OSPATH];
-	fileHandle_t f;
-	"""
-
-	clientserver.Com_DPrintf("SV_ReadLevelFile()\n")
-
-	name = "save/current/{}.sv2".format(sv_init.sv.name)
-	length, f = filesystem.FS_FOpenFile(name, True)
-
-	if not f:
-
-		clientserver.Com_Printf("Failed to open %s\n", name)
-		return
-
-
-	SV_ReadConfigStrings(f)
-	collision.CM_ReadPortalState(f)
-	filesystem.FS_FCloseFile(f)
-
-	# Q2PORT: the full path, not a change of working directory (see SV_WriteLevelFile)
-	name = "{}/save/current/{}.sav".format(filesystem.FS_Gamedir(), sv_init.sv.name)
-	sv_game.ge.ReadLevel(name)
-
-"""
-/*
-==============
-SV_WriteServerFile
-
-==============
-*/
-"""
-def SV_WriteServerFile(autosave: bool): #qboolean
-
-	"""
-	FILE *f;
-	cvar_t *var;
-	char name[MAX_OSPATH], string[128];
-	char workdir[MAX_OSPATH];
-	char comment[32];
-	time_t aclock;
-	struct tm *newtime;
-	"""
-
-	clientserver.Com_DPrintf("SV_WriteServerFile(%s)\n", "true" if autosave else "false")
-
-	name = "{}/save/current/server.ssv".format(filesystem.FS_Gamedir())
-	f = filesystem.Q_fopen(name, "wb")
-
-	if f is None:
-
-		clientserver.Com_Printf("Couldn't write %s\n", name)
-		return
-
-
-	# write the comment field
-	#memset(comment, 0, sizeof(comment));
-
-	if not autosave:
-
-		newtime = time.localtime()
-		comment = "%2i:%i%i %2i/%2i  " % (newtime.tm_hour,
-				newtime.tm_min // 10, newtime.tm_min % 10,
-				newtime.tm_mon + 1, newtime.tm_mday)
-		comment = (comment + sv_init.sv.configstrings[shared.CS_NAME])[:32 - 1] #Q_strlcat(comment, sv.configstrings[CS_NAME], sizeof(comment));
-
-	else:
-
-		# autosaved
-		comment = "ENTERING {}".format(sv_init.sv.configstrings[shared.CS_NAME])[:32 - 1]
-
-
-	f.write(comment.encode('latin-1').ljust(32, b'\0'))
-
-	# write the mapcmd
-	f.write(sv_init.svs.mapcmd.encode('latin-1')[:server_h.MAX_SAVE_TOKEN_CHARS - 1].ljust(server_h.MAX_SAVE_TOKEN_CHARS, b'\0'))
-
-	# write all CVAR_LATCH cvars
-	# these will be things like coop, skill, deathmatch, etc
-	for var in cvar.cvar_vars:
-
-		#char cvarname[LATCH_CVAR_SAVELENGTH] = {0};
-
-		if not (var.flags & shared.CVAR_LATCH):
-
-			continue
-
-
-		if (len(var.name) >= shared.LATCH_CVAR_SAVELENGTH - 1) or \
-			(len(var.string) >= 128 - 1):
-
-			clientserver.Com_Printf("Cvar too long: %s = %s\n", var.name, var.string)
-			continue
-
-
-		f.write(var.name.encode('latin-1').ljust(shared.LATCH_CVAR_SAVELENGTH, b'\0'))
-		f.write(var.string.encode('latin-1').ljust(128, b'\0'))
-
-
-	f.close()
-
-	# write game state
-	# Q2PORT: the full path, not a change of working directory (see SV_WriteLevelFile)
-	name = "{}/save/current".format(filesystem.FS_Gamedir())
-	system.Sys_Mkdir(name)
-
-	sv_game.ge.WriteGame("{}/game.ssv".format(name), autosave)
-
-"""
-/*
-==============
-SV_ReadServerFile
-
-==============
-*/
-"""
-def SV_ReadServerFile(): #void
-
-	"""
-	fileHandle_t f;
-	char name[MAX_OSPATH], string[128];
-	char workdir[MAX_OSPATH];
-	char comment[32];
-	char mapcmd[MAX_SAVE_TOKEN_CHARS];
-	"""
-
-	clientserver.Com_DPrintf("SV_ReadServerFile()\n")
-
-	name = "save/current/server.ssv"
-	length, f = filesystem.FS_FOpenFile(name, True)
-
-	if not f:
-
-		clientserver.Com_Printf("Couldn't read %s\n", name)
-		return
-
-
-	# read the comment field
-	comment = filesystem.FS_Read(32, f)
-
-	# read the mapcmd
-	mapcmd = filesystem.FS_Read(server_h.MAX_SAVE_TOKEN_CHARS, f).split(b'\0')[0].decode('latin-1')
-
-	# read all CVAR_LATCH cvars
-	# these will be things like coop, skill, deathmatch, etc
-	while 1:
-
-		#char cvarname[LATCH_CVAR_SAVELENGTH] = {0};
-
-		data = filesystem.FS_FRead(1, shared.LATCH_CVAR_SAVELENGTH, f)
-		if not data:
-
-			break
-
-
-		cvarname = data.split(b'\0')[0].decode('latin-1')
-		string = filesystem.FS_Read(128, f).split(b'\0')[0].decode('latin-1')
-		clientserver.Com_DPrintf("Set %s = %s\n", cvarname, string)
-		cvar.Cvar_ForceSet(cvarname, string)
-
-
-	filesystem.FS_FCloseFile(f)
-
-	# start a new game fresh with new cvars
-	sv_init.SV_InitGame()
-
-	sv_init.svs.mapcmd = mapcmd
-
-	# read game state
-	# Q2PORT: the full path, not a change of working directory (see SV_WriteLevelFile)
-	name = "{}/save/current".format(filesystem.FS_Gamedir())
-	sv_game.ge.ReadGame("{}/game.ssv".format(name))
-
-"""
-=====================================================================
-
-  SAVEGAMES
-
-=====================================================================
-*/
-
-
-"""
-"""
-/*
-==============
-SV_Loadgame_f
-
-==============
-"""
-def SV_Loadgame_f ():
-	#char name[MAX_OSPATH]
-	#FILE *f
-	#char *dir
-
-	if cmdparser.Cmd_Argc() != 2:
-		clientserver.Com_Printf ("USAGE: loadgame <directory>\n")
-		return
-
-	clientserver.Com_Printf ("Loading game...\n")
-
-	dir = cmdparser.Cmd_Argv(1)
-	if (".." in dir) or ("/" in dir) or ("\\" in dir):
-		clientserver.Com_Printf ("Bad savedir.\n")
-
-	# make sure the server.ssv file exists
-	name = "{}/save/{}/server.ssv".format(filesystem.FS_Gamedir(), cmdparser.Cmd_Argv(1))
-	if not os.path.exists(name):
-		clientserver.Com_Printf ("No such savegame: %s\n", name)
-		return
-
-
-	clientserver.Com_Printf("Savegame: %s\n", cmdparser.Cmd_Argv(1))
-
-	if cmdparser.Cmd_Argv(1) == "save0" or cmdparser.Cmd_Argv(1) == "current":
-
-		isautosave = True
-
-	else:
-
-		isautosave = False
-
-
-	SV_CopySaveGame (cmdparser.Cmd_Argv(1), "current")
-	SV_ReadServerFile ()
-
-	# go to the map
-	sv_init.sv.state = server_h.server_state_t.ss_dead		# don't save current level when changing
-	sv_init.SV_Map (False, sv_init.svs.mapcmd, True, isautosave)
-
-"""
-==============
-SV_Savegame_f
-
-==============
-"""
-def SV_Savegame_f ():
-
-	#char *dir
-
-	if sv_init.sv.state != server_h.server_state_t.ss_game:
-		clientserver.Com_Printf ("You must be in a game to save.\n")
-		return
-
-	if cmdparser.Cmd_Argc() != 2:
-		clientserver.Com_Printf ("USAGE: savegame <directory>\n")
-		return
-
-	if cvar.Cvar_VariableValue("deathmatch"):
-		clientserver.Com_Printf ("Can't savegame in a deathmatch\n")
-		return
-
-	if cmdparser.Cmd_Argv(1) == "current":
-		clientserver.Com_Printf ("Can't save to 'current'\n")
-		return
-
-	if sv_init.server.maxclients == 1 and server_h.CL_EDICT(sv_init.svs.clients[0]).client.ps.stats[shared.STAT_HEALTH] <= 0:
-		clientserver.Com_Printf ("\nCan't savegame while dead!\n")
-		return
-
-	dir = cmdparser.Cmd_Argv(1)
-	if (".." in dir) or ("/" in dir) or ("\\" in dir):
-		clientserver.Com_Printf ("Bad savedir.\n")
-
-	clientserver.Com_Printf ("Saving game...\n")
-
-	# archive current level, including all client edicts.
-	# when the level is reloaded, they will be shells awaiting
-	# a connecting client
-	SV_WriteLevelFile ()
-
-	# save server state
-	SV_WriteServerFile (False)
-
-	# copy it off
-	SV_CopySaveGame ("current", dir)
-
-	clientserver.Com_Printf ("Done.\n")
+COMMENT_SIZE = 32
+CVAR_VALUE_SIZE = 128
+CONFIGSTRINGS_SIZE = shared.MAX_CONFIGSTRINGS * shared.MAX_QPATH
+AUTOSAVES = ("save0", "current")
+
+
+def _save_dir(name: str) -> str:
+    return f"{filesystem.FS_Gamedir()}/save/{name}"
+
+
+def _bad_save_name(name: str) -> bool:
+    """A name that would leave the save directory.
+
+    Yamagi only prints "Bad savedir." and carries on with the name; here it
+    is refused.
+    """
+    if ".." in name or "/" in name or "\\" in name:
+        clientserver.Com_Printf("Bad savedir.\n")
+        return True
+    return False
+
+
+def _remove(path: str) -> None:
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+
+
+def wipe_savegame(name: str) -> None:
+    """Deletes a save's files."""
+    clientserver.Com_DPrintf(f"SV_WipeSaveGame({name})\n")
+    directory = _save_dir(name)
+    _remove(f"{directory}/server.ssv")
+    _remove(f"{directory}/game.ssv")
+    for pattern in ("*.sav", "*.sv2"):
+        for path in glob.glob(f"{glob.escape(directory)}/{pattern}"):
+            _remove(path)
+
+
+def _copy_file(src: str, dst: str) -> None:
+    clientserver.Com_DPrintf(f"CopyFile ({src}, {dst})\n")
+    try:
+        shutil.copyfile(src, dst)
+    except OSError:
+        pass  # as the C, a file that can't be opened is skipped
+
+
+def copy_savegame(src: str, dst: str) -> None:
+    """Replaces save dst with a copy of save src."""
+    clientserver.Com_DPrintf(f"SV_CopySaveGame({src}, {dst})\n")
+    wipe_savegame(dst)
+
+    src_dir, dst_dir = _save_dir(src), _save_dir(dst)
+    filesystem.FS_CreatePath(f"{dst_dir}/server.ssv")
+    _copy_file(f"{src_dir}/server.ssv", f"{dst_dir}/server.ssv")
+    _copy_file(f"{src_dir}/game.ssv", f"{dst_dir}/game.ssv")
+
+    for level in glob.glob(f"{glob.escape(src_dir)}/*.sav"):
+        target = f"{dst_dir}/{os.path.basename(level)}"
+        _copy_file(level, target)
+        _copy_file(level[:-3] + "sv2", target[:-3] + "sv2")  # and its .sv2
+
+
+def configstrings_blob() -> bytes:
+    """The configstrings as the C's char[MAX_CONFIGSTRINGS][MAX_QPATH].
+
+    The statusbar program is longer than one slot and runs on into the
+    following ones, as in the C's array.
+    """
+    blob = bytearray(CONFIGSTRINGS_SIZE)
+    for i, text in enumerate(sv_init.sv.configstrings[:shared.MAX_CONFIGSTRINGS]):
+        if text:
+            data = text.encode("latin-1")
+            start = i * shared.MAX_QPATH
+            blob[start:start + len(data)] = data
+            blob[start + len(data)] = 0
+    return bytes(blob)
+
+
+def parse_configstrings(data: bytes) -> list[str]:
+    """The configstrings from configstrings_blob()'s layout.
+
+    Every slot is NUL terminated, except inside the statusbar program; a
+    string that runs on into the following slots is held whole at its first
+    index, and the slots it covers are empty.
+    """
+    data = bytearray(data.ljust(CONFIGSTRINGS_SIZE, b"\0"))
+    for i in range(shared.MAX_CONFIGSTRINGS):
+        if i < shared.CS_STATUSBAR or i >= shared.CS_STATUSBAR_END - 1:
+            data[i * shared.MAX_QPATH + shared.MAX_QPATH - 1] = 0
+
+    strings = [""] * shared.MAX_CONFIGSTRINGS
+    i = 0
+    while i < shared.MAX_CONFIGSTRINGS:
+        start = i * shared.MAX_QPATH
+        end = data.index(0, start)
+        strings[i] = data[start:end].decode("latin-1")
+        i += 1 + (end - start) // shared.MAX_QPATH
+    return strings
+
+
+def write_level_file() -> None:
+    """Saves the level being played into the current save (.sv2 and .sav)."""
+    clientserver.Com_DPrintf("SV_WriteLevelFile()\n")
+    current = _save_dir("current")
+    name = f"{current}/{sv_init.sv.name}.sv2"
+    f = filesystem.Q_fopen(name, "wb")
+    if f is None:
+        clientserver.Com_Printf("Failed to open %s\n", name)
+        return
+    f.write(configstrings_blob())
+    collision.CM_WritePortalState(f)
+    f.close()
+
+    # Yamagi changes the working directory and passes a relative name; the
+    # full path does the same
+    system.Sys_Mkdir(current)
+    context.server.game.WriteLevel(f"{current}/{sv_init.sv.name}.sav")
+
+
+def read_level_file() -> None:
+    """Loads the level being entered from the current save."""
+    clientserver.Com_DPrintf("SV_ReadLevelFile()\n")
+    name = f"save/current/{sv_init.sv.name}.sv2"
+    _, f = filesystem.FS_FOpenFile(name, True)
+    if not f:
+        clientserver.Com_Printf("Failed to open %s\n", name)
+        return
+
+    strings = parse_configstrings(filesystem.FS_Read(CONFIGSTRINGS_SIZE, f))
+    sv_init.sv.configstrings[:shared.MAX_CONFIGSTRINGS] = strings
+    collision.CM_ReadPortalState(f)
+    filesystem.FS_FCloseFile(f)
+
+    context.server.game.ReadLevel(f"{_save_dir('current')}/{sv_init.sv.name}.sav")
+
+
+def save_comment(autosave: bool, levelname: str, now: time.struct_time) -> str:
+    """The comment the load menu shows: the time and date, or ENTERING for an autosave."""
+    if autosave:
+        comment = f"ENTERING {levelname}"
+    else:
+        # as the C's "%2i:%i%i %2i/%2i  " (struct_time's months count from 1)
+        comment = (f"{now.tm_hour:2}:{now.tm_min // 10}{now.tm_min % 10} "
+                   f"{now.tm_mon:2}/{now.tm_mday:2}  {levelname}")
+    return comment[:COMMENT_SIZE - 1]
+
+
+def _padded(text: str, size: int) -> bytes:
+    return text.encode("latin-1")[:size].ljust(size, b"\0")
+
+
+def write_server_file(autosave: bool) -> None:
+    """Writes server.ssv and the game state into the current save."""
+    clientserver.Com_DPrintf("SV_WriteServerFile(%s)\n", "true" if autosave else "false")
+    current = _save_dir("current")
+    name = f"{current}/server.ssv"
+    f = filesystem.Q_fopen(name, "wb")
+    if f is None:
+        clientserver.Com_Printf("Couldn't write %s\n", name)
+        return
+
+    comment = save_comment(autosave, sv_init.sv.configstrings[shared.CS_NAME], time.localtime())
+    f.write(_padded(comment, COMMENT_SIZE))
+    f.write(_padded(sv_init.svs.mapcmd[:server_h.MAX_SAVE_TOKEN_CHARS - 1],
+                    server_h.MAX_SAVE_TOKEN_CHARS))
+
+    # the latched cvars: coop, skill, deathmatch...
+    for var in cvar.cvar_vars:
+        if not var.flags & shared.CVAR_LATCH:
+            continue
+        if (len(var.name) >= shared.LATCH_CVAR_SAVELENGTH - 1
+                or len(var.string) >= CVAR_VALUE_SIZE - 1):
+            clientserver.Com_Printf("Cvar too long: %s = %s\n", var.name, var.string)
+            continue
+        f.write(_padded(var.name, shared.LATCH_CVAR_SAVELENGTH))
+        f.write(_padded(var.string, CVAR_VALUE_SIZE))
+    f.close()
+
+    system.Sys_Mkdir(current)
+    context.server.game.WriteGame(f"{current}/game.ssv", autosave)
+
+
+def _c_string(data: bytes) -> str:
+    return data.split(b"\0", 1)[0].decode("latin-1")
+
+
+def read_server_file() -> None:
+    """Restarts the server with the current save's cvars, and reads the game state."""
+    clientserver.Com_DPrintf("SV_ReadServerFile()\n")
+    name = "save/current/server.ssv"
+    _, f = filesystem.FS_FOpenFile(name, True)
+    if not f:
+        clientserver.Com_Printf("Couldn't read %s\n", name)
+        return
+
+    filesystem.FS_Read(COMMENT_SIZE, f)
+    mapcmd = _c_string(filesystem.FS_Read(server_h.MAX_SAVE_TOKEN_CHARS, f))
+
+    # the latched cvars, until the end of the file
+    while True:
+        data = filesystem.FS_FRead(1, shared.LATCH_CVAR_SAVELENGTH, f)
+        if not data:
+            break
+        name, value = _c_string(data), _c_string(filesystem.FS_Read(CVAR_VALUE_SIZE, f))
+        clientserver.Com_DPrintf("Set %s = %s\n", name, value)
+        cvar.Cvar_ForceSet(name, value)
+    filesystem.FS_FCloseFile(f)
+
+    sv_init.new_game()  # a fresh game, with these cvars
+    sv_init.svs.mapcmd = mapcmd
+    context.server.game.ReadGame(f"{_save_dir('current')}/game.ssv")
+
+
+def loadgame_command() -> None:
+    """``load <name>``."""
+    if cmdparser.Cmd_Argc() != 2:
+        clientserver.Com_Printf("USAGE: loadgame <directory>\n")
+        return
+
+    clientserver.Com_Printf("Loading game...\n")
+    name = cmdparser.Cmd_Argv(1)
+    if _bad_save_name(name):
+        return
+
+    path = f"{_save_dir(name)}/server.ssv"
+    if not os.path.exists(path):
+        clientserver.Com_Printf("No such savegame: %s\n", path)
+        return
+    clientserver.Com_Printf("Savegame: %s\n", name)
+
+    copy_savegame(name, "current")
+    read_server_file()
+
+    sv_init.sv.state = server_h.server_state_t.ss_dead  # don't save the level being left
+    sv_init.start_map(False, sv_init.svs.mapcmd, True, name in AUTOSAVES)
+
+
+def savegame_command() -> None:
+    """``save <name>``."""
+    if sv_init.sv.state != server_h.server_state_t.ss_game:
+        clientserver.Com_Printf("You must be in a game to save.\n")
+        return
+    if cmdparser.Cmd_Argc() != 2:
+        clientserver.Com_Printf("USAGE: savegame <directory>\n")
+        return
+    if cvar.Cvar_VariableValue("deathmatch"):
+        clientserver.Com_Printf("Can't savegame in a deathmatch\n")
+        return
+    name = cmdparser.Cmd_Argv(1)
+    if name == "current":
+        clientserver.Com_Printf("Can't save to 'current'\n")
+        return
+    player = server_h.CL_EDICT(sv_init.svs.clients[0])
+    if context.server.maxclients == 1 and player.client.ps.stats[shared.STAT_HEALTH] <= 0:
+        clientserver.Com_Printf("\nCan't savegame while dead!\n")
+        return
+    if _bad_save_name(name):
+        return
+
+    clientserver.Com_Printf("Saving game...\n")
+    # the level, with all the client edicts: when it is loaded they are
+    # shells waiting for their clients
+    write_level_file()
+    write_server_file(False)
+    copy_savegame("current", name)
+    clientserver.Com_Printf("Done.\n")
 

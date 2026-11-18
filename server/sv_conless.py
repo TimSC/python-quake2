@@ -114,7 +114,8 @@ def _info(req: Request) -> None:
     else:
         clients = sv_init.svs.clients[:_maxclients()]
         count = sum(cl.state.value >= server_h.client_state_t.cs_connected.value for cl in clients)
-        text = info_line(sv_init.server.cvars.hostname.string, sv_init.sv.name, count, _maxclients())
+        hostname = sv_init.server.cvars.hostname.string
+        text = info_line(hostname, sv_init.sv.name, count, _maxclients())
     req.reply("info\n" + text)
 
 

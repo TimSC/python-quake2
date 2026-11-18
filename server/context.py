@@ -3,8 +3,9 @@
 ``Server`` holds what the C keeps in its server globals: the level being
 played (``level``, the C's ``sv``), the state that lasts across levels
 (``persistent``, the C's ``svs``: the client slots, the challenges, the
-frame ring, the server demo), and the client whose packet or command is
-being handled (``client`` and its edict, ``player``).
+frame ring, the server demo), the client whose packet or command is
+being handled (``client`` and its edict, ``player``), the cvars and the
+loaded game (``game``, the C's ``ge``).
 
 ``server`` (also ``sv_init.server``) is the process's one server;
 ``sv_init.sv`` and ``sv_init.svs`` are its ``level`` and ``persistent``,
@@ -57,6 +58,7 @@ class Server:
         self.client: server_h.client_t | None = None  # whose message is being handled
         self.player = None  # that client's edict
         self.cvars: ServerCvars | None = None  # None until SV_Init
+        self.game: Any = None  # the loaded game's exports (the C's ge), None without one
         self.masters = [common_h.netadr_t() for _ in range(server_h.MAX_MASTERS)]  # slot 0: id's
 
     @property

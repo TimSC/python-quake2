@@ -39,7 +39,7 @@ def ClientThink(ent, ucmd):
 	if st["phase"] == 1:
 		st["n"] += 1
 		mins = ent.mins; maxs = ent.maxs
-		tr = sv_world.SV_Trace(ent.s.origin, mins, maxs, ent.s.origin, ent, shared.MASK_PLAYERSOLID)
+		tr = sv_world.trace(ent.s.origin, mins, maxs, ent.s.origin, ent, shared.MASK_PLAYERSOLID)
 		ge = ent.groundentity
 		row = ([round(float(x), 1) for x in ent.s.origin], ge.classname if ge else None, bool(tr.startsolid), tr.ent.classname if tr.startsolid and tr.ent else "")
 		if row != st["last"] or st["n"] % 20 == 0:

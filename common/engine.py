@@ -83,7 +83,7 @@ def _hooks() -> EngineHooks:
 
     def forward_to_server() -> None:
         from client import cl_network
-        cl_network.Cmd_ForwardToServer()
+        cl_network.forward_to_server()
 
     return EngineHooks(print_, fatal_error, server_running, game_changed, user_game_changed,
                        load_file, milliseconds, forward_to_server)

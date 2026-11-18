@@ -24,7 +24,7 @@ from common import clientserver, collision, entity_delta, movemsg, player_delta,
 from common.header import common as common_h
 from common.header import shared
 from game.header import game as game_h
-from server import sv_game, sv_init, sv_main
+from server import sv_init
 from server.header import server as server_h
 
 NO_ENTITY = 99999  # past the last entity number, ends the merge in write_packet_entities()
@@ -220,7 +220,7 @@ def build_client_frame(client: server_h.client_t) -> None:
     frame.num_entities = 0
     frame.first_entity = svs.next_client_entities
 
-    for e in range(1, sv_game.ge.num_edicts):
+    for e in range(1, sv_init.server.game.num_edicts):
         ent = server_h.EDICT_NUM(e)
         if not _sendable(ent):
             continue
@@ -258,7 +258,7 @@ def record_demo_message() -> None:
     movemsg.MSG_WriteByte(buf, common_h.svc_ops_e.svc_packetentities.value)
 
     nostate = shared.entity_state_t()
-    for e in range(1, sv_game.ge.num_edicts):
+    for e in range(1, sv_init.server.game.num_edicts):
         ent = server_h.EDICT_NUM(e)
         if ent.inuse and ent.s.number and _sendable(ent):
             entity_delta.write_delta(nostate, ent.s, buf, False, True)

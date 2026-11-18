@@ -262,7 +262,7 @@ def Com_Error(code: int, fmt: str, *args): #int, const char *, ...
 	if code == shared.ERR_DISCONNECT:
 
 		#ifndef DEDICATED_ONLY
-		cl_network.CL_Drop()
+		cl_network.drop()
 		#endif
 		com_error_recursive = False
 		raise errors.DisconnectError(msg) #YQ2_LONGJMP(abortframe, 1);
@@ -273,7 +273,7 @@ def Com_Error(code: int, fmt: str, *args): #int, const char *, ...
 				msg)
 		sv_main.SV_Shutdown("Server crashed: {}\n".format(msg), False)
 		#ifndef DEDICATED_ONLY
-		cl_network.CL_Drop()
+		cl_network.drop()
 		#endif
 		com_error_recursive = False
 		raise errors.DropError(msg) #YQ2_LONGJMP(abortframe, 1);

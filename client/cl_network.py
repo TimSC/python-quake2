@@ -1,832 +1,495 @@
+"""The client's connection to a server (Yamagi's cl_network.c).
+
+Connecting (``connect``: getchallenge, then connect, then the server's
+client_connect), reconnecting and disconnecting, forwarding commands to the
+server, rcon and raw packets, pinging for servers, and reading the packets
+that arrive: connectionless ones (``CONNECTIONLESS``) and the server's.
+
+Copyright (C) 1997-2001 Id Software, Inc.; GPL version 2 or later.
 """
-Copyright (C) 1997-2001 Id Software, Inc.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or (at
-your option) any later version.
-
-This program is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
-
-=======================================================================
-
-This file implements generic network functions
-
-=======================================================================
-"""
 from __future__ import annotations
-
-from client import cl_keyboard
 
 import struct
 import traceback
-from client import cl_cin, cl_parse
+from collections.abc import Callable
+
+from backends.unix import network, system
+from client import cl_cin, cl_keyboard, cl_main, cl_parse, cl_screen
+from client.curl import download
+from client.header import client as client_h
+from client.menu import menu
+from client.sound import ogg
 from client.sound import sound as sound_c
-from backends.unix import system, network
 from client.vid import vid
+from common import clientserver, cmdparser, cvar, errors, frame, movemsg, netchan, szone
 from common.header import common as common_h
 from common.header import shared
 from common.shared import shared as shared_c
-from common import errors
-from common import clientserver
-from common import cmdparser
-from common import cvar
-from common import frame
-from common import movemsg
-from common import szone
-from common import netchan
 from server import sv_main
-from client import cl_main
-from client import cl_parse
-from client.curl import download
-from client import cl_screen
-from client.header import client as client_h
-from client.sound import ogg
-from client.vid import vid
-from client.menu import menu
-
-"""
-#include "header/client.h"
-#include "../client/sound/header/local.h"
-"""
-
-def Cmd_ForwardToServer ():
-
-	#char	*cmd;
-
-	cmd_name = cmdparser.Cmd_Argv(0)
-	if cl_main.cls.state.value <= client_h.connstate_t.ca_connected.value or cmd_name[:1] == '-' or cmd_name[:1] == '+':
-	
-		clientserver.Com_Printf ("Unknown command \"{}\"\n".format(cmd_name))
-		return
-	
-	movemsg.MSG_WriteByte (cl_main.cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value)
-	szone.SZ_Print (cl_main.cls.netchan.message, cmd_name)
-	if cmdparser.Cmd_Argc() > 1:
-	
-		szone.SZ_Print (cl_main.cls.netchan.message, " ")
-		szone.SZ_Print (cl_main.cls.netchan.message, cmdparser.Cmd_Args())
-
-		
-
-"""
-==================
-CL_ForwardToServer_f
-==================
-"""
-def CL_ForwardToServer_f ():
-
-	if cl_main.cls.state != client_h.connstate_t.ca_connected and cl_main.cls.state != client_h.connstate_t.ca_active:
-	
-		clientserver.Com_Printf ("Can't \"{}\", not connected\n".format(cmdparser.Cmd_Argv(0)))
-		return
-	
-	# don't forward the first argument
-	if cmdparser.Cmd_Argc() > 1:
-	
-		movemsg.MSG_WriteByte (cl_main.cls.netchan.message, common_h.clc_ops_e.clc_stringcmd.value)
-		szone.SZ_Print (cl_main.cls.netchan.message, cmdparser.Cmd_Args())
-
-
-"""
-================
-CL_Drop
-
-Called after an q_shared.ERR_DROP was thrown
-================
-"""
-def CL_Drop(): #
 
-	if cl_main.cls.state == client_h.connstate_t.ca_uninitialized:
-
-		return
-
-
-	if cl_main.cls.state == client_h.connstate_t.ca_disconnected:
-
-		return
-
-
-	CL_Disconnect()
-	# drop loading plaque unless this is the initial game start
-	if cl_main.cls.disable_servercount != -1:
-
-		cl_screen.SCR_EndLoadingPlaque()
-		# get rid of loading plaque
-
-
-# =======================
-# CL_SendConnectPacket
-#
-# We have gotten a challenge from the server, so try and
-# connect.
-# ======================
-def CL_SendConnectPacket ():
-
-	#netadr_t	adr;
-	#int		port;
-
-	adr = network.NET_StringToAdr (cl_main.cls.servername)
-	if adr is None:
-	
-		clientserver.Com_Printf ("Bad server address\n")
-		cl_main.cls.connect_time = 0
-		return
-	
-	if not adr.port:
-		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-
-	port = int(cvar.Cvar_VariableValue ("qport"))
-	cvar.registry.userinfo_modified = False
-
-	netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "connect {:d} {:d} {:d} \"{}\"\n".format(
-		common_h.PROTOCOL_VERSION, port, cl_main.cls.challenge, cvar.Cvar_Userinfo()).encode('ascii') )
-
-
-"""
-=================
-CL_CheckForResend
-
-Resend a connect message if the last one has timed out
-=================
-"""
-def CL_CheckForResend ():
-
-	#netadr_t	adr;
-
-	# if the local server is running and we aren't
-	# then connect
-	if cl_main.cls.state == client_h.connstate_t.ca_disconnected and clientserver.Com_ServerState():
-	
-		cl_main.cls.state = client_h.connstate_t.ca_connecting
-		cl_main.cls.servername = "localhost"
-		# we don't need a challenge on the localhost
-		CL_SendConnectPacket ()
-		return
-		##cls.connect_time = -99999;	// CL_CheckForResend() will fire immediately
-
-	# resend if we haven't gotten a reply yet
-	if cl_main.cls.state != client_h.connstate_t.ca_connecting:
-		return
-
-	if cl_main.cls.realtime - cl_main.cls.connect_time < 3000:
-		return
-
-	adr = network.NET_StringToAdr(cl_main.cls.servername)
-	if adr is None:
-		clientserver.Com_Printf("Bad server address\n")
-		cl_main.cls.state = client_h.connstate_t.ca_disconnected
-		return
-
-	if not adr.port:
-		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-
-	cl_main.cls.connect_time = cl_main.cls.realtime
-
-	clientserver.Com_Printf("Connecting to {}...\n".format(cl_main.cls.servername))
-
-	netchan.Netchan_OutOfBandPrint(common_h.netsrc_t.NS_CLIENT, adr, b"getchallenge\n")
-
-
-"""
-================
-CL_Connect_f
-
-================
-"""
-def CL_Connect_f(): #
-
-	"""
-	char server[256];
-	"""
-	server = [None] * 256
-
-	if cmdparser.Cmd_Argc() != 2:
-
-		clientserver.Com_Printf("usage: connect <server>\n")
-		return
-
-
-	server = cmdparser.Cmd_Argv(1) # Q_strlcpy
-	if clientserver.Com_ServerState():
-
-		# if running a local server, kill it and reissue
-		# note: this is connect with the save game system
-		sv_main.SV_Shutdown("Server quit\n", False)
-
-
-	network.NET_Config(True)
-	# allow remote
-	CL_Disconnect()
-	cl_main.cls.state = client_h.connstate_t.ca_connecting
-	cl_main.cls.servername = server # Q_strlcpy
-	cl_main.cls.connect_time = -99999
-	# HACK: CL_CheckForResend() will fire immediately
-
-
-"""
-=====================
-CL_Rcon_f
-
-  Send the rest of the command line over as
-  an unconnected command.
-=====================
-"""
-def CL_Rcon_f ():
-
-	#char	message[1024];
-	#int		i;
-	#netadr_t	to;
-
-	if cl_main.rcon_client_password.string is None:
-	
-		clientserver.Com_Printf ("You must set 'rcon_password' before\n"
-					"issuing an rcon command.\n")
-		return
-	
-	message = bytearray(b"\xff\xff\xff\xff") # message[0..3] = (char)255; message[4] = 0;
-
-	network.NET_Config (True)		# allow remote
-
-	message += b"rcon "
-
-	message += cl_main.rcon_client_password.string.encode('ascii')
-	message += b" "
-
-	for i in range(1, cmdparser.Cmd_Argc()):
-	
-		message += cmdparser.Cmd_Argv(i).encode('ascii')
-		message += b" "
-	
-	if cl_main.cls.state.value >= client_h.connstate_t.ca_connected.value:
-		to = cl_main.cls.netchan.remote_address
-	else:
-	
-		if not len(cl_main.rcon_address.string):
-		
-			clientserver.Com_Printf ("You must either be connected,\n"
-						"or set the 'rcon_address' cvar\n"
-						"to issue rcon commands\n")
-
-			return
-		
-		to = network.NET_StringToAdr (cl_main.rcon_address.string)
-		if to is None: # C ignores the failure and sends to an empty address
-			to = common_h.netadr_t()
-		if to.port == 0:
-			to.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-	
-	message += b"\0"
-	network.NET_SendPacket (common_h.netsrc_t.NS_CLIENT, bytes(message), to) # strlen(message)+1
-
-
-"""
-=====================
-CL_Disconnect
-
-Goes from a connected state to full screen console state
-Sends a disconnect message to the server
-This is also called on Com_Error, so it shouldn't cause any errors
-=====================
-"""
-def CL_Disconnect(): #void
-
-	"""
-	byte final[32];
-	"""
-
-	if cl_main.cls.state == client_h.connstate_t.ca_disconnected:
-
-		return
-
-
-	if frame.cl_timedemo and frame.cl_timedemo.value:
-
-		"""
-		int time;
-		"""
-
-		time = system.Sys_Milliseconds() - cl_main.cl.timedemo_start
-
-		if time > 0:
-
-			clientserver.Com_Printf("%i frames, %3.1f seconds: %3.1f fps\n\n",
-					cl_main.cl.timedemo_frames, time / 1000.0,
-					cl_main.cl.timedemo_frames * 1000.0 / time)
-
-
-
-	shared.VectorClear(cl_main.cl.refdef.blend)
-
-	vid.R_SetPalette(None)
-
-	menu.M_ForceMenuOff()
-
-	cl_main.cls.connect_time = 0
-
-	cl_cin.SCR_StopCinematic()
-
-	ogg.OGG_Stop()
-
-	if cl_main.cls.demorecording:
-
-		cl_main.CL_Stop_f()
-
-
-	# send a disconnect message to the server
-	final = bytearray()
-	final += struct.pack("B", common_h.clc_ops_e.clc_stringcmd.value) # final[0] = clc_stringcmd;
-
-	final += b"disconnect" # strcpy((char *)final + 1, "disconnect");
-
-	netchan.Netchan_Transmit(cl_main.cls.netchan, final) # strlen((const char *)final), final
-	netchan.Netchan_Transmit(cl_main.cls.netchan, final)
-	netchan.Netchan_Transmit(cl_main.cls.netchan, final)
-
-	cl_main.CL_ClearState()
-
-	# stop file download
-	if cl_main.cls.download:
-
-		cl_main.cls.download.close() # fclose(cls.download);
-		cl_main.cls.download = None
-
-
-	# #ifdef USE_CURL
-	download.CL_CancelHTTPDownloads(True)
-	cl_main.cls.downloadReferer = ""
-	cl_main.cls.downloadname = ""
-	cl_main.cls.downloadposition = 0
-	# #endif
-
-	cl_main.cls.state = client_h.connstate_t.ca_disconnected
-
-	sound_c.snd_is_underwater = False
-
-	# save config for old game/mod
-	cl_main.CL_WriteConfiguration()
-
-	# we disconnected, so revert to default game/mod (might have been different mod on MP server)
-	cvar.Cvar_Set("game", frame.userGivenGame)
-
-
-def CL_Disconnect_f ():
-
-	clientserver.Com_Error (shared.ERR_DROP, "Disconnected from server");
-
-
-"""
-====================
-CL_Packet_f
-
-packet <destination> <contents>
-
-Contents allows \n escape character
-====================
-"""
-def CL_Packet_f ():
-
-	#char	send[2048];
-	#int		i, l;
-	#char	*in, *out;
-	#netadr_t	adr;
-
-	if cmdparser.Cmd_Argc() != 3:
-	
-		clientserver.Com_Printf ("packet <destination> <contents>\n")
-		return
-	
-	network.NET_Config (True)		# allow remote
-
-	adr = network.NET_StringToAdr (cmdparser.Cmd_Argv(1))
-	if adr is None:
-	
-		clientserver.Com_Printf ("Bad address\n")
-		return
-	
-	if not adr.port:
-		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-
-	in_str = cmdparser.Cmd_Argv(2)
-	send = bytearray(b"\xff\xff\xff\xff") # send[0] = send[1] = send[2] = send[3] = (char)0xff;
-
-	l = len (in_str)
-	i = 0
-	while i < l:
-	
-		if in_str[i] == '\\' and in_str[i+1:i+2] == 'n':
-		
-			send += b"\n"
-			i += 1
-		
-		else:
-			send += in_str[i].encode('latin-1')
-		i += 1
-	
-	# *out = 0;
-
-	network.NET_SendPacket (common_h.netsrc_t.NS_CLIENT, bytes(send), adr) # out-send, excludes the terminator
-
-
-"""
-/*
-=================
-CL_Changing_f
-
-Just sent as a hint to the client that they should
-drop to full console
-=================
-"""
-def CL_Changing_f(): #
-
-	# if we are downloading, we don't change!
-	# This so we don't suddenly stop downloading a map
-	if cl_main.cls.download:
-
-		return
-
-
-	cl_screen.SCR_BeginLoadingPlaque()
-	cl_main.cls.state = client_h.connstate_t.ca_connected
-	# not active anymore, but not disconnected
-	# reset this to 0 just in case it didn't get a chance to settle normally
-	# this became a problem with the faster client connection changes
-	# but is a good idea to do this regardless
-	cl_keyboard.anykeydown = 0
-	clientserver.Com_Printf("\nChanging map...\n")
-	# #ifdef USE_CURL
-	if cl_main.cls.downloadServerRetry != "":
-
-		download.CL_SetHTTPServer(cl_main.cls.downloadServerRetry)
-
-	# #endif
-
-"""
-=================
-CL_Reconnect_f
-
-The server is changing levels
-=================
-"""
-def CL_Reconnect_f ():
-
-	#ZOID
-	#if we are downloading, we don't change!  This so we don't suddenly stop downloading a map
-	if cl_main.cls.download is not None:
-		return
-
-	sound_c.S_StopAllSounds ()
-	if cl_main.cls.state == client_h.connstate_t.ca_connected:
-		clientserver.Com_Printf ("reconnecting...\n")
-		cl_main.cls.state = client_h.connstate_t.ca_connected
-		movemsg.MSG_WriteChar (cl_main.cls.netchan.message, struct.pack("B", common_h.clc_ops_e.clc_stringcmd.value))
-		movemsg.MSG_WriteString (cl_main.cls.netchan.message, b"new")
-		return
-
-	if cl_main.cls.servername:
-		if cl_main.cls.state.value >= client_h.connstate_t.ca_connected.value:
-			CL_Disconnect()
-			cl_main.cls.connect_time = cl_main.cls.realtime - 1500
-		else:
-			cl_main.cls.connect_time = -99999 # fire immediately
-
-		cl_main.cls.state = client_h.connstate_t.ca_connecting
-		clientserver.Com_Printf ("reconnecting...\n")
-
-
-"""
-=================
-CL_PingServers_f
-=================
-"""
-def CL_PingServers_f ():
-
-	"""
-	int			i;
-	netadr_t	adr;
-	char		name[32];
-	char		*adrstring;
-	cvar_t		*noudp;
-	cvar_t		*noipx;
-	"""
-	adr = common_h.netadr_t() # memset(&adr, 0, sizeof(adr));
-
-	network.NET_Config (True) # allow remote but do we even need lokal pings?
-
-	# send a broadcast packet
-	clientserver.Com_Printf ("pinging broadcast...\n")
-
-	noudp = cvar.Cvar_Get ("noudp", "0", shared.CVAR_NOSET)
-	if not noudp.value:
-	
-		adr.type = common_h.netadrtype_t.NA_BROADCAST
-		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
-
-		clientserver.Com_Printf("pinging multicast...\n")
-		adr.type = common_h.netadrtype_t.NA_MULTICAST6
-		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
-	
-	noipx = cvar.Cvar_Get ("noipx", "0", shared.CVAR_NOSET)
-	if not noipx.value:
-	
-		adr.type = common_h.netadrtype_t.NA_BROADCAST_IPX
-		adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
-	
-	# send a packet to each address book entry
-	for i in range(client_h.NUM_ADDRESSBOOK_ENTRIES):
-	
-		name = "adr{}".format(i)
-		adrstring = cvar.Cvar_VariableString (name)
-		if not adrstring:
-			continue
-
-		clientserver.Com_Printf ("pinging {}...\n".format(adrstring))
-		adr = network.NET_StringToAdr (adrstring)
-		if adr is None:
-		
-			clientserver.Com_Printf ("Bad address: {}\n".format(adrstring))
-			continue
-		
-		if not adr.port:
-			adr.port = shared_c.BigShort (struct.pack("=H", common_h.PORT_SERVER)) # BigShort (PORT_SERVER)
-		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, adr, "info {}".format(common_h.PROTOCOL_VERSION).encode("ascii"))
-
-	
-"""
-
-
-/*
-=================
-CL_ConnectionlessPacket
-
-Responses to broadcasts, etc
-=================
-"""
-def CL_ConnectionlessPacket ():
-
-	#char	*s;
-	#char	*c;
-	
-	movemsg.MSG_BeginReading (netchan.net_message)
-	movemsg.MSG_ReadLong (netchan.net_message)	# skip the -1
-
-	s = movemsg.MSG_ReadStringLine (netchan.net_message)
-
-	cmdparser.Cmd_TokenizeString (s, False)
-
-	c = cmdparser.Cmd_Argv(0)
-
-	clientserver.Com_Printf ("{}: {}\n".format(network.NET_AdrToString (netchan.net_from), c))
-
-	# server connection
-	if c == "client_connect":
-	
-		if cl_main.cls.state == client_h.connstate_t.ca_connected:
-		
-			clientserver.Com_Printf ("Dup connect received.  Ignored.\n")
-			return
-		
-		netchan.Netchan_Setup (common_h.netsrc_t.NS_CLIENT, cl_main.cls.netchan, netchan.net_from, cl_main.cls.quakePort)
-		# #ifdef USE_CURL
-		buff = network.NET_AdrToString(cl_main.cls.netchan.remote_address)
-		# #endif
-
-		for i in range(1, cmdparser.Cmd_Argc()):
-
-			p = cmdparser.Cmd_Argv(i)
-
-			if p[:9] == "dlserver=": # !strncmp(p, "dlserver=", 9)
-
-				# #ifdef USE_CURL
-				p = p[9:]
-				cl_main.cls.downloadReferer = "quake2://{}".format(buff)[:32 - 1]
-				download.CL_SetHTTPServer (p)
-
-				if cl_main.cls.downloadServer:
-
-					clientserver.Com_Printf("HTTP downloading enabled, URL: %s\n", cl_main.cls.downloadServer)
-
-				# #else
-				#Com_Printf("HTTP downloading supported by server but not the client.\n");
-				# #endif
-
-
-
-		# Put client into pause mode when connecting to a local server.
-		# This prevents the world from being forwarded while the client
-		# is connecting, loading assets, etc. It's not 100%, there're
-		# still 4 world frames (for baseq2) processed in the game and
-		# 100 frames by the server if the player enters a level that he
-		# or she already visited. In practise both shouldn't be a big
-		# problem. 4 frames are hardly enough for monsters staring to
-		# attack and in most levels the starting area in unreachable by
-		# monsters and free from environmental effects.
-		#
-		# Com_Serverstate() returns 2 if the server is local and we're
-		# running a real game and no timedemo, cinematic, etc. The 2 is
-		# taken from the server_state_t enum value 'ss_game'. If it's a
-		# local server, maxclients aus either 0 (for single player), or
-		# 2 to 8 (coop and deathmatch) if we're reaching this code.
-		# For remote servers it's always 1. So this should trigger only
-		# if it's a local single player server.
-		#
-		# Since the player can load savegames from a paused state (e.g.
-		# through the console) we'll need to communicate if we entered
-		# paused mode (and it should left as soon as the player joined
-		# the server) or if it was already there.
-		#
-		# Last but not least this can be disabled by cl_loadpaused 0.
-		if clientserver.Com_ServerState() == 2 and (cvar.Cvar_VariableValue("maxclients") <= 1):
-
-			if cl_main.cl_loadpaused.value:
-
-				if not cl_main.cl_paused.value:
-
-					cl_main.paused_at_load = True
-					cvar.Cvar_Set("paused", "1")
-
-
-
-
-		movemsg.MSG_WriteChar (cl_main.cls.netchan.message, struct.pack("B", common_h.clc_ops_e.clc_stringcmd.value))
-		movemsg.MSG_WriteString (cl_main.cls.netchan.message, b"new")	
-		cl_main.cls.state = client_h.connstate_t.ca_connected
-		return
-	
-	# server responding to a status broadcast
-	if c == "info":
-	
-		cl_main.CL_ParseStatusMessage ()
-		return
-	
-	# remote command from gui front end
-	if c == "cmd":
-	
-		if not network.NET_IsLocalAddress(netchan.net_from):
-		
-			clientserver.Com_Printf ("Command packet from remote host.  Ignored.\n")
-			return
-		
-		s = movemsg.MSG_ReadString (netchan.net_message)
-		cmdparser.Cbuf_AddText (s)
-		cmdparser.Cbuf_AddText ("\n")
-		return
-	
-	# print command from somewhere
-	if c == "print":
-	
-		s = movemsg.MSG_ReadString (netchan.net_message)
-		clientserver.Com_Printf ("{}".format(s))
-		return
-	
-	# ping from somewhere
-	if c == "ping":
-	
-		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, netchan.net_from, b"ack")
-		return
-	
-	# challenge from the server we are connecting to
-	if c == "challenge":
-	
-		cl_main.cls.challenge = shared_c.atoi(cmdparser.Cmd_Argv(1))
-		CL_SendConnectPacket ()
-		return
-	
-	# echo request from server
-	if c == "echo":
-	
-		netchan.Netchan_OutOfBandPrint (common_h.netsrc_t.NS_CLIENT, netchan.net_from, "{}".format(cmdparser.Cmd_Argv(1)).encode('ascii') )
-		return
-	
-	clientserver.Com_Printf ("Unknown command.\n")
-
-	
-
-def CL_UntrustedDataError(err: Exception, what: str, drop: bool): # Q2PORT: Exception, char *, qboolean
-
-	# Q2PORT: not in the C. A packet from the network is untrusted data, and a
-	# python exception while parsing it (a bug the bad data reached, where the
-	# C would read garbage) would otherwise end the program. CL_ReadPackets()
-	# catches it instead: a message from the server drops the connection, as
-	# the C's ERR_DROP for an illegible message; a connectionless packet, which
-	# anyone can send, is ignored. The traceback is printed for developer 1.
-	clientserver.Com_DPrintf("{}".format("".join(traceback.format_exception(err))))
-
-	if drop:
-
-		clientserver.Com_Error(shared.ERR_DROP, "CL_ParseServerMessage: {} in {} from {}".format(
-			type(err).__name__, what, network.NET_AdrToString(netchan.net_from)))
-
-
-	clientserver.Com_Printf("{}: {} in {} from {}, ignored\n".format("CL_ReadPackets",
-		type(err).__name__, what, network.NET_AdrToString(netchan.net_from)))
-
-"""
-=================
-CL_ReadPackets
-=================
-"""
-def CL_ReadPackets ():
-
-	rx, netchan.net_from = network.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, netchan.net_from, netchan.net_message)
-
-	while rx:
-		try:
-			##Com_Printf ("packet\n");
-			#
-			# remote command packet
-			#
-
-			# Q2PORT: and the packet has those 4 bytes; net_message.data is only as
-			# long as the packet (the C reads its fixed size buffer)
-			if netchan.net_message.cursize >= 4 and \
-				struct.unpack("<l", netchan.net_message.data[:4])[0] == -1: # *(int *)net_message.data == -1
-
-				try: # Q2PORT: see CL_UntrustedDataError()
-
-					CL_ConnectionlessPacket ()
-
-				except errors.DropError:
-
-					raise
-
-				except Exception as err:
-
-					CL_UntrustedDataError(err, "connectionless packet", False)
-
-				continue
-			
-
-			if cl_main.cls.state == client_h.connstate_t.ca_disconnected or cl_main.cls.state == client_h.connstate_t.ca_connecting:
-				continue		# dump it if not connected
-
-			if netchan.net_message.cursize < 8:
-			
-				clientserver.Com_Printf ("{}: Runt packet\n".format(network.NET_AdrToString(netchan.net_from)))
-				continue
-			
-
-			#
-			# packet from server
-			#
-			if not network.NET_CompareAdr (netchan.net_from, cl_main.cls.netchan.remote_address):
-			
-				clientserver.Com_DPrintf ("{}:sequenced packet without connection\n".format(
-					network.NET_AdrToString(netchan.net_from)))
-				continue
-			
-			if not netchan.Netchan_Process(cl_main.cls.netchan, netchan.net_message):
-				continue		# wasn't accepted for some reason
-			try: # Q2PORT: see CL_UntrustedDataError()
-
-				cl_parse.CL_ParseServerMessage ()
-
-			except errors.DropError:
-
-				raise
-
-			except Exception as err:
-
-				CL_UntrustedDataError(err, "server message", True)
-
-		finally:
-			rx, netchan.net_from = network.NET_GetPacket (common_h.netsrc_t.NS_CLIENT, netchan.net_from, netchan.net_message)
-
-	#
-	# check timeout
-	#
-	if ( cl_main.cls.state.value >= client_h.connstate_t.ca_connected.value
-	 and cl_main.cls.realtime - cl_main.cls.netchan.last_received > cl_main.cl_timeout.value*1000 ):
-	
-		cl_main.cl.timeoutcount += 1
-		if cl_main.cl.timeoutcount > 5:	# timeoutcount saves debugger
-		
-			clientserver.Com_Printf ("\nServer connection timed out.\n")
-			CL_Disconnect ()
-			return
-		
-	else:
-		cl_main.cl.timeoutcount = 0
-	
-	"""
-
-
-//=============================================================================
-
-/*
-==============
-CL_FixUpGender_f
-==============
-"""
+CA = client_h.connstate_t
+NS_CLIENT = common_h.netsrc_t.NS_CLIENT
+STRINGCMD = common_h.clc_ops_e.clc_stringcmd.value
+DEFAULT_PORT = shared_c.BigShort(struct.pack("=H", common_h.PORT_SERVER))  # in network order
+RESEND_MS = 3000
+
+
+def _encode(text: str) -> bytes:
+    # the C's strings are bytes; latin-1 keeps each one
+    return text.encode("latin-1", "replace")
+
+
+def _cls():
+    return cl_main.cls
+
+
+def _address(text: str) -> common_h.netadr_t | None:
+    """A server address, on Quake II's port unless it names one."""
+    adr = network.NET_StringToAdr(text)
+    if adr is not None and not adr.port:
+        adr.port = DEFAULT_PORT
+    return adr
+
+
+def _write_stringcmd(text: str) -> None:
+    msg = _cls().netchan.message
+    movemsg.MSG_WriteByte(msg, STRINGCMD)
+    movemsg.MSG_WriteString(msg, text)
+
+
+def forward_to_server() -> None:
+    """Sends a command the client doesn't know to the server."""
+    cls = _cls()
+    name = cmdparser.Cmd_Argv(0)
+    if cls.state.value <= CA.ca_connected.value or name[:1] in ("-", "+"):
+        clientserver.Com_Printf(f'Unknown command "{name}"\n')
+        return
+
+    msg = cls.netchan.message
+    movemsg.MSG_WriteByte(msg, STRINGCMD)
+    szone.SZ_Print(msg, name)
+    if cmdparser.Cmd_Argc() > 1:
+        szone.SZ_Print(msg, " ")
+        szone.SZ_Print(msg, cmdparser.Cmd_Args())
+
+
+def _cmd_command() -> None:
+    """``cmd ...``: sends the rest of the line to the server."""
+    cls = _cls()
+    if cls.state not in (CA.ca_connected, CA.ca_active):
+        clientserver.Com_Printf(f'Can\'t "{cmdparser.Cmd_Argv(0)}", not connected\n')
+        return
+    if cmdparser.Cmd_Argc() > 1:  # not the command itself
+        movemsg.MSG_WriteByte(cls.netchan.message, STRINGCMD)
+        szone.SZ_Print(cls.netchan.message, cmdparser.Cmd_Args())
+
+
+def drop() -> None:
+    """Disconnects after an ERR_DROP."""
+    cls = _cls()
+    if cls.state in (CA.ca_uninitialized, CA.ca_disconnected):
+        return
+    disconnect()
+    # drop the loading plaque, unless this is the game's first start
+    if cls.disable_servercount != -1:
+        cl_screen.SCR_EndLoadingPlaque()
+
+
+def _send_connect_packet() -> None:
+    """We have the server's challenge: ask to connect."""
+    cls = _cls()
+    adr = _address(cls.servername)
+    if adr is None:
+        clientserver.Com_Printf("Bad server address\n")
+        cls.connect_time = 0
+        return
+
+    qport = int(cvar.Cvar_VariableValue("qport"))
+    cvar.registry.userinfo_modified = False
+    request = (f"connect {common_h.PROTOCOL_VERSION:d} {qport:d} {cls.challenge:d} "
+               f'"{cvar.Cvar_Userinfo()}"\n')
+    netchan.Netchan_OutOfBandPrint(NS_CLIENT, adr, request)
+
+
+def check_for_resend() -> None:
+    """Connects to a local server, or asks the server for a challenge again."""
+    cls = _cls()
+    if cls.state == CA.ca_disconnected and clientserver.Com_ServerState():
+        # a local server is running and we aren't in it; no challenge needed
+        cls.state = CA.ca_connecting
+        cls.servername = "localhost"
+        _send_connect_packet()
+        return
+
+    if cls.state != CA.ca_connecting or cls.realtime - cls.connect_time < RESEND_MS:
+        return
+
+    adr = _address(cls.servername)
+    if adr is None:
+        clientserver.Com_Printf("Bad server address\n")
+        cls.state = CA.ca_disconnected
+        return
+
+    cls.connect_time = cls.realtime
+    clientserver.Com_Printf(f"Connecting to {cls.servername}...\n")
+    netchan.Netchan_OutOfBandPrint(NS_CLIENT, adr, "getchallenge\n")
+
+
+def _connect_command() -> None:
+    """``connect <server>``."""
+    if cmdparser.Cmd_Argc() != 2:
+        clientserver.Com_Printf("usage: connect <server>\n")
+        return
+
+    if clientserver.Com_ServerState():
+        # a local server stops first (this is how saved games reconnect)
+        sv_main.SV_Shutdown("Server quit\n", False)
+
+    network.NET_Config(True)  # allow remote
+    disconnect()
+    cls = _cls()
+    cls.state = CA.ca_connecting
+    cls.servername = cmdparser.Cmd_Argv(1)
+    cls.connect_time = -99999  # check_for_resend() fires at once
+
+
+def _rcon_command() -> None:
+    """``rcon ...``: sends the rest of the line to a server, with rcon_password."""
+    password = cl_main.rcon_client_password.string
+    if password is None:
+        clientserver.Com_Printf("You must set 'rcon_password' before\n"
+                                "issuing an rcon command.\n")
+        return
+
+    network.NET_Config(True)  # allow remote
+
+    words = [cmdparser.Cmd_Argv(i) for i in range(1, cmdparser.Cmd_Argc())]
+    message = b"\xff\xff\xff\xffrcon " + _encode(password) + b" " + \
+        b"".join(_encode(word) + b" " for word in words)
+
+    cls = _cls()
+    if cls.state.value >= CA.ca_connected.value:
+        to = cls.netchan.remote_address
+    else:
+        if not cl_main.rcon_address.string:
+            clientserver.Com_Printf("You must either be connected,\n"
+                                    "or set the 'rcon_address' cvar\n"
+                                    "to issue rcon commands\n")
+            return
+        # the C sends to an empty address when the name doesn't resolve
+        to = _address(cl_main.rcon_address.string) or common_h.netadr_t()
+        if to.port == 0:
+            to.port = DEFAULT_PORT
+
+    network.NET_SendPacket(NS_CLIENT, message + b"\0", to)
+
+
+def disconnect() -> None:
+    """Goes to the full screen console, telling the server we left.
+
+    Also called from Com_Error, so it mustn't raise errors itself.
+    """
+    cls = _cls()
+    cl = cl_main.cl
+    if cls.state == CA.ca_disconnected:
+        return
+
+    if frame.cl_timedemo and frame.cl_timedemo.value:
+        elapsed = system.Sys_Milliseconds() - cl.timedemo_start
+        if elapsed > 0:
+            clientserver.Com_Printf("%i frames, %3.1f seconds: %3.1f fps\n\n",
+                                    cl.timedemo_frames, elapsed / 1000.0,
+                                    cl.timedemo_frames * 1000.0 / elapsed)
+
+    shared.VectorClear(cl.refdef.blend)
+    vid.R_SetPalette(None)
+    menu.M_ForceMenuOff()
+    cls.connect_time = 0
+    cl_cin.SCR_StopCinematic()
+    ogg.OGG_Stop()
+
+    if cls.demorecording:
+        cl_main.CL_Stop_f()
+
+    # three times, in case packets are lost
+    final = bytes([STRINGCMD]) + b"disconnect"
+    for _ in range(3):
+        netchan.Netchan_Transmit(cls.netchan, final)
+
+    cl_main.CL_ClearState()
+
+    if cls.download:  # stop a download
+        cls.download.close()
+        cls.download = None
+    download.CL_CancelHTTPDownloads(True)
+    cls.downloadReferer = ""
+    cls.downloadname = ""
+    cls.downloadposition = 0
+
+    cls.state = CA.ca_disconnected
+    sound_c.snd_is_underwater = False
+
+    cl_main.CL_WriteConfiguration()  # for the game or mod being left
+    # back to the game the player chose (a server may have used another mod)
+    cvar.Cvar_Set("game", frame.userGivenGame)
+
+
+def _disconnect_command() -> None:
+    clientserver.Com_Error(shared.ERR_DROP, "Disconnected from server")
+
+
+def packet_text(text: str) -> bytes:
+    r"""A ``packet`` command's contents: connectionless, with \n for a newline."""
+    return b"\xff\xff\xff\xff" + _encode(text.replace("\\n", "\n"))
+
+
+def _packet_command() -> None:
+    """``packet <destination> <contents>``."""
+    if cmdparser.Cmd_Argc() != 3:
+        clientserver.Com_Printf("packet <destination> <contents>\n")
+        return
+
+    network.NET_Config(True)  # allow remote
+    adr = _address(cmdparser.Cmd_Argv(1))
+    if adr is None:
+        clientserver.Com_Printf("Bad address\n")
+        return
+    network.NET_SendPacket(NS_CLIENT, packet_text(cmdparser.Cmd_Argv(2)), adr)
+
+
+def _changing_command() -> None:
+    """The server hints that it changes map: drop to the console."""
+    cls = _cls()
+    if cls.download:
+        return  # not in the middle of downloading a map
+
+    cl_screen.SCR_BeginLoadingPlaque()
+    cls.state = CA.ca_connected  # not active, but not disconnected
+    # reset in case it didn't settle (a problem with the faster reconnects)
+    cl_keyboard.anykeydown = 0
+    clientserver.Com_Printf("\nChanging map...\n")
+    if cls.downloadServerRetry != "":
+        download.CL_SetHTTPServer(cls.downloadServerRetry)
+
+
+def _reconnect_command() -> None:
+    """The server changes level: join it again."""
+    cls = _cls()
+    if cls.download is not None:
+        return  # not in the middle of downloading a map
+
+    sound_c.S_StopAllSounds()
+    if cls.state == CA.ca_connected:
+        clientserver.Com_Printf("reconnecting...\n")
+        _write_stringcmd("new")
+        return
+
+    if cls.servername:
+        if cls.state.value >= CA.ca_connected.value:
+            disconnect()
+            cls.connect_time = cls.realtime - 1500
+        else:
+            cls.connect_time = -99999  # at once
+        cls.state = CA.ca_connecting
+        clientserver.Com_Printf("reconnecting...\n")
+
+
+def ping_servers() -> None:
+    """``pingservers``: asks for info by broadcast, multicast and the address book."""
+    network.NET_Config(True)  # allow remote
+    clientserver.Com_Printf("pinging broadcast...\n")
+    query = f"info {common_h.PROTOCOL_VERSION}"
+
+    def ping(adrtype: common_h.netadrtype_t) -> None:
+        adr = common_h.netadr_t()
+        adr.type = adrtype
+        adr.port = DEFAULT_PORT
+        netchan.Netchan_OutOfBandPrint(NS_CLIENT, adr, query)
+
+    if not cvar.Cvar_Get("noudp", "0", shared.CVAR_NOSET).value:
+        ping(common_h.netadrtype_t.NA_BROADCAST)
+        clientserver.Com_Printf("pinging multicast...\n")
+        ping(common_h.netadrtype_t.NA_MULTICAST6)
+    if not cvar.Cvar_Get("noipx", "0", shared.CVAR_NOSET).value:
+        ping(common_h.netadrtype_t.NA_BROADCAST_IPX)
+
+    for i in range(client_h.NUM_ADDRESSBOOK_ENTRIES):
+        text = cvar.Cvar_VariableString(f"adr{i}")
+        if not text:
+            continue
+        clientserver.Com_Printf(f"pinging {text}...\n")
+        adr = _address(text)
+        if adr is None:
+            clientserver.Com_Printf(f"Bad address: {text}\n")
+            continue
+        netchan.Netchan_OutOfBandPrint(NS_CLIENT, adr, query)
+
+
+def _client_connect() -> None:
+    """The server accepted us."""
+    cls = _cls()
+    if cls.state == CA.ca_connected:
+        clientserver.Com_Printf("Dup connect received.  Ignored.\n")
+        return
+
+    netchan.Netchan_Setup(NS_CLIENT, cls.netchan, netchan.net_from, cls.quakePort)
+    server = network.NET_AdrToString(cls.netchan.remote_address)
+    for i in range(1, cmdparser.Cmd_Argc()):
+        arg = cmdparser.Cmd_Argv(i)
+        if arg.startswith("dlserver="):
+            cls.downloadReferer = f"quake2://{server}"[:32 - 1]
+            download.CL_SetHTTPServer(arg[len("dlserver="):])
+            if cls.downloadServer:
+                clientserver.Com_Printf("HTTP downloading enabled, URL: %s\n", cls.downloadServer)
+
+    # A local single player game pauses while we connect and load (it lets
+    # through a few frames: four of the game's, or a hundred when the level
+    # was visited before). Com_ServerState() is 2 (ss_game) for a local
+    # game that is not a demo or cinematic. The game is unpaused once we
+    # join, unless it was paused already; cl_loadpaused 0 turns this off.
+    if clientserver.Com_ServerState() == 2 and cvar.Cvar_VariableValue("maxclients") <= 1:
+        if cl_main.cl_loadpaused.value and not cl_main.cl_paused.value:
+            cl_main.paused_at_load = True
+            cvar.Cvar_Set("paused", "1")
+
+    _write_stringcmd("new")
+    cls.state = CA.ca_connected
+
+
+def _gui_command() -> None:
+    """A command from a front end on this machine."""
+    if not network.NET_IsLocalAddress(netchan.net_from):
+        clientserver.Com_Printf("Command packet from remote host.  Ignored.\n")
+        return
+    cmdparser.Cbuf_AddText(movemsg.MSG_ReadString(netchan.net_message))
+    cmdparser.Cbuf_AddText("\n")
+
+
+def _print() -> None:
+    clientserver.Com_Printf("%s", movemsg.MSG_ReadString(netchan.net_message))
+
+
+def _ping() -> None:
+    netchan.Netchan_OutOfBandPrint(NS_CLIENT, netchan.net_from, "ack")
+
+
+def _challenge() -> None:
+    _cls().challenge = shared_c.atoi(cmdparser.Cmd_Argv(1))
+    _send_connect_packet()
+
+
+def _echo() -> None:
+    netchan.Netchan_OutOfBandPrint(NS_CLIENT, netchan.net_from, cmdparser.Cmd_Argv(1))
+
+
+CONNECTIONLESS: dict[str, Callable[[], None]] = {
+    "client_connect": _client_connect,  # the server accepted us
+    "info": lambda: cl_main.CL_ParseStatusMessage(),  # a server answered pingservers
+    "cmd": _gui_command,
+    "print": _print,
+    "ping": _ping,
+    "challenge": _challenge,  # from the server we connect to
+    "echo": _echo,  # a server's echo request
+}
+
+
+def _connectionless_packet() -> None:
+    msg = netchan.net_message
+    movemsg.MSG_BeginReading(msg)
+    movemsg.MSG_ReadLong(msg)  # the -1
+    cmdparser.Cmd_TokenizeString(movemsg.MSG_ReadStringLine(msg), False)
+
+    name = cmdparser.Cmd_Argv(0)
+    clientserver.Com_Printf(f"{network.NET_AdrToString(netchan.net_from)}: {name}\n")
+
+    handler = CONNECTIONLESS.get(name)
+    if handler is None:
+        clientserver.Com_Printf("Unknown command.\n")
+        return
+    handler()
+
+
+def _untrusted_data_error(err: Exception, what: str, drop_connection: bool) -> None:
+    """Reports an exception while reading a packet (not in the C).
+
+    Packets are untrusted data; an exception a bad one causes (where the C
+    would read garbage) would otherwise end the program. A message from
+    the server drops the connection, as the C's ERR_DROP for an illegible
+    message; a connectionless packet, which anyone can send, is ignored.
+    The traceback shows with developer 1.
+    """
+    clientserver.Com_DPrintf("{}".format("".join(traceback.format_exception(err))))
+    sender = network.NET_AdrToString(netchan.net_from)
+    if drop_connection:
+        clientserver.Com_Error(shared.ERR_DROP, "CL_ParseServerMessage: %s in %s from %s",
+                               type(err).__name__, what, sender)
+    clientserver.Com_Printf(f"CL_ReadPackets: {type(err).__name__} in {what} from {sender}, "
+                            "ignored\n")
+
+
+def _read_packet() -> None:
+    cls = _cls()
+    msg = netchan.net_message
+
+    if msg.cursize >= 4 and struct.unpack("<l", msg.data[:4])[0] == -1:
+        try:
+            _connectionless_packet()
+        except errors.DropError:
+            raise
+        except Exception as err:
+            _untrusted_data_error(err, "connectionless packet", False)
+        return
+
+    if cls.state in (CA.ca_disconnected, CA.ca_connecting):
+        return  # not connected: dropped
+    if msg.cursize < 8:
+        clientserver.Com_Printf(f"{network.NET_AdrToString(netchan.net_from)}: Runt packet\n")
+        return
+    if not network.NET_CompareAdr(netchan.net_from, cls.netchan.remote_address):
+        clientserver.Com_DPrintf(
+            f"{network.NET_AdrToString(netchan.net_from)}:sequenced packet without connection\n")
+        return
+    if not netchan.Netchan_Process(cls.netchan, msg):
+        return  # not accepted
+
+    try:
+        cl_parse.CL_ParseServerMessage()
+    except errors.DropError:
+        raise
+    except Exception as err:
+        _untrusted_data_error(err, "server message", True)
+
+
+def read_packets() -> None:
+    """Reads every packet that arrived, then checks for a timed out server."""
+    while True:
+        rx, netchan.net_from = network.NET_GetPacket(NS_CLIENT, netchan.net_from,
+                                                     netchan.net_message)
+        if not rx:
+            break
+        _read_packet()
+
+    cls = _cls()
+    cl = cl_main.cl
+    if (cls.state.value >= CA.ca_connected.value
+            and cls.realtime - cls.netchan.last_received > cl_main.cl_timeout.value * 1000):
+        cl.timeoutcount += 1
+        if cl.timeoutcount > 5:  # five frames' grace, for debuggers
+            clientserver.Com_Printf("\nServer connection timed out.\n")
+            disconnect()
+    else:
+        cl.timeoutcount = 0
+
+
+# the console commands (added by cl_main)
+COMMANDS: dict[str, Callable[[], None]] = {
+    "cmd": _cmd_command,
+    "pingservers": ping_servers,
+    "changing": _changing_command,
+    "disconnect": _disconnect_command,
+    "connect": _connect_command,
+    "reconnect": _reconnect_command,
+    "rcon": _rcon_command,
+    "packet": _packet_command,
+}
